@@ -153,12 +153,12 @@ export const PaymentPage = () => {
                 <figure className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white p-4">
                   <figcaption className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted">
                     <QrCode className="h-4 w-4" aria-hidden="true" />
-                    Atau imbas QR DuitNow
+                    Atau imbas QR dengan aplikasi bank / eWallet anda
                   </figcaption>
                   <img
                     src={`${import.meta.env.BASE_URL}${QR_IMAGE}`}
-                    alt="Kod QR DuitNow untuk pembayaran SifuLaser"
-                    className="w-full max-w-[240px] rounded-lg"
+                    alt={`Kod QR Malaysia National QR untuk ${BANK_ACCOUNT.accountName}`}
+                    className="w-full max-w-[280px] rounded-lg"
                   />
                 </figure>
               ) : null}

@@ -31,7 +31,7 @@ export const TRANSFER_HINT =
  * Laluan gambar QR DuitNow dalam docs/images/payment/.
  * Biarkan kosong jika belum ada — bahagian QR akan disembunyikan.
  */
-export const QR_IMAGE = ''
+export const QR_IMAGE = 'images/payment/tng-qr.jpg'
 
 export const IS_PAYMENT_CONFIGURED = Boolean(
   BANK_ACCOUNT.bankName && BANK_ACCOUNT.accountNumber,
