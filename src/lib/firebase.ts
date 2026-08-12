@@ -8,12 +8,12 @@
 // ringan; ia hanya dimuat turun jika config di bawah telah diisi.
 
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyAruN-AQ3rI21eaxHYrM0RQAia5axmdajI',
+  authDomain: 'sifulaser.firebaseapp.com',
+  projectId: 'sifulaser',
+  storageBucket: 'sifulaser.firebasestorage.app',
+  messagingSenderId: '835849934469',
+  appId: '1:835849934469:web:ac76ad0a7a00298b69bbec',
 }
 
 export const IS_CONFIGURED = Boolean(
