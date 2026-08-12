@@ -1,0 +1,260 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ArrowLeft,
+  Check,
+  Crown,
+  ShieldCheck,
+  Undo2,
+  UserRound,
+  Users,
+} from 'lucide-react'
+import { useAuth } from '../lib/auth'
+import {
+  isAccessActive,
+  isAdmin,
+  grantAccess,
+  revokeAccess,
+  subscribeUsers,
+  type AdminUserRow,
+} from '../lib/admin'
+import { ACCESS_PERIOD_LABEL } from '../lib/access'
+
+const formatDate = (date: Date | null): string =>
+  date
+    ? date.toLocaleDateString('ms-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—'
+
+export const AdminPage = () => {
+  const { user, loading: authLoading } = useAuth()
+  const admin = isAdmin(user)
+
+  const [rows, setRows] = useState<AdminUserRow[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busyUid, setBusyUid] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (!admin) return
+    return subscribeUsers(setRows, setError)
+  }, [admin])
+
+  const filtered = useMemo(() => {
+    if (!rows) return null
+    const needle = search.trim().toLowerCase()
+    if (!needle) return rows
+    return rows.filter(
+      (row) =>
+        row.email.toLowerCase().includes(needle) ||
+        row.name.toLowerCase().includes(needle),
+    )
+  }, [rows, search])
+
+  const stats = useMemo(() => {
+    if (!rows) return null
+    const active = rows.filter(isAccessActive).length
+    return { total: rows.length, active, free: rows.length - active }
+  }, [rows])
+
+  const runAction = async (uid: string, action: () => Promise<void>) => {
+    setBusyUid(uid)
+    setError(null)
+    try {
+      await action()
+    } catch {
+      setError('Tindakan gagal. Sila cuba lagi.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <div className="mx-auto w-full max-w-[860px] px-4 py-8">
+          <div className="card h-40 animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!admin) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-8">
+          <section className="card flex flex-col items-center gap-3 p-6 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-canvas">
+              <ShieldCheck className="h-7 w-7 text-muted" aria-hidden="true" />
+            </span>
+            <h1 className="text-lg font-bold text-ink">Halaman admin</h1>
+            <p className="text-sm text-muted">
+              Halaman ini hanya untuk pentadbir SifuLaser.
+            </p>
+            <a
+              href="#/"
+              className="text-sm font-semibold text-screw-2 underline-offset-2 hover:underline"
+            >
+              Kembali ke halaman utama
+            </a>
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-canvas">
+      <div className="mx-auto flex w-full max-w-[860px] flex-col gap-4 px-4 py-5 sm:py-8">
+        <a
+          href="#/"
+          className="inline-flex w-fit min-h-11 items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-muted transition-colors hover:bg-white hover:text-ink"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Utama
+        </a>
+
+        <header className="card flex items-center gap-4 p-4 sm:p-5">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eef5fd]">
+            <ShieldCheck className="h-6 w-6 text-screw-2" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-ink sm:text-xl">
+              Panel Admin
+            </h1>
+            <p className="text-sm text-muted">
+              Luluskan akses {ACCESS_PERIOD_LABEL} untuk pelanggan yang telah
+              membayar.
+            </p>
+          </div>
+        </header>
+
+        {stats ? (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="card flex flex-col items-center gap-0.5 p-3">
+              <Users className="h-4 w-4 text-muted" aria-hidden="true" />
+              <span className="text-xl font-extrabold text-ink">
+                {stats.total}
+              </span>
+              <span className="text-[11px] font-semibold text-muted">
+                Jumlah akaun
+              </span>
+            </div>
+            <div className="card flex flex-col items-center gap-0.5 p-3">
+              <Crown className="h-4 w-4 text-[#e07514]" aria-hidden="true" />
+              <span className="text-xl font-extrabold text-[#e07514]">
+                {stats.active}
+              </span>
+              <span className="text-[11px] font-semibold text-muted">
+                Akses Penuh
+              </span>
+            </div>
+            <div className="card flex flex-col items-center gap-0.5 p-3">
+              <UserRound className="h-4 w-4 text-muted" aria-hidden="true" />
+              <span className="text-xl font-extrabold text-ink">
+                {stats.free}
+              </span>
+              <span className="text-[11px] font-semibold text-muted">
+                Percuma
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Cari nama atau email…"
+          className="min-h-11 w-full rounded-xl border border-line bg-surface px-4 text-sm text-ink outline-none focus:border-screw-2"
+        />
+
+        {error ? (
+          <p className="rounded-xl border border-[#f4cfd0] bg-[#fdf0f0] px-4 py-3 text-sm font-semibold text-[#8a2226]">
+            {error}
+          </p>
+        ) : null}
+
+        {filtered === null ? (
+          <div className="card h-40 animate-pulse" />
+        ) : filtered.length === 0 ? (
+          <p className="card p-6 text-center text-sm text-muted">
+            {rows && rows.length === 0
+              ? 'Belum ada pengguna yang mendaftar.'
+              : 'Tiada pengguna sepadan dengan carian anda.'}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {filtered.map((row) => {
+              const active = isAccessActive(row)
+              const expired = row.paid && !active
+              const busy = busyUid === row.uid
+
+              return (
+                <li
+                  key={row.uid}
+                  className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-ink">
+                      {row.name || '(tiada nama)'}
+                    </p>
+                    <p className="truncate text-xs text-muted">{row.email}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      {active ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf3e8] px-2 py-0.5 text-[11px] font-bold text-[#a3540b]">
+                          <Crown className="h-3 w-3" aria-hidden="true" />
+                          Sehingga {formatDate(row.paidUntil)}
+                        </span>
+                      ) : expired ? (
+                        <span className="rounded-full bg-[#fdf0f0] px-2 py-0.5 text-[11px] font-bold text-[#8a2226]">
+                          Luput {formatDate(row.paidUntil)}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-canvas px-2 py-0.5 text-[11px] font-bold text-muted">
+                          Percuma
+                        </span>
+                      )}
+                      <span className="text-[11px] text-muted">
+                        Daftar {formatDate(row.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void runAction(row.uid, () => grantAccess(row))}
+                      className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e07514] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#c76409] disabled:opacity-50 sm:flex-none"
+                    >
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                      {active ? `Lanjut ${ACCESS_PERIOD_LABEL}` : `Beri ${ACCESS_PERIOD_LABEL}`}
+                    </button>
+                    {row.paid ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void runAction(row.uid, () => revokeAccess(row.uid))}
+                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-semibold text-muted transition-colors hover:bg-canvas hover:text-ink disabled:opacity-50"
+                      >
+                        <Undo2 className="h-4 w-4" aria-hidden="true" />
+                        Tarik
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <p className="pb-4 text-center text-xs text-muted">
+          Perubahan berkuat kuasa serta-merta pada skrin pelanggan.
+        </p>
+      </div>
+    </div>
+  )
+}

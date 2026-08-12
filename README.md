@@ -49,23 +49,31 @@ Pembahagian akses:
 - **Percuma** — Simulator Level 1 (Cermin), About Me & Kedai Laser
 - **Akses Penuh (RM250 / 2 tahun)** — Level 2-5 + semua panduan Maintenance
 
-### Cara naikkan taraf pengguna ke Akses Penuh
+### Panel Admin
 
-1. Pengguna log masuk sekali di <https://sifulaser.com> (rekod dicipta
-   automatik dengan `paid: false`).
-2. Pengguna bayar dan WhatsApp anda.
-3. Buka [Firestore → koleksi `users`](https://console.firebase.google.com/project/sifulaser/firestore/databases/-default-/data/~2Fusers),
-   cari dokumen dengan email tersebut.
-4. Tukar `paid` kepada `true`, dan isi `paidUntil` dengan **tarikh hari ini
-   tambah 2 tahun**. Contoh: bayar pada 12 Ogos 2026 → `paidUntil` =
-   12 Ogos 2028.
-5. Perubahan berkuat kuasa serta-merta — skrin pengguna dikemas kini tanpa
-   perlu refresh, dan tarikh luput dipaparkan pada akaun mereka.
+Log masuk di <https://sifulaser.com> dengan akaun admin
+(`3dsynapsis@gmail.com`), kemudian tekan butang **Panel Admin** pada kad akaun
+di halaman utama — atau terus ke <https://sifulaser.com/#/admin>.
+
+Di sana anda boleh:
+
+- Lihat semua akaun berserta status (Percuma / Akses Penuh sehingga tarikh X /
+  Luput), dan bila mereka mendaftar
+- Cari pengguna mengikut nama atau email
+- **Beri 2 tahun** — luluskan akses selepas pelanggan membayar
+- **Lanjut 2 tahun** — pembaharuan; tempoh baharu disambung dari tarikh luput
+  sedia ada, bukan dari hari ini, jadi pelanggan tidak rugi baki hari
+- **Tarik** — batalkan akses serta-merta
+
+Perubahan berkuat kuasa serta-merta pada skrin pelanggan tanpa perlu refresh.
+
+Kuasa admin dikuatkuasakan di `firestore.rules`, bukan di app sahaja: hanya
+email admin (yang disahkan Google) boleh membaca semua rekod dan mengemas kini
+medan `paid`/`paidUntil`. Menukar kod di browser tidak memberi sesiapa akses.
 
 Apabila `paidUntil` sudah lepas, akaun kembali ke pakej Percuma secara
-automatik. Untuk pembaharuan, cukup kemas kini `paidUntil` kepada 2 tahun
-berikutnya. Jika `paidUntil` dibiarkan kosong, akses tidak akan luput —
-elakkan ini kecuali untuk akaun anda sendiri atau akaun ujian.
+automatik. Firebase Console masih boleh digunakan jika perlu, tetapi Panel
+Admin lebih pantas untuk kerja harian.
 
 Security rules (`firestore.rules`) memastikan pengguna hanya boleh membaca
 rekod sendiri dan **tidak boleh** menukar status bayaran sendiri. Hanya admin

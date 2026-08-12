@@ -11,6 +11,7 @@ export type Route =
   | 'kedai'
   | 'pakej'
   | 'about'
+  | 'admin'
 
 const parseRoute = (hash: string): Route => {
   const path = hash.replace(/^#\/?/, '').replace(/\/$/, '')
@@ -33,6 +34,8 @@ const parseRoute = (hash: string): Route => {
       return 'pakej'
     case 'about':
       return 'about'
+    case 'admin':
+      return 'admin'
     default:
       return 'home'
   }

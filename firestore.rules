@@ -1,19 +1,31 @@
 rules_version = '2';
 
-// Rekod user: setiap orang hanya boleh baca rekod sendiri, dan hanya boleh
-// cipta rekod baharu dengan paid: false. Menaikkan taraf ke berbayar dibuat
-// oleh admin melalui Firebase Console (atau Cloud Function), bukan dari client.
+// Rekod user: setiap orang hanya boleh baca rekod sendiri dan tidak boleh
+// menukar status bayaran sendiri. Hanya akaun admin (satu email sahaja) boleh
+// melihat semua rekod dan meluluskan akses melalui Panel Admin di app.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == '3dsynapsis@gmail.com';
+    }
+
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid);
 
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.paid == false;
 
-      // User tidak boleh ubah status bayaran sendiri.
-      allow update, delete: if false;
+      // Hanya admin boleh menukar status bayaran, dan hanya medan itu sahaja.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['paid', 'paidUntil']);
+
+      allow delete: if false;
     }
 
     // Semua koleksi lain ditutup secara lalai.

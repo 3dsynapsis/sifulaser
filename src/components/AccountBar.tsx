@@ -1,5 +1,6 @@
-import { Crown, LogIn, LogOut, UserRound } from 'lucide-react'
+import { Crown, LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { isAdmin } from '../lib/admin'
 import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { upgradeWhatsappUrl } from '../lib/upgrade'
 
@@ -105,7 +106,16 @@ export const AccountBar = () => {
           <span className="hidden sm:inline">Log keluar</span>
         </button>
       </div>
-      {!paid ? (
+      {isAdmin(user) ? (
+        <a
+          href="#/admin"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-screw-2 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a67b6]"
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          Panel Admin
+        </a>
+      ) : null}
+      {!paid && !isAdmin(user) ? (
         <a
           href={upgradeWhatsappUrl(user.email)}
           target="_blank"
