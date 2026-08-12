@@ -7,6 +7,7 @@ import {
   Crown,
   GraduationCap,
   LogIn,
+  MapPin,
   Minus,
   Sparkles,
   Users,
@@ -233,6 +234,16 @@ export const PlansPage = () => {
                 <dt className="sr-only">Masa</dt>
                 <dd className="text-xs font-bold text-[#6d28d9]">
                   {CLASS_INFO.timeLabel} ({CLASS_INFO.durationLabel})
+                </dd>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin
+                  className="h-4 w-4 shrink-0 text-[#6d28d9]"
+                  aria-hidden="true"
+                />
+                <dt className="sr-only">Lokasi</dt>
+                <dd className="text-xs font-bold text-[#6d28d9]">
+                  {CLASS_INFO.locationLabel}
                 </dd>
               </div>
               <div className="flex items-center gap-2">

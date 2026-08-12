@@ -96,6 +96,7 @@ export const CLASS_INFO = {
   dateLabel: 'Tarikh akan diumumkan',
   timeLabel: '9:30 pagi – 1:30 tengah hari',
   durationLabel: '4 jam',
+  locationLabel: 'Lokasi akan diumumkan',
   seatsLabel: `Terhad ${CLASS_SEAT_LIMIT} peserta`,
 }
 
