@@ -25,6 +25,8 @@ interface AuthValue {
   paid: boolean
   /** Tarikh luput Akses Penuh; null jika tiada tarikh luput ditetapkan. */
   paidUntil: Date | null
+  /** true jika pelanggan ini peserta kelas bersemuka. */
+  isClassParticipant: boolean
   /** true semasa status login/bayaran masih dimuatkan. */
   loading: boolean
   signIn: () => Promise<void>
@@ -53,6 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [paid, setPaid] = useState(false)
   const [paidUntil, setPaidUntil] = useState<Date | null>(null)
+  const [classParticipant, setClassParticipant] = useState(false)
   const [loading, setLoading] = useState(IS_CONFIGURED)
   const [error, setError] = useState<string | null>(null)
 
@@ -71,6 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (!nextUser) {
             setPaid(false)
             setPaidUntil(null)
+            setClassParticipant(false)
             setLoading(false)
           }
         })
@@ -105,21 +109,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               name: user.displayName ?? '',
               paid: false,
               paidUntil: null,
+              plan: null,
               createdAt: storeApi.Timestamp.now(),
             })
             setPaid(false)
             setPaidUntil(null)
+            setClassParticipant(false)
           } else {
             const data = snapshot.data()
             const expiry = toDate(data.paidUntil)
             setPaid(isStillValid(data.paid, expiry))
             setPaidUntil(expiry)
+            setClassParticipant(data.plan === 'class')
           }
           setLoading(false)
         },
         () => {
           setPaid(false)
           setPaidUntil(null)
+          setClassParticipant(false)
           setLoading(false)
         },
       )
@@ -165,12 +173,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // app kekal terbuka sepenuhnya dan bukan terkunci untuk semua orang.
       paid: IS_CONFIGURED ? paid : true,
       paidUntil,
+      isClassParticipant: classParticipant,
       loading,
       signIn,
       signOut,
       error,
     }),
-    [user, paid, paidUntil, loading, signIn, signOut, error],
+    [user, paid, paidUntil, classParticipant, loading, signIn, signOut, error],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -185,6 +194,7 @@ export const useAuth = (): AuthValue => {
       user: null,
       paid: true,
       paidUntil: null,
+      isClassParticipant: false,
       loading: false,
       signIn: async () => {},
       signOut: async () => {},

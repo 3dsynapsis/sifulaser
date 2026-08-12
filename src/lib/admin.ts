@@ -12,12 +12,17 @@ export const ADMIN_EMAIL = '3dsynapsis@gmail.com'
 export const isAdmin = (user: User | null): boolean =>
   Boolean(user?.email && user.email.toLowerCase() === ADMIN_EMAIL)
 
+/** Pakej berbayar yang dibeli pelanggan. */
+export type PaidPlan = 'full' | 'class'
+
 export interface AdminUserRow {
   uid: string
   email: string
   name: string
   paid: boolean
   paidUntil: Date | null
+  /** null jika belum pernah membeli. */
+  plan: PaidPlan | null
   createdAt: Date | null
 }
 
@@ -27,12 +32,19 @@ const toDate = (value: unknown): Date | null => {
   return typeof fn === 'function' ? (value as { toDate: () => Date }).toDate() : null
 }
 
+const toPlan = (value: unknown): PaidPlan | null =>
+  value === 'class' || value === 'full' ? value : null
+
 /** true jika akses masih sah pada masa ini. */
 export const isAccessActive = (row: AdminUserRow): boolean => {
   if (!row.paid) return false
   if (!row.paidUntil) return true
   return row.paidUntil.getTime() > Date.now()
 }
+
+/** true jika pelanggan ini peserta kelas bersemuka. */
+export const isClassParticipant = (row: AdminUserRow): boolean =>
+  row.plan === 'class'
 
 /** Dengar senarai pengguna secara langsung. Mengembalikan fungsi berhenti. */
 export const subscribeUsers = (
@@ -63,6 +75,7 @@ export const subscribeUsers = (
               name: typeof data.name === 'string' ? data.name : '',
               paid: data.paid === true,
               paidUntil: toDate(data.paidUntil),
+              plan: toPlan(data.plan),
               createdAt: toDate(data.createdAt),
             }
           })
@@ -85,8 +98,14 @@ export const subscribeUsers = (
 /**
  * Beri atau lanjutkan akses. Jika akses sedia ada masih sah, tempoh baharu
  * disambung dari tarikh luput sedia ada; jika tidak, dari hari ini.
+ *
+ * Menaik taraf ke pakej kelas tidak akan menurunkan semula pelanggan yang
+ * sudah ditanda sebagai peserta kelas.
  */
-export const grantAccess = async (row: AdminUserRow): Promise<void> => {
+export const grantAccess = async (
+  row: AdminUserRow,
+  plan: PaidPlan,
+): Promise<void> => {
   const pending = loadFirebase()
   if (!pending) return
   const { db, storeApi } = await pending
@@ -99,7 +118,16 @@ export const grantAccess = async (row: AdminUserRow): Promise<void> => {
   await storeApi.updateDoc(storeApi.doc(db, 'users', row.uid), {
     paid: true,
     paidUntil: storeApi.Timestamp.fromDate(expiry),
+    plan: row.plan === 'class' ? 'class' : plan,
   })
+}
+
+/** Tukar penanda pakej tanpa mengubah tarikh luput. */
+export const setPlan = async (uid: string, plan: PaidPlan): Promise<void> => {
+  const pending = loadFirebase()
+  if (!pending) return
+  const { db, storeApi } = await pending
+  await storeApi.updateDoc(storeApi.doc(db, 'users', uid), { plan })
 }
 
 /** Tarik balik akses serta-merta. */
@@ -110,5 +138,6 @@ export const revokeAccess = async (uid: string): Promise<void> => {
   await storeApi.updateDoc(storeApi.doc(db, 'users', uid), {
     paid: false,
     paidUntil: null,
+    plan: null,
   })
 }

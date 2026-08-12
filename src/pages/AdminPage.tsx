@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   Crown,
+  GraduationCap,
   ShieldCheck,
   Undo2,
   UserRound,
@@ -12,12 +13,23 @@ import { useAuth } from '../lib/auth'
 import {
   isAccessActive,
   isAdmin,
+  isClassParticipant,
   grantAccess,
   revokeAccess,
   subscribeUsers,
   type AdminUserRow,
 } from '../lib/admin'
 import { ACCESS_PERIOD_LABEL } from '../lib/access'
+import { CLASS_SEAT_LIMIT } from '../data/plans'
+
+type Filter = 'semua' | 'akses' | 'kelas' | 'percuma'
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'semua', label: 'Semua' },
+  { id: 'akses', label: 'Akses Penuh' },
+  { id: 'kelas', label: 'Peserta Kelas' },
+  { id: 'percuma', label: 'Percuma' },
+]
 
 const formatDate = (date: Date | null): string =>
   date
@@ -36,6 +48,7 @@ export const AdminPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [busyUid, setBusyUid] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<Filter>('semua')
 
   useEffect(() => {
     if (!admin) return
@@ -45,18 +58,30 @@ export const AdminPage = () => {
   const filtered = useMemo(() => {
     if (!rows) return null
     const needle = search.trim().toLowerCase()
-    if (!needle) return rows
-    return rows.filter(
-      (row) =>
+    return rows.filter((row) => {
+      const active = isAccessActive(row)
+      const matchFilter =
+        filter === 'semua'
+          ? true
+          : filter === 'kelas'
+            ? isClassParticipant(row)
+            : filter === 'akses'
+              ? active
+              : !active
+      if (!matchFilter) return false
+      if (!needle) return true
+      return (
         row.email.toLowerCase().includes(needle) ||
-        row.name.toLowerCase().includes(needle),
-    )
-  }, [rows, search])
+        row.name.toLowerCase().includes(needle)
+      )
+    })
+  }, [rows, search, filter])
 
   const stats = useMemo(() => {
     if (!rows) return null
     const active = rows.filter(isAccessActive).length
-    return { total: rows.length, active, free: rows.length - active }
+    const kelas = rows.filter(isClassParticipant).length
+    return { total: rows.length, active, kelas, free: rows.length - active }
   }, [rows])
 
   const runAction = async (uid: string, action: () => Promise<void>) => {
@@ -125,14 +150,13 @@ export const AdminPage = () => {
               Panel Admin
             </h1>
             <p className="text-sm text-muted">
-              Luluskan akses {ACCESS_PERIOD_LABEL} untuk pelanggan yang telah
-              membayar.
+              Luluskan akses {ACCESS_PERIOD_LABEL} dan tandakan peserta kelas.
             </p>
           </div>
         </header>
 
         {stats ? (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="card flex flex-col items-center gap-0.5 p-3">
               <Users className="h-4 w-4 text-muted" aria-hidden="true" />
               <span className="text-xl font-extrabold text-ink">
@@ -152,6 +176,21 @@ export const AdminPage = () => {
               </span>
             </div>
             <div className="card flex flex-col items-center gap-0.5 p-3">
+              <GraduationCap
+                className="h-4 w-4 text-[#7c3aed]"
+                aria-hidden="true"
+              />
+              <span className="text-xl font-extrabold text-[#7c3aed]">
+                {stats.kelas}
+                <span className="text-sm font-bold text-muted">
+                  /{CLASS_SEAT_LIMIT}
+                </span>
+              </span>
+              <span className="text-[11px] font-semibold text-muted">
+                Peserta Kelas
+              </span>
+            </div>
+            <div className="card flex flex-col items-center gap-0.5 p-3">
               <UserRound className="h-4 w-4 text-muted" aria-hidden="true" />
               <span className="text-xl font-extrabold text-ink">
                 {stats.free}
@@ -162,6 +201,29 @@ export const AdminPage = () => {
             </div>
           </div>
         ) : null}
+
+        {stats && stats.kelas >= CLASS_SEAT_LIMIT ? (
+          <p className="rounded-xl border border-[#f6ddc0] bg-[#fdf3e8] px-4 py-3 text-sm font-semibold text-[#a3540b]">
+            Tempat kelas sudah penuh ({stats.kelas}/{CLASS_SEAT_LIMIT}).
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setFilter(item.id)}
+              className={`min-h-10 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                filter === item.id
+                  ? 'border-screw-2 bg-[#eef5fd] text-screw-2'
+                  : 'border-line bg-surface text-muted hover:bg-canvas hover:text-ink'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
         <input
           type="search"
@@ -183,21 +245,19 @@ export const AdminPage = () => {
           <p className="card p-6 text-center text-sm text-muted">
             {rows && rows.length === 0
               ? 'Belum ada pengguna yang mendaftar.'
-              : 'Tiada pengguna sepadan dengan carian anda.'}
+              : 'Tiada pengguna sepadan dengan carian atau penapis anda.'}
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
             {filtered.map((row) => {
               const active = isAccessActive(row)
               const expired = row.paid && !active
+              const kelas = isClassParticipant(row)
               const busy = busyUid === row.uid
 
               return (
-                <li
-                  key={row.uid}
-                  className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
-                >
-                  <div className="min-w-0 flex-1">
+                <li key={row.uid} className="card flex flex-col gap-3 p-4">
+                  <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-ink">
                       {row.name || '(tiada nama)'}
                     </p>
@@ -217,27 +277,48 @@ export const AdminPage = () => {
                           Percuma
                         </span>
                       )}
+                      {kelas ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#f4effd] px-2 py-0.5 text-[11px] font-bold text-[#6d28d9]">
+                          <GraduationCap className="h-3 w-3" aria-hidden="true" />
+                          Peserta Kelas
+                        </span>
+                      ) : null}
                       <span className="text-[11px] text-muted">
                         Daftar {formatDate(row.createdAt)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void runAction(row.uid, () => grantAccess(row))}
-                      className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e07514] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#c76409] disabled:opacity-50 sm:flex-none"
+                      onClick={() =>
+                        void runAction(row.uid, () => grantAccess(row, 'full'))
+                      }
+                      className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e07514] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#c76409] disabled:opacity-50"
                     >
                       <Check className="h-4 w-4" aria-hidden="true" />
-                      {active ? `Lanjut ${ACCESS_PERIOD_LABEL}` : `Beri ${ACCESS_PERIOD_LABEL}`}
+                      {active ? 'Lanjut Akses' : 'Beri Akses'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        void runAction(row.uid, () => grantAccess(row, 'class'))
+                      }
+                      className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#7c3aed] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#6d28d9] disabled:opacity-50"
+                    >
+                      <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                      {kelas ? 'Lanjut Kelas' : 'Beri Kelas'}
                     </button>
                     {row.paid ? (
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void runAction(row.uid, () => revokeAccess(row.uid))}
+                        onClick={() =>
+                          void runAction(row.uid, () => revokeAccess(row.uid))
+                        }
                         className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-semibold text-muted transition-colors hover:bg-canvas hover:text-ink disabled:opacity-50"
                       >
                         <Undo2 className="h-4 w-4" aria-hidden="true" />
@@ -252,7 +333,8 @@ export const AdminPage = () => {
         )}
 
         <p className="pb-4 text-center text-xs text-muted">
-          Perubahan berkuat kuasa serta-merta pada skrin pelanggan.
+          Kedua-dua butang memberi akses digital {ACCESS_PERIOD_LABEL}; butang
+          ungu menandakan pelanggan sebagai peserta kelas bersemuka.
         </p>
       </div>
     </div>

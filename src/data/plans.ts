@@ -89,12 +89,14 @@ export const PLAN_FEATURES: PlanFeature[] = [
 ]
 
 /** Butiran kelas latihan bersemuka. */
+export const CLASS_SEAT_LIMIT = 10
+
 export const CLASS_INFO = {
   title: 'Kelas Training Fizikal Alignment Laser',
   dateLabel: 'Tarikh akan diumumkan',
   timeLabel: '9:30 pagi – 1:30 tengah hari',
   durationLabel: '4 jam',
-  seatsLabel: 'Terhad 10 peserta',
+  seatsLabel: `Terhad ${CLASS_SEAT_LIMIT} peserta`,
 }
 
 export interface PlanFaq {

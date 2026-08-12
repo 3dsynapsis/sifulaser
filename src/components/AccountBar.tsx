@@ -1,11 +1,27 @@
-import { Crown, LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react'
+import {
+  Crown,
+  GraduationCap,
+  LogIn,
+  LogOut,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { isAdmin } from '../lib/admin'
 import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 
 export const AccountBar = () => {
-  const { configured, user, paid, paidUntil, loading, signIn, signOut, error } =
-    useAuth()
+  const {
+    configured,
+    user,
+    paid,
+    paidUntil,
+    isClassParticipant,
+    loading,
+    signIn,
+    signOut,
+    error,
+  } = useAuth()
 
   const expiryLabel = paidUntil
     ? paidUntil.toLocaleDateString('ms-MY', {
@@ -84,6 +100,12 @@ export const AccountBar = () => {
                 <Crown className="h-3 w-3" aria-hidden="true" />
                 Akses Penuh
               </span>
+              {isClassParticipant ? (
+                <span className="mt-0.5 ml-1 inline-flex items-center gap-1 rounded-full bg-[#f4effd] px-2 py-0.5 text-[11px] font-bold text-[#6d28d9]">
+                  <GraduationCap className="h-3 w-3" aria-hidden="true" />
+                  Peserta Kelas
+                </span>
+              ) : null}
               {expiryLabel ? (
                 <span className="mt-0.5 block text-[11px] text-muted">
                   Sah sehingga {expiryLabel}

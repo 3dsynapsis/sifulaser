@@ -42,6 +42,7 @@ disimpan di Firestore, koleksi `users`, satu dokumen per pengguna:
 | `name` | string | Nama paparan |
 | `paid` | boolean | `true` = Akses Penuh |
 | `paidUntil` | Timestamp \| null | Tarikh luput langganan |
+| `plan` | `'full'` \| `'class'` \| null | Pakej yang dibeli |
 | `createdAt` | Timestamp | Tarikh daftar |
 
 Pembahagian akses:
@@ -58,12 +59,19 @@ di halaman utama — atau terus ke <https://sifulaser.com/#/admin>.
 Di sana anda boleh:
 
 - Lihat semua akaun berserta status (Percuma / Akses Penuh sehingga tarikh X /
-  Luput), dan bila mereka mendaftar
-- Cari pengguna mengikut nama atau email
-- **Beri 2 tahun** — luluskan akses selepas pelanggan membayar
-- **Lanjut 2 tahun** — pembaharuan; tempoh baharu disambung dari tarikh luput
-  sedia ada, bukan dari hari ini, jadi pelanggan tidak rugi baki hari
+  Luput), penanda Peserta Kelas, dan bila mereka mendaftar
+- Ringkasan: jumlah akaun, Akses Penuh, Peserta Kelas (x/10 tempat), Percuma
+- Tapis mengikut Semua / Akses Penuh / Peserta Kelas / Percuma, dan cari
+  mengikut nama atau email
+- **Beri Akses** (oren) — luluskan pakej digital sahaja
+- **Beri Kelas** (ungu) — luluskan dan tandakan sebagai peserta kelas
+  bersemuka; kedua-duanya memberi akses digital 2 tahun yang sama
+- **Lanjut** — pembaharuan; tempoh baharu disambung dari tarikh luput sedia
+  ada, bukan dari hari ini, jadi pelanggan tidak rugi baki hari
 - **Tarik** — batalkan akses serta-merta
+
+Pelanggan yang sudah ditanda sebagai peserta kelas tidak akan diturunkan
+semula ke pakej digital walaupun butang oren ditekan kemudian.
 
 Perubahan berkuat kuasa serta-merta pada skrin pelanggan tanpa perlu refresh.
 

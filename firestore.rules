@@ -20,10 +20,11 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.paid == false;
 
-      // Hanya admin boleh menukar status bayaran, dan hanya medan itu sahaja.
+      // Hanya admin boleh menukar status bayaran dan penanda pakej,
+      // dan hanya medan tersebut sahaja.
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['paid', 'paidUntil']);
+             .hasOnly(['paid', 'paidUntil', 'plan']);
 
       allow delete: if false;
     }
