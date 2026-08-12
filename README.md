@@ -31,6 +31,45 @@ GitHub Pages dihidangkan dari branch `main`, folder `/docs`. Push ke `main`
 akan auto-deploy dalam 1-2 minit. Fail `docs/CNAME` mengekalkan custom domain
 `sifulaser.com` (DNS diuruskan di Cloudflare).
 
+## Akaun & akses berbayar
+
+Login menggunakan Google (Firebase Auth, projek `sifulaser`). Status bayaran
+disimpan di Firestore, koleksi `users`, satu dokumen per pengguna:
+
+| Medan | Jenis | Maksud |
+|---|---|---|
+| `email` | string | Email akaun Google |
+| `name` | string | Nama paparan |
+| `paid` | boolean | `true` = Akses Penuh |
+| `paidUntil` | Timestamp \| null | Tarikh luput; `null` = tiada luput |
+| `createdAt` | Timestamp | Tarikh daftar |
+
+Pembahagian akses:
+
+- **Percuma** — Simulator Level 1 (Cermin), Kedai Laser, About Me
+- **Akses Penuh (RM250)** — Level 2-5 + semua panduan Maintenance
+
+### Cara naikkan taraf pengguna ke Akses Penuh
+
+1. Pengguna log masuk sekali di <https://sifulaser.com> (rekod dicipta
+   automatik dengan `paid: false`).
+2. Pengguna bayar dan WhatsApp anda.
+3. Buka [Firestore → koleksi `users`](https://console.firebase.google.com/project/sifulaser/firestore/databases/-default-/data/~2Fusers),
+   cari dokumen dengan email tersebut.
+4. Tukar `paid` kepada `true`. Untuk langganan bertempoh, isi `paidUntil`
+   dengan tarikh luput; biarkan `null` untuk akses selamanya.
+5. Perubahan berkuat kuasa serta-merta — skrin pengguna dikemas kini tanpa
+   perlu refresh.
+
+Security rules (`firestore.rules`) memastikan pengguna hanya boleh membaca
+rekod sendiri dan **tidak boleh** menukar status bayaran sendiri. Hanya admin
+melalui Firebase Console boleh berbuat demikian.
+
+> **Nota keselamatan:** peringkat ini mengunci kandungan di peringkat paparan.
+> Orang yang mahir teknikal masih boleh membaca teks panduan dalam bundle
+> JavaScript. Untuk perlindungan penuh, kandungan berbayar perlu dipindahkan
+> ke Firestore dan dilindungi security rules.
+
 ## Struktur
 
 - `src/levels.ts` — config semua level simulator (nombor, label, skru, imej)
