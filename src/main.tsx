@@ -4,7 +4,6 @@ import { App } from './App'
 import { HomePage } from './pages/HomePage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
-import { ShopPage } from './pages/ShopPage'
 import { AboutPage } from './pages/AboutPage'
 import { PlansPage } from './pages/PlansPage'
 import { LockedNotice } from './components/LockedNotice'
@@ -58,8 +57,9 @@ const Root = () => {
       return <App />
     case 'maintenance':
       return <MaintenanceChooserPage />
+    // Kedai kini sebahagian daripada About Me; pautan lama dikekalkan.
     case 'kedai':
-      return <ShopPage />
+      return <AboutPage />
     case 'weekly':
       return <MaintenanceRoute guide={WEEKLY_GUIDE} />
     case 'yearly':

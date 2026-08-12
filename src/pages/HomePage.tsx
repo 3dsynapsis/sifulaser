@@ -4,7 +4,6 @@ import {
   Crosshair,
   Lightbulb,
   LockKeyhole,
-  ShoppingBag,
   Sparkles,
   Tag,
   TrendingUp,
@@ -24,6 +23,8 @@ interface HomeCard {
   border: string
   /** true jika kad ini kandungan berbayar sepenuhnya. */
   premium?: boolean
+  /** true untuk kad yang memenuhi kedua-dua lajur grid. */
+  wide?: boolean
   Icon: ComponentType<{ className?: string; style?: CSSProperties }>
 }
 
@@ -52,22 +53,14 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 3,
-    title: 'Kedai Laser',
-    description: 'Barang keperluan kerja laser — double tape, lanyard & lain-lain di Shopee kami.',
-    href: '#/kedai',
-    color: '#e07514',
-    softBg: '#fdf3e8',
-    border: '#f6ddc0',
-    Icon: ShoppingBag,
-  },
-  {
-    number: 4,
-    title: 'About Me',
-    description: 'Kenali saya dan tujuan di sebalik SifuLaser.',
+    title: 'About Me & Kedai Laser',
+    description:
+      'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
     href: '#/about',
     color: '#7c3aed',
     softBg: '#f4effd',
     border: '#e2d5f8',
+    wide: true,
     Icon: UserRound,
   },
 ]
@@ -137,11 +130,11 @@ export const HomePage = () => {
 
       {/* Kad menu */}
       <nav className="grid grid-cols-2 gap-3 sm:gap-4" aria-label="Menu utama">
-        {CARDS.map(({ number, title, description, href, color, softBg, border, premium, Icon }) => (
+        {CARDS.map(({ number, title, description, href, color, softBg, border, premium, wide, Icon }) => (
           <a
             key={href}
             href={href}
-            className="card group relative flex flex-col items-center gap-3 p-4 pt-5 text-center transition-transform hover:-translate-y-0.5"
+            className={`card group relative flex flex-col items-center gap-3 p-4 pt-5 text-center transition-transform hover:-translate-y-0.5 ${wide ? 'col-span-2' : ''}`}
             style={{ borderColor: border }}
           >
             <span

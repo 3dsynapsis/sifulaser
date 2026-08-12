@@ -14,13 +14,9 @@ export const PLAN_FEATURES: PlanFeature[] = [
     free: true,
   },
   {
-    label: 'Kedai Laser',
-    detail: 'Senarai barang keperluan kerja laser di Shopee kami.',
-    free: true,
-  },
-  {
-    label: 'About Me',
-    detail: 'Latar belakang SifuLaser dan Mahligai Seni.',
+    label: 'About Me & Kedai Laser',
+    detail:
+      'Latar belakang SifuLaser dan senarai barang keperluan kerja laser di Shopee kami.',
     free: true,
   },
   {
@@ -61,11 +57,6 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     label: 'Kandungan baharu akan datang',
     detail: 'Panduan dan level baharu ditambah dari masa ke masa.',
-    free: false,
-  },
-  {
-    label: 'Sokongan terus melalui WhatsApp',
-    detail: 'Tanya terus jika ada masalah pada mesin anda.',
     free: false,
   },
 ]

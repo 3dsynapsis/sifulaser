@@ -224,8 +224,8 @@ export const PlansPage = () => {
         </section>
 
         <p className="pb-4 text-center text-xs text-muted">
-          Harga dalam Ringgit Malaysia. Ada soalan lain? WhatsApp kami — kami
-          balas secepat mungkin.
+          Harga dalam Ringgit Malaysia. WhatsApp kami untuk urusan pembayaran
+          dan naik taraf akaun.
         </p>
       </div>
     </div>
