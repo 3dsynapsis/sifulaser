@@ -3,10 +3,12 @@ import {
   ArrowRight,
   CalendarClock,
   ClipboardCheck,
+  LockKeyhole,
   Snowflake,
   Wifi,
   Wrench,
 } from 'lucide-react'
+import { useAuth } from '../lib/auth'
 
 const OPTIONS = [
   {
@@ -54,7 +56,10 @@ const OPTIONS = [
   },
 ]
 
-export const MaintenanceChooserPage = () => (
+export const MaintenanceChooserPage = () => {
+  const { paid } = useAuth()
+
+  return (
   <div className="min-h-screen bg-canvas">
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-5 sm:py-8">
       <a
@@ -108,11 +113,15 @@ export const MaintenanceChooserPage = () => (
                 </span>
               </span>
               <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform group-hover:translate-x-0.5"
-                style={{ backgroundColor: color }}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform ${paid ? 'text-white group-hover:translate-x-0.5' : 'bg-canvas text-muted'}`}
+                style={paid ? { backgroundColor: color } : undefined}
                 aria-hidden="true"
               >
-                <ArrowRight className="h-5 w-5" />
+                {paid ? (
+                  <ArrowRight className="h-5 w-5" />
+                ) : (
+                  <LockKeyhole className="h-4 w-4" />
+                )}
               </span>
             </a>
           ),
@@ -120,4 +129,5 @@ export const MaintenanceChooserPage = () => (
       </nav>
     </div>
   </div>
-)
+  )
+}

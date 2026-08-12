@@ -16,6 +16,9 @@ import { StraightProcedurePanel } from './components/StraightProcedurePanel'
 import { GantryDiagram } from './components/gantry/GantryDiagram'
 import { GantryJogPad } from './components/gantry/GantryJogPad'
 import { GantryLessonPanel } from './components/gantry/GantryLessonPanel'
+import { LockedNotice } from './components/LockedNotice'
+import { canAccessLevel } from './lib/access'
+import { useAuth } from './lib/auth'
 import { useAlignmentSim } from './hooks/useAlignmentSim'
 import { useStraightProcedure } from './hooks/useStraightProcedure'
 import { useGantryLesson } from './hooks/useGantryLesson'
@@ -54,6 +57,7 @@ export const App = () => {
   const helpButtonRef = useRef<HTMLButtonElement | null>(null)
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null)
   const compact = !useMediaQuery('(min-width: 640px)', true)
+  const { paid } = useAuth()
 
   const openHelp = useCallback(() => setHelpOpen(true), [])
   const closeHelp = useCallback(() => setHelpOpen(false), [])
@@ -99,6 +103,24 @@ export const App = () => {
   const helperText = isStraight
     ? adjustHint
     : 'Laraskan skru di bawah untuk menggerakkan beam ke tengah sasaran.'
+
+  // Level 2-5 hanya untuk pengguna Akses Penuh.
+  if (!canAccessLevel(levelId, paid)) {
+    return (
+      <div className="flex min-h-screen flex-col bg-canvas">
+        <AppHeader
+          onOpenHelp={openHelp}
+          onOpenSettings={openSettings}
+          helpButtonRef={helpButtonRef}
+          settingsButtonRef={settingsButtonRef}
+        />
+        <LevelTabs levelId={levelId} onChange={setLevelId} />
+        <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col gap-4 px-4 py-8">
+          <LockedNotice what={`${level.tabLabel} dibuka`} />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">

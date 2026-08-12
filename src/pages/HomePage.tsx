@@ -3,12 +3,15 @@ import {
   ClipboardCheck,
   Crosshair,
   Lightbulb,
+  LockKeyhole,
   ShoppingBag,
   Sparkles,
   TrendingUp,
   UserRound,
 } from 'lucide-react'
 import type { CSSProperties, ComponentType } from 'react'
+import { AccountBar } from '../components/AccountBar'
+import { useAuth } from '../lib/auth'
 
 interface HomeCard {
   number: number
@@ -18,6 +21,8 @@ interface HomeCard {
   color: string
   softBg: string
   border: string
+  /** true jika kad ini kandungan berbayar sepenuhnya. */
+  premium?: boolean
   Icon: ComponentType<{ className?: string; style?: CSSProperties }>
 }
 
@@ -41,6 +46,7 @@ const CARDS: HomeCard[] = [
     color: '#20a04a',
     softBg: '#edf9f1',
     border: '#c9ecd6',
+    premium: true,
     Icon: ClipboardCheck,
   },
   {
@@ -65,7 +71,10 @@ const CARDS: HomeCard[] = [
   },
 ]
 
-export const HomePage = () => (
+export const HomePage = () => {
+  const { paid } = useAuth()
+
+  return (
   <div className="min-h-screen bg-gradient-to-b from-[#eef4fc] via-canvas to-canvas">
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-6 sm:py-10">
       {/* Hero */}
@@ -98,9 +107,12 @@ export const HomePage = () => (
         </div>
       </section>
 
+      {/* Akaun & status akses */}
+      <AccountBar />
+
       {/* Kad menu */}
       <nav className="grid grid-cols-2 gap-3 sm:gap-4" aria-label="Menu utama">
-        {CARDS.map(({ number, title, description, href, color, softBg, border, Icon }) => (
+        {CARDS.map(({ number, title, description, href, color, softBg, border, premium, Icon }) => (
           <a
             key={href}
             href={href}
@@ -114,6 +126,15 @@ export const HomePage = () => (
             >
               {number}
             </span>
+            {premium && !paid ? (
+              <span
+                className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-canvas text-muted"
+                title="Perlukan Akses Penuh"
+              >
+                <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="sr-only">Perlukan Akses Penuh</span>
+              </span>
+            ) : null}
             <span
               className="mt-2 flex h-24 w-24 items-center justify-center rounded-full"
               style={{ backgroundColor: softBg }}
@@ -151,4 +172,5 @@ export const HomePage = () => (
       </section>
     </div>
   </div>
-)
+  )
+}
