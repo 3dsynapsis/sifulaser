@@ -9,6 +9,7 @@ export type Route =
   | 'wifi'
   | 'chiller'
   | 'kedai'
+  | 'pakej'
   | 'about'
 
 const parseRoute = (hash: string): Route => {
@@ -28,6 +29,8 @@ const parseRoute = (hash: string): Route => {
       return 'wifi'
     case 'chiller':
       return 'chiller'
+    case 'pakej':
+      return 'pakej'
     case 'about':
       return 'about'
     default:

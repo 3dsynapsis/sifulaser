@@ -49,6 +49,13 @@ export const LockedNotice = ({ what }: LockedNoticeProps) => {
       )}
 
       <a
+        href="#/pakej"
+        className="text-xs font-semibold text-screw-2 underline-offset-2 hover:underline sm:text-sm"
+      >
+        Lihat apa yang termasuk dalam setiap pakej
+      </a>
+
+      <a
         href="#/"
         className="text-xs font-semibold text-muted underline-offset-2 hover:text-ink hover:underline"
       >

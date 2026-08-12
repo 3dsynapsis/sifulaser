@@ -6,6 +6,7 @@ import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { ShopPage } from './pages/ShopPage'
 import { AboutPage } from './pages/AboutPage'
+import { PlansPage } from './pages/PlansPage'
 import { LockedNotice } from './components/LockedNotice'
 import {
   WEEKLY_GUIDE,
@@ -67,6 +68,8 @@ const Root = () => {
       return <MaintenanceRoute guide={WIFI_GUIDE} />
     case 'chiller':
       return <MaintenanceRoute guide={CHILLER_GUIDE} />
+    case 'pakej':
+      return <PlansPage />
     case 'about':
       return <AboutPage />
     default:

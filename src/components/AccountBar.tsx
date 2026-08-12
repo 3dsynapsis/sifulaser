@@ -26,7 +26,13 @@ export const AccountBar = () => {
           </span>
           <p className="text-sm text-muted">
             Log masuk untuk akses penuh — semua level simulator dan panduan
-            maintenance.
+            maintenance.{' '}
+            <a
+              href="#/pakej"
+              className="font-semibold text-screw-2 underline-offset-2 hover:underline"
+            >
+              Lihat pakej
+            </a>
           </p>
         </div>
         <button

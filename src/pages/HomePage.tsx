@@ -6,6 +6,7 @@ import {
   LockKeyhole,
   ShoppingBag,
   Sparkles,
+  Tag,
   TrendingUp,
   UserRound,
 } from 'lucide-react'
@@ -109,6 +110,30 @@ export const HomePage = () => {
 
       {/* Akaun & status akses */}
       <AccountBar />
+
+      {/* Pakej & harga */}
+      <a
+        href="#/pakej"
+        className="group flex items-center gap-3 rounded-2xl border border-[#f6ddc0] bg-[#fdf3e8] p-4 transition-transform hover:-translate-y-0.5"
+      >
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white">
+          <Tag className="h-5 w-5 text-[#e07514]" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-[#a3540b] sm:text-base">
+            Pakej &amp; Harga
+          </span>
+          <span className="block text-xs text-[#a3540b]/80 sm:text-sm">
+            Lihat apa yang percuma dan apa yang termasuk dalam Akses Penuh.
+          </span>
+        </span>
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e07514] text-white transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        >
+          <ArrowRight className="h-5 w-5" />
+        </span>
+      </a>
 
       {/* Kad menu */}
       <nav className="grid grid-cols-2 gap-3 sm:gap-4" aria-label="Menu utama">
