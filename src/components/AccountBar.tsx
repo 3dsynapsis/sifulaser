@@ -2,7 +2,6 @@ import { Crown, LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { isAdmin } from '../lib/admin'
 import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
-import { upgradeWhatsappUrl } from '../lib/upgrade'
 
 export const AccountBar = () => {
   const { configured, user, paid, paidUntil, loading, signIn, signOut, error } =
@@ -117,9 +116,7 @@ export const AccountBar = () => {
       ) : null}
       {!paid && !isAdmin(user) ? (
         <a
-          href={upgradeWhatsappUrl(user.email)}
-          target="_blank"
-          rel="noopener noreferrer"
+          href="#/bayar"
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e07514] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#c76409]"
         >
           <Crown className="h-4 w-4" aria-hidden="true" />

@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import { PLAN_FAQ, PLAN_FEATURES } from '../data/plans'
 import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
-import { upgradeWhatsappUrl } from '../lib/upgrade'
 import { useAuth } from '../lib/auth'
 
 const freeFeatures = PLAN_FEATURES.filter((feature) => feature.free)
@@ -147,9 +146,7 @@ export const PlansPage = () => {
               </button>
             ) : (
               <a
-                href={upgradeWhatsappUrl(user?.email)}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#/bayar"
                 className="mt-auto inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e07514] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#c76409]"
               >
                 <Crown className="h-4 w-4" aria-hidden="true" />

@@ -7,6 +7,7 @@ import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { AboutPage } from './pages/AboutPage'
 import { PlansPage } from './pages/PlansPage'
 import { AdminPage } from './pages/AdminPage'
+import { PaymentPage } from './pages/PaymentPage'
 import { LockedNotice } from './components/LockedNotice'
 import {
   WEEKLY_GUIDE,
@@ -71,6 +72,8 @@ const Root = () => {
       return <MaintenanceRoute guide={CHILLER_GUIDE} />
     case 'pakej':
       return <PlansPage />
+    case 'bayar':
+      return <PaymentPage />
     case 'admin':
       return <AdminPage />
     case 'about':

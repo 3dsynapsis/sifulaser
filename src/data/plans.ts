@@ -71,7 +71,7 @@ export const PLAN_FAQ: PlanFaq[] = [
   {
     question: 'Bagaimana cara bayar?',
     answer:
-      'Log masuk dengan Google, kemudian WhatsApp kami. Kami akan berikan maklumat pembayaran dan buka Akses Penuh untuk akaun anda sebaik bayaran diterima.',
+      'Log masuk dengan Google, kemudian tekan "Naik taraf" untuk lihat butiran akaun bank dan kod QR. Selepas bayar, hantar resit ke WhatsApp yang tertera di halaman tersebut — kami akan buka Akses Penuh untuk akaun anda.',
   },
   {
     question: 'Berapa lama akses saya sah?',

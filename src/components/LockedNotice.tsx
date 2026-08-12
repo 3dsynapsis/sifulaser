@@ -1,7 +1,6 @@
 import { Crown, LockKeyhole, LogIn } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
-import { upgradeWhatsappUrl } from '../lib/upgrade'
 
 interface LockedNoticeProps {
   /** Nama bahagian yang dikunci, contoh: "Panduan maintenance". */
@@ -38,9 +37,7 @@ export const LockedNotice = ({ what }: LockedNoticeProps) => {
         </button>
       ) : (
         <a
-          href={upgradeWhatsappUrl(user?.email)}
-          target="_blank"
-          rel="noopener noreferrer"
+          href="#/bayar"
           className="inline-flex min-h-11 w-full max-w-[320px] items-center justify-center gap-2 rounded-xl bg-[#e07514] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#c76409]"
         >
           <Crown className="h-4 w-4" aria-hidden="true" />
