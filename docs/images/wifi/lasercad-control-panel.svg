@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 320" font-family="'Segoe UI', system-ui, sans-serif">
+  <rect width="440" height="320" fill="#f0f0f0"/>
+  <rect x="0.5" y="0.5" width="439" height="319" fill="none" stroke="#999"/>
+  <!-- Title bar -->
+  <rect x="1" y="1" width="438" height="34" fill="#ffffff"/>
+  <text x="16" y="24" font-size="15" fill="#444">Control Panel</text>
+  <text x="416" y="24" font-size="15" fill="#444" text-anchor="middle">✕</text>
+  <line x1="1" y1="35" x2="439" y2="35" stroke="#ddd"/>
+  <!-- Communication mode group -->
+  <rect x="16" y="56" width="408" height="70" fill="none" stroke="#c8c8c8"/>
+  <rect x="28" y="48" width="150" height="16" fill="#f0f0f0"/>
+  <text x="32" y="61" font-size="13" fill="#555">Communication mode</text>
+  <rect x="32" y="76" width="118" height="32" rx="4" fill="#fdfdfd" stroke="#0067c0"/>
+  <text x="91" y="97" font-size="14" fill="#222" text-anchor="middle">Select Mode</text>
+  <rect x="162" y="76" width="248" height="32" fill="#ffffff" stroke="#7a7a7a"/>
+  <text x="174" y="97" font-size="14" font-weight="600" fill="#0067c0">MachineTest:192.168.1.17</text>
+  <!-- Layer Options group -->
+  <text x="20" y="152" font-size="14" font-weight="600" fill="#333">Layer Options</text>
+  <rect x="16" y="162" width="408" height="112" fill="#ffffff" stroke="#adadad"/>
+  <line x1="16" y1="190" x2="424" y2="190" stroke="#ddd"/>
+  <g font-size="13" font-weight="600" fill="#555">
+    <text x="28" y="181">Layer</text>
+    <text x="108" y="181">Mode</text>
+    <text x="188" y="181">Speed</text>
+    <text x="268" y="181">Power</text>
+    <text x="348" y="181">Output</text>
+  </g>
+  <line x1="96" y1="162" x2="96" y2="274" stroke="#eee"/>
+  <line x1="176" y1="162" x2="176" y2="274" stroke="#eee"/>
+  <line x1="256" y1="162" x2="256" y2="274" stroke="#eee"/>
+  <line x1="336" y1="162" x2="336" y2="274" stroke="#eee"/>
+  <line x1="16" y1="218" x2="424" y2="218" stroke="#f3f3f3"/>
+  <line x1="16" y1="246" x2="424" y2="246" stroke="#f3f3f3"/>
+  <!-- Bottom buttons -->
+  <g font-size="13" fill="#222" text-anchor="middle">
+    <rect x="88" y="284" width="60" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="118" y="301">Up</text>
+    <rect x="156" y="284" width="60" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="186" y="301">Down</text>
+    <rect x="224" y="284" width="60" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="254" y="301">Top</text>
+    <rect x="292" y="284" width="60" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="322" y="301">Bottom</text>
+  </g>
+</svg>

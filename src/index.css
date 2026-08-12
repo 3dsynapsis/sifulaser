@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --color-canvas: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-ink: #14213d;
+  --color-muted: #5f6b7a;
+  --color-line: #dce3ec;
+  --color-screw-1: #e5252a;
+  --color-screw-2: #1f78d1;
+  --color-screw-3: #20a04a;
+  --color-beam: #e5252a;
+  --color-aligned: #20a04a;
+  --color-near: #e39a18;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    overflow-x: hidden;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-screw-2);
+    outline-offset: 2px;
+  }
+  button {
+    font-family: inherit;
+  }
+}
+
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 2px #14213d0a,
+    0 8px 24px -18px #14213d59;
+}
+
+:root {
+  --color-background: var(--color-canvas);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-muted);
+  --color-border: var(--color-line);
+  --beam-transition: 0.22s;
+}
+
+.beam-node {
+  transition: transform var(--beam-transition) ease-out;
+}
+.beam-node--static {
+  transition: none;
+}
+
+@keyframes beam-aligned-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+.beam-glow--pulse {
+  transform-box: fill-box;
+  transform-origin: 50%;
+  animation: 1.8s ease-in-out infinite beam-aligned-pulse;
+}
+
+.knob-ring {
+  transition:
+    opacity 0.18s ease-out,
+    rotate 0.26s ease-out;
+}
+.overlay-item {
+  transition:
+    opacity 0.18s ease-out,
+    scale 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-node,
+  .knob-ring,
+  .overlay-item {
+    transition-duration: 1ms;
+  }
+  .beam-glow--pulse {
+    animation: none;
+  }
+}

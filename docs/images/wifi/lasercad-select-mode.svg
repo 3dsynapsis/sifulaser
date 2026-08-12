@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 320" font-family="'Segoe UI', system-ui, sans-serif">
+  <rect width="440" height="320" fill="#f0f0f0"/>
+  <rect x="0.5" y="0.5" width="439" height="319" fill="none" stroke="#999"/>
+  <!-- Title bar -->
+  <rect x="1" y="1" width="438" height="34" fill="#ffffff"/>
+  <text x="16" y="24" font-size="15" fill="#444">Select Mode</text>
+  <text x="416" y="24" font-size="15" fill="#444" text-anchor="middle">✕</text>
+  <line x1="1" y1="35" x2="439" y2="35" stroke="#ddd"/>
+  <!-- Network Mode radio -->
+  <circle cx="26" cy="60" r="8" fill="#fff" stroke="#0067c0" stroke-width="2"/>
+  <circle cx="26" cy="60" r="4" fill="#0067c0"/>
+  <text x="42" y="65" font-size="15" font-weight="600" fill="#222">Network Mode</text>
+  <!-- Buttons -->
+  <g font-size="13" fill="#222" text-anchor="middle">
+    <rect x="212" y="47" width="64" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="244" y="64">Add</text>
+    <rect x="284" y="47" width="64" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="316" y="64">Delete</text>
+    <rect x="356" y="47" width="64" height="26" rx="4" fill="#fdfdfd" stroke="#adadad"/>
+    <text x="388" y="64">Modify</text>
+  </g>
+  <!-- Device list -->
+  <rect x="16" y="84" width="404" height="220" fill="#ffffff" stroke="#adadad"/>
+  <line x1="16" y1="112" x2="420" y2="112" stroke="#ddd"/>
+  <line x1="56" y1="84" x2="56" y2="304" stroke="#eee"/>
+  <line x1="220" y1="84" x2="220" y2="304" stroke="#eee"/>
+  <text x="68" y="103" font-size="13" font-weight="600" fill="#555">DeviceName</text>
+  <text x="232" y="103" font-size="13" font-weight="600" fill="#555">IP</text>
+  <g font-size="14" fill="#222">
+    <rect x="28" y="122" width="15" height="15" fill="#fff" stroke="#767676"/>
+    <text x="68" y="135">100w</text>
+    <text x="232" y="135">192.168.50.101</text>
+    <rect x="28" y="158" width="15" height="15" fill="#fff" stroke="#767676"/>
+    <text x="68" y="171">150W</text>
+    <text x="232" y="171">192.168.50.150</text>
+    <rect x="28" y="194" width="15" height="15" fill="#fff" stroke="#767676"/>
+    <text x="68" y="207">50W</text>
+    <text x="232" y="207">192.168.50.50</text>
+    <!-- Selected row -->
+    <rect x="17" y="222" width="402" height="30" fill="#e8f1fb"/>
+    <rect x="28" y="229" width="15" height="15" fill="#0067c0" stroke="#0067c0"/>
+    <path d="M31 236.5 l3.5 3.5 l6 -6.5" fill="none" stroke="#fff" stroke-width="2"/>
+    <text x="68" y="242" font-weight="600">MachineTest</text>
+    <text x="232" y="242" font-weight="600">192.168.1.17</text>
+  </g>
+</svg>
