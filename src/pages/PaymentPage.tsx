@@ -17,7 +17,12 @@ import {
   TRANSFER_HINT,
   paymentProofWhatsappUrl,
 } from '../data/payment'
-import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
+import {
+  ACCESS_PERIOD_LABEL,
+  ORIGINAL_PRICE_LABEL,
+  PRICE_LABEL,
+  SAVING_LABEL,
+} from '../lib/access'
 import { useAuth } from '../lib/auth'
 
 const Step = ({
@@ -78,8 +83,16 @@ export const PaymentPage = () => {
           <p className="text-sm text-muted">
             Naik taraf ke Akses Penuh — {ACCESS_PERIOD_LABEL} akses penuh.
           </p>
-          <p className="mt-1 text-3xl font-extrabold text-[#e07514]">
-            {PRICE_LABEL}
+          <p className="mt-1 flex items-baseline justify-center gap-2">
+            <span className="text-lg font-bold text-muted line-through">
+              {ORIGINAL_PRICE_LABEL}
+            </span>
+            <span className="text-3xl font-extrabold text-[#e07514]">
+              {PRICE_LABEL}
+            </span>
+          </p>
+          <p className="inline-flex items-center rounded-full bg-[#edf9f1] px-2.5 py-0.5 text-xs font-bold text-[#147a37]">
+            {SAVING_LABEL} — harga pengenalan
           </p>
         </header>
 

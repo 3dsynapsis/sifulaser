@@ -8,7 +8,12 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { PLAN_FAQ, PLAN_FEATURES } from '../data/plans'
-import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
+import {
+  ACCESS_PERIOD_LABEL,
+  ORIGINAL_PRICE_LABEL,
+  PRICE_LABEL,
+  SAVING_LABEL,
+} from '../lib/access'
 import { useAuth } from '../lib/auth'
 
 const freeFeatures = PLAN_FEATURES.filter((feature) => feature.free)
@@ -111,11 +116,19 @@ export const PlansPage = () => {
 
             <div>
               <h2 className="text-lg font-bold text-ink">Akses Penuh</h2>
-              <p className="mt-1 text-3xl font-extrabold text-[#e07514]">
-                {PRICE_LABEL}
-                <span className="ml-1 text-sm font-semibold text-muted">
+              <p className="mt-1 flex flex-wrap items-baseline gap-x-2">
+                <span className="text-lg font-bold text-muted line-through">
+                  {ORIGINAL_PRICE_LABEL}
+                </span>
+                <span className="text-3xl font-extrabold text-[#e07514]">
+                  {PRICE_LABEL}
+                </span>
+                <span className="text-sm font-semibold text-muted">
                   / {ACCESS_PERIOD_LABEL}
                 </span>
+              </p>
+              <p className="mt-1 inline-flex w-fit items-center rounded-full bg-[#edf9f1] px-2.5 py-0.5 text-xs font-bold text-[#147a37]">
+                {SAVING_LABEL} — harga pengenalan
               </p>
               <p className="mt-1 text-sm text-muted">
                 Semua dalam pakej Percuma, ditambah semua level dan panduan di

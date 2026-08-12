@@ -9,6 +9,10 @@ export const FREE_LEVEL_IDS: LevelId[] = ['level1']
 
 export const PRICE_LABEL = 'RM250'
 
+/** Harga penuh yang dicoret di sebelah harga semasa. */
+export const ORIGINAL_PRICE_LABEL = 'RM500'
+export const SAVING_LABEL = 'Jimat RM250'
+
 /** Tempoh sah Akses Penuh selepas pembayaran. */
 export const ACCESS_PERIOD_LABEL = '2 tahun'
 export const ACCESS_PERIOD_YEARS = 2
