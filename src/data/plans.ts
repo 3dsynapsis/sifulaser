@@ -1,66 +1,101 @@
 // Kandungan halaman Pakej & Harga.
 
+export type TierId = 'free' | 'full' | 'class'
+
 export interface PlanFeature {
   label: string
   /** Keterangan pendek di bawah label (pilihan). */
   detail?: string
-  free: boolean
+  /** Pakej yang termasuk ciri ini. */
+  tiers: TierId[]
 }
+
+const DIGITAL: TierId[] = ['full', 'class']
+const SEMUA: TierId[] = ['free', 'full', 'class']
 
 export const PLAN_FEATURES: PlanFeature[] = [
   {
     label: 'Simulator Level 1 — Cermin / Mirror Mount',
     detail: 'Latihan asas pelarasan 3 skru pada mirror mount.',
-    free: true,
+    tiers: SEMUA,
   },
   {
     label: 'About Me & Kedai Laser',
     detail:
       'Latar belakang SifuLaser dan senarai barang keperluan kerja laser di Shopee kami.',
-    free: true,
+    tiers: SEMUA,
   },
   {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Simulator Level 3 — Gerakan Gantry',
     detail: 'Fahami sistem koordinat dan pergerakan gantry.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Simulator Level 4 & 5 — Beam Lurus',
     detail: 'Prosedur beam lurus paksi Y dan paksi X.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Panduan Weekly Maintenance',
     detail: 'Senarai semak mingguan 5 minit + format report.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Panduan Yearly Maintenance',
     detail: 'Penyelenggaraan berkala power supply, chiller dan lens.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Cara Setup WiFi (board Trocen)',
     detail: 'Sambung mesin ke rangkaian office tanpa kabel USB.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Cara Setting Chiller CW5000',
     detail: 'Nilai F0–F9 terbaik untuk iklim lembap + video panduan.',
-    free: false,
+    tiers: DIGITAL,
   },
   {
     label: 'Kandungan baharu sepanjang tempoh langganan',
     detail:
       'Panduan dan level baharu yang kami tambah dalam tempoh 2 tahun anda.',
-    free: false,
+    tiers: DIGITAL,
+  },
+  {
+    label: 'Kelas bersemuka 4 jam bersama sifu',
+    detail: 'Sesi latihan fizikal alignment laser, bukan secara video.',
+    tiers: ['class'],
+  },
+  {
+    label: 'Tunjuk cara terus di hadapan anda',
+    detail: 'Lihat setiap langkah dilakukan secara langsung, bukan teori.',
+    tiers: ['class'],
+  },
+  {
+    label: 'Sesi soal jawab tanpa had sepanjang kelas',
+    detail: 'Tanya apa-apa masalah mesin anda dan dapat jawapan serta-merta.',
+    tiers: ['class'],
+  },
+  {
+    label: 'Kumpulan kecil — maksimum 10 peserta',
+    detail: 'Sifu ada masa untuk beri perhatian kepada setiap peserta.',
+    tiers: ['class'],
   },
 ]
+
+/** Butiran kelas latihan bersemuka. */
+export const CLASS_INFO = {
+  title: 'Kelas Training Fizikal Alignment Laser',
+  dateLabel: 'Tarikh akan diumumkan',
+  timeLabel: '9:30 pagi – 1:30 tengah hari',
+  durationLabel: '4 jam',
+  seatsLabel: 'Terhad 10 peserta',
+}
 
 export interface PlanFaq {
   question: string
@@ -82,6 +117,11 @@ export const PLAN_FAQ: PlanFaq[] = [
     question: 'Apa jadi selepas 2 tahun?',
     answer:
       'Anda boleh perbaharui untuk 2 tahun berikutnya pada harga yang sama. Tarikh luput sentiasa dipaparkan pada akaun anda, jadi anda tahu bila masanya. Jika tidak diperbaharui, akaun kembali ke pakej Percuma — data anda kekal.',
+  },
+  {
+    question: 'Beza pakej Akses Penuh dengan pakej Kelas?',
+    answer:
+      'Kedua-duanya memberi akses digital yang sama selama 2 tahun. Pakej Kelas menambah sesi latihan bersemuka 4 jam bersama sifu, di mana anda boleh melihat setiap langkah dilakukan secara langsung dan bertanya soalan tentang mesin anda sendiri.',
   },
   {
     question: 'Boleh guna pada berapa peranti?',

@@ -53,7 +53,7 @@ const CARDS: HomeCard[] = [
     number: 3,
     title: 'Pakej & Harga',
     description:
-      'Akses Penuh kini RM250 (harga asal RM500). Lihat apa yang percuma dan apa yang berbayar.',
+      'Akses Penuh dari RM200, atau kelas bersemuka bersama sifu. Lihat perbandingan pakej.',
     href: '#/pakej',
     color: '#e07514',
     softBg: '#fdf3e8',

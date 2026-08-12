@@ -3,7 +3,11 @@
 // PENTING: isi butiran bank yang betul di bawah. Nombor akaun salah bermakna
 // pelanggan menghantar wang ke akaun orang lain.
 
-import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
+import {
+  ACCESS_PERIOD_LABEL,
+  CLASS_PRICE_LABEL,
+  PRICE_LABEL,
+} from '../lib/access'
 
 /** Nombor WhatsApp KHAS untuk pengesahan pembayaran (bukan nombor kedai). */
 const PAYMENT_WHATSAPP_NUMBER = '60193644423'
@@ -40,8 +44,10 @@ export const IS_PAYMENT_CONFIGURED = Boolean(
 /** Mesej WhatsApp selepas pelanggan membuat pembayaran. */
 export const paymentProofWhatsappUrl = (email?: string | null): string => {
   const base =
-    `Hai, saya sudah membuat pembayaran ${PRICE_LABEL} untuk Akses Penuh SifuLaser (${ACCESS_PERIOD_LABEL}).` +
-    ' Saya lampirkan resit pembayaran.'
-  const text = email ? `${base} Email akaun saya: ${email}` : base
+    'Hai, saya sudah membuat pembayaran untuk SifuLaser dan lampirkan resit.' +
+    `\n\nPakej saya (sila padam yang tidak berkenaan):` +
+    `\n- Akses Penuh ${PRICE_LABEL} (${ACCESS_PERIOD_LABEL})` +
+    `\n- Kelas Training + Akses Penuh ${CLASS_PRICE_LABEL}`
+  const text = email ? `${base}\n\nEmail akaun saya: ${email}` : base
   return `https://wa.me/${PAYMENT_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
 }

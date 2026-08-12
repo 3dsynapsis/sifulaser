@@ -19,10 +19,12 @@ import {
 } from '../data/payment'
 import {
   ACCESS_PERIOD_LABEL,
+  CLASS_ORIGINAL_PRICE_LABEL,
+  CLASS_PRICE_LABEL,
   ORIGINAL_PRICE_LABEL,
   PRICE_LABEL,
-  SAVING_LABEL,
 } from '../lib/access'
+import { CLASS_INFO } from '../data/plans'
 import { useAuth } from '../lib/auth'
 
 const Step = ({
@@ -81,18 +83,7 @@ export const PaymentPage = () => {
             Cara Bayar
           </h1>
           <p className="text-sm text-muted">
-            Naik taraf ke Akses Penuh — {ACCESS_PERIOD_LABEL} akses penuh.
-          </p>
-          <p className="mt-1 flex items-baseline justify-center gap-2">
-            <span className="text-lg font-bold text-muted line-through">
-              {ORIGINAL_PRICE_LABEL}
-            </span>
-            <span className="text-3xl font-extrabold text-[#e07514]">
-              {PRICE_LABEL}
-            </span>
-          </p>
-          <p className="inline-flex items-center rounded-full bg-[#edf9f1] px-2.5 py-0.5 text-xs font-bold text-[#147a37]">
-            {SAVING_LABEL} — harga pengenalan
+            Pilih pakej anda, kemudian bayar jumlah yang tertera.
           </p>
         </header>
 
@@ -102,6 +93,53 @@ export const PaymentPage = () => {
             Anda sudah mempunyai Akses Penuh — tiada pembayaran diperlukan.
           </p>
         ) : null}
+
+        {/* Pilihan pakej dan jumlah */}
+        <section className="card flex flex-col gap-3 p-4 sm:p-5">
+          <h2 className="text-base font-bold text-ink sm:text-lg">
+            Jumlah untuk dibayar
+          </h2>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#f6ddc0] bg-[#fdf3e8] p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink">Akses Penuh</p>
+              <p className="text-xs text-muted">
+                Semua kandungan digital, {ACCESS_PERIOD_LABEL}
+              </p>
+            </div>
+            <p className="shrink-0 text-right">
+              <span className="block text-xs font-semibold text-muted line-through">
+                {ORIGINAL_PRICE_LABEL}
+              </span>
+              <span className="text-xl font-extrabold text-[#e07514]">
+                {PRICE_LABEL}
+              </span>
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e2d5f8] bg-[#f4effd] p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink">
+                Kelas Training + Akses Penuh
+              </p>
+              <p className="text-xs text-muted">
+                Kelas bersemuka 4 jam · {CLASS_INFO.seatsLabel}
+              </p>
+            </div>
+            <p className="shrink-0 text-right">
+              <span className="block text-xs font-semibold text-muted line-through">
+                {CLASS_ORIGINAL_PRICE_LABEL}
+              </span>
+              <span className="text-xl font-extrabold text-[#7c3aed]">
+                {CLASS_PRICE_LABEL}
+              </span>
+            </p>
+          </div>
+          <a
+            href="#/pakej"
+            className="text-xs font-semibold text-screw-2 underline-offset-2 hover:underline"
+          >
+            Banding kedua-dua pakej dahulu
+          </a>
+        </section>
 
         {/* Langkah 1 — bayar */}
         <Step number={1} title="Buat pembayaran">
@@ -134,8 +172,11 @@ export const PaymentPage = () => {
                 </div>
                 <div className="flex items-baseline justify-between gap-3 border-t border-line pt-2">
                   <dt className="text-xs font-semibold text-muted">Jumlah</dt>
-                  <dd className="text-base font-extrabold text-[#e07514]">
-                    {PRICE_LABEL}
+                  <dd className="text-right text-sm font-bold text-ink">
+                    {PRICE_LABEL} atau {CLASS_PRICE_LABEL}
+                    <span className="block text-[11px] font-semibold text-muted">
+                      ikut pakej pilihan anda
+                    </span>
                   </dd>
                 </div>
               </dl>
