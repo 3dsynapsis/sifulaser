@@ -8,7 +8,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { PLAN_FAQ, PLAN_FEATURES } from '../data/plans'
-import { PRICE_LABEL } from '../lib/access'
+import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { upgradeWhatsappUrl } from '../lib/upgrade'
 import { useAuth } from '../lib/auth'
 
@@ -16,7 +16,15 @@ const freeFeatures = PLAN_FEATURES.filter((feature) => feature.free)
 const paidFeatures = PLAN_FEATURES.filter((feature) => !feature.free)
 
 export const PlansPage = () => {
-  const { configured, user, paid, signIn } = useAuth()
+  const { configured, user, paid, paidUntil, signIn } = useAuth()
+
+  const expiryLabel = paidUntil
+    ? paidUntil.toLocaleDateString('ms-MY', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -34,13 +42,15 @@ export const PlansPage = () => {
             Pakej &amp; Harga
           </h1>
           <p className="mx-auto mt-2 max-w-[520px] text-sm text-muted sm:text-base">
-            Mula percuma dengan simulator cermin. Naik taraf sekali sahaja untuk
-            buka semua level dan panduan maintenance.
+            Mula percuma dengan simulator cermin. Naik taraf untuk buka semua
+            level dan panduan maintenance selama {ACCESS_PERIOD_LABEL}.
           </p>
           {paid && configured ? (
             <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#fdf3e8] px-3 py-1.5 text-xs font-bold text-[#a3540b] sm:text-sm">
               <Crown className="h-4 w-4" aria-hidden="true" />
-              Anda sudah mempunyai Akses Penuh — terima kasih!
+              {expiryLabel
+                ? `Akses Penuh anda sah sehingga ${expiryLabel}`
+                : 'Anda sudah mempunyai Akses Penuh — terima kasih!'}
             </p>
           ) : null}
         </header>
@@ -105,12 +115,12 @@ export const PlansPage = () => {
               <p className="mt-1 text-3xl font-extrabold text-[#e07514]">
                 {PRICE_LABEL}
                 <span className="ml-1 text-sm font-semibold text-muted">
-                  bayar sekali
+                  / {ACCESS_PERIOD_LABEL}
                 </span>
               </p>
               <p className="mt-1 text-sm text-muted">
                 Semua dalam pakej Percuma, ditambah semua level dan panduan di
-                bawah.
+                bawah. Sah {ACCESS_PERIOD_LABEL} dari tarikh pembayaran.
               </p>
             </div>
 

@@ -55,8 +55,9 @@ export const PLAN_FEATURES: PlanFeature[] = [
     free: false,
   },
   {
-    label: 'Kandungan baharu akan datang',
-    detail: 'Panduan dan level baharu ditambah dari masa ke masa.',
+    label: 'Kandungan baharu sepanjang tempoh langganan',
+    detail:
+      'Panduan dan level baharu yang kami tambah dalam tempoh 2 tahun anda.',
     free: false,
   },
 ]
@@ -75,7 +76,12 @@ export const PLAN_FAQ: PlanFaq[] = [
   {
     question: 'Berapa lama akses saya sah?',
     answer:
-      'Bayaran sekali sahaja untuk akses selamanya — termasuk panduan baharu yang kami tambah kemudian. Tiada bayaran bulanan.',
+      'Akses Penuh sah selama 2 tahun dari tarikh pembayaran, termasuk semua panduan dan level baharu yang kami tambah dalam tempoh tersebut. Tiada bayaran bulanan.',
+  },
+  {
+    question: 'Apa jadi selepas 2 tahun?',
+    answer:
+      'Anda boleh perbaharui untuk 2 tahun berikutnya pada harga yang sama. Tarikh luput sentiasa dipaparkan pada akaun anda, jadi anda tahu bila masanya. Jika tidak diperbaharui, akaun kembali ke pakej Percuma — data anda kekal.',
   },
   {
     question: 'Boleh guna pada berapa peranti?',

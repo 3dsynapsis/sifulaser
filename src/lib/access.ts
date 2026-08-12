@@ -9,6 +9,10 @@ export const FREE_LEVEL_IDS: LevelId[] = ['level1']
 
 export const PRICE_LABEL = 'RM250'
 
+/** Tempoh sah Akses Penuh selepas pembayaran. */
+export const ACCESS_PERIOD_LABEL = '2 tahun'
+export const ACCESS_PERIOD_YEARS = 2
+
 export const isLevelFree = (levelId: LevelId): boolean =>
   FREE_LEVEL_IDS.includes(levelId)
 

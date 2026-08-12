@@ -1,6 +1,6 @@
 import { Crown, LockKeyhole, LogIn } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { PRICE_LABEL } from '../lib/access'
+import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { upgradeWhatsappUrl } from '../lib/upgrade'
 
 interface LockedNoticeProps {
@@ -23,7 +23,7 @@ export const LockedNotice = ({ what }: LockedNoticeProps) => {
         <p className="mt-1 text-sm text-muted">
           {configured && !user
             ? 'Log masuk dahulu untuk semak status akaun anda.'
-            : `Naik taraf sekali sahaja ${PRICE_LABEL} untuk buka semua level simulator dan panduan maintenance.`}
+            : `Naik taraf ${PRICE_LABEL} untuk buka semua level simulator dan panduan maintenance selama ${ACCESS_PERIOD_LABEL}.`}
         </p>
       </div>
 
@@ -44,7 +44,7 @@ export const LockedNotice = ({ what }: LockedNoticeProps) => {
           className="inline-flex min-h-11 w-full max-w-[320px] items-center justify-center gap-2 rounded-xl bg-[#e07514] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#c76409]"
         >
           <Crown className="h-4 w-4" aria-hidden="true" />
-          Naik taraf — {PRICE_LABEL}
+          Naik taraf — {PRICE_LABEL} / {ACCESS_PERIOD_LABEL}
         </a>
       )}
 

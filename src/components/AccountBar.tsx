@@ -1,10 +1,19 @@
 import { Crown, LogIn, LogOut, UserRound } from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { PRICE_LABEL } from '../lib/access'
+import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { upgradeWhatsappUrl } from '../lib/upgrade'
 
 export const AccountBar = () => {
-  const { configured, user, paid, loading, signIn, signOut, error } = useAuth()
+  const { configured, user, paid, paidUntil, loading, signIn, signOut, error } =
+    useAuth()
+
+  const expiryLabel = paidUntil
+    ? paidUntil.toLocaleDateString('ms-MY', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null
 
   if (!configured) return null
 
@@ -70,10 +79,17 @@ export const AccountBar = () => {
             {user.displayName || user.email}
           </p>
           {paid ? (
-            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#fdf3e8] px-2 py-0.5 text-[11px] font-bold text-[#a3540b]">
-              <Crown className="h-3 w-3" aria-hidden="true" />
-              Akses Penuh
-            </span>
+            <>
+              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#fdf3e8] px-2 py-0.5 text-[11px] font-bold text-[#a3540b]">
+                <Crown className="h-3 w-3" aria-hidden="true" />
+                Akses Penuh
+              </span>
+              {expiryLabel ? (
+                <span className="mt-0.5 block text-[11px] text-muted">
+                  Sah sehingga {expiryLabel}
+                </span>
+              ) : null}
+            </>
           ) : (
             <span className="mt-0.5 inline-block rounded-full bg-canvas px-2 py-0.5 text-[11px] font-bold text-muted">
               Akaun Percuma
@@ -97,7 +113,7 @@ export const AccountBar = () => {
           className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e07514] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#c76409]"
         >
           <Crown className="h-4 w-4" aria-hidden="true" />
-          Naik taraf ke Akses Penuh — {PRICE_LABEL}
+          Naik taraf ke Akses Penuh — {PRICE_LABEL} / {ACCESS_PERIOD_LABEL}
         </a>
       ) : null}
     </div>

@@ -23,6 +23,8 @@ interface AuthValue {
   configured: boolean
   user: User | null
   paid: boolean
+  /** Tarikh luput Akses Penuh; null jika tiada tarikh luput ditetapkan. */
+  paidUntil: Date | null
   /** true semasa status login/bayaran masih dimuatkan. */
   loading: boolean
   signIn: () => Promise<void>
@@ -32,19 +34,25 @@ interface AuthValue {
 
 const AuthContext = createContext<AuthValue | null>(null)
 
-const isStillValid = (paid: unknown, paidUntil: unknown): boolean => {
+/** Tukar Firestore Timestamp kepada Date; null jika medan kosong. */
+const toDate = (value: unknown): Date | null => {
+  if (!value) return null
+  const toDateFn = (value as { toDate?: () => Date }).toDate
+  return typeof toDateFn === 'function'
+    ? (value as { toDate: () => Date }).toDate()
+    : null
+}
+
+const isStillValid = (paid: unknown, expiry: Date | null): boolean => {
   if (paid !== true) return false
-  if (!paidUntil) return true
-  const millis = (paidUntil as { toMillis?: () => number }).toMillis
-  if (typeof millis === 'function') {
-    return (paidUntil as { toMillis: () => number }).toMillis() > Date.now()
-  }
-  return true
+  if (!expiry) return true
+  return expiry.getTime() > Date.now()
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [paid, setPaid] = useState(false)
+  const [paidUntil, setPaidUntil] = useState<Date | null>(null)
   const [loading, setLoading] = useState(IS_CONFIGURED)
   const [error, setError] = useState<string | null>(null)
 
@@ -62,6 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(nextUser)
           if (!nextUser) {
             setPaid(false)
+            setPaidUntil(null)
             setLoading(false)
           }
         })
@@ -99,14 +108,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               createdAt: storeApi.Timestamp.now(),
             })
             setPaid(false)
+            setPaidUntil(null)
           } else {
             const data = snapshot.data()
-            setPaid(isStillValid(data.paid, data.paidUntil))
+            const expiry = toDate(data.paidUntil)
+            setPaid(isStillValid(data.paid, expiry))
+            setPaidUntil(expiry)
           }
           setLoading(false)
         },
         () => {
           setPaid(false)
+          setPaidUntil(null)
           setLoading(false)
         },
       )
@@ -151,12 +164,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Selagi Firebase belum dikonfigurasi, tiada cara untuk log masuk — jadi
       // app kekal terbuka sepenuhnya dan bukan terkunci untuk semua orang.
       paid: IS_CONFIGURED ? paid : true,
+      paidUntil,
       loading,
       signIn,
       signOut,
       error,
     }),
-    [user, paid, loading, signIn, signOut, error],
+    [user, paid, paidUntil, loading, signIn, signOut, error],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -170,6 +184,7 @@ export const useAuth = (): AuthValue => {
       configured: false,
       user: null,
       paid: true,
+      paidUntil: null,
       loading: false,
       signIn: async () => {},
       signOut: async () => {},

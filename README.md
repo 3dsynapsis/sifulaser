@@ -41,13 +41,13 @@ disimpan di Firestore, koleksi `users`, satu dokumen per pengguna:
 | `email` | string | Email akaun Google |
 | `name` | string | Nama paparan |
 | `paid` | boolean | `true` = Akses Penuh |
-| `paidUntil` | Timestamp \| null | Tarikh luput; `null` = tiada luput |
+| `paidUntil` | Timestamp \| null | Tarikh luput langganan |
 | `createdAt` | Timestamp | Tarikh daftar |
 
 Pembahagian akses:
 
-- **Percuma** — Simulator Level 1 (Cermin), Kedai Laser, About Me
-- **Akses Penuh (RM250)** — Level 2-5 + semua panduan Maintenance
+- **Percuma** — Simulator Level 1 (Cermin), About Me & Kedai Laser
+- **Akses Penuh (RM250 / 2 tahun)** — Level 2-5 + semua panduan Maintenance
 
 ### Cara naikkan taraf pengguna ke Akses Penuh
 
@@ -56,10 +56,16 @@ Pembahagian akses:
 2. Pengguna bayar dan WhatsApp anda.
 3. Buka [Firestore → koleksi `users`](https://console.firebase.google.com/project/sifulaser/firestore/databases/-default-/data/~2Fusers),
    cari dokumen dengan email tersebut.
-4. Tukar `paid` kepada `true`. Untuk langganan bertempoh, isi `paidUntil`
-   dengan tarikh luput; biarkan `null` untuk akses selamanya.
+4. Tukar `paid` kepada `true`, dan isi `paidUntil` dengan **tarikh hari ini
+   tambah 2 tahun**. Contoh: bayar pada 12 Ogos 2026 → `paidUntil` =
+   12 Ogos 2028.
 5. Perubahan berkuat kuasa serta-merta — skrin pengguna dikemas kini tanpa
-   perlu refresh.
+   perlu refresh, dan tarikh luput dipaparkan pada akaun mereka.
+
+Apabila `paidUntil` sudah lepas, akaun kembali ke pakej Percuma secara
+automatik. Untuk pembaharuan, cukup kemas kini `paidUntil` kepada 2 tahun
+berikutnya. Jika `paidUntil` dibiarkan kosong, akses tidak akan luput —
+elakkan ini kecuali untuk akaun anda sendiri atau akaun ujian.
 
 Security rules (`firestore.rules`) memastikan pengguna hanya boleh membaca
 rekod sendiri dan **tidak boleh** menukar status bayaran sendiri. Hanya admin
