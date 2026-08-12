@@ -23,8 +23,6 @@ interface HomeCard {
   border: string
   /** true jika kad ini kandungan berbayar sepenuhnya. */
   premium?: boolean
-  /** true untuk kad yang memenuhi kedua-dua lajur grid. */
-  wide?: boolean
   Icon: ComponentType<{ className?: string; style?: CSSProperties }>
 }
 
@@ -53,6 +51,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 3,
+    title: 'Pakej & Harga',
+    description:
+      'Lihat apa yang percuma dan apa yang termasuk dalam Akses Penuh.',
+    href: '#/pakej',
+    color: '#e07514',
+    softBg: '#fdf3e8',
+    border: '#f6ddc0',
+    Icon: Tag,
+  },
+  {
+    number: 4,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
@@ -60,7 +69,6 @@ const CARDS: HomeCard[] = [
     color: '#7c3aed',
     softBg: '#f4effd',
     border: '#e2d5f8',
-    wide: true,
     Icon: UserRound,
   },
 ]
@@ -104,37 +112,13 @@ export const HomePage = () => {
       {/* Akaun & status akses */}
       <AccountBar />
 
-      {/* Pakej & harga */}
-      <a
-        href="#/pakej"
-        className="group flex items-center gap-3 rounded-2xl border border-[#f6ddc0] bg-[#fdf3e8] p-4 transition-transform hover:-translate-y-0.5"
-      >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white">
-          <Tag className="h-5 w-5 text-[#e07514]" aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-[#a3540b] sm:text-base">
-            Pakej &amp; Harga
-          </span>
-          <span className="block text-xs text-[#a3540b]/80 sm:text-sm">
-            Lihat apa yang percuma dan apa yang termasuk dalam Akses Penuh.
-          </span>
-        </span>
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e07514] text-white transition-transform group-hover:translate-x-0.5"
-          aria-hidden="true"
-        >
-          <ArrowRight className="h-5 w-5" />
-        </span>
-      </a>
-
       {/* Kad menu */}
       <nav className="grid grid-cols-2 gap-3 sm:gap-4" aria-label="Menu utama">
-        {CARDS.map(({ number, title, description, href, color, softBg, border, premium, wide, Icon }) => (
+        {CARDS.map(({ number, title, description, href, color, softBg, border, premium, Icon }) => (
           <a
             key={href}
             href={href}
-            className={`card group relative flex flex-col items-center gap-3 p-4 pt-5 text-center transition-transform hover:-translate-y-0.5 ${wide ? 'col-span-2' : ''}`}
+            className="card group relative flex flex-col items-center gap-3 p-4 pt-5 text-center transition-transform hover:-translate-y-0.5"
             style={{ borderColor: border }}
           >
             <span
