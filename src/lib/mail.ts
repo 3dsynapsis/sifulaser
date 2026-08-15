@@ -22,7 +22,7 @@ import { ACCESS_PERIOD_LABEL } from './access'
 
 export const MAIL_CONFIG = {
   serviceId: 'service_h5mul9r',
-  templateId: '',
+  templateId: 'template_60zijng',
   publicKey: 'XQWXdIU9C_oOD9w9m',
 }
 
