@@ -21,9 +21,9 @@ import type { PaidPlan } from './admin'
 import { ACCESS_PERIOD_LABEL } from './access'
 
 export const MAIL_CONFIG = {
-  serviceId: '',
+  serviceId: 'service_h5mul9r',
   templateId: '',
-  publicKey: '',
+  publicKey: 'XQWXdIU9C_oOD9w9m',
 }
 
 export const SITE_URL = 'https://sifulaser.com'
