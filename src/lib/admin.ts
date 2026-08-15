@@ -101,13 +101,16 @@ export const subscribeUsers = (
  *
  * Menaik taraf ke pakej kelas tidak akan menurunkan semula pelanggan yang
  * sudah ditanda sebagai peserta kelas.
+ *
+ * Mengembalikan tarikh luput baharu supaya pemanggil boleh memaparkan atau
+ * menghantarnya kepada pelanggan melalui email.
  */
 export const grantAccess = async (
   row: AdminUserRow,
   plan: PaidPlan,
-): Promise<void> => {
+): Promise<Date | null> => {
   const pending = loadFirebase()
-  if (!pending) return
+  if (!pending) return null
   const { db, storeApi } = await pending
 
   const stillActive = isAccessActive(row) && row.paidUntil !== null
@@ -120,6 +123,8 @@ export const grantAccess = async (
     paidUntil: storeApi.Timestamp.fromDate(expiry),
     plan: row.plan === 'class' ? 'class' : plan,
   })
+
+  return expiry
 }
 
 /** Tukar penanda pakej tanpa mengubah tarikh luput. */

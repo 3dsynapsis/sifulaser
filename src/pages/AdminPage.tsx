@@ -4,6 +4,7 @@ import {
   Check,
   Crown,
   GraduationCap,
+  MailWarning,
   ShieldCheck,
   Undo2,
   UserRound,
@@ -20,6 +21,11 @@ import {
   type AdminUserRow,
 } from '../lib/admin'
 import { ACCESS_PERIOD_LABEL } from '../lib/access'
+import {
+  IS_MAIL_CONFIGURED,
+  sendAccessEmail,
+  type MailKind,
+} from '../lib/mail'
 import { CLASS_SEAT_LIMIT } from '../data/plans'
 
 type Filter = 'semua' | 'akses' | 'kelas' | 'percuma'
@@ -47,6 +53,8 @@ export const AdminPage = () => {
   const [rows, setRows] = useState<AdminUserRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyUid, setBusyUid] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [mailFailed, setMailFailed] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('semua')
 
@@ -84,16 +92,47 @@ export const AdminPage = () => {
     return { total: rows.length, active, kelas, free: rows.length - active }
   }, [rows])
 
-  const runAction = async (uid: string, action: () => Promise<void>) => {
-    setBusyUid(uid)
+  /**
+   * Jalankan tindakan admin, kemudian hantar email pemberitahuan.
+   *
+   * Kegagalan email tidak membatalkan akses yang sudah tersimpan — admin
+   * sekadar dimaklumkan supaya boleh emailkan pelanggan secara manual.
+   */
+  const runAction = async (
+    row: AdminUserRow,
+    kind: MailKind,
+    action: () => Promise<Date | null>,
+  ) => {
+    setBusyUid(row.uid)
     setError(null)
+    setNotice(null)
+    setMailFailed(null)
+
+    let expiry: Date | null = null
     try {
-      await action()
+      expiry = await action()
     } catch {
       setError('Tindakan gagal. Sila cuba lagi.')
-    } finally {
       setBusyUid(null)
+      return
     }
+
+    if (!IS_MAIL_CONFIGURED) {
+      setBusyUid(null)
+      return
+    }
+
+    const sent = await sendAccessEmail(
+      kind,
+      { email: row.email, name: row.name },
+      expiry,
+    )
+    if (sent) {
+      setNotice(`Email pemberitahuan dihantar kepada ${row.email}.`)
+    } else {
+      setMailFailed(row.email)
+    }
+    setBusyUid(null)
   }
 
   if (authLoading) {
@@ -239,6 +278,22 @@ export const AdminPage = () => {
           </p>
         ) : null}
 
+        {notice ? (
+          <p className="rounded-xl border border-[#cfe5d3] bg-[#f0f9f2] px-4 py-3 text-sm font-semibold text-[#1f6b33]">
+            {notice}
+          </p>
+        ) : null}
+
+        {mailFailed ? (
+          <p className="flex items-start gap-2 rounded-xl border border-[#f6ddc0] bg-[#fdf3e8] px-4 py-3 text-sm font-semibold text-[#a3540b]">
+            <MailWarning className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              Akses telah dikemas kini, tetapi email gagal dihantar kepada{' '}
+              {mailFailed}. Sila maklumkan pelanggan secara manual.
+            </span>
+          </p>
+        ) : null}
+
         {filtered === null ? (
           <div className="card h-40 animate-pulse" />
         ) : filtered.length === 0 ? (
@@ -294,7 +349,9 @@ export const AdminPage = () => {
                       type="button"
                       disabled={busy}
                       onClick={() =>
-                        void runAction(row.uid, () => grantAccess(row, 'full'))
+                        void runAction(row, 'full', () =>
+                          grantAccess(row, 'full'),
+                        )
                       }
                       className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e07514] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#c76409] disabled:opacity-50"
                     >
@@ -305,7 +362,9 @@ export const AdminPage = () => {
                       type="button"
                       disabled={busy}
                       onClick={() =>
-                        void runAction(row.uid, () => grantAccess(row, 'class'))
+                        void runAction(row, 'class', () =>
+                          grantAccess(row, 'class'),
+                        )
                       }
                       className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#7c3aed] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#6d28d9] disabled:opacity-50"
                     >
@@ -317,7 +376,10 @@ export const AdminPage = () => {
                         type="button"
                         disabled={busy}
                         onClick={() =>
-                          void runAction(row.uid, () => revokeAccess(row.uid))
+                          void runAction(row, 'revoke', async () => {
+                            await revokeAccess(row.uid)
+                            return null
+                          })
                         }
                         className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-semibold text-muted transition-colors hover:bg-canvas hover:text-ink disabled:opacity-50"
                       >
@@ -335,6 +397,9 @@ export const AdminPage = () => {
         <p className="pb-4 text-center text-xs text-muted">
           Kedua-dua butang memberi akses digital {ACCESS_PERIOD_LABEL}; butang
           ungu menandakan pelanggan sebagai peserta kelas bersemuka.
+          {IS_MAIL_CONFIGURED
+            ? ' Pelanggan menerima email pemberitahuan automatik.'
+            : ' Email automatik belum diaktifkan — kunci EmailJS belum diisi.'}
         </p>
       </div>
     </div>

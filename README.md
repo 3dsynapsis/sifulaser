@@ -75,6 +75,37 @@ semula ke pakej digital walaupun butang oren ditekan kemudian.
 
 Perubahan berkuat kuasa serta-merta pada skrin pelanggan tanpa perlu refresh.
 
+### Email automatik
+
+Setiap kali **Beri Akses**, **Beri Kelas** atau **Tarik** ditekan, pelanggan
+menerima email pemberitahuan secara automatik — ucapan tahniah, tarikh luput
+akses, dan pautan terus ke <https://sifulaser.com>.
+
+Email dihantar melalui [EmailJS](https://emailjs.com). Log masuk Gmail di
+browser **tidak** memberi laman ini kuasa menghantar email; akaun Gmail perlu
+disambungkan sekali di EmailJS, dan server merekalah yang menghantar.
+
+Setup sekali sahaja:
+
+1. Daftar di <https://emailjs.com>, sambungkan `sifulaser@gmail.com` sebagai
+   **Email Service**.
+2. Cipta satu **Email Template** dengan tetapan:
+   - To Email — `{{to_email}}`
+   - Subject — `{{subject}}`
+   - Content — `{{{message_html}}}` (tiga kurungan, supaya HTML terpapar)
+3. Salin Service ID, Template ID dan Public Key ke dalam `MAIL_CONFIG`
+   di `src/lib/mail.ts`, kemudian `npm run build` dan commit folder `docs/`.
+4. Di EmailJS, buka **Account → Security → Allowed Origins** dan hadkan kepada
+   `https://sifulaser.com`. Public Key memang terdedah dalam bundle browser,
+   jadi sekatan domain inilah yang menghalang orang lain menyalahguna kuota.
+
+Selagi `MAIL_CONFIG` kosong, panel berfungsi seperti biasa tetapi tiada email
+dihantar — nota di bawah senarai akan menyatakan ia belum diaktifkan. Jika
+email gagal dihantar, akses **tetap** tersimpan dan panel memaparkan amaran
+supaya anda boleh memaklumkan pelanggan secara manual.
+
+Teks email boleh diubah dalam fungsi `buildMail` di `src/lib/mail.ts`.
+
 Kuasa admin dikuatkuasakan di `firestore.rules`, bukan di app sahaja: hanya
 email admin (yang disahkan Google) boleh membaca semua rekod dan mengemas kini
 medan `paid`/`paidUntil`. Menukar kod di browser tidak memberi sesiapa akses.
