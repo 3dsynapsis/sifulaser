@@ -163,6 +163,12 @@ export const ScrewKnob = ({
         </svg>
       ) : null}
 
+      {/*
+        Butang meliputi knob DAN tuas. Kawasan sentuh sengaja jauh lebih besar
+        daripada knob yang kelihatan: memusing knob 44px dengan ibu jari mudah
+        tergelincir, dan kepala pin di hujung tuas memberi pemegang yang lebih
+        jauh dari pusat — lebih stabil dan lebih mudah dikawal.
+      */}
       <button
         type="button"
         disabled={disabled}
@@ -171,79 +177,120 @@ export const ScrewKnob = ({
         onPointerUp={end}
         onPointerCancel={end}
         className={[
-          'relative flex h-11 w-11 touch-none select-none items-center justify-center rounded-full border-2 bg-surface shadow-md',
-          'transition-[transform,border-color] active:scale-95',
+          'relative flex h-[88px] w-[88px] touch-none select-none items-center justify-center',
+          'transition-transform active:scale-95',
           'disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100',
           dragging || isActive ? 'scale-105' : '',
         ].join(' ')}
-        style={{ borderColor: color, color }}
-        aria-label={`Skru ${screw.number}: seret ke atas untuk gerakkan beam ${screw.minusLabel}, ke bawah untuk ${screw.plusLabel}`}
+        style={{ color }}
+        aria-label={`Skru ${screw.number}: pegang kepala pin dan seret ke atas untuk gerakkan beam ${screw.minusLabel}, ke bawah untuk ${screw.plusLabel}`}
       >
-        {/*
-          Alur keriting yang semuanya serupa dan berputar mengikut jari.
-          Sengaja TIADA jarum atau tanda unik: skru mirror mount tidak
-          mempunyai kedudukan sifar, dan satu penanda tetap akan menipu
-          pelajar bahawa ada kedudukan asal. Kilauan di bawah kekal diam
-          supaya alur kelihatan melintasinya — itu yang membaca sebagai
-          putaran.
-        */}
-        <svg viewBox="0 0 40 40" className="h-8 w-8" aria-hidden="true">
+        <svg viewBox="0 0 80 80" className="h-full w-full" aria-hidden="true">
           <defs>
             <radialGradient id={`knob-dome-${screw.id}`} cx="38%" cy="32%">
               <stop offset="0%" stopColor="#ffffff" />
               <stop offset="70%" stopColor="#f4f7fa" />
               <stop offset="100%" stopColor="#e2e8f0" />
             </radialGradient>
+            <radialGradient id={`pin-glow-${screw.id}`}>
+              <stop offset="0%" stopColor={color} stopOpacity="0.55" />
+              <stop offset="60%" stopColor={color} stopOpacity="0.2" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </radialGradient>
           </defs>
+
           {/* Gelang denyut, hanya semasa melahu */}
           {showHint ? (
             <circle
-              cx="20"
-              cy="20"
-              r="15"
+              cx="40"
+              cy="40"
+              r="21"
               fill="none"
               stroke={color}
               strokeWidth="2"
               className="knob-hint-ring"
             />
           ) : null}
+
+          {/*
+            Semua yang berputar berada dalam satu kumpulan: alur, tuas dan
+            kepala pin. Jadi tuas mengikut knob tepat seperti diminta.
+
+            Alur keriting semuanya serupa dan TIADA jarum unik — skru mirror
+            mount tidak mempunyai kedudukan sifar. Tuas pula bukan penanda
+            sudut mutlak; ia pemegang, sama seperti tuas pada skru sebenar.
+          */}
           <g className={showHint ? 'knob-hint-turn' : undefined}>
-          <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: '20px 20px' }}>
-            {Array.from({ length: 12 }, (_, i) => (
+            <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: '40px 40px' }}>
+              {Array.from({ length: 12 }, (_, i) => (
+                <line
+                  key={i}
+                  x1="40"
+                  y1="22"
+                  x2="40"
+                  y2="27"
+                  stroke={color}
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  opacity="0.7"
+                  transform={`rotate(${i * 30} 40 40)`}
+                />
+              ))}
+
+              {/* Tuas dari pusat knob ke kepala pin */}
               <line
-                key={i}
-                x1="20"
-                y1="2"
-                x2="20"
-                y2="7"
+                x1="40"
+                y1="40"
+                x2="63"
+                y2="17"
                 stroke={color}
-                strokeWidth="2.6"
+                strokeWidth="3.4"
                 strokeLinecap="round"
-                opacity="0.7"
-                transform={`rotate(${i * 30} 20 20)`}
               />
-            ))}
+              {/* Kilauan kepala pin — memberitahu di mana nak pegang */}
+              <circle
+                cx="63"
+                cy="17"
+                r="11"
+                fill={`url(#pin-glow-${screw.id})`}
+                className={showHint ? 'pin-glow--pulse' : undefined}
+              />
+              <circle
+                cx="63"
+                cy="17"
+                r="6"
+                fill={color}
+                stroke="#ffffff"
+                strokeWidth="2.2"
+              />
+            </g>
           </g>
-          </g>
+
           <circle
-            cx="20"
-            cy="20"
+            cx="40"
+            cy="40"
             r="13"
             fill={`url(#knob-dome-${screw.id})`}
             stroke={color}
-            strokeWidth="1.6"
+            strokeWidth="1.8"
           />
-          {/* Kilauan tetap — tidak berputar */}
-          <ellipse cx="15.5" cy="14.5" rx="5" ry="3.4" fill="#ffffff" opacity="0.75" />
-          <circle cx="20" cy="20" r="3" fill={color} opacity="0.85" />
+          {/* Kilauan tetap — tidak berputar, jadi alur kelihatan melintasinya */}
+          <ellipse cx="35.5" cy="34.5" rx="5" ry="3.4" fill="#ffffff" opacity="0.75" />
+          <circle cx="40" cy="40" r="3" fill={color} opacity="0.85" />
+
+          {/* Nombor skru, dilekat pada knob bukan pada kotak butang */}
+          <circle cx="26" cy="26" r="7" fill={color} stroke="#ffffff" strokeWidth="2" />
+          <text
+            x="26"
+            y="29.2"
+            textAnchor="middle"
+            fill="#ffffff"
+            fontSize="9"
+            fontWeight="700"
+          >
+            {screw.number}
+          </text>
         </svg>
-        <span
-          className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-white"
-          style={{ backgroundColor: color }}
-          aria-hidden="true"
-        >
-          {screw.number}
-        </span>
       </button>
 
       {/* Petunjuk melahu: tangan mencubit, diletak di DEPAN knob. Di belakang

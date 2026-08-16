@@ -87,6 +87,21 @@
     scale 0.2s ease-out;
 }
 
+/* Kepala pin tuas berdenyut supaya pelajar tahu di situ tempat memegang. */
+@keyframes pin-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pin-glow--pulse {
+  animation: pin-glow-pulse 1.9s ease-in-out infinite;
+}
+
 /* Tangan mencubit muncul perlahan semasa melahu, dengan goyangan kecil yang
    mempamerkan gerakan memusing. */
 @keyframes knob-hint-hand {
@@ -169,7 +184,8 @@
   .beam-glow--pulse,
   .knob-hint-ring,
   .knob-hint-turn,
-  .knob-hint-hand {
+  .knob-hint-hand,
+  .pin-glow--pulse {
     animation: none;
   }
 }
