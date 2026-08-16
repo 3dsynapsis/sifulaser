@@ -94,7 +94,7 @@ export const HomePage = () => {
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-6 sm:py-10">
       {/* Hero */}
       <header className="px-1 pt-2">
-        <p className="flex items-end gap-2">
+        <p className="flex flex-wrap items-end gap-x-2">
           <span className="text-5xl font-extrabold tracking-tight sm:text-6xl">
             <span className="text-ink">Sifu</span>
             <span className="italic text-screw-2">Laser</span>
