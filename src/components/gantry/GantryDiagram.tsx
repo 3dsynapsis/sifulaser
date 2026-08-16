@@ -24,7 +24,7 @@ interface GantryDiagramProps {
   motionEnabled: boolean
   className?: string
   /** Segmen beam yang sedang bercahaya semasa Test Laser. */
-  beamPhase?: 'idle' | 'tube' | 'm1m2' | 'm2head' | 'fire'
+  beamPhase?: 'idle' | 'tube' | 'toM1' | 'm1m2' | 'm2head' | 'fire'
   /** Kesan tembakan yang ditinggalkan, berserta koordinatnya. */
   marks?: { x: number; y: number; id: number }[]
 }
@@ -45,10 +45,13 @@ export const GantryDiagram = ({
   const gantryY = toSvgY(y)
   const moveClass = motionEnabled ? 'beam-node' : 'beam-node beam-node--static'
   // Sekali sesuatu segmen dicapai, ia kekal bercahaya sehingga tembakan tamat.
+  // Bertimbun: segmen yang sudah menyala kekal menyala sehingga tembakan tamat.
+  const after = (...phases: string[]) => phases.includes(beamPhase)
   const lit = {
-    tube: beamPhase !== 'idle',
-    m1m2: beamPhase === 'm1m2' || beamPhase === 'm2head' || beamPhase === 'fire',
-    m2head: beamPhase === 'm2head' || beamPhase === 'fire',
+    tubeBody: beamPhase !== 'idle',
+    toM1: after('toM1', 'm1m2', 'm2head', 'fire'),
+    m1m2: after('m1m2', 'm2head', 'fire'),
+    m2head: after('m2head', 'fire'),
   }
   const firing = beamPhase === 'fire'
   const labelSize = compact ? 5.2 : 4
@@ -120,16 +123,28 @@ export const GantryDiagram = ({
             ))}
           </g>
 
-          {/* Tiub laser di belakang */}
+          {/* Tiub laser di belakang — menyala merah dahulu semasa menembak */}
+          {lit.tubeBody ? (
+            <rect
+              x="32"
+              y="6"
+              width="126"
+              height="13"
+              rx="6.5"
+              fill="var(--color-beam)"
+              opacity="0.25"
+            />
+          ) : null}
           <rect
             x="34"
             y="8"
             width="122"
             height="9"
             rx="4.5"
-            fill="#d8e2f0"
-            stroke="#b6c6da"
-            strokeWidth="0.8"
+            fill={lit.tubeBody ? 'var(--color-beam)' : '#d8e2f0'}
+            fillOpacity={lit.tubeBody ? 0.55 : 1}
+            stroke={lit.tubeBody ? 'var(--color-beam)' : '#b6c6da'}
+            strokeWidth={lit.tubeBody ? 1.2 : 0.8}
           />
           <text
             x="95"
@@ -177,7 +192,7 @@ export const GantryDiagram = ({
 
           {/* Laluan beam: tiub → cermin 1 → cermin 2 → head */}
           <g strokeLinecap="round" fill="none">
-            {lit.tube ? (
+            {lit.toM1 ? (
               <line
                 x1="34"
                 y1={TUBE_Y}
@@ -194,7 +209,7 @@ export const GantryDiagram = ({
               x2={RAIL_X}
               y2={TUBE_Y}
               stroke="var(--color-beam)"
-              strokeWidth={lit.tube ? 2.4 : 1.3}
+              strokeWidth={lit.toM1 ? 2.4 : 1.3}
               opacity="0.9"
             />
             {/* Segmen cermin 1 → cermin 2: panjang berubah ikut Y */}
@@ -375,6 +390,32 @@ export const GantryDiagram = ({
                 Cermin 3
               </text>
             </g>
+            {/* Kilauan cermin 2 → cermin 3 diulang di sini kerana bar gantry
+                dilukis selepas laluan beam dan akan menutup garisan asal.
+                Diletak sebelum label Cermin 2 supaya label kekal terbaca. */}
+            {lit.m2head ? (
+              <g strokeLinecap="round" fill="none">
+                <line
+                  x1={RAIL_X}
+                  y1={gantryY}
+                  x2={headX}
+                  y2={gantryY}
+                  stroke="var(--color-beam)"
+                  strokeWidth="6"
+                  opacity="0.32"
+                />
+                <line
+                  x1={RAIL_X}
+                  y1={gantryY}
+                  x2={headX}
+                  y2={gantryY}
+                  stroke="var(--color-beam)"
+                  strokeWidth="2.4"
+                  opacity="1"
+                />
+              </g>
+            ) : null}
+
             {/* Label Cermin 2 dilukis paling atas (halo putih) supaya tak
                 terlindung bila head berada di X = 0 */}
             <text

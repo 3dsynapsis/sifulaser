@@ -7,8 +7,17 @@ import type { Vec } from '../types'
 export const GANTRY_JOG_STEP = 10
 export const GANTRY_CENTRE_TARGET: Vec = { x: 60, y: 40 }
 
-/** Peringkat kilauan beam semasa Test Laser. */
-export type BeamPhase = 'idle' | 'tube' | 'm1m2' | 'm2head' | 'fire'
+/**
+ * Peringkat kilauan semasa Test Laser, mengikut urutan sebenar:
+ * tiub menyala dahulu, kemudian beam keluar ke cermin 1, cermin 2, dan head.
+ */
+export type BeamPhase =
+  | 'idle'
+  | 'tube'
+  | 'toM1'
+  | 'm1m2'
+  | 'm2head'
+  | 'fire'
 
 export interface PulseMark extends Vec {
   id: number
@@ -124,10 +133,11 @@ export const useGantryLesson = () => {
     }
 
     setBeamPhase('tube')
-    later(() => setBeamPhase('m1m2'), 320)
-    later(() => setBeamPhase('m2head'), 700)
-    later(() => setBeamPhase('fire'), 1080)
-    later(leaveMark, 1650)
+    later(() => setBeamPhase('toM1'), 340)
+    later(() => setBeamPhase('m1m2'), 640)
+    later(() => setBeamPhase('m2head'), 980)
+    later(() => setBeamPhase('fire'), 1320)
+    later(leaveMark, 1880)
   }, [busy, position, reduceMotion, later])
 
   const advance = useCallback(() => {
