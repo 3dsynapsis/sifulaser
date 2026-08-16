@@ -87,6 +87,38 @@
     scale 0.2s ease-out;
 }
 
+/* Tangan mencubit muncul perlahan semasa melahu, dengan goyangan kecil yang
+   mempamerkan gerakan memusing. */
+@keyframes knob-hint-hand {
+  /* Tetingkap kelihatan sengaja pendek (lebih kurang satu pertiga kitaran)
+     supaya dengan kelewatan bergilir, hanya satu tangan kelihatan pada satu
+     masa dan rajah tidak jadi sesak. */
+  0%,
+  8%,
+  40%,
+  100% {
+    opacity: 0;
+  }
+  18%,
+  30% {
+    opacity: 1;
+  }
+  20% {
+    transform: translate(-23.2%, -51.3%) rotate(-7deg);
+  }
+  30% {
+    transform: translate(-23.2%, -51.3%) rotate(7deg);
+  }
+}
+
+
+.knob-hint-hand {
+  /* Titik cubitan gambar berada pada 23.2% x 51.3% — anjakan ini meletakkannya
+     tepat di pusat knob, jadi jari kelihatan mencubit knob itu sendiri. */
+  transform: translate(-23.2%, -51.3%);
+  animation: knob-hint-hand 3.4s ease-in-out infinite;
+}
+
 /* Petunjuk knob semasa melahu: denyutan menarik mata, goyangan berpusing
    mempamerkan gerakan yang dimaksudkan. */
 @keyframes knob-hint-ring {
@@ -136,7 +168,8 @@
   }
   .beam-glow--pulse,
   .knob-hint-ring,
-  .knob-hint-turn {
+  .knob-hint-turn,
+  .knob-hint-hand {
     animation: none;
   }
 }

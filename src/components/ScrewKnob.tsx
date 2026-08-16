@@ -15,6 +15,10 @@ interface ScrewKnobProps {
   onMove: (screwId: ScrewId, direction: Direction) => void
   /** Dimaklumkan semasa seretan bermula, bertukar arah, dan berakhir. */
   onDragChange: (screwId: ScrewId, direction: Direction | null) => void
+  /** Balikkan tangan supaya ia menghala ke dalam kad, bukan keluar tepi. */
+  flipHint?: boolean
+  /** Kelewatan petunjuk, supaya tangan muncul bergilir bukan serentak. */
+  hintDelay?: number
 }
 
 /**
@@ -32,6 +36,8 @@ export const ScrewKnob = ({
   disabled = false,
   onMove,
   onDragChange,
+  flipHint = false,
+  hintDelay = 0,
 }: ScrewKnobProps) => {
   const [dragging, setDragging] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -115,6 +121,29 @@ export const ScrewKnob = ({
       className="relative flex items-center justify-center"
       style={{ '--screw-color': color } as CSSProperties}
     >
+      {/* Petunjuk melahu: tangan mencubit, diletak di BELAKANG knob supaya
+          knob kelihatan berada antara ibu jari dan telunjuk. */}
+      {showHint ? (
+        /* Pembalut bersaiz sifar duduk tepat di pusat knob. Kerana titik
+           cubitan gambar dijajarkan ke titik yang sama, membalikkan pembalut
+           ini memutar tangan mengelilingi titik cubitan — jadi cubitan kekal
+           pada knob dan hanya arah tangan bertukar. */
+        <span
+          className="pointer-events-none absolute left-1/2 top-1/2 h-0 w-0"
+          style={flipHint ? { transform: 'scaleX(-1)' } : undefined}
+          aria-hidden="true"
+        >
+          <img
+            src="images/pinch-hand.webp"
+            alt=""
+            width={480}
+            height={320}
+            className="knob-hint-hand absolute w-[104px] max-w-none select-none"
+            style={{ animationDelay: `${hintDelay}s` }}
+          />
+        </span>
+      ) : null}
+
       {/* Bar hanya timbul semasa jari menyentuh knob */}
       {dragging ? (
         <svg

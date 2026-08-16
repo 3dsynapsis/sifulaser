@@ -167,7 +167,7 @@ export const ScrewAdjustPanel = ({
               )
             })}
           </ImageWithFallback>
-          {level.screwOrder.map((screwId) => {
+          {level.screwOrder.map((screwId, index) => {
             const screw = level.screws[screwId]
             const style: CSSProperties = { top: screw.pod.top }
             if (screw.pod.side === 'left') style.left = 0
@@ -184,6 +184,8 @@ export const ScrewAdjustPanel = ({
                   onMove={onMove}
                   onDragChange={onDragChange}
                   disabled={disabled}
+                  flipHint={screw.pod.side === 'right'}
+                  hintDelay={index * 1.133}
                 />
               </span>
             )
