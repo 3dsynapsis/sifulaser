@@ -36,9 +36,6 @@ export const SOP_META = {
   title: 'SOP Troubleshooting Laser Machine- Master',
   version: 'Version 3',
   date: '19.3.2025',
-  purpose: 'Troubleshoot Laser Machine not Working',
-  scope: 'Production Team Engineer',
-  responsibilities: 'Production Team',
   start: 'Problem Machine Laser',
 }
 
