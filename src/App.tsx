@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Crosshair, Info } from 'lucide-react'
+import { Crosshair, Info } from 'lucide-react'
 import { AppHeader } from './components/AppHeader'
-import { MachineHub } from './components/MachineHub'
-import { SkillGate } from './components/SkillGate'
+import { LevelTabs } from './components/LevelTabs'
 import { HeadVariantTabs } from './components/HeadVariantTabs'
 import { StatusPanel } from './components/StatusPanel'
 import { TargetView } from './components/TargetView'
@@ -18,8 +17,6 @@ import { GantryDiagram } from './components/gantry/GantryDiagram'
 import { GantryJogPad } from './components/gantry/GantryJogPad'
 import { GantryLessonPanel } from './components/gantry/GantryLessonPanel'
 import { LockedNotice } from './components/LockedNotice'
-import type { LevelId } from './types'
-import { LEVELS } from './levels'
 import { canAccessLevel } from './lib/access'
 import { useAuth } from './lib/auth'
 import { useAlignmentSim } from './hooks/useAlignmentSim'
@@ -55,10 +52,6 @@ export const App = () => {
     level.kind === 'straight' ? (level.straightAxis ?? 'y') : 'y',
   )
   const gantry = useGantryLesson()
-  /** hub = rajah mesin, gate = semakan asas skru, train = latihan sebenar. */
-  const [stage, setStage] = useState<'hub' | 'gate' | 'train'>('hub')
-  /** Bahagian yang dipilih dari rajah, menunggu semakan asas skru. */
-  const [pending, setPending] = useState<LevelId | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -111,88 +104,6 @@ export const App = () => {
     ? adjustHint
     : 'Laraskan skru di bawah untuk menggerakkan beam ke tengah sasaran.'
 
-  const selectPart = useCallback((id: LevelId) => {
-    setPending(id)
-    setStage('gate')
-  }, [])
-
-  /** Lulus semakan — masuk latihan bahagian yang dipilih. */
-  const passGate = useCallback(() => {
-    if (!pending) return
-    setLevelId(pending)
-    setStage('train')
-  }, [pending, setLevelId])
-
-  /** Belum reti — masuk latihan asas skru dahulu, pilihan tadi disimpan. */
-  const learnBasics = useCallback(() => {
-    setLevelId('level1')
-    setStage('train')
-  }, [setLevelId])
-
-  /** Undur satu peringkat: latihan asas balik ke semakan, selain itu ke rajah. */
-  const leaveTraining = useCallback(() => {
-    if (levelId === 'level1' && pending) {
-      setStage('gate')
-      return
-    }
-    setPending(null)
-    setStage('hub')
-  }, [levelId, pending])
-
-  const backToHub = useCallback(() => {
-    setPending(null)
-    setStage('hub')
-  }, [])
-
-  if (stage === 'hub') {
-    return (
-      <div className="flex min-h-screen flex-col bg-canvas">
-        <AppHeader
-          onOpenHelp={openHelp}
-          onOpenSettings={openSettings}
-          helpButtonRef={helpButtonRef}
-          settingsButtonRef={settingsButtonRef}
-        />
-        <main className="flex-1">
-          <MachineHub onSelect={selectPart} />
-        </main>
-        <HelpDialog
-          open={helpOpen}
-          onClose={closeHelp}
-          returnFocusRef={helpButtonRef}
-          level={level}
-        />
-      </div>
-    )
-  }
-
-  if (stage === 'gate' && pending) {
-    return (
-      <div className="flex min-h-screen flex-col bg-canvas">
-        <AppHeader
-          onOpenHelp={openHelp}
-          onOpenSettings={openSettings}
-          helpButtonRef={helpButtonRef}
-          settingsButtonRef={settingsButtonRef}
-        />
-        <main className="flex-1">
-          <SkillGate
-            targetLabel={LEVELS[pending].shortName}
-            onPass={passGate}
-            onLearn={learnBasics}
-            onBack={backToHub}
-          />
-        </main>
-        <HelpDialog
-          open={helpOpen}
-          onClose={closeHelp}
-          returnFocusRef={helpButtonRef}
-          level={level}
-        />
-      </div>
-    )
-  }
-
   // Level 2-5 hanya untuk pengguna Akses Penuh.
   if (!canAccessLevel(levelId, paid)) {
     return (
@@ -203,16 +114,9 @@ export const App = () => {
           helpButtonRef={helpButtonRef}
           settingsButtonRef={settingsButtonRef}
         />
+        <LevelTabs levelId={levelId} onChange={setLevelId} />
         <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col gap-4 px-4 py-8">
           <LockedNotice what={`${level.tabLabel} dibuka`} />
-          <button
-            type="button"
-            onClick={leaveTraining}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-white hover:text-ink"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Kembali ke rajah
-          </button>
         </main>
       </div>
     )
@@ -226,21 +130,7 @@ export const App = () => {
         helpButtonRef={helpButtonRef}
         settingsButtonRef={settingsButtonRef}
       />
-      <div className="border-b border-line bg-surface">
-        <div className="mx-auto flex w-full max-w-[1500px] items-center gap-3 px-3 py-2 sm:px-6">
-          <button
-            type="button"
-            onClick={leaveTraining}
-            className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2 py-1.5 text-sm font-semibold text-muted transition-colors hover:bg-canvas hover:text-ink"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Rajah
-          </button>
-          <span className="truncate text-sm font-bold text-ink">
-            {level.tabLabel}
-          </span>
-        </div>
-      </div>
+      <LevelTabs levelId={levelId} onChange={setLevelId} />
       {levelId === 'level2' ? (
         <HeadVariantTabs variant={headVariant} onChange={setHeadVariant} />
       ) : null}
