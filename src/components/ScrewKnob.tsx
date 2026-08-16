@@ -2,11 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import type { Direction, ScrewConfig, ScrewId } from '../types'
 
-/** Jarak seret (piksel) untuk satu langkah pergerakan beam. */
-const STEP_PX = 22
-/** Tinggi bar yang timbul semasa knob disentuh. */
-const BAR_H = 168
-const BAR_W = 30
+/** Sudut putaran (darjah) untuk satu langkah pergerakan beam. */
+const STEP_DEG = 24
 
 interface ScrewKnobProps {
   screw: ScrewConfig
@@ -24,11 +21,14 @@ interface ScrewKnobProps {
 /**
  * Knob pelarasan skru.
  *
- * Sentuh knob dan bar akan timbul; seret jari ke atas atau ke bawah untuk
- * menggerakkan beam. Bar sengaja dibentuk paling lebar di tengah dan mengecil
- * ke kedua-dua hujung, meniru rasa memusing knob sebenar — bahagian tengah
- * ialah kedudukan neutral, dan makin jauh jari bergerak makin halus baki
- * pelarasan yang tinggal.
+ * Pegang kepala pin pada tuas dan pusingkan mengelilingi knob; kepala pin
+ * mengikut jari.
+ *
+ * Seretan diukur mengikut SUDUT terhadap pusat knob, bukan jarak menegak.
+ * Ukuran menegak nampak mudah tetapi ia bercanggah dengan gerakan membulat
+ * yang diajak oleh tuas: apabila jari melalui bahagian atas atau bawah
+ * lengkungan, gerakannya menjadi mendatar semata-mata, jarak menegak tidak
+ * berubah, dan knob tersangkut.
  */
 export const ScrewKnob = ({
   screw,
@@ -40,7 +40,6 @@ export const ScrewKnob = ({
   hintDelay = 0,
 }: ScrewKnobProps) => {
   const [dragging, setDragging] = useState(false)
-  const [offset, setOffset] = useState(0)
   /** Putaran terkumpul, tanpa had — skru sebenar tiada hujung. */
   const [angle, setAngle] = useState(0)
   /**
@@ -49,9 +48,17 @@ export const ScrewKnob = ({
    */
   const [hint, setHint] = useState(true)
   const idleTimer = useRef<number | undefined>(undefined)
-  const startY = useRef(0)
+  /** Pusat knob dalam koordinat tetingkap, dirakam semasa seretan bermula. */
+  const centre = useRef({ x: 0, y: 0 })
+  /** Sudut jari pada bingkai sebelumnya, untuk mengira penambahan. */
+  const lastPointer = useRef(0)
+  /** Jumlah putaran terkumpul sejak seretan bermula. */
+  const turned = useRef(0)
   const fired = useRef(0)
-  const lastDelta = useRef(0)
+
+  /** Sudut jari terhadap pusat knob, darjah, bertambah mengikut arah jam. */
+  const pointerAngle = (x: number, y: number) =>
+    (Math.atan2(y - centre.current.y, x - centre.current.x) * 180) / Math.PI
 
   const color = screw.colorVar
   const showHint = hint && !dragging && !disabled
@@ -75,44 +82,52 @@ export const ScrewKnob = ({
     if (disabled) return
     wake()
     event.currentTarget.setPointerCapture(event.pointerId)
-    startY.current = event.clientY
+    const box = event.currentTarget.getBoundingClientRect()
+    centre.current = {
+      x: box.left + box.width / 2,
+      y: box.top + box.height / 2,
+    }
+    lastPointer.current = pointerAngle(event.clientX, event.clientY)
+    turned.current = 0
     fired.current = 0
-    lastDelta.current = 0
-    setOffset(0)
     setDragging(true)
   }
 
   const move = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (!dragging || disabled) return
-    // Positif bermakna jari bergerak ke atas.
-    const delta = startY.current - event.clientY
-    setOffset(Math.max(-BAR_H / 2, Math.min(BAR_H / 2, delta)))
-    // Putaran ikut seretan mentah, jadi ia terus berpusing walaupun penanda
-    // bar sudah sampai hujung.
-    //
-    // Penambahan dikira DAHULU dan disimpan dalam pemboleh ubah tempatan.
-    // Kalau dibaca di dalam fungsi kemas kini React, ref sudah pun ditulis
-    // semula sebelum fungsi itu dijalankan, dan penambahan jadi sifar.
-    const turn = (delta - lastDelta.current) * 1.6
-    lastDelta.current = delta
-    setAngle((current) => current + turn)
 
-    const steps = Math.trunc(delta / STEP_PX)
+    const now = pointerAngle(event.clientX, event.clientY)
+    // Normalkan ke (-180, 180] supaya lintasan sempadan ±180° tidak
+    // ditafsirkan sebagai putaran hampir penuh ke arah bertentangan.
+    let step = now - lastPointer.current
+    while (step > 180) step -= 360
+    while (step <= -180) step += 360
+    lastPointer.current = now
+
+    // Abaikan lonjakan besar; ia hanya berlaku bila jari terlalu hampir pusat
+    // di mana sudut menjadi tidak stabil.
+    if (Math.abs(step) > 90) return
+
+    turned.current += step
+    setAngle((current) => current + step)
+
+    // Ikut jam menambah (plus), lawan jam menolak (minus) — sama seperti
+    // butang pusing yang digantikan.
+    const steps = Math.trunc(turned.current / STEP_DEG)
     while (fired.current < steps) {
-      onMove(screw.id, 'minus')
+      onMove(screw.id, 'plus')
       fired.current += 1
     }
     while (fired.current > steps) {
-      onMove(screw.id, 'plus')
+      onMove(screw.id, 'minus')
       fired.current -= 1
     }
-    onDragChange(screw.id, delta === 0 ? null : delta > 0 ? 'minus' : 'plus')
+    onDragChange(screw.id, step === 0 ? null : step > 0 ? 'plus' : 'minus')
   }
 
   const end = () => {
     if (!dragging) return
     setDragging(false)
-    setOffset(0)
     onDragChange(screw.id, null)
   }
 
@@ -121,48 +136,6 @@ export const ScrewKnob = ({
       className="relative flex items-center justify-center"
       style={{ '--screw-color': color } as CSSProperties}
     >
-      {/* Bar hanya timbul semasa jari menyentuh knob */}
-      {dragging ? (
-        <svg
-          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-          width={BAR_W}
-          height={BAR_H}
-          viewBox={`0 0 ${BAR_W} ${BAR_H}`}
-          aria-hidden="true"
-        >
-          {/* Bentuk gelendong: penuh di tengah, mengecil ke kedua-dua hujung */}
-          <path
-            d={`M ${BAR_W / 2} 2
-                C ${BAR_W - 3} ${BAR_H * 0.3}, ${BAR_W - 3} ${BAR_H * 0.7}, ${BAR_W / 2} ${BAR_H - 2}
-                C 3 ${BAR_H * 0.7}, 3 ${BAR_H * 0.3}, ${BAR_W / 2} 2 Z`}
-            fill={color}
-            opacity="0.16"
-            stroke={color}
-            strokeOpacity="0.5"
-            strokeWidth="1"
-          />
-          <line
-            x1={BAR_W / 2}
-            y1="8"
-            x2={BAR_W / 2}
-            y2={BAR_H - 8}
-            stroke={color}
-            strokeOpacity="0.35"
-            strokeWidth="1"
-            strokeDasharray="3 4"
-          />
-          {/* Penanda kedudukan jari */}
-          <circle
-            cx={BAR_W / 2}
-            cy={BAR_H / 2 - offset}
-            r="6"
-            fill={color}
-            stroke="#ffffff"
-            strokeWidth="2"
-          />
-        </svg>
-      ) : null}
-
       {/*
         Butang meliputi knob DAN tuas. Kawasan sentuh sengaja jauh lebih besar
         daripada knob yang kelihatan: memusing knob 44px dengan ibu jari mudah
@@ -198,6 +171,21 @@ export const ScrewKnob = ({
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </radialGradient>
           </defs>
+
+          {/* Landasan bulat semasa diseret — menunjukkan laluan yang perlu
+              diikut jari, menggantikan bar menegak yang tidak lagi sesuai
+              setelah seretan bertukar kepada gerakan membulat. */}
+          {dragging ? (
+            <circle
+              cx="40"
+              cy="40"
+              r="32.5"
+              fill="none"
+              stroke={color}
+              strokeWidth="7"
+              strokeOpacity="0.16"
+            />
+          ) : null}
 
           {/* Gelang denyut, hanya semasa melahu */}
           {showHint ? (
