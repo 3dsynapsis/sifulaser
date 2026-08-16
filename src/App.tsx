@@ -18,6 +18,7 @@ import { GantryJogPad } from './components/gantry/GantryJogPad'
 import { GantryMachineControls } from './components/gantry/GantryMachineControls'
 import { GantryCoordinateQuiz } from './components/gantry/GantryCoordinateQuiz'
 import { LockedNotice } from './components/LockedNotice'
+import type { Direction, ScrewId } from './types'
 import { canAccessLevel } from './lib/access'
 import { useAuth } from './lib/auth'
 import { useAlignmentSim } from './hooks/useAlignmentSim'
@@ -53,12 +54,22 @@ export const App = () => {
     level.kind === 'straight' ? (level.straightAxis ?? 'y') : 'y',
   )
   const gantry = useGantryLesson()
+  /** Skru yang sedang diseret dan arahnya, untuk anak panah panduan. */
+  const [drag, setDrag] = useState<{ screwId: ScrewId; direction: Direction } | null>(
+    null,
+  )
   const [helpOpen, setHelpOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const helpButtonRef = useRef<HTMLButtonElement | null>(null)
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null)
   const compact = !useMediaQuery('(min-width: 640px)', true)
   const { paid } = useAuth()
+
+  const handleDragChange = useCallback(
+    (screwId: ScrewId, direction: Direction | null) =>
+      setDrag(direction ? { screwId, direction } : null),
+    [],
+  )
 
   const openHelp = useCallback(() => setHelpOpen(true), [])
   const closeHelp = useCallback(() => setHelpOpen(false), [])
@@ -101,6 +112,13 @@ export const App = () => {
       : `Sesaran tembakan terakhir ${separationMm.toFixed(1)} milimeter daripada tanda rujukan.`
     : `Posisi beam X ${formatSigned(position.x)}, Y ${formatSigned(position.y)}.`
   const adjustHint = `Laras skru pada ${straight.variant.adjustMirror}, kemudian tembak semula sehingga kesan bertindih.`
+  const moveHint =
+    drag && centreLevel
+      ? {
+          ...centreLevel.screws[drag.screwId].movement[drag.direction],
+          color: centreLevel.screws[drag.screwId].colorVar,
+        }
+      : null
   const helperText = isStraight
     ? adjustHint
     : 'Laraskan skru di bawah untuk menggerakkan beam ke tengah sasaran.'
@@ -256,6 +274,7 @@ export const App = () => {
                     showTrail={showTrail}
                     alignmentStatus={alignmentStatus}
                     motionEnabled={motionEnabled}
+                    moveHint={moveHint}
                     className="mx-auto max-w-[min(70%,30svh)] flex-1 lg:max-w-[434px] xl:order-1 xl:max-w-[355px]"
                   />
                 )}
@@ -291,6 +310,7 @@ export const App = () => {
             activeDirection={activeDirection}
             compact={compact}
             onMove={moveBeam}
+            onDragChange={handleDragChange}
             disabled={isStraight && !straight.canAdjust}
             hint={
               isStraight

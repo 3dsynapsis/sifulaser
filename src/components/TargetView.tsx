@@ -8,12 +8,22 @@ const targetPoint = (v: Vec) => ({
 })
 const GRID_LINES = Array.from({ length: 19 }, (_, index) => (index + 1) * 5)
 
+/** Arah pergerakan semasa skru sedang diseret. */
+export interface MoveHint {
+  /** Vektor pergerakan skru, dalam koordinat sasaran (+Y ke atas). */
+  x: number
+  y: number
+  color: string
+}
+
 interface TargetViewProps {
   position: Vec
   history: TrailPoint[]
   showTrail: boolean
   alignmentStatus: AlignmentStatus
   motionEnabled: boolean
+  /** Anak panah panduan, hanya semasa jari menyentuh knob. */
+  moveHint?: MoveHint | null
   className?: string
 }
 
@@ -23,6 +33,7 @@ export const TargetView = ({
   showTrail,
   alignmentStatus,
   motionEnabled,
+  moveHint = null,
   className,
 }: TargetViewProps) => {
   const { sx, sy } = targetPoint(position)
@@ -30,6 +41,32 @@ export const TargetView = ({
   const beamColor = isAligned ? 'var(--color-aligned)' : 'var(--color-beam)'
   const glowId = isAligned ? 'beam-glow-aligned' : 'beam-glow-default'
   const trail = showTrail ? history : []
+
+  // Kepala anak panah dilukis sendiri; marker SVG dengan context-stroke tidak
+  // disokong secara konsisten merentas browser.
+  const arrow = (() => {
+    if (!moveHint) return null
+    // +Y sasaran ialah ke ATAS skrin, jadi komponen Y dibalikkan.
+    const dx = moveHint.x
+    const dy = -moveHint.y
+    const len = Math.hypot(dx, dy) || 1
+    const ux = dx / len
+    const uy = dy / len
+    const tip = [ux * 22, uy * 22]
+    const base = [ux * 15, uy * 15]
+    const px = -uy * 3.6
+    const py = ux * 3.6
+    return {
+      ux,
+      uy,
+      color: moveHint.color,
+      head: [
+        `${tip[0]},${tip[1]}`,
+        `${base[0] + px},${base[1] + py}`,
+        `${base[0] - px},${base[1] - py}`,
+      ].join(' '),
+    }
+  })()
   return (
     <div className={`w-full ${className ?? ''}`}>
       <div className="aspect-square w-full rounded-xl border border-line bg-white p-1.5 sm:p-2">
@@ -135,6 +172,24 @@ export const TargetView = ({
               )
             })}
           </g>
+          {arrow ? (
+            <g
+              className={`beam-node${motionEnabled ? '' : ' beam-node--static'}`}
+              style={{ transform: `translate(${sx}px, ${sy}px)` }}
+            >
+              <line
+                x1={arrow.ux * 6}
+                y1={arrow.uy * 6}
+                x2={arrow.ux * 15}
+                y2={arrow.uy * 15}
+                stroke={arrow.color}
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.95"
+              />
+              <polygon points={arrow.head} fill={arrow.color} opacity="0.95" />
+            </g>
+          ) : null}
           <g
             className={`beam-node${motionEnabled ? '' : ' beam-node--static'}`}
             style={{ transform: `translate(${sx}px, ${sy}px)` }}
