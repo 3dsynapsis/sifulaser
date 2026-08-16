@@ -4,6 +4,7 @@ import { App } from './App'
 import { HomePage } from './pages/HomePage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
+import { TroubleshootingPage } from './pages/TroubleshootingPage'
 import { AboutPage } from './pages/AboutPage'
 import { PlansPage } from './pages/PlansPage'
 import { AdminPage } from './pages/AdminPage'
@@ -52,6 +53,29 @@ const MaintenanceRoute = ({ guide }: { guide: MaintenanceGuideData }) => {
   return <MaintenancePage guide={guide} />
 }
 
+/** SOP Troubleshooting juga kandungan berbayar. */
+const TroubleshootingRoute = () => {
+  const { paid, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <CenteredShell>
+        <div className="card h-40 animate-pulse" />
+      </CenteredShell>
+    )
+  }
+
+  if (!canAccessMaintenance(paid)) {
+    return (
+      <CenteredShell>
+        <LockedNotice what="SOP Troubleshooting dibuka" />
+      </CenteredShell>
+    )
+  }
+
+  return <TroubleshootingPage />
+}
+
 const Root = () => {
   const route = useHashRoute()
   switch (route) {
@@ -59,6 +83,8 @@ const Root = () => {
       return <App />
     case 'maintenance':
       return <MaintenanceChooserPage />
+    case 'troubleshoot':
+      return <TroubleshootingRoute />
     // Kedai kini sebahagian daripada About Me; pautan lama dikekalkan.
     case 'kedai':
       return <AboutPage />

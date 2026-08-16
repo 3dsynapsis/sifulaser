@@ -5,6 +5,7 @@ import {
   Lightbulb,
   LockKeyhole,
   Sparkles,
+  Stethoscope,
   Tag,
   TrendingUp,
   UserRound,
@@ -51,6 +52,18 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 3,
+    title: 'Troubleshooting',
+    description:
+      'Carta SOP untuk kesan punca bila mesin laser tak berfungsi.',
+    href: '#/troubleshoot',
+    color: '#c8393c',
+    softBg: '#fdecec',
+    border: '#f4cfd0',
+    premium: true,
+    Icon: Stethoscope,
+  },
+  {
+    number: 4,
     title: 'Pakej & Harga',
     description:
       'Akses Penuh dari RM200, atau kelas bersemuka bersama sifu. Lihat perbandingan pakej.',
@@ -61,7 +74,7 @@ const CARDS: HomeCard[] = [
     Icon: Tag,
   },
   {
-    number: 4,
+    number: 5,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
