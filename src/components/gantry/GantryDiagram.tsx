@@ -26,7 +26,13 @@ interface GantryDiagramProps {
   /** Segmen beam yang sedang bercahaya semasa Test Laser. */
   beamPhase?: 'idle' | 'tube' | 'toM1' | 'm1m2' | 'm2head' | 'fire'
   /** Kesan tembakan yang ditinggalkan, berserta koordinatnya. */
-  marks?: { x: number; y: number; id: number }[]
+  marks?: {
+    x: number
+    y: number
+    id: number
+    index: number
+    solved: boolean
+  }[]
 }
 
 export const GantryDiagram = ({
@@ -273,8 +279,11 @@ export const GantryDiagram = ({
                 r="1.1"
                 fill="var(--color-beam)"
               />
-              {/* Rapat di atas titik dan bertitik tengah padanya. Sepuhan
-                  berjejari 2.6, jadi -4.2 cukup untuk tidak bertindih. */}
+              {/* Koordinat sentiasa dipapar — latihan ini menguji kefahaman
+                  sistem X-Y, bukan ingatan. Nombor titik di hadapan supaya
+                  pelajar tahu baris mana pada borang yang sepadan. Rapat di
+                  atas titik dan bertitik tengah padanya; sepuhan berjejari
+                  2.6 jadi -4.2 tidak bertindih. */}
               <text
                 x={toSvgX(mark.x)}
                 y={toSvgY(mark.y) - 4.2}
@@ -282,8 +291,11 @@ export const GantryDiagram = ({
                 fill="var(--color-beam)"
                 fontSize={smallLabelSize}
                 fontWeight="700"
+                stroke="#ffffff"
+                strokeWidth="0.9"
+                style={{ paintOrder: 'stroke' }}
               >
-                X({mark.x}), Y({mark.y})
+                {mark.index} · X({mark.x}), Y({mark.y})
               </text>
             </g>
           ))}

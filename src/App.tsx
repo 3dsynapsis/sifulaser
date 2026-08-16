@@ -16,7 +16,7 @@ import { StraightProcedurePanel } from './components/StraightProcedurePanel'
 import { GantryDiagram } from './components/gantry/GantryDiagram'
 import { GantryJogPad } from './components/gantry/GantryJogPad'
 import { GantryMachineControls } from './components/gantry/GantryMachineControls'
-import { GantryLessonPanel } from './components/gantry/GantryLessonPanel'
+import { GantryCoordinateQuiz } from './components/gantry/GantryCoordinateQuiz'
 import { LockedNotice } from './components/LockedNotice'
 import { canAccessLevel } from './lib/access'
 import { useAuth } from './lib/auth'
@@ -264,14 +264,10 @@ export const App = () => {
           </section>
         </div>
         {isGantry ? (
-          <GantryLessonPanel
-            steps={gantry.steps}
-            stepIndex={gantry.stepIndex}
-            step={gantry.step}
-            finished={gantry.finished}
-            successMessage={level.successMessage}
-            onAdvance={gantry.advance}
-            onRestart={gantry.restart}
+          <GantryCoordinateQuiz
+            marks={gantry.marks}
+            onCheck={gantry.checkAnswer}
+            onReset={gantry.resetMarks}
             className="lg:col-start-2 lg:row-start-2 lg:max-w-[380px] lg:self-start"
           />
         ) : null}

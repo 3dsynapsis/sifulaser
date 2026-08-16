@@ -19,8 +19,15 @@ export type BeamPhase =
   | 'm2head'
   | 'fire'
 
+/** Maksimum titik dalam satu pusingan latihan. */
+export const MAX_MARKS = 5
+
 export interface PulseMark extends Vec {
   id: number
+  /** Nombor titik yang dipapar pada rajah, 1 hingga MAX_MARKS. */
+  index: number
+  /** true selepas pelajar mengisi koordinat dengan betul. */
+  solved: boolean
 }
 
 export interface GantryStep {
@@ -119,10 +126,19 @@ export const useGantryLesson = () => {
 
     const leaveMark = () => {
       markId.current += 1
-      setMarks((prev) => [
-        ...prev.slice(-5),
-        { ...position, id: markId.current },
-      ])
+      setMarks((prev) => {
+        // Tembakan melebihi had memulakan pusingan baharu secara automatik.
+        const base = prev.length >= MAX_MARKS ? [] : prev
+        return [
+          ...base,
+          {
+            ...position,
+            id: markId.current,
+            index: base.length + 1,
+            solved: false,
+          },
+        ]
+      })
       setBeamPhase('idle')
       setBusy(false)
     }
@@ -139,6 +155,35 @@ export const useGantryLesson = () => {
     later(() => setBeamPhase('fire'), 1320)
     later(leaveMark, 1880)
   }, [busy, position, reduceMotion, later])
+
+  /**
+   * Semak koordinat yang diisi pelajar untuk satu titik.
+   * Mengembalikan true jika kedua-dua nilai tepat.
+   */
+  const checkAnswer = useCallback(
+    (id: number, guessX: number, guessY: number): boolean => {
+      const mark = marks.find((item) => item.id === id)
+      if (!mark) return false
+      const correct = mark.x === guessX && mark.y === guessY
+      if (correct) {
+        setMarks((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, solved: true } : item,
+          ),
+        )
+      }
+      return correct
+    },
+    [marks],
+  )
+
+  /** Kosongkan semua titik dan mulakan pusingan baharu. */
+  const resetMarks = useCallback(() => {
+    clearTimers()
+    setMarks([])
+    setBeamPhase('idle')
+    setBusy(false)
+  }, [clearTimers])
 
   const advance = useCallback(() => {
     setStepIndex((index) => Math.min(index + 1, GANTRY_STEPS.length))
@@ -167,6 +212,8 @@ export const useGantryLesson = () => {
     jog,
     goOrigin,
     testLaser,
+    checkAnswer,
+    resetMarks,
     advance,
     restart,
   }
