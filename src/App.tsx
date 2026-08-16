@@ -157,7 +157,6 @@ export const App = () => {
               busy={gantry.busy}
               onOrigin={gantry.goOrigin}
               onTestLaser={gantry.testLaser}
-              onRun={gantry.run}
             />
             <p className="flex items-start gap-2 rounded-xl border border-[#cfe0f5] bg-[#eef5fd] p-3 text-xs text-[#2b4d73] sm:text-sm">
               <Info
@@ -202,7 +201,6 @@ export const App = () => {
                 motionEnabled={motionEnabled}
                 beamPhase={gantry.beamPhase}
                 marks={gantry.marks}
-                cutPath={gantry.cutPath}
                 className="mx-auto max-w-[560px]"
               />
             ) : (

@@ -1,10 +1,9 @@
-import { Crosshair, Play, Zap } from 'lucide-react'
+import { Crosshair, Zap } from 'lucide-react'
 
 interface GantryMachineControlsProps {
   busy: boolean
   onOrigin: () => void
   onTestLaser: () => void
-  onRun: () => void
   className?: string
 }
 
@@ -15,14 +14,13 @@ const buttonClass = [
 ].join(' ')
 
 /**
- * Kawalan yang meniru panel mesin sebenar: pulang ke titik asal, acah
- * tembakan laser, dan jalankan satu kerja potong contoh.
+ * Kawalan yang meniru panel mesin sebenar: pulang ke titik asal, dan acah
+ * satu tembakan laser yang meninggalkan kesan berserta koordinatnya.
  */
 export const GantryMachineControls = ({
   busy,
   onOrigin,
   onTestLaser,
-  onRun,
   className,
 }: GantryMachineControlsProps) => (
   <div className={`flex flex-col gap-2 ${className ?? ''}`}>
@@ -46,20 +44,11 @@ export const GantryMachineControls = ({
         <Zap className="h-4 w-4" aria-hidden="true" />
         Test Laser
       </button>
-      <button
-        type="button"
-        onClick={onRun}
-        disabled={busy}
-        className={`${buttonClass} border-[#c9ecd6] bg-[#edf9f1] text-[#1f6b33] hover:bg-[#dff3e7]`}
-      >
-        <Play className="h-4 w-4" aria-hidden="true" />
-        Run
-      </button>
     </div>
     <p className="text-center text-[11px] text-muted" aria-live="polite">
       {busy
-        ? 'Mesin sedang berjalan…'
-        : 'Origin pulang ke 0,0 · Test Laser tembak sekali · Run potong segi empat'}
+        ? 'Mesin sedang menembak…'
+        : 'Origin pulang ke 0,0 · Test Laser tinggalkan kesan berserta koordinat'}
     </p>
   </div>
 )

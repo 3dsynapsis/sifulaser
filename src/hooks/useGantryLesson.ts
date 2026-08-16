@@ -7,15 +7,6 @@ import type { Vec } from '../types'
 export const GANTRY_JOG_STEP = 10
 export const GANTRY_CENTRE_TARGET: Vec = { x: 60, y: 40 }
 
-/** Segi empat contoh di tengah katil, digunakan oleh butang Run. */
-export const CUT_RECT: Vec[] = [
-  { x: 40, y: 25 },
-  { x: 90, y: 25 },
-  { x: 90, y: 65 },
-  { x: 40, y: 65 },
-  { x: 40, y: 25 },
-]
-
 /** Peringkat kilauan beam semasa Test Laser. */
 export type BeamPhase = 'idle' | 'tube' | 'm1m2' | 'm2head' | 'fire'
 
@@ -59,17 +50,11 @@ export const GANTRY_STEPS: GantryStep[] = [
   },
 ]
 
-/** Jarak setiap bingkai animasi, dalam unit mesin. */
-const TRAVEL_STEP = 2.5
-const FRAME_MS = 24
-
 export const useGantryLesson = () => {
   const [position, setPosition] = useState<Vec>({ x: 0, y: 0 })
   const [stepIndex, setStepIndex] = useState(0)
   const [beamPhase, setBeamPhase] = useState<BeamPhase>('idle')
   const [marks, setMarks] = useState<PulseMark[]>([])
-  /** Titik yang sudah dipotong dalam larian semasa. */
-  const [cutPath, setCutPath] = useState<Vec[]>([])
   const [busy, setBusy] = useState(false)
 
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -145,78 +130,6 @@ export const useGantryLesson = () => {
     later(leaveMark, 1650)
   }, [busy, position, reduceMotion, later])
 
-  /** Gerakkan head mengikut senarai titik, menjejak laluan potongan. */
-  const travel = useCallback(
-    (route: Vec[], onDone: () => void) => {
-      let leg = 0
-      let from = route[0]
-
-      const walk = () => {
-        if (leg >= route.length - 1) {
-          onDone()
-          return
-        }
-        const to = route[leg + 1]
-        const dx = to.x - from.x
-        const dy = to.y - from.y
-        const span = Math.hypot(dx, dy)
-        const frames = Math.max(1, Math.ceil(span / TRAVEL_STEP))
-        let frame = 0
-
-        const tick = () => {
-          frame += 1
-          const ratio = frame / frames
-          const next = {
-            x: Math.round((from.x + dx * ratio) * 10) / 10,
-            y: Math.round((from.y + dy * ratio) * 10) / 10,
-          }
-          setPosition(next)
-          setCutPath((prev) => [...prev, next])
-          if (frame < frames) {
-            later(tick, FRAME_MS)
-          } else {
-            from = to
-            leg += 1
-            later(walk, FRAME_MS)
-          }
-        }
-        later(tick, FRAME_MS)
-      }
-
-      walk()
-    },
-    [later],
-  )
-
-  /** Simulasi memotong segi empat di tengah katil. */
-  const run = useCallback(() => {
-    if (busy) return
-    setBusy(true)
-    setCutPath([])
-
-    if (reduceMotion) {
-      setCutPath(CUT_RECT)
-      setPosition(CUT_RECT[0])
-      setBusy(false)
-      return
-    }
-
-    // Gerak laju ke sudut mula tanpa memotong, kemudian potong keliling.
-    setPosition(CUT_RECT[0])
-    later(() => {
-      setBeamPhase('fire')
-      travel(CUT_RECT, () => {
-        setBeamPhase('idle')
-        // Pulang ke home seperti mesin sebenar — sekali gus membolehkan
-        // hasil potongan dilihat penuh tanpa dilindung bar gantry.
-        later(() => {
-          setPosition({ x: 0, y: 0 })
-          setBusy(false)
-        }, 320)
-      })
-    }, 260)
-  }, [busy, reduceMotion, later, travel])
-
   const advance = useCallback(() => {
     setStepIndex((index) => Math.min(index + 1, GANTRY_STEPS.length))
   }, [])
@@ -227,7 +140,6 @@ export const useGantryLesson = () => {
     setStepIndex(0)
     setBeamPhase('idle')
     setMarks([])
-    setCutPath([])
     setBusy(false)
   }, [clearTimers])
 
@@ -241,12 +153,10 @@ export const useGantryLesson = () => {
     targetPoint: step?.id === 'centre' ? GANTRY_CENTRE_TARGET : null,
     beamPhase,
     marks,
-    cutPath,
     busy,
     jog,
     goOrigin,
     testLaser,
-    run,
     advance,
     restart,
   }

@@ -27,8 +27,6 @@ interface GantryDiagramProps {
   beamPhase?: 'idle' | 'tube' | 'm1m2' | 'm2head' | 'fire'
   /** Kesan tembakan yang ditinggalkan, berserta koordinatnya. */
   marks?: { x: number; y: number; id: number }[]
-  /** Laluan yang sudah dipotong dalam larian semasa. */
-  cutPath?: Vec[]
 }
 
 export const GantryDiagram = ({
@@ -42,7 +40,6 @@ export const GantryDiagram = ({
   className,
   beamPhase = 'idle',
   marks = [],
-  cutPath = [],
 }: GantryDiagramProps) => {
   const headX = toSvgX(x)
   const gantryY = toSvgY(y)
@@ -244,21 +241,6 @@ export const GantryDiagram = ({
               />
             ) : null}
           </g>
-
-          {/* Laluan yang sudah dipotong dalam larian semasa */}
-          {cutPath.length > 1 ? (
-            <polyline
-              points={cutPath
-                .map((p) => `${toSvgX(p.x)},${toSvgY(p.y)}`)
-                .join(' ')}
-              fill="none"
-              stroke="var(--color-beam)"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.75"
-            />
-          ) : null}
 
           {/* Kesan tembakan Test Laser, berserta koordinat */}
           {marks.map((mark) => (
