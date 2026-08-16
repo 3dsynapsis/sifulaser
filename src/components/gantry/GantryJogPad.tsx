@@ -3,11 +3,11 @@ import { GANTRY_X_MAX, GANTRY_Y_MAX } from './GantryDiagram'
 import type { Vec } from '../../types'
 
 const jogButtonClass = [
-  'inline-flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-surface text-screw-2 shadow-sm',
+  'inline-flex items-center justify-center rounded-xl border border-line bg-surface text-screw-2 shadow-sm',
+  'h-11 w-11 sm:h-12 sm:w-12',
   'transition-[background-color,scale,border-color,opacity]',
   'hover:bg-[#eef5fd] active:scale-95',
   'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface disabled:active:scale-100',
-  'sm:h-13 sm:w-13',
 ].join(' ')
 
 interface GantryJogPadProps {
@@ -17,8 +17,8 @@ interface GantryJogPadProps {
 }
 
 export const GantryJogPad = ({ position, onJog, className }: GantryJogPadProps) => (
-  <div className={`flex flex-col items-center gap-3 ${className ?? ''}`}>
-    <div className="grid grid-cols-3 gap-1.5">
+  <div className={`flex flex-col items-center gap-2 ${className ?? ''}`}>
+    <div className="grid grid-cols-3 gap-1">
       <span />
       <button
         type="button"
@@ -41,7 +41,7 @@ export const GantryJogPad = ({ position, onJog, className }: GantryJogPadProps) 
       </button>
       <span
         aria-hidden="true"
-        className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-canvas text-[10px] font-bold text-muted sm:h-13 sm:w-13"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-canvas text-[10px] font-bold text-muted sm:h-12 sm:w-12"
       >
         JOG
       </span>
@@ -67,10 +67,11 @@ export const GantryJogPad = ({ position, onJog, className }: GantryJogPadProps) 
       <span />
     </div>
     <p
-      className="rounded-xl border border-line bg-canvas/60 px-4 py-2 font-mono text-base font-semibold text-ink tabular-nums"
+      className="flex w-full flex-col items-center rounded-xl border border-line bg-canvas/60 px-2 py-1.5 font-mono text-sm font-bold text-ink tabular-nums sm:text-base"
       aria-live="polite"
     >
-      X = {position.x} · Y = {position.y}
+      <span className="whitespace-nowrap">X = {position.x}</span>
+      <span className="whitespace-nowrap">Y = {position.y}</span>
     </p>
   </div>
 )

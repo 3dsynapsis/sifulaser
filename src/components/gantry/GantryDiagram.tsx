@@ -258,7 +258,7 @@ export const GantryDiagram = ({
           </g>
 
           {/* Kesan tembakan Test Laser, berserta koordinat */}
-          {marks.map((mark) => (
+          {marks.map((mark, index) => (
             <g key={mark.id}>
               <circle
                 cx={toSvgX(mark.x)}
@@ -272,9 +272,13 @@ export const GantryDiagram = ({
                 cy={toSvgY(mark.y)}
                 r="1.1"
                 fill="var(--color-beam)"
+                opacity={index === marks.length - 1 ? 1 : 0.55}
               />
-              {/* Rapat di atas titik dan bertitik tengah padanya. Sepuhan
-                  berjejari 2.6, jadi -4.2 cukup untuk tidak bertindih. */}
+              {/* Hanya tembakan terbaharu dilabel. Dua label berdekatan akan
+                  bertindih dan jadi tidak terbaca; titik lama kekal sebagai
+                  rujukan kedudukan. Rapat di atas titik dan bertitik tengah
+                  padanya — sepuhan berjejari 2.6, jadi -4.2 tidak bertindih. */}
+              {index === marks.length - 1 ? (
               <text
                 x={toSvgX(mark.x)}
                 y={toSvgY(mark.y) - 4.2}
@@ -285,6 +289,7 @@ export const GantryDiagram = ({
               >
                 X({mark.x}), Y({mark.y})
               </text>
+              ) : null}
             </g>
           ))}
 
