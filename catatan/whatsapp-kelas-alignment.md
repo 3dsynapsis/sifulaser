@@ -6,9 +6,9 @@ post WhatsApp. Satu per satu, bukan broadcast — lebih tinggi kadar jawapan.
 Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 
 - Pakej **Kelas + Akses Penuh — RM275** (harga asal RM700)
-- Kelas bersemuka **4 jam**, 9:30 pagi – 1:30 tengah hari
+- **Sabtu, 12 September 2026**, 9:30 pagi – 1:30 tengah hari (4 jam)
+- Lokasi: **Kuala Lumpur** (alamat penuh dihantar kepada peserta yang dah bayar)
 - **Terhad 10 peserta** sahaja
-- Tarikh & lokasi **belum diumumkan** — jangan janji tarikh
 - Termasuk akses digital penuh **2 tahun** (Simulator Level 1–5, panduan weekly
   & yearly maintenance, setting chiller CW5000, setup WiFi board Trocen)
 - Pakej digital sahaja (tanpa kelas) — **RM200**
@@ -23,8 +23,12 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 > Saya *[Nama Staff]* dari SifuLaser. *[Nama]* ada tulis nama dalam senarai
 > Kelas Alignment Mesin Laser — saya hubungi untuk tempahkan tempat.
 >
+> *Tarikh: Sabtu, 12 September 2026*
+> *Masa: 9:30 pagi – 1:30 tengah hari (4 jam)*
+> *Lokasi: Kuala Lumpur*
+>
 > *Apa yang akan belajar dalam kelas:*
-> • Latihan bersemuka 4 jam terus dengan sifu (9:30 pagi – 1:30 tgh)
+> • Latihan bersemuka terus dengan sifu, bukan video
 > • Tunjuk cara depan mata — alignment cermin, head laser, gerakan gantry,
 >   prosedur beam lurus paksi X & Y
 > • Soal jawab tanpa had — boleh bawa masalah mesin sendiri
@@ -45,10 +49,10 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 > 4. Bayar ikut QR DuitNow / nombor akaun yang dipaparkan
 > 5. Hantar resit ke WhatsApp ini — saya buka akses terus
 >
-> Tempat diberi ikut siapa bayar dahulu. Tarikh penuh & lokasi saya maklumkan
-> sebaik kumpulan cukup.
+> Tempat diberi ikut siapa bayar dahulu — alamat penuh saya hantar kepada
+> peserta yang dah sahkan bayaran.
 >
-> Boleh saya tempahkan satu tempat? 🙏
+> Boleh saya tempahkan satu tempat untuk 12 September ni? 🙏
 
 ## 2. Versi ringkas (untuk yang jenis balas pendek)
 
@@ -56,6 +60,8 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 >
 > Pasal Kelas Alignment Mesin Laser yang *[Nama]* daftar minat hari tu —
 > tempat dah boleh ditempah.
+>
+> *Sabtu, 12 September 2026* · 9:30 pagi – 1:30 tgh · *Kuala Lumpur*
 >
 > Kelas bersemuka 4 jam dengan sifu + Akses Penuh laman SifuLaser 2 tahun
 > (simulator Level 1–5 & semua panduan maintenance).
@@ -69,8 +75,8 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 
 ## 3. Follow-up (hantar 2–3 hari lepas mesej pertama, kalau senyap)
 
-> Salam *[Nama]* 🙏 Sekadar ingatkan pasal Kelas Alignment tu — tinggal
-> *[X]* tempat lagi dari 10.
+> Salam *[Nama]* 🙏 Sekadar ingatkan pasal Kelas Alignment *12 September
+> (Sabtu) di Kuala Lumpur* tu — tinggal *[X]* tempat lagi dari 10.
 >
 > Kalau berminat, daftar di https://sifulaser.com (log masuk Google →
 > Pakej & Harga → Kelas + Akses, RM275).
@@ -89,10 +95,14 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 ## 5. Jawapan soalan lazim
 
 **"Bila tarikh kelas? Kat mana?"**
-> Tarikh & lokasi kami tetapkan sebaik kumpulan cukup 10 orang — supaya boleh
-> pilih tempat yang paling sesuai untuk majoriti peserta. Bila dah bayar,
-> *[Nama]* masuk senarai peserta dan akan dapat maklumat penuh dahulu.
-> Sementara tunggu, akses digital 2 tahun boleh terus guna.
+> *Sabtu, 12 September 2026*, 9:30 pagi hingga 1:30 tengah hari, di
+> *Kuala Lumpur*. Alamat penuh dan lokasi parking saya hantar dalam WhatsApp
+> ini sebaik bayaran disahkan.
+
+**"Tarikh tu saya tak boleh. Ada batch lain?"**
+> Buat masa ni batch 12 September sahaja. Saya boleh simpan nama *[Nama]*
+> untuk batch akan datang. Kalau nak mula belajar dahulu, pakej *Akses Penuh
+> RM200* (simulator + semua panduan, 2 tahun) boleh guna serta-merta.
 
 **"Kenapa RM275? Post cakap RM200–RM300."**
 > RM275 tu dalam julat yang kami umumkan, dan sudah termasuk Akses Penuh
@@ -104,7 +114,8 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 > kelas), kemudian sertai kelas batch akan datang.
 
 **"Saya jauh / luar negara, tak boleh datang."**
-> Faham. Untuk *[Nama]*, pakej *Akses Penuh RM200* mungkin lebih sesuai —
+> Kelas di Kuala Lumpur, 12 September. Kalau perjalanan tu terlalu jauh,
+> pakej *Akses Penuh RM200* mungkin lebih sesuai untuk *[Nama]* —
 > simulator Level 1–5 dan semua panduan maintenance, akses 2 tahun, boleh
 > belajar dari rumah. Kalau nanti ada kelas dekat dengan *[Nama]*,
 > saya maklumkan.
@@ -130,10 +141,12 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 > https://sifulaser.com dan mula guna simulator Level 1 hingga 5 serta semua
 > panduan maintenance.
 >
-> Nama *[Nama]* juga dah masuk senarai peserta kelas bersemuka. Tarikh &
-> lokasi saya maklumkan dalam WhatsApp ini sebaik ditetapkan.
+> Nama *[Nama]* juga dah masuk senarai peserta kelas:
+> *Sabtu, 12 September 2026, 9:30 pagi – 1:30 tgh, Kuala Lumpur.*
+> Alamat penuh & lokasi parking saya hantar dalam WhatsApp ini sebelum tarikh
+> kelas.
 >
-> Jumpa dalam kelas nanti 🔧
+> Jumpa 12 September nanti 🔧
 
 ---
 
@@ -142,8 +155,11 @@ Fakta rasmi (ikut laman sifulaser.com, jangan ubah sendiri):
 1. Hantar **satu-satu**, bukan broadcast. Guna nama sebenar dalam mesej.
 2. Sebut lokasi mereka kalau ada dalam senarai (contoh: "saya nampak
    *[Nama]* di Penang") — buktikan kita baca, bukan copy-paste.
-3. **Jangan janji tarikh atau lokasi** selagi belum diumumkan.
+3. Sebut tarikh **12 September (Sabtu)** awal-awal dalam perbualan — peserta
+   luar KL perlu tahu untuk rancang perjalanan.
 4. Hanya **10 tempat**. Rekod siapa dah bayar; bila cukup 10, tukar ayat
    kepada senarai menunggu batch kedua.
 5. Maksimum **2 kali follow-up**. Lepas tu berhenti.
 6. Semua resit disahkan melalui WhatsApp pembayaran +60 19-364 4423.
+7. Hantar peringatan + alamat penuh kepada semua peserta yang dah bayar,
+   seminggu sebelum 12 September.
