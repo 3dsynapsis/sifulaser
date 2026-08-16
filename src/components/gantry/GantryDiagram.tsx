@@ -60,6 +60,38 @@ export const GantryDiagram = ({
     m2head: after('m2head', 'fire'),
   }
   const firing = beamPhase === 'fire'
+
+  /**
+   * Kedudukan-Y sebenar bagi setiap label koordinat.
+   *
+   * Mengira offset relatif kepada titik masing-masing tidak memadai — dua
+   * titik pada Y berbeza boleh mendarat pada baris yang sama. Jadi setiap
+   * label diletak pada slot pertama yang benar-benar kosong, disemak
+   * terhadap label yang sudah ditempatkan.
+   */
+  const labelSlots = [-4.2, 7.4, -9.6, 12.8, -15, 18.2, -20.4, 23.6]
+  const labelY = new Map<number, number>()
+  {
+    const placed: { x: number; y: number }[] = []
+    marks.forEach((mark) => {
+      const cx = toSvgX(mark.x)
+      let chosen = toSvgY(mark.y) + labelSlots[0]
+      for (const slot of labelSlots) {
+        const candidate = toSvgY(mark.y) + slot
+        const clash = placed.some(
+          (item) =>
+            Math.abs(item.x - cx) < 34 && Math.abs(item.y - candidate) < 5.5,
+        )
+        if (!clash) {
+          chosen = candidate
+          break
+        }
+      }
+      placed.push({ x: cx, y: chosen })
+      labelY.set(mark.id, chosen)
+    })
+  }
+
   const labelSize = compact ? 5.2 : 4
   const smallLabelSize = compact ? 4.6 : 3.6
   return (
@@ -282,11 +314,11 @@ export const GantryDiagram = ({
               {/* Koordinat sentiasa dipapar — latihan ini menguji kefahaman
                   sistem X-Y, bukan ingatan. Nombor titik di hadapan supaya
                   pelajar tahu baris mana pada borang yang sepadan. Rapat di
-                  atas titik dan bertitik tengah padanya; sepuhan berjejari
-                  2.6 jadi -4.2 tidak bertindih. */}
+                  atas titik dan bertitik tengah padanya; diselang-selikan ke
+                  bawah bila ada titik lain berdekatan. */}
               <text
                 x={toSvgX(mark.x)}
-                y={toSvgY(mark.y) - 4.2}
+                y={labelY.get(mark.id) ?? toSvgY(mark.y) - 4.2}
                 textAnchor="middle"
                 fill="var(--color-beam)"
                 fontSize={smallLabelSize}
