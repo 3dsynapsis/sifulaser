@@ -258,15 +258,17 @@ export const GantryDiagram = ({
                 r="1.1"
                 fill="var(--color-beam)"
               />
+              {/* Rapat di atas titik dan bertitik tengah padanya. Sepuhan
+                  berjejari 2.6, jadi -4.2 cukup untuk tidak bertindih. */}
               <text
-                x={toSvgX(mark.x) + 5.5}
-                y={toSvgY(mark.y) - 5.5}
-                textAnchor="start"
+                x={toSvgX(mark.x)}
+                y={toSvgY(mark.y) - 4.2}
+                textAnchor="middle"
                 fill="var(--color-beam)"
                 fontSize={smallLabelSize}
                 fontWeight="700"
               >
-                {mark.x},{mark.y}
+                X({mark.x}), Y({mark.y})
               </text>
             </g>
           ))}
