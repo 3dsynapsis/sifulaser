@@ -8,8 +8,8 @@ interface GantryMachineControlsProps {
 }
 
 const buttonClass = [
-  'inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border px-2 py-2',
-  'text-xs font-semibold transition-[background-color,scale] active:scale-[0.98] sm:text-sm',
+  'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5',
+  'text-sm font-semibold transition-[background-color,scale] active:scale-[0.98]',
   'disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100',
 ].join(' ')
 
@@ -23,7 +23,7 @@ export const GantryMachineControls = ({
   onTestLaser,
   className,
 }: GantryMachineControlsProps) => (
-  <div className={`flex w-full flex-col gap-2 ${className ?? ''}`}>
+  <div className={`flex flex-col gap-2 ${className ?? ''}`}>
     <div className="flex flex-col gap-2">
       <button
         type="button"
@@ -33,7 +33,7 @@ export const GantryMachineControls = ({
       >
         <Crosshair className="h-4 w-4 text-screw-2" aria-hidden="true" />
         Origin
-        <span className="font-mono text-[10px] text-muted">0,0</span>
+        <span className="font-mono text-xs text-muted">0,0</span>
       </button>
       <button
         type="button"
@@ -46,7 +46,10 @@ export const GantryMachineControls = ({
       </button>
     </div>
     {busy ? (
-      <p className="text-center text-[11px] font-semibold text-muted" aria-live="polite">
+      <p
+        className="text-center text-[11px] font-semibold text-muted"
+        aria-live="polite"
+      >
         Sedang menembak…
       </p>
     ) : null}

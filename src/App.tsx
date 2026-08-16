@@ -136,7 +136,39 @@ export const App = () => {
         <HeadVariantTabs variant={headVariant} onChange={setHeadVariant} />
       ) : null}
       <main className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-4 px-3 py-4 sm:px-6 sm:py-6 lg:grid lg:grid-cols-[minmax(0,40fr)_minmax(0,60fr)] lg:content-start">
-        {isGantry ? null : (
+        {isGantry ? (
+          <section
+            className="card flex flex-col gap-3 p-4 sm:p-5 lg:col-start-1 lg:row-start-1"
+            aria-labelledby="gantry-control-heading"
+          >
+            <div>
+              <h2
+                id="gantry-control-heading"
+                className="text-base font-bold text-ink sm:text-lg"
+              >
+                Kawalan Gantry
+              </h2>
+              <p className="mt-0.5 text-xs text-muted sm:text-sm">
+                Tekan butang anak panah untuk menggerakkan gantry dan head.
+              </p>
+            </div>
+            {/* Pad JOG di kiri, butang mesin bertindan di kanan — kad ini
+                kekal pendek supaya rajah di bawahnya terus kelihatan. */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <GantryJogPad
+                position={gantry.position}
+                onJog={gantry.jog}
+                className="shrink-0"
+              />
+              <GantryMachineControls
+                busy={gantry.busy}
+                onOrigin={gantry.goOrigin}
+                onTestLaser={gantry.testLaser}
+                className="min-w-0 flex-1"
+              />
+            </div>
+          </section>
+        ) : (
           centreLevel && (
             <MirrorPanel
               key={`ref-${levelId}-${headVariant}`}
@@ -162,32 +194,16 @@ export const App = () => {
               {level.targetHeading}
             </h2>
             {isGantry ? (
-              /* Rajah di kiri, kawalan di kanan — supaya pergerakan head
-                 kelihatan pada masa yang sama butang ditekan, tanpa skrol. */
-              <div className="flex items-start gap-2 sm:gap-4">
-                <GantryDiagram
-                  x={gantry.position.x}
-                  y={gantry.position.y}
-                  highlightM1M2={gantry.highlightM1M2}
-                  targetPoint={gantry.targetPoint}
-                  motionEnabled={motionEnabled}
-                  beamPhase={gantry.beamPhase}
-                  marks={gantry.marks}
-                  compact={compact}
-                  className="min-w-0 flex-1"
-                />
-                <div className="flex w-[132px] shrink-0 flex-col gap-2 sm:w-[168px]">
-                  <GantryJogPad
-                    position={gantry.position}
-                    onJog={gantry.jog}
-                  />
-                  <GantryMachineControls
-                    busy={gantry.busy}
-                    onOrigin={gantry.goOrigin}
-                    onTestLaser={gantry.testLaser}
-                  />
-                </div>
-              </div>
+              <GantryDiagram
+                x={gantry.position.x}
+                y={gantry.position.y}
+                highlightM1M2={gantry.highlightM1M2}
+                targetPoint={gantry.targetPoint}
+                motionEnabled={motionEnabled}
+                beamPhase={gantry.beamPhase}
+                marks={gantry.marks}
+                className="mx-auto max-w-[560px]"
+              />
             ) : (
               <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-start">
                 <StatusPanel
