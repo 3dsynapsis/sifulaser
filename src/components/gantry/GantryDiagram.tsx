@@ -23,6 +23,12 @@ interface GantryDiagramProps {
   compact?: boolean
   motionEnabled: boolean
   className?: string
+  /** Segmen beam yang sedang bercahaya semasa Test Laser. */
+  beamPhase?: 'idle' | 'tube' | 'm1m2' | 'm2head' | 'fire'
+  /** Kesan tembakan yang ditinggalkan, berserta koordinatnya. */
+  marks?: { x: number; y: number; id: number }[]
+  /** Laluan yang sudah dipotong dalam larian semasa. */
+  cutPath?: Vec[]
 }
 
 export const GantryDiagram = ({
@@ -34,10 +40,20 @@ export const GantryDiagram = ({
   compact = false,
   motionEnabled,
   className,
+  beamPhase = 'idle',
+  marks = [],
+  cutPath = [],
 }: GantryDiagramProps) => {
   const headX = toSvgX(x)
   const gantryY = toSvgY(y)
   const moveClass = motionEnabled ? 'beam-node' : 'beam-node beam-node--static'
+  // Sekali sesuatu segmen dicapai, ia kekal bercahaya sehingga tembakan tamat.
+  const lit = {
+    tube: beamPhase !== 'idle',
+    m1m2: beamPhase === 'm1m2' || beamPhase === 'm2head' || beamPhase === 'fire',
+    m2head: beamPhase === 'm2head' || beamPhase === 'fire',
+  }
+  const firing = beamPhase === 'fire'
   const labelSize = compact ? 5.2 : 4
   const smallLabelSize = compact ? 4.6 : 3.6
   return (
@@ -164,13 +180,24 @@ export const GantryDiagram = ({
 
           {/* Laluan beam: tiub → cermin 1 → cermin 2 → head */}
           <g strokeLinecap="round" fill="none">
+            {lit.tube ? (
+              <line
+                x1="34"
+                y1={TUBE_Y}
+                x2={RAIL_X}
+                y2={TUBE_Y}
+                stroke="var(--color-beam)"
+                strokeWidth="5"
+                opacity="0.3"
+              />
+            ) : null}
             <line
               x1="34"
               y1={TUBE_Y}
               x2={RAIL_X}
               y2={TUBE_Y}
               stroke="var(--color-beam)"
-              strokeWidth="1.3"
+              strokeWidth={lit.tube ? 2.4 : 1.3}
               opacity="0.9"
             />
             {/* Segmen cermin 1 → cermin 2: panjang berubah ikut Y */}
@@ -180,20 +207,20 @@ export const GantryDiagram = ({
               x2={RAIL_X}
               y2={gantryY}
               stroke="var(--color-beam)"
-              strokeWidth={highlightM1M2 ? 2.4 : 1.3}
-              opacity={highlightM1M2 ? 1 : 0.9}
+              strokeWidth={highlightM1M2 || lit.m1m2 ? 2.4 : 1.3}
+              opacity={highlightM1M2 || lit.m1m2 ? 1 : 0.9}
               className={moveClass}
               style={{ transition: motionEnabled ? undefined : 'none' }}
             />
-            {highlightM1M2 ? (
+            {highlightM1M2 || lit.m1m2 ? (
               <line
                 x1={RAIL_X}
                 y1={TUBE_Y}
                 x2={RAIL_X}
                 y2={gantryY}
                 stroke="var(--color-beam)"
-                strokeWidth="5"
-                opacity="0.18"
+                strokeWidth={lit.m1m2 ? 6 : 5}
+                opacity={lit.m1m2 ? 0.32 : 0.18}
               />
             ) : null}
             <line
@@ -202,21 +229,76 @@ export const GantryDiagram = ({
               x2={headX}
               y2={gantryY}
               stroke="var(--color-beam)"
-              strokeWidth={highlightM2Head ? 2.4 : 1.3}
-              opacity={highlightM2Head ? 1 : 0.9}
+              strokeWidth={highlightM2Head || lit.m2head ? 2.4 : 1.3}
+              opacity={highlightM2Head || lit.m2head ? 1 : 0.9}
             />
-            {highlightM2Head ? (
+            {highlightM2Head || lit.m2head ? (
               <line
                 x1={RAIL_X}
                 y1={gantryY}
                 x2={headX}
                 y2={gantryY}
                 stroke="var(--color-beam)"
-                strokeWidth="5"
-                opacity="0.18"
+                strokeWidth={lit.m2head ? 6 : 5}
+                opacity={lit.m2head ? 0.32 : 0.18}
               />
             ) : null}
           </g>
+
+          {/* Laluan yang sudah dipotong dalam larian semasa */}
+          {cutPath.length > 1 ? (
+            <polyline
+              points={cutPath
+                .map((p) => `${toSvgX(p.x)},${toSvgY(p.y)}`)
+                .join(' ')}
+              fill="none"
+              stroke="var(--color-beam)"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.75"
+            />
+          ) : null}
+
+          {/* Kesan tembakan Test Laser, berserta koordinat */}
+          {marks.map((mark) => (
+            <g key={mark.id}>
+              <circle
+                cx={toSvgX(mark.x)}
+                cy={toSvgY(mark.y)}
+                r="2.6"
+                fill="var(--color-beam)"
+                opacity="0.22"
+              />
+              <circle
+                cx={toSvgX(mark.x)}
+                cy={toSvgY(mark.y)}
+                r="1.1"
+                fill="var(--color-beam)"
+              />
+              <text
+                x={toSvgX(mark.x) + 5.5}
+                y={toSvgY(mark.y) - 5.5}
+                textAnchor="start"
+                fill="var(--color-beam)"
+                fontSize={smallLabelSize}
+                fontWeight="700"
+              >
+                {mark.x},{mark.y}
+              </text>
+            </g>
+          ))}
+
+          {/* Denyar di head semasa laser menembak */}
+          {firing ? (
+            <circle
+              cx={headX}
+              cy={gantryY}
+              r="5.5"
+              fill="var(--color-beam)"
+              opacity="0.35"
+            />
+          ) : null}
 
           {/* Cermin 1 (statik, belakang-kiri) */}
           <g>

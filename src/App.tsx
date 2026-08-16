@@ -15,6 +15,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { StraightProcedurePanel } from './components/StraightProcedurePanel'
 import { GantryDiagram } from './components/gantry/GantryDiagram'
 import { GantryJogPad } from './components/gantry/GantryJogPad'
+import { GantryMachineControls } from './components/gantry/GantryMachineControls'
 import { GantryLessonPanel } from './components/gantry/GantryLessonPanel'
 import { LockedNotice } from './components/LockedNotice'
 import { canAccessLevel } from './lib/access'
@@ -152,6 +153,12 @@ export const App = () => {
               </p>
             </div>
             <GantryJogPad position={gantry.position} onJog={gantry.jog} />
+            <GantryMachineControls
+              busy={gantry.busy}
+              onOrigin={gantry.goOrigin}
+              onTestLaser={gantry.testLaser}
+              onRun={gantry.run}
+            />
             <p className="flex items-start gap-2 rounded-xl border border-[#cfe0f5] bg-[#eef5fd] p-3 text-xs text-[#2b4d73] sm:text-sm">
               <Info
                 className="mt-0.5 h-4 w-4 shrink-0 text-screw-2"
@@ -193,6 +200,9 @@ export const App = () => {
                 highlightM1M2={gantry.highlightM1M2}
                 targetPoint={gantry.targetPoint}
                 motionEnabled={motionEnabled}
+                beamPhase={gantry.beamPhase}
+                marks={gantry.marks}
+                cutPath={gantry.cutPath}
                 className="mx-auto max-w-[560px]"
               />
             ) : (
