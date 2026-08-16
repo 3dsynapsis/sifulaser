@@ -87,13 +87,56 @@
     scale 0.2s ease-out;
 }
 
+/* Petunjuk knob semasa melahu: denyutan menarik mata, goyangan berpusing
+   mempamerkan gerakan yang dimaksudkan. */
+@keyframes knob-hint-ring {
+  0%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  35% {
+    opacity: 0.5;
+    transform: scale(1.28);
+  }
+}
+
+@keyframes knob-hint-turn {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-11deg);
+  }
+  40% {
+    transform: rotate(11deg);
+  }
+}
+
+.knob-hint-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: knob-hint-ring 2.6s ease-in-out infinite;
+}
+
+.knob-hint-turn {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: knob-hint-turn 2.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .beam-node,
   .knob-ring,
   .overlay-item {
     transition-duration: 1ms;
   }
-  .beam-glow--pulse {
+  .beam-glow--pulse,
+  .knob-hint-ring,
+  .knob-hint-turn {
     animation: none;
   }
 }

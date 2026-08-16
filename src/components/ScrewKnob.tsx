@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import type { Direction, ScrewConfig, ScrewId } from '../types'
 
@@ -35,16 +35,43 @@ export const ScrewKnob = ({
 }: ScrewKnobProps) => {
   const [dragging, setDragging] = useState(false)
   const [offset, setOffset] = useState(0)
+  /** Putaran terkumpul, tanpa had — skru sebenar tiada hujung. */
+  const [angle, setAngle] = useState(0)
+  /**
+   * Petunjuk melahu: hidup sebaik halaman dibuka, padam sebaik pengguna
+   * menyentuh, dan hidup semula selepas seketika tidak digunakan.
+   */
+  const [hint, setHint] = useState(true)
+  const idleTimer = useRef<number | undefined>(undefined)
   const startY = useRef(0)
   const fired = useRef(0)
+  const lastDelta = useRef(0)
 
   const color = screw.colorVar
+  const showHint = hint && !dragging && !disabled
+
+  useEffect(
+    () => () => {
+      if (idleTimer.current !== undefined) {
+        window.clearTimeout(idleTimer.current)
+      }
+    },
+    [],
+  )
+
+  const wake = () => {
+    setHint(false)
+    if (idleTimer.current !== undefined) window.clearTimeout(idleTimer.current)
+    idleTimer.current = window.setTimeout(() => setHint(true), 7000)
+  }
 
   const begin = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (disabled) return
+    wake()
     event.currentTarget.setPointerCapture(event.pointerId)
     startY.current = event.clientY
     fired.current = 0
+    lastDelta.current = 0
     setOffset(0)
     setDragging(true)
   }
@@ -54,6 +81,15 @@ export const ScrewKnob = ({
     // Positif bermakna jari bergerak ke atas.
     const delta = startY.current - event.clientY
     setOffset(Math.max(-BAR_H / 2, Math.min(BAR_H / 2, delta)))
+    // Putaran ikut seretan mentah, jadi ia terus berpusing walaupun penanda
+    // bar sudah sampai hujung.
+    //
+    // Penambahan dikira DAHULU dan disimpan dalam pemboleh ubah tempatan.
+    // Kalau dibaca di dalam fungsi kemas kini React, ref sudah pun ditulis
+    // semula sebelum fungsi itu dijalankan, dan penambahan jadi sifar.
+    const turn = (delta - lastDelta.current) * 1.6
+    lastDelta.current = delta
+    setAngle((current) => current + turn)
 
     const steps = Math.trunc(delta / STEP_PX)
     while (fired.current < steps) {
@@ -137,23 +173,63 @@ export const ScrewKnob = ({
         style={{ borderColor: color, color }}
         aria-label={`Skru ${screw.number}: seret ke atas untuk gerakkan beam ${screw.minusLabel}, ke bawah untuk ${screw.plusLabel}`}
       >
-        {/* Alur knob, meniru rupa kepala skru */}
-        <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" fill="none" stroke={color} strokeWidth="1.4" opacity="0.4" />
-          {[0, 45, 90, 135].map((angle) => (
-            <line
-              key={angle}
-              x1="12"
-              y1="4.5"
-              x2="12"
-              y2="7"
+        {/*
+          Alur keriting yang semuanya serupa dan berputar mengikut jari.
+          Sengaja TIADA jarum atau tanda unik: skru mirror mount tidak
+          mempunyai kedudukan sifar, dan satu penanda tetap akan menipu
+          pelajar bahawa ada kedudukan asal. Kilauan di bawah kekal diam
+          supaya alur kelihatan melintasinya — itu yang membaca sebagai
+          putaran.
+        */}
+        <svg viewBox="0 0 40 40" className="h-8 w-8" aria-hidden="true">
+          <defs>
+            <radialGradient id={`knob-dome-${screw.id}`} cx="38%" cy="32%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="70%" stopColor="#f4f7fa" />
+              <stop offset="100%" stopColor="#e2e8f0" />
+            </radialGradient>
+          </defs>
+          {/* Gelang denyut, hanya semasa melahu */}
+          {showHint ? (
+            <circle
+              cx="20"
+              cy="20"
+              r="15"
+              fill="none"
               stroke={color}
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              transform={`rotate(${angle} 12 12)`}
+              strokeWidth="2"
+              className="knob-hint-ring"
             />
-          ))}
-          <circle cx="12" cy="12" r="3.4" fill={color} />
+          ) : null}
+          <g className={showHint ? 'knob-hint-turn' : undefined}>
+          <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: '20px 20px' }}>
+            {Array.from({ length: 12 }, (_, i) => (
+              <line
+                key={i}
+                x1="20"
+                y1="2"
+                x2="20"
+                y2="7"
+                stroke={color}
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                opacity="0.7"
+                transform={`rotate(${i * 30} 20 20)`}
+              />
+            ))}
+          </g>
+          </g>
+          <circle
+            cx="20"
+            cy="20"
+            r="13"
+            fill={`url(#knob-dome-${screw.id})`}
+            stroke={color}
+            strokeWidth="1.6"
+          />
+          {/* Kilauan tetap — tidak berputar */}
+          <ellipse cx="15.5" cy="14.5" rx="5" ry="3.4" fill="#ffffff" opacity="0.75" />
+          <circle cx="20" cy="20" r="3" fill={color} opacity="0.85" />
         </svg>
         <span
           className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-white"
