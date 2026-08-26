@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 export type Route =
   | 'home'
   | 'simulator'
+  | 'boxmaker'
   | 'maintenance'
   | 'troubleshoot'
   | 'weekly'
@@ -20,6 +21,8 @@ const parseRoute = (hash: string): Route => {
   switch (path) {
     case 'simulator':
       return 'simulator'
+    case 'boxmaker':
+      return 'boxmaker'
     case 'maintenance':
       return 'maintenance'
     case 'troubleshoot':

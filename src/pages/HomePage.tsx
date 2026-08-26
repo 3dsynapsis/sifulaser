@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Box,
   ClipboardCheck,
   Crosshair,
   Lightbulb,
@@ -75,6 +76,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 5,
+    title: 'Box Maker',
+    description:
+      'Reka kotak finger joint ikut saiz anda, terus dapat fail SVG siap potong.',
+    href: '#/boxmaker',
+    color: '#3f8f52',
+    softBg: '#f0f7ee',
+    border: '#cfe6d2',
+    Icon: Box,
+  },
+  {
+    number: 6,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',

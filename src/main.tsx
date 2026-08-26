@@ -2,6 +2,7 @@ import { StrictMode, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { HomePage } from './pages/HomePage'
+import { BoxMakerPage } from './pages/BoxMakerPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -81,6 +82,8 @@ const Root = () => {
   switch (route) {
     case 'simulator':
       return <App />
+    case 'boxmaker':
+      return <BoxMakerPage />
     case 'maintenance':
       return <MaintenanceChooserPage />
     case 'troubleshoot':
