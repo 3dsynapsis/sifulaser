@@ -75,7 +75,7 @@ function refresh(opts = {}) {
   els.stage3d.hidden = state.view !== '3d';
   els.stage2d.hidden = state.view !== '2d';
   els.tools.hidden = state.view !== '2d';
-  els.lidBtn.hidden = !(state.view === '3d' && state.params.style === 'lidded');
+  els.lidBtn.hidden = !(state.view === '3d' && state.params.style !== 'open');
   els.lidBtn.textContent = state.lidOpen ? 'Close the box' : 'Open the box';
   els.undo.disabled = !canUndo();
   els.redo.disabled = !canRedo();

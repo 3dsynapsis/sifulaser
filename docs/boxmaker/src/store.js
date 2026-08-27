@@ -31,7 +31,6 @@ function initialState() {
   return {
     params: { ...DEFAULTS, thickness: m.t, kerf: m.kerf },
     material: DEFAULT_MATERIAL,
-    units: 'mm',
     view: '3d',
     face: 'front',
     decor: emptyDecor(),
@@ -155,7 +154,6 @@ function persist() {
         params: state.params,
         decor: state.decor,
         material: state.material,
-        units: state.units,
         sheet: state.sheet,
         name: state.name,
       }));
@@ -171,7 +169,6 @@ export function load() {
     Object.assign(state.params, data.params || {});
     state.decor = { ...emptyDecor(), ...(data.decor || {}) };
     state.material = data.material || state.material;
-    state.units = data.units || state.units;
     state.sheet = data.sheet || state.sheet;
     state.name = data.name || state.name;
     dirty = true;

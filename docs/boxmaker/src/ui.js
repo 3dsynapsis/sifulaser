@@ -25,10 +25,6 @@ export const h = (tag, attrs = {}, ...kids) => {
   return n;
 };
 
-const MM_PER_IN = 25.4;
-const toDisplay = (mm) => (state.units === 'in' ? mm / MM_PER_IN : mm);
-const fromDisplay = (v) => (state.units === 'in' ? v * MM_PER_IN : v);
-const unitLabel = () => (state.units === 'in' ? 'in' : 'mm');
 const rnd = (v, p = 2) => Math.round(v * 10 ** p) / 10 ** p;
 
 // While a slider is being dragged the inspector must not be rebuilt underneath it:
@@ -133,17 +129,27 @@ function boxThumb(style, base) {
     return P([p, shift(p, 5.5, -2.4), shift(p, 5.5, 0), shift(p, 0, 2.4)]);
   };
 
-  const lid = style === 'lidded' ? (() => {
-    const d = [-3, -21];
-    const a = shift(L, d[0], d[1]); const b = shift(T, d[0], d[1]);
-    return `<polygon points="${P([L, T, b, a])}" fill="${c.lid}"/>` +
+  /** A leaf hinged on edge p->q, tilted open along d. */
+  const leaf = (p1, q1, d) => {
+    const a = shift(p1, d[0], d[1]);
+    const b = shift(q1, d[0], d[1]);
+    return `<polygon points="${P([p1, q1, b, a])}" fill="${c.lid}"/>` +
       `<polygon points="${P([a, b, shift(b, 0, 2.6), shift(a, 0, 2.6)])}" fill="${c.right}"/>` +
-      `<polygon points="${P([L, T, b, a])}" fill="none" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round"/>` +
-      `<circle cx="${T[0] - 5}" cy="${T[1] - 2}" r="1.7" fill="${c.edge}" opacity=".55"/>`;
-  })() : '';
+      `<polygon points="${P([p1, q1, b, a])}" fill="none" stroke="${c.edge}" ` +
+      `stroke-width=".9" stroke-linejoin="round"/>`;
+  };
+
+  const lid = style === 'lidded'
+    ? leaf(L, T, [-3, -21]) +
+      `<circle cx="${T[0] - 5}" cy="${T[1] - 2}" r="1.7" fill="${c.edge}" opacity=".55"/>`
+    : '';
+  // Double: two leaves lean apart from the middle, each on its own wall.
+  const leafBack = style === 'double' ? leaf(T, R, [11, -14]) : '';
+  const leafFront = style === 'double' ? leaf(F, L, [-11, -14]) : '';
 
   return `<svg viewBox="0 0 96 74" aria-hidden="true">
   ${lid}
+  ${leafBack}
   <polygon points="${P([iL, iT, fT, fL])}" fill="${c.inner}"/>
   <polygon points="${P([iT, iR, fR, fT])}" fill="${c.innerB}"/>
   <polygon points="${P([fT, fR, fF, fL])}" fill="${c.floor}"/>
@@ -158,6 +164,7 @@ function boxThumb(style, base) {
     <path d="M${P([L, F, Fb, Lb])}Z"/><path d="M${P([F, R, Rb, Fb])}Z"/>
     <path d="M${P([T, R, F, L])}Z"/><path d="M${P([iT, iR, iF, iL])}Z"/>
   </g>
+  ${leafFront}
 </svg>`;
 }
 
@@ -200,6 +207,21 @@ function cubeIcon(view) {
     `${edges}</g></g></svg>`;
 }
 
+const STYLES = [
+  { id: 'open', label: 'Open', hint: 'Four walls and a floor' },
+  {
+    id: 'lidded',
+    label: 'Lidded',
+    hint: 'One lid that pivots on pins in the side walls',
+  },
+  {
+    id: 'double',
+    label: 'Double Window',
+    hint: 'Two leaves meeting in the middle, each hinged on its own wall and '
+      + 'resting on the side walls, with a finger hole where they join',
+  },
+];
+
 // ---------------------------------------------------------------- bottom bar
 const CAMERAS = [
   ['persp', 'Persp.'], ['front', 'Front'], ['right', 'Right'],
@@ -217,7 +239,7 @@ export function renderFaces(root, { onFace, onCamera, camera }) {
   root.replaceChildren();
   if (state.view === '3d') {
     for (const [id, label] of CAMERAS) {
-      if (id === 'top' && state.params.style !== 'lidded') continue;
+      if (id === 'top' && state.params.style === 'open') continue;
       root.append(faceButton({
         view: id,
         label,
@@ -273,22 +295,16 @@ function overallInspector(root, ctx) {
   const mat = material();
 
   root.append(group('Box Style', true,
-    h('div', { class: 'cards' }, ['open', 'lidded'].map((id) =>
+    h('div', { class: 'cards' }, STYLES.map(({ id, label, hint }) =>
       h('button', {
         class: 'card', type: 'button', 'aria-pressed': String(p.style === id),
-        title: id === 'open'
-          ? 'Four walls and a floor'
-          : 'Adds a lid that pivots on pins in the side walls',
+        title: hint,
         onclick: () => { setParam('style', id); clampDecor(); ctx.refresh(); },
       },
       h('span', { class: 'art', html: boxThumb(id, mat.color) }),
-      id === 'open' ? 'Open' : 'Lidded')))));
+      label)))));
 
   root.append(group('Dimensions', true,
-    h('div', { class: 'field' },
-      h('label', {}, 'Units'),
-      segmented([{ id: 'mm', label: 'mm' }, { id: 'in', label: 'in' }], state.units,
-        (id) => update((s) => { s.units = id; }, { history: false }))),
     dimRow('Length', 'length', ctx),
     dimRow('Width', 'width', ctx),
     dimRow('Height', 'height', ctx),
@@ -315,9 +331,9 @@ function overallInspector(root, ctx) {
     h('div', { class: 'row' },
       h('span', { class: 'swatch', style: `background:${mat.color}` }),
       h('span', { class: 'muted' }, `${mat.name} · ${p.thickness} mm board`)),
-    numberRow(`Board thickness (${unitLabel()})`, toDisplay(p.thickness), {
-      min: toDisplay(0.5), max: toDisplay(12), step: state.units === 'in' ? 0.005 : 0.1,
-      onInput: (v) => { setParam('thickness', fromDisplay(v)); ctx.refresh(); },
+    numberRow('Board thickness (mm)', p.thickness, {
+      min: 0.5, max: 12, step: 0.1,
+      onInput: (v) => { setParam('thickness', v); ctx.refresh(); },
     }),
     numberRow('Kerf compensation (mm)', p.kerf, {
       min: 0, max: 0.6, step: 0.01,
@@ -372,12 +388,12 @@ function overallInspector(root, ctx) {
 function dimRow(label, key, ctx) {
   const p = state.params;
   const maxima = { length: 900, width: 900, height: 600 };
-  return numberRow(`${label} (${unitLabel()})`, toDisplay(p[key]), {
-    min: toDisplay(p.thickness * 8),
-    max: toDisplay(maxima[key]),
-    step: state.units === 'in' ? 0.05 : 1,
+  return numberRow(`${label} (mm)`, p[key], {
+    min: p.thickness * 8,
+    max: maxima[key],
+    step: 1,
     onInput: (v) => {
-      setParam(key, clamp(fromDisplay(v), p.thickness * 8, maxima[key]));
+      setParam(key, clamp(v, p.thickness * 8, maxima[key]));
       clampDecor();
       ctx.refresh();
     },
@@ -674,7 +690,7 @@ const STEPS = [
   ['Lay them out', 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.'],
   ['Floor into the front wall', 'The slitted tenons push through the mortises. They should click, not fight.'],
   ['Add a side wall', 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.'],
-  ['Lid pins first (lidded only)', 'Slot one lid pin into the hole in the side wall boss before you close the second side.'],
+  ['Lid pins first (lidded and double)', 'Slot each lid or leaf pin into the hole in the side wall boss before you close the second side. The double style has two of them per side.'],
   ['Close it up', 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.'],
 ];
 

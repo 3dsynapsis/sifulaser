@@ -255,17 +255,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .seg button + button { border-left: 1px solid var(--line-strong); }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .card {
   border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--surface);
-  padding: 7px 7px 8px; cursor: pointer; text-align: center;
-  font: 500 11px/1.2 inherit; color: var(--muted);
+  padding: 6px 5px 7px; cursor: pointer; text-align: center;
+  font: 500 10.5px/1.25 inherit; color: var(--muted);
 }
 .card .art {
   display: block; border-radius: 7px; background: var(--surface-2);
   padding: 3px 2px; margin-bottom: 7px;
 }
-.card svg { display: block; width: 100%; height: 54px; }
+.card svg { display: block; width: 100%; height: 46px; }
 .card:hover { border-color: var(--muted); }
 .card[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .card[aria-pressed="true"] .art { background: var(--accent-soft); }

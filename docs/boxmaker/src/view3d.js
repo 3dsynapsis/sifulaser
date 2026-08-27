@@ -161,9 +161,9 @@ export class View3D {
     this.raf = requestAnimationFrame(this.animate);
     this.controls.update();
     this.updateDims();
-    if (this.lidGroup) {
-      const target = this.lidOpen ? -105 * DEG : 0;
-      this.lidGroup.rotation.x += (target - this.lidGroup.rotation.x) * 0.18;
+    for (const { pivot, sign } of this.lidGroups || []) {
+      const target = this.lidOpen ? sign * 105 * DEG : 0;
+      pivot.rotation.x += (target - pivot.rotation.x) * 0.18;
     }
     this.renderer.render(this.scene, this.camera);
   };
@@ -239,7 +239,7 @@ export class View3D {
   build(box, decorFor, opts = {}) {
     this.disposeBuild();
     this.meshes = [];
-    this.lidGroup = null;
+    this.lidGroups = [];
 
     const t = box.params.thickness;
     const color = new THREE.Color(opts.color || '#d8b483');
@@ -316,20 +316,19 @@ export class View3D {
         group.add(plane);
       }
 
-      if (panel.id === 'top') {
-        // Hinge the lid about the pivot so "open the box" is a real rotation.
-        const pivot = new THREE.Group();
-        const py = box.derived.pivotY - panel.originShift[1];
-        const pz = 0;
+      if (panel.hinge) {
+        // Swing the panel about its pin line so "open the box" is a real rotation.
+        const py = panel.hinge.v - panel.originShift[1];
         const inner = new THREE.Group();
-        inner.position.set(0, -py, -pz);
+        inner.position.set(0, -py, 0);
         inner.add(...group.children);
-        pivot.position.set(0, py, pz);
+        const pivot = new THREE.Group();
+        pivot.position.set(0, py, 0);
         pivot.add(inner);
         const outer = new THREE.Group();
         outer.applyMatrix4(View3D.panelMatrix(panel));
         outer.add(pivot);
-        this.lidGroup = pivot;
+        this.lidGroups.push({ pivot, sign: panel.hinge.sign });
         this.root.add(outer);
         this.meshes.push(mesh);
         continue;

@@ -20,7 +20,7 @@ import {
 } from './path.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded'
+  style: 'open',        // 'open' | 'lidded' | 'double'
   length: 100,          // X
   width: 76,            // Y
   height: 50,           // Z (outer, including the lid on a lidded box)
@@ -35,11 +35,13 @@ export const DEFAULTS = {
   lidGap: 0.3,          // clearance each side so the lid can swing
 };
 
-export const PANEL_ORDER = ['front', 'back', 'left', 'right', 'bottom', 'top'];
+export const PANEL_ORDER = [
+  'front', 'back', 'left', 'right', 'bottom', 'top', 'leafFront', 'leafBack',
+];
 
 export const PANEL_LABELS = {
-  front: 'Front', back: 'Back', left: 'Left',
-  right: 'Right', bottom: 'Bottom', top: 'Lid',
+  front: 'Front', back: 'Back', left: 'Left', right: 'Right',
+  bottom: 'Bottom', top: 'Lid', leafFront: 'Leaf front', leafBack: 'Leaf back',
 };
 
 /**
@@ -80,6 +82,20 @@ const shiftFeatures = (feats, off) =>
 function featureProfile(s, e, depth, opts = {}) {
   const out = [[s, 0]];
   const sgn = Math.sign(depth) || 1;
+
+  // A half-round dip, used for the finger hole where the two leaves meet.
+  if (opts.arc) {
+    const rr = (e - s) / 2;
+    const c = (s + e) / 2;
+    const steps = 26;
+    for (let i = 0; i <= steps; i++) {
+      const phi = (i / steps) * Math.PI;
+      out.push([c - rr * Math.cos(phi), depth * Math.sin(phi)]);
+    }
+    out.push([e, 0]);
+    return out;
+  }
+
   const r = Math.min(opts.round || 0, (e - s) / 2 - 0.01, Math.abs(depth) - 0.01);
   const rounded = r > 0.01;
   const cy = depth - sgn * r;
@@ -159,7 +175,9 @@ export function buildBox(input = {}) {
   const W = Math.max(t * 8, p.width);
   const H = Math.max(t * 6, p.height);
   const lidded = p.style === 'lidded';
-  const wallH = lidded ? H - t : H;
+  const double = p.style === 'double';
+  const hasLid = lidded || double;
+  const wallH = hasLid ? H - t : H;
   const floorZ = p.floorOffset == null ? t : Math.max(0, p.floorOffset);
   const m = Math.max(3, p.fingerSize);
   const fit = p.fit;
@@ -175,10 +193,21 @@ export function buildBox(input = {}) {
     ? { count: p.reliefSlits, width: p.slitWidth, depth: t + Math.max(0.1, p.slitOvershoot) }
     : null;
 
-  const pivotY = W - 1.5 * t;
   const pivotZ = wallH + t / 2;
   const hingeR = t * 0.75;
   const bossR = hingeR + Math.max(1.2, t * 0.6);
+  const pivotBack = W - 1.5 * t;
+  const pivotFront = 1.5 * t;
+  // Which walls carry a hinge, in box Y. Two of them for the double-leaf style.
+  const pivots = double ? [pivotFront, pivotBack] : lidded ? [pivotBack] : [];
+
+  // A pair of leaves pinned only at its outer edges would drop straight into the
+  // box when shut. Widening each leaf to the full length past its hinge lets it
+  // land on the two side walls instead, so nothing extra is needed inside.
+  // The shoulder has to start clear of the boss that rises above the wall.
+  const bossHalf = Math.sqrt(Math.max(0, bossR * bossR - (t / 2) ** 2));
+  const shoulderGap = bossHalf + Math.max(1, t * 0.4);
+  const notchR = Math.max(4, Math.min(L * 0.075, (W / 2 - 3 * t) * 0.45, 14));
 
   const panels = [];
 
@@ -210,53 +239,59 @@ export function buildBox(input = {}) {
   }
 
   // ---- left / right -------------------------------------------------------
-  // The top edge runs right->left; when lidded it bulges into a hinge boss.
-  function topEdgeWithBoss(bossU) {
+  // The top edge runs right->left and bulges into a boss at every hinge.
+  function topEdgeWithBosses(bossUs) {
     const plain = edgeRun([W, wallH], [0, wallH], [], 0);
-    if (!lidded) return plain;
     const dz = pivotZ - wallH;
-    if (bossR <= Math.abs(dz) + 0.05) return plain;
+    if (!bossUs.length || bossR <= Math.abs(dz) + 0.05) return plain;
     const hw = Math.sqrt(bossR * bossR - dz * dz);
-    const uA = bossU + hw;
-    const uB = bossU - hw;
-    if (uA >= W - 0.01 || uB <= 0.01) return plain;
-    const pts = [[W, wallH], [uA, wallH]];
-    const a0 = Math.atan2(wallH - pivotZ, uA - bossU);
-    const a1 = Math.atan2(wallH - pivotZ, uB - bossU);
-    const sweep = (a1 - a0 + Math.PI * 2) % (Math.PI * 2);
-    const steps = 28;
-    for (let i = 0; i <= steps; i++) {
-      const a = a0 + sweep * (i / steps);
-      pts.push([bossU + bossR * Math.cos(a), pivotZ + bossR * Math.sin(a)]);
+    const usable = bossUs
+      .filter((u) => u + hw < W - 0.01 && u - hw > 0.01)
+      .sort((a, b) => b - a); // walking from u = W down to u = 0
+    if (!usable.length) return plain;
+    const pts = [[W, wallH]];
+    for (const bossU of usable) {
+      const uA = bossU + hw;
+      const uB = bossU - hw;
+      pts.push([uA, wallH]);
+      const a0 = Math.atan2(wallH - pivotZ, uA - bossU);
+      const a1 = Math.atan2(wallH - pivotZ, uB - bossU);
+      const sweep = (a1 - a0 + Math.PI * 2) % (Math.PI * 2);
+      const steps = 28;
+      for (let i = 0; i <= steps; i++) {
+        const a = a0 + sweep * (i / steps);
+        pts.push([bossU + bossR * Math.cos(a), pivotZ + bossR * Math.sin(a)]);
+      }
+      pts.push([uB, wallH]);
     }
-    pts.push([uB, wallH]);
+    pts.push([0, wallH]);
     return pts;
   }
 
-  const buildSide = (bossU) => {
+  /** `uOf` maps a box-Y coordinate to this panel's local u. */
+  const buildSide = (uOf) => {
+    const bossUs = pivots.map(uOf);
     const pts = [
       ...edgeRun([0, 0], [W, 0], [], 0),
       ...edgeRun([W, 0], [W, wallH], vFeats, -t),
-      ...topEdgeWithBoss(bossU),
+      ...topEdgeWithBosses(bossUs),
       ...edgeRun([0, wallH], [0, 0], flipFeatures(vFeats, wallH), -t),
     ];
     const holes = yFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
-    if (lidded) {
-      const r = hingeR + Math.max(0.1, fit);
-      holes.push(ellipse(bossU, pivotZ, r, r, 40));
-    }
+    const r = hingeR + Math.max(0.1, fit);
+    for (const u of bossUs) holes.push(ellipse(u, pivotZ, r, r, 40));
     return { outline: dedupe(pts), holes };
   };
 
   {
-    const g = buildSide(1.5 * t);
+    const g = buildSide((y) => W - y);
     panels.push(normalisePanel({
       id: 'left', label: PANEL_LABELS.left, outline: g.outline, holes: g.holes,
       frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
   }
   {
-    const g = buildSide(W - 1.5 * t);
+    const g = buildSide((y) => y);
     panels.push(normalisePanel({
       id: 'right', label: PANEL_LABELS.right, outline: g.outline, holes: g.holes,
       frame: { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
@@ -283,29 +318,103 @@ export function buildBox(input = {}) {
   }
 
   // ---- lid ----------------------------------------------------------------
+  const lidX = () => ({ bx0: t + p.lidGap, bx1: L - t - p.lidGap });
+  const pinAt = (y, from) => [{ s: y - t / 2 - from, e: y + t / 2 - from }];
+
   if (lidded) {
     const g = p.lidGap;
-    const bx0 = t + g;
-    const bx1 = L - t - g;
+    const { bx0, bx1 } = lidX();
     const by0 = t;
     const by1 = W;
     const lipW = Math.min((bx1 - bx0) * 0.45, Math.max(24, L * 0.28));
-    const lipDepth = t;
     const lipC = (bx0 + bx1) / 2;
     const lip = [{ s: lipC - lipW / 2 - bx0, e: lipC + lipW / 2 - bx0 }];
-    const pinHalf = t / 2;
-    const pinFeat = [{ s: pivotY - pinHalf - by0, e: pivotY + pinHalf - by0 }];
-    const pinFlip = flipFeatures(pinFeat, by1 - by0);
+    const pinFeat = pinAt(pivotBack, by0);
     const pts = [
-      ...edgeRun([bx0, by0], [bx1, by0], lip, lipDepth, { round: lipDepth * 0.75 }),
+      ...edgeRun([bx0, by0], [bx1, by0], lip, t, { round: t * 0.75 }),
       ...edgeRun([bx1, by0], [bx1, by1], pinFeat, t + g),
       ...edgeRun([bx1, by1], [bx0, by1], [], 0),
-      ...edgeRun([bx0, by1], [bx0, by0], pinFlip, t + g),
+      ...edgeRun([bx0, by1], [bx0, by0], flipFeatures(pinFeat, by1 - by0), t + g),
     ];
     panels.push(normalisePanel({
       id: 'top', label: PANEL_LABELS.top, outline: dedupe(pts), holes: [],
+      hinge: { v: pivotBack, sign: -1 },
       frame: { origin: [0, 0, wallH + t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
     }));
+  }
+
+  // Two leaves that meet across the middle, each pivoting on its own wall. Past
+  // the hinge each widens to the full length so it rests on the side walls; the
+  // half-round notch on the free edges becomes one finger hole when shut.
+  if (double) {
+    const g = p.lidGap;
+    const { bx0: xi0, bx1: xi1 } = lidX(); // inset body, lets the pins reach
+    const xo0 = 0;
+    const xo1 = L;                          // shoulder, sits on the side walls
+    const mid = W / 2;
+    const arc = { arc: true };
+    const notchMid = [{ s: L / 2 - notchR, e: L / 2 + notchR }];
+
+    // front leaf: front outer face -> just short of the middle
+    {
+      const fy = mid - g / 2;
+      const sy = pivotFront + shoulderGap;
+      const pin = pinAt(pivotFront, 0);
+      const wide = sy < fy - t;
+      const pts = wide
+        ? [
+          ...edgeRun([xi0, 0], [xi1, 0], [], 0),
+          ...edgeRun([xi1, 0], [xi1, sy], pin, t + g),
+          ...edgeRun([xi1, sy], [xo1, sy], [], 0),
+          ...edgeRun([xo1, sy], [xo1, fy], [], 0),
+          ...edgeRun([xo1, fy], [xo0, fy], notchMid, -notchR, arc),
+          ...edgeRun([xo0, fy], [xo0, sy], [], 0),
+          ...edgeRun([xo0, sy], [xi0, sy], [], 0),
+          ...edgeRun([xi0, sy], [xi0, 0], flipFeatures(pin, sy), t + g),
+        ]
+        : [
+          ...edgeRun([xi0, 0], [xi1, 0], [], 0),
+          ...edgeRun([xi1, 0], [xi1, fy], pin, t + g),
+          ...edgeRun([xi1, fy], [xi0, fy], [{ s: xi1 - L / 2 - notchR, e: xi1 - L / 2 + notchR }], -notchR, arc),
+          ...edgeRun([xi0, fy], [xi0, 0], flipFeatures(pin, fy), t + g),
+        ];
+      panels.push(normalisePanel({
+        id: 'leafFront', label: PANEL_LABELS.leafFront, outline: dedupe(pts), holes: [],
+        hinge: { v: pivotFront, sign: 1 },
+        frame: { origin: [0, 0, wallH + t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+      }));
+    }
+
+    // back leaf: mirror of the above, hinged on the back wall
+    {
+      const by = mid + g / 2;
+      const sy = pivotBack - shoulderGap;
+      const pin = pinAt(pivotBack, sy);
+      const wide = sy > by + t;
+      const pinNarrow = pinAt(pivotBack, by);
+      const pts = wide
+        ? [
+          ...edgeRun([xo0, by], [xo1, by], notchMid, -notchR, arc),
+          ...edgeRun([xo1, by], [xo1, sy], [], 0),
+          ...edgeRun([xo1, sy], [xi1, sy], [], 0),
+          ...edgeRun([xi1, sy], [xi1, W], pin, t + g),
+          ...edgeRun([xi1, W], [xi0, W], [], 0),
+          ...edgeRun([xi0, W], [xi0, sy], flipFeatures(pin, W - sy), t + g),
+          ...edgeRun([xi0, sy], [xo0, sy], [], 0),
+          ...edgeRun([xo0, sy], [xo0, by], [], 0),
+        ]
+        : [
+          ...edgeRun([xi0, by], [xi1, by], [{ s: L / 2 - xi0 - notchR, e: L / 2 - xi0 + notchR }], -notchR, arc),
+          ...edgeRun([xi1, by], [xi1, W], pinNarrow, t + g),
+          ...edgeRun([xi1, W], [xi0, W], [], 0),
+          ...edgeRun([xi0, W], [xi0, by], flipFeatures(pinNarrow, W - by), t + g),
+        ];
+      panels.push(normalisePanel({
+        id: 'leafBack', label: PANEL_LABELS.leafBack, outline: dedupe(pts), holes: [],
+        hinge: { v: pivotBack, sign: -1 },
+        frame: { origin: [0, 0, wallH + t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+      }));
+    }
   }
 
   // ---- kerf compensation --------------------------------------------------
@@ -322,7 +431,10 @@ export function buildBox(input = {}) {
 
   return {
     params: { ...p, thickness: t, length: L, width: W, height: H },
-    derived: { wallH, floorZ, pivotY, pivotZ, hingeR, bossR, vFeats, xFeats, yFeats },
+    derived: {
+      wallH, floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
+      vFeats, xFeats, yFeats,
+    },
     panels,
   };
 }
