@@ -6,6 +6,7 @@ import { buildBox, DEFAULTS, PANEL_ORDER } from './geom/box.js';
 // comes off the bed with a clean polished edge instead.
 // `grain`: which procedural board surface the 3D preview paints on the faces.
 export const MATERIALS = [
+  { id: 'custom', name: 'Custom material', t: 3, color: '#d2b48c', kerf: 0.2, char: true, grain: 'wood' },
   { id: 'falcata3', name: 'Falcata', t: 3, color: '#efe3c6', kerf: 0.2, char: true, grain: 'wood' },
   { id: 'falcata52', name: 'Falcata', t: 5.2, color: '#efe3c6', kerf: 0.25, char: true, grain: 'wood' },
   { id: 'basswood', name: 'Basswood', t: 3, color: '#e6d2a8', kerf: 0.2, char: true, grain: 'wood' },
@@ -17,7 +18,6 @@ export const MATERIALS = [
   { id: 'acrylic-clear', name: 'Acrylic (Clear)', t: 3, color: '#cfe3e8', kerf: 0.15, grain: 'none' },
   { id: 'acrylic-red', name: 'Acrylic (Red)', t: 3, color: '#b3202a', kerf: 0.15, grain: 'none' },
   { id: 'card2', name: 'Cardboard', t: 2, color: '#c8ab7f', kerf: 0.3, char: true, grain: 'mdf' },
-  { id: 'custom', name: 'Custom material', t: 3, color: '#d2b48c', kerf: 0.2, char: true, grain: 'wood' },
 ];
 
 const STORAGE_KEY = 'box-maker.project.v1';
@@ -188,7 +188,8 @@ export function emit() {
   for (const fn of listeners) fn(state);
 }
 
-export const material = () => MATERIALS.find((m) => m.id === state.material) || MATERIALS[0];
+export const material = () => MATERIALS.find((m) => m.id === state.material)
+  || MATERIALS.find((m) => m.id === DEFAULT_MATERIAL);
 
 /** Drop decorations that no longer fit after the panel shrank. */
 export function clampDecor() {
