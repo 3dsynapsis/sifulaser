@@ -32,6 +32,12 @@ export const PLAN_FEATURES: PlanFeature[] = [
     tiers: SEMUA,
   },
   {
+    label: 'Puzzle Generator — jana jigsaw',
+    detail:
+      'Tetapkan saiz papan dan bilangan cebisan, terus dapat fail SVG siap potong.',
+    tiers: SEMUA,
+  },
+  {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
     tiers: DIGITAL,

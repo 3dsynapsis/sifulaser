@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Crosshair,
   Lightbulb,
+  Puzzle,
   LockKeyhole,
   Sparkles,
   Stethoscope,
@@ -87,6 +88,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 6,
+    title: 'Puzzle Generator',
+    description:
+      'Jana garisan potong jigsaw ikut saiz papan anda, terus dapat fail SVG.',
+    href: '#/puzzle',
+    color: '#0d7c8f',
+    softBg: '#eaf6f8',
+    border: '#c9e6ec',
+    Icon: Puzzle,
+  },
+  {
+    number: 7,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
