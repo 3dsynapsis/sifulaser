@@ -1,10 +1,14 @@
-The typeface data in this folder is derived from the Hershey Fonts.
+Typefaces in this folder come from two sources.
+
+
+1. Sans and Script - derived from the Hershey Fonts
+------------------------------------------------------------------------
 
 The Hershey Fonts were originally created by Dr. A. V. Hershey while working
 at the U. S. National Bureau of Standards.
 
-The format of the font data in the distribution these files were converted
-from was originally created by:
+The format of the font data in the distribution these were converted from was
+originally created by:
 
     James Hurt
     Cognition, Inc.
@@ -17,18 +21,49 @@ distributed with the font data, and provided the data is not redistributed in
 the specific format published by the U.S. NTIS. The JSON here is our own
 format, converted by tools/convert-jhf.mjs, so that condition is met.
 
-Faces included, and the Hershey originals they come from:
+    sans    <- futural   (Futura Light, simplex sans)
+    script  <- scripts   (Script Simplex)
 
-    sans          futural     (Futura Light / simplex sans)
-    sans-bold     futuram     (Futura Medium)
-    serif         rowmans     (Roman Simplex)
-    serif-bold    rowmand     (Roman Duplex)
-    serif-italic  timesi      (Times Italic)
-    script        scripts     (Script Simplex)
-    script-bold   scriptc     (Script Complex)
-    gothic        gothiceng   (Gothic English)
+Only these two are shipped, and that is not an oversight. Nearly every other
+Hershey face is a "duplex", "complex" or "triplex" cut, which gets its weight
+by drawing two or three parallel lines - an outline font in all but name, and
+useless for single-line engraving. Of the four faces that are genuinely one
+stroke, futural and rowmans share 87 of their 95 glyphs, and scripts and
+cursive share every letter A-Z and a-z. So the distribution contains exactly
+two distinct single-stroke letterforms, and both are here.
 
-Conversion notes: Hershey hangs each glyph off the character's centre rather
+Conversion note: Hershey hangs each glyph off the character's centre rather
 than the baseline, so the converter shifts every face down onto its own
 baseline (taken from a flat-bottomed capital) and records the resulting cap
 height. Coordinates are flipped to y-up.
+
+
+2. Zahid Laser, Zahid Cursive and Sham - original designs
+------------------------------------------------------------------------
+
+Built by tools/build-fonts.mjs. Every coordinate is generated from the
+construction rules stated in that file:
+
+    zahid   narrow squared techno ("Zahid Laser"); stems on a fixed grid, every curve
+            replaced by a 3-unit chamfer, all terminals cut flat. Marked
+            "straight" so the renderer never curve-fits it - the chamfers
+            are the design.
+
+    sham    wide geometric deco capitals ("Sham"); the O is a true circle of radius
+            cap/2, straight lines meet it without transition, apexes are
+            points, and lowercase repeats the capitals.
+
+    zahid-cursive
+            joined-up handwriting ("Zahid Cursive"). Every lowercase letter
+            enters at (0, 3) and leaves at (advance, 3), so consecutive
+            letters hand the line to each other and the writing genuinely
+            connects - which the Hershey script face never did, its letters
+            sit apart. The 12-degree slant is built into the outlines because
+            the connections are geometrically tied to it. Capitals are wider,
+            simpler and unconnected, which is the usual pairing for a script.
+
+The genres were inspired by the "Square" and "Multicolore" faces on
+templatemaker.nl. Nothing is traced or copied from them: their Multicolore is
+used under a permission granted specifically to that site, and their Square is
+an adaptation by Shriinivas of Square Grotesk. These are our own constructions
+in the same two styles, and are ours to license as we wish.

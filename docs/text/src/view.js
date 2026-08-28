@@ -1,6 +1,8 @@
 // Preview pane. Draws exactly what the export writes, scaled to fit, so there
 // is no second renderer that can drift away from the file you download.
 
+import { pathsToSegments } from './geom/smooth.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const el = (name, attrs = {}) => {
@@ -40,12 +42,14 @@ export class View {
       }));
     }
 
+    // Same curve fitting the export uses, so the preview is the file.
+    const n = (v) => v.toFixed(3);
     const d = [];
-    for (const st of result.paths) {
-      if (st.length < 4) continue;
-      const seg = [`M ${st[0].toFixed(3)} ${st[1].toFixed(3)}`];
-      for (let k = 2; k < st.length; k += 2) {
-        seg.push(`L ${st[k].toFixed(3)} ${st[k + 1].toFixed(3)}`);
+    for (const s of pathsToSegments(result.paths, { smooth: opts.smooth !== false })) {
+      const seg = [`M ${n(s.start[0])} ${n(s.start[1])}`];
+      for (const c of s.cmds) {
+        if (c[0] === 'L') seg.push(`L ${n(c[1])} ${n(c[2])}`);
+        else seg.push(`C ${n(c[1])} ${n(c[2])} ${n(c[3])} ${n(c[4])} ${n(c[5])} ${n(c[6])}`);
       }
       d.push(seg.join(' '));
     }

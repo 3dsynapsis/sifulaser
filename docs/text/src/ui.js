@@ -204,9 +204,19 @@ export function renderInspector(root, ctx) {
       min: 0, max: 50, step: 0.5,
       onInput: (v) => { setParam('margin', v); ctx.refresh(); },
     }),
+    numberRow('Slant (deg)', p.slant, {
+      min: -30, max: 30, step: 1,
+      onInput: (v) => { setParam('slant', v); ctx.refresh(); },
+    }),
+    numberRow('Width (%)', p.width, {
+      min: 50, max: 200, step: 5,
+      onInput: (v) => { setParam('width', v); ctx.refresh(); },
+    }),
     h('p', { class: 'hint' },
       'Capital height is measured on a capital H, so what you set is what you '
-      + 'measure on the finished piece. Letters with tails hang below it.')));
+      + 'measure on the finished piece. Letters with tails hang below it. Slant '
+      + 'and width shear and stretch the real letterform, which is how the '
+      + 'italic and condensed cuts are made here.')));
 
   const seconds = state.speed > 0 ? r.length / state.speed : 0;
   root.append(group('Job', false,
@@ -227,6 +237,21 @@ export function renderInspector(root, ctx) {
       'Travel is the line the head actually follows. A filled font would cover '
       + 'the same letters many times over - that is the whole reason to use a '
       + 'single-line face for engraving.'),
+    h('label', { class: 'check' },
+      h('input', {
+        type: 'checkbox', ...(p.smooth ? { checked: true } : {}),
+        onchange: (e) => { setParam('smooth', e.target.checked); ctx.refresh(); },
+      }),
+      ' Fit curves through the strokes'),
+    h('p', { class: 'hint' },
+      r.face?.straight
+        ? `${r.face.name} is drawn from straight segments on purpose, so curve `
+          + 'fitting is skipped for it - the chamfers are the point. Pick another '
+          + 'face to see the difference.'
+        : 'The stroke data is straight segments, which shows as facets on round '
+          + 'letters once they get big. Fitting curves through the same points '
+          + 'keeps the letterform and loses the flats. Turn it off for raw '
+          + 'polylines if your controller prefers them.'),
     h('label', { class: 'check' },
       h('input', {
         type: 'checkbox', ...(state.showBox ? { checked: true } : {}),

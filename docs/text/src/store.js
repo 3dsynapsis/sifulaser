@@ -6,7 +6,7 @@ const STORAGE_KEY = 'text-engraver.project.v1';
 
 function initialState() {
   return {
-    params: { ...DEFAULTS, margin: 5 },
+    params: { ...DEFAULTS, margin: 5, smooth: true },
     speed: 200,          // mm/s, for the time estimate only
     backdrop: 'light',
     showBox: true,
@@ -40,6 +40,9 @@ export function getResult() {
     ...r,
     face,
     paths,
+    // A face built from deliberate straight segments must not be curve-fitted -
+    // it would round off the very corners that define it.
+    smooth: !!state.params.smooth && !face?.straight,
     size: { width: r.width + m * 2, height: r.height + m * 2 },
     length: strokeLength(paths),
   };

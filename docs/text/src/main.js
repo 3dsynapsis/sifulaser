@@ -51,7 +51,7 @@ function markSaved() {
 function drawPreview() {
   const r = getResult();
   els.stage.dataset.backdrop = state.backdrop;
-  view.render(r, { showBox: state.showBox });
+  view.render(r, { showBox: state.showBox, smooth: r.smooth });
   const label = r.paths.length
     ? `${rnd(r.size.width, 1)} x ${rnd(r.size.height, 1)} mm`
     : 'Type something to begin';
@@ -132,9 +132,10 @@ function download(kind) {
   const r = getResult();
   if (!r.paths.length) return;
   const title = state.name || 'text';
+  const opts = { title, smooth: r.smooth };
   const body = kind === 'pdf'
-    ? toPdf(r.paths, r.size, { title })
-    : toSvg(r.paths, r.size, { title });
+    ? toPdf(r.paths, r.size, opts)
+    : toSvg(r.paths, r.size, opts);
   const type = kind === 'pdf' ? 'application/pdf' : 'image/svg+xml';
   const base = title.trim().replace(/[^\w-]+/g, '-').toLowerCase() || 'text';
 

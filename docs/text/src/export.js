@@ -8,6 +8,8 @@
 // polylines needs four objects and a content stream, and shipping a PDF library
 // to draw straight lines would be silly.
 
+import { pathsToSegments } from './geom/smooth.js';
+
 const MM_TO_PT = 72 / 25.4;
 
 export const LAYERS = {
@@ -23,16 +25,19 @@ const fmt = (v) => {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-/** Flat [x,y,...] polylines -> one SVG path data string, y flipped to y-down. */
-function toPathData(paths, height) {
+/** Polylines -> SVG path data, curve-fitted, y flipped to SVG's y-down. */
+function toPathData(paths, height, smooth) {
   const out = [];
-  for (const st of paths) {
-    if (st.length < 4) continue;
-    const seg = [`M ${fmt(st[0])} ${fmt(height - st[1])}`];
-    for (let k = 2; k < st.length; k += 2) {
-      seg.push(`L ${fmt(st[k])} ${fmt(height - st[k + 1])}`);
+  for (const s of pathsToSegments(paths, { smooth })) {
+    const d = [`M ${fmt(s.start[0])} ${fmt(height - s.start[1])}`];
+    for (const c of s.cmds) {
+      if (c[0] === 'L') d.push(`L ${fmt(c[1])} ${fmt(height - c[2])}`);
+      else {
+        d.push(`C ${fmt(c[1])} ${fmt(height - c[2])} ${fmt(c[3])} ${fmt(height - c[4])} `
+          + `${fmt(c[5])} ${fmt(height - c[6])}`);
+      }
     }
-    out.push(seg.join(' '));
+    out.push(d.join(' '));
   }
   return out.join(' ');
 }
@@ -42,9 +47,9 @@ function toPathData(paths, height) {
  * @param size   { width, height } of the page in millimetres
  */
 export function toSvg(paths, size, opts = {}) {
-  const o = { strokeWidth: 0.1, layer: 'engrave', title: 'Text', ...opts };
+  const o = { strokeWidth: 0.1, layer: 'engrave', title: 'Text', smooth: true, ...opts };
   const L = LAYERS[o.layer] || LAYERS.engrave;
-  const d = toPathData(paths, size.height);
+  const d = toPathData(paths, size.height, o.smooth);
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
     + `width="${fmt(size.width)}mm" height="${fmt(size.height)}mm" `
@@ -61,16 +66,17 @@ export function toSvg(paths, size, opts = {}) {
 
 /** Minimal single-page PDF. Coordinates are y-up already, which is PDF's own. */
 export function toPdf(paths, size, opts = {}) {
-  const o = { strokeWidth: 0.1, title: 'Text', ...opts };
+  const o = { strokeWidth: 0.1, title: 'Text', smooth: true, ...opts };
   const w = size.width * MM_TO_PT;
   const h = size.height * MM_TO_PT;
+  const P = (v) => fmt(v * MM_TO_PT);
 
   const ops = [`${fmt(o.strokeWidth * MM_TO_PT)} w`, '0 0 0 RG', '1 J', '1 j'];
-  for (const st of paths) {
-    if (st.length < 4) continue;
-    ops.push(`${fmt(st[0] * MM_TO_PT)} ${fmt(st[1] * MM_TO_PT)} m`);
-    for (let k = 2; k < st.length; k += 2) {
-      ops.push(`${fmt(st[k] * MM_TO_PT)} ${fmt(st[k + 1] * MM_TO_PT)} l`);
+  for (const s of pathsToSegments(paths, { smooth: o.smooth })) {
+    ops.push(`${P(s.start[0])} ${P(s.start[1])} m`);
+    for (const c of s.cmds) {
+      if (c[0] === 'L') ops.push(`${P(c[1])} ${P(c[2])} l`);
+      else ops.push(`${P(c[1])} ${P(c[2])} ${P(c[3])} ${P(c[4])} ${P(c[5])} ${P(c[6])} c`);
     }
     ops.push('S');
   }

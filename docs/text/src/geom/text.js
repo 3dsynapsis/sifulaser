@@ -45,6 +45,8 @@ export const DEFAULTS = {
   wordSpacing: 0,      // mm, added on top of the space glyph
   lineSpacing: 1.6,    // multiples of cap height, baseline to baseline
   align: 'left',       // left | center | right
+  slant: 0,            // degrees; shears each line about its own baseline
+  width: 100,          // % horizontal scale
 };
 
 const EMPTY = {
@@ -81,9 +83,16 @@ export function layout(input = {}) {
   if (!face) return EMPTY;
 
   const scale = p.capHeight / (face.cap || 12);
+  // Hershey gives us two letterforms and no more, so the italic and the
+  // condensed cuts a normal family would provide are made here instead. Both are
+  // honest transforms of the real skeleton, not a second-guess at a face that
+  // does not exist. The shear is taken about each line's own baseline, or the
+  // lower lines would slide sideways.
+  const wide = Math.max(0.2, (p.width ?? 100) / 100);
+  const shear = Math.tan((Math.max(-45, Math.min(45, p.slant || 0)) * Math.PI) / 180);
   const lineStep = p.capHeight * p.lineSpacing;
   const lines = String(p.text ?? '').split(/\r?\n/);
-  const widths = lines.map((l) => measureLine(l, face, scale, p));
+  const widths = lines.map((l) => measureLine(l, face, scale, p) * wide);
   const width = Math.max(0, ...widths);
 
   const paths = [];
@@ -99,12 +108,13 @@ export function layout(input = {}) {
       for (const st of g.s) {
         const out = new Array(st.length);
         for (let k = 0; k < st.length; k += 2) {
-          out[k] = x + st[k] * scale;
-          out[k + 1] = yBase + st[k + 1] * scale;
+          const gy = st[k + 1] * scale;
+          out[k] = x + st[k] * scale * wide + gy * shear;
+          out[k + 1] = yBase + gy;
         }
         paths.push(out);
       }
-      x += g.w * scale;
+      x += g.w * scale * wide;
       if (code === 32) x += p.wordSpacing;
       if (i < line.length - 1) x += p.letterSpacing;
     }
