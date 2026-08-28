@@ -149,11 +149,17 @@ button { font-family: inherit; }
   --dim-ink: #23272e;
   --dim-halo: rgba(255, 255, 255, .75);
   --dim-soft: rgba(35, 39, 46, .45);
+  --board: #e6e9ef;
+  --board-2: #ccd2dc;
+  --board-line: #3a4048;
 }
 .stage[data-backdrop="dark"] {
   --dim-ink: #ffffff;
   --dim-halo: rgba(0, 0, 0, .55);
   --dim-soft: rgba(255, 255, 255, .45);
+  --board: #7c828c;
+  --board-2: #626873;
+  --board-line: #eceef2;
 }
 
 .backdrop-pick {
@@ -392,12 +398,18 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .cut { stroke: #d4383d; fill: none; }
 .engrave { stroke: #2f6fd0; fill: none; }
+/* Opaque on purpose. The base has to actually hide the tenons buried in it, or
+   the assembled view shows the joint through the wood as a ragged bottom edge. */
 .solid {
-  fill: color-mix(in srgb, var(--dim-ink) 12%, transparent);
-  stroke: var(--dim-ink);
+  fill: var(--board);
+  stroke: var(--board-line);
   stroke-linejoin: round;
 }
-.solid.base { fill: color-mix(in srgb, var(--dim-ink) 22%, transparent); }
+.solid.base { fill: var(--board-2); }
+.hidden-line {
+  stroke: var(--board-line); fill: none; opacity: .38;
+  stroke-dasharray: 2.5 2;
+}
 .seam { stroke: var(--dim-soft); }
 .panel-tag { fill: var(--dim-soft); font-family: ui-sans-serif, system-ui, sans-serif; }
 

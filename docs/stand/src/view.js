@@ -119,11 +119,13 @@ export class View {
       ...face.holes.map((h) => ringD(h, 0)),
       ...(face.loose || []).map((h) => ringD(h, 0)),
     ].filter(Boolean).join(' ');
-    // The face sits with its shoulder on the top of the base, which puts the
-    // panel's own origin - the bottom of its tenons - one board up from the
-    // table. Drawn before the base so the tenons read as hidden detail.
+    // The face rests with its shoulder on top of the base, so its own origin -
+    // the bottom of its tenons - sits however far the tenons reach up from the
+    // table. Through a single board that is the table itself; on a stack it is
+    // the floor of the pocket. Using one board's thickness for both floated the
+    // face clear of a single-board base and left a gap under it.
     const faceG = el('g', {
-      transform: `translate(${faceX} ${flip(t)}) scale(1 1)`,
+      transform: `translate(${faceX} ${flip(baseTall - d.tenonDepth)})`,
     });
     faceG.append(el('path', { d: faceD, class: 'solid', 'stroke-width': sw }));
     const burnFill = (face.engraveFill || [])
@@ -143,6 +145,9 @@ export class View {
     g.append(faceG);
 
     // ---- the base, drawn over the tenons ----
+    // It is opaque, and it goes on last, because in the finished object the
+    // tenons are inside the wood. Leaving them visible made the bottom of the
+    // face read as a ragged edge rather than as a joint.
     g.append(el('rect', {
       x: 0, y: flip(baseTall), width: d.baseW, height: baseTall,
       rx: Math.min(2, t / 2), class: 'solid base', 'stroke-width': sw,
@@ -151,6 +156,14 @@ export class View {
       g.append(el('line', {
         x1: 0, x2: d.baseW, y1: flip(i * t), y2: flip(i * t), class: 'seam',
         'stroke-width': sw * 0.7,
+      }));
+    }
+    // Where the tenons sit, as a dashed hidden line - the drawing convention,
+    // and enough to see the joint without it looking like a broken edge.
+    for (const [a, b] of d.tenons || []) {
+      g.append(el('rect', {
+        x: faceX + a, y: flip(baseTall), width: b - a, height: d.tenonDepth,
+        class: 'hidden-line', 'stroke-width': sw * 0.8,
       }));
     }
 
