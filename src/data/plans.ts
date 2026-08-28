@@ -44,6 +44,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     tiers: SEMUA,
   },
   {
+    label: 'Stand Nama — papan tanda nama meja',
+    detail:
+      'Pilih saiz Small, Medium atau Large. Plate berukir atau huruf dipotong '
+      + 'tembus, 25 pilihan fon, siap dengan tapak berslot.',
+    tiers: SEMUA,
+  },
+  {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
     tiers: DIGITAL,

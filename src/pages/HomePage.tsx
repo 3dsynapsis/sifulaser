@@ -6,6 +6,7 @@ import {
   Lightbulb,
   PenLine,
   Puzzle,
+  RectangleHorizontal,
   LockKeyhole,
   Sparkles,
   Stethoscope,
@@ -111,6 +112,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 8,
+    title: 'Stand Nama',
+    description:
+      'Papan tanda nama meja: plate berukir atau huruf potong, siap dengan tapak.',
+    href: '#/stand',
+    color: '#2f5db0',
+    softBg: '#eef2fb',
+    border: '#cfdcf3',
+    Icon: RectangleHorizontal,
+  },
+  {
+    number: 9,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',

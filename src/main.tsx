@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage'
 import { BoxMakerPage } from './pages/BoxMakerPage'
 import { PuzzlePage } from './pages/PuzzlePage'
 import { TextEngraverPage } from './pages/TextEngraverPage'
+import { StandPage } from './pages/StandPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -90,6 +91,8 @@ const Root = () => {
       return <PuzzlePage />
     case 'text':
       return <TextEngraverPage />
+    case 'stand':
+      return <StandPage />
     case 'maintenance':
       return <MaintenanceChooserPage />
     case 'troubleshoot':

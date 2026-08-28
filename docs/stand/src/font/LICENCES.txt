@@ -1,0 +1,101 @@
+Typefaces shipped with Stand Maker
+============================================================
+
+Every face here is redistributable. Two licences are involved and both
+require that this file travels with the font data.
+
+CC0 1.0 - no rights reserved. Use, modify and sell freely.
+SIL Open Font License 1.1 - use, modify and redistribute freely, including
+  commercially, and anything you make WITH the font is entirely yours. The
+  two conditions are on the font data itself: this notice stays with it, and
+  the font is not sold on its own. Full text: https://openfontlicense.org
+
+The single-line faces are derived from the Hershey Fonts - see CREDITS.txt.
+
+Block
+------------------------------------------------------------
+Blue Highway
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Edmunds
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Engebrechtre
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Poppins
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/poppins
+
+Bebas Neue
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/bebasneue
+
+Serif
+------------------------------------------------------------
+Dream Orphans
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Goodfish
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Berylium
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Port Credit
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Cinzel
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/cinzel
+
+Cursive
+------------------------------------------------------------
+Great Vibes
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/greatvibes
+
+Allura
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/allura
+
+Parisienne
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/parisienne
+
+Deftone Stylus
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Sloe Gin Rickey
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Display
+------------------------------------------------------------
+Lobster
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/lobster
+
+Alfa Slab One
+  SIL Open Font License 1.1
+  Google Fonts - github.com/google/fonts/tree/main/ofl/alfaslabone
+
+Neuropol
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Mesmerize
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain
+
+Velvenda
+  CC0 1.0 (public domain)
+  Typodermic Fonts (Ray Larabie) - typodermicfonts.com/public-domain

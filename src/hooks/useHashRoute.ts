@@ -6,6 +6,7 @@ export type Route =
   | 'boxmaker'
   | 'puzzle'
   | 'text'
+  | 'stand'
   | 'maintenance'
   | 'troubleshoot'
   | 'weekly'
@@ -29,6 +30,8 @@ const parseRoute = (hash: string): Route => {
       return 'puzzle'
     case 'text':
       return 'text'
+    case 'stand':
+      return 'stand'
     case 'maintenance':
       return 'maintenance'
     case 'troubleshoot':
