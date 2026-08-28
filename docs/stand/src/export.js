@@ -8,12 +8,23 @@
 // Cut and engrave go on separate layers in separate colours, because every
 // laser front-end asks you to assign different power to them and the usual way
 // to tell it which is which is by colour.
+//
+// Engraving comes in two kinds and they are not interchangeable, so they get a
+// layer each. A single-line face engraves as open polylines - the exact path the
+// head follows, nothing to fill. A real typeface engraves as the closed outline
+// of each letter, which has to be scanned solid: send those to a Line operation
+// and the machine traces round every letter and leaves it hollow. Since the name
+// and the line under it can be set in different faces, one stand can need both.
+//
+// The three colours are the ones laser software conventionally maps operations
+// to: red cuts, black scans, blue scores.
 
 const MM_TO_PT = 72 / 25.4;
 
 export const LAYERS = {
   cut: { id: 'cut', color: '#ff0000', label: 'Cut' },
-  engrave: { id: 'engrave', color: '#0000ff', label: 'Engrave' },
+  engraveFill: { id: 'engrave-fill', color: '#000000', label: 'Engrave (Fill)' },
+  engrave: { id: 'engrave-line', color: '#0000ff', label: 'Engrave (Line)' },
 };
 
 const fmt = (v) => {
@@ -74,24 +85,27 @@ export function nest(panels, { gap = 6, sheetWidth = 600 } = {}) {
 
 const moveRing = (pts, dx, dy) => pts.map(([x, y]) => [x + dx, y + dy]);
 
-/** Every closed ring on the cut layer, and every polyline on the engrave layer. */
+/** Everything to cut, everything to scan solid, everything to score as a line. */
 export function collect(placed) {
   const cut = [];
   const engrave = [];
+  const engraveFill = [];
+  const move = (st, dx, dy) => {
+    const out = new Array(st.length);
+    for (let k = 0; k < st.length; k += 2) {
+      out[k] = st[k] + dx;
+      out[k + 1] = st[k + 1] + dy;
+    }
+    return out;
+  };
   for (const { panel, dx, dy } of placed) {
     cut.push(moveRing(panel.outline, dx, dy));
     for (const h of panel.holes) cut.push(moveRing(h, dx, dy));
     for (const l of panel.loose || []) cut.push(moveRing(l, dx, dy));
-    for (const st of panel.engrave || []) {
-      const out = new Array(st.length);
-      for (let k = 0; k < st.length; k += 2) {
-        out[k] = st[k] + dx;
-        out[k + 1] = st[k + 1] + dy;
-      }
-      engrave.push(out);
-    }
+    for (const st of panel.engrave || []) engrave.push(move(st, dx, dy));
+    for (const st of panel.engraveFill || []) engraveFill.push(move(st, dx, dy));
   }
-  return { cut, engrave };
+  return { cut, engrave, engraveFill };
 }
 
 const ringPath = (pts, height) => {
@@ -112,17 +126,22 @@ const linePath = (flat, height) => {
 export function toSvg(panels, opts = {}) {
   const o = { title: 'Name stand', gap: 6, sheetWidth: 600, strokeWidth: 0.1, ...opts };
   const { placed, width, height } = nest(panels, o);
-  const { cut, engrave } = collect(placed);
+  const { cut, engrave, engraveFill } = collect(placed);
   const cd = cut.map((r) => ringPath(r, height)).filter(Boolean).join(' ');
-  const ed = engrave.map((l) => linePath(l, height)).filter(Boolean).join(' ');
+  const ld = engrave.map((l) => linePath(l, height)).filter(Boolean).join(' ');
+  const fd = engraveFill.map((l) => `${linePath(l, height)} Z`).filter(Boolean).join(' ');
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
     + `width="${fmt(width)}mm" height="${fmt(height)}mm" `
     + `viewBox="0 0 ${fmt(width)} ${fmt(height)}">`,
     `<title>${esc(o.title)}</title>`,
-    ed ? `<g id="${LAYERS.engrave.id}" data-layer="${LAYERS.engrave.label}" fill="none" `
-      + `stroke="${LAYERS.engrave.color}" stroke-width="${fmt(o.strokeWidth)}" `
-      + `stroke-linecap="round" stroke-linejoin="round"><path d="${ed}"/></g>` : '',
+    fd ? `<g id="${LAYERS.engraveFill.id}" data-layer="${LAYERS.engraveFill.label}" `
+      + `fill="${LAYERS.engraveFill.color}" fill-rule="nonzero" stroke="none">`
+      + `<path d="${fd}"/></g>` : '',
+    ld ? `<g id="${LAYERS.engrave.id}" data-layer="${LAYERS.engrave.label}" `
+      + `fill="none" stroke="${LAYERS.engrave.color}" `
+      + `stroke-width="${fmt(o.strokeWidth)}" stroke-linecap="round" `
+      + `stroke-linejoin="round"><path d="${ld}"/></g>` : '',
     cd ? `<g id="${LAYERS.cut.id}" data-layer="${LAYERS.cut.label}" fill="none" `
       + `stroke="${LAYERS.cut.color}" stroke-width="${fmt(o.strokeWidth)}">`
       + `<path d="${cd}"/></g>` : '',
@@ -138,15 +157,26 @@ export function toSvg(panels, opts = {}) {
 export function toPdf(panels, opts = {}) {
   const o = { title: 'Name stand', gap: 6, sheetWidth: 600, strokeWidth: 0.1, ...opts };
   const { placed, width, height } = nest(panels, o);
-  const { cut, engrave } = collect(placed);
+  const { cut, engrave, engraveFill } = collect(placed);
   const P = (v) => fmt(v * MM_TO_PT);
 
   const ops = [`${fmt(o.strokeWidth * MM_TO_PT)} w`, '1 J', '1 j'];
+  const pen = (st) => {
+    ops.push(`${P(st[0])} ${P(st[1])} m`);
+    for (let k = 2; k < st.length; k += 2) ops.push(`${P(st[k])} ${P(st[k + 1])} l`);
+  };
+  ops.push('0 0 0 rg');
+  for (const st of engraveFill) {
+    if (st.length < 4) continue;
+    pen(st);
+    // Non-zero fill matches the winding the glyph data already carries, so a
+    // counter stays a counter and an overlapping stroke does not cancel out.
+    ops.push('h f');
+  }
   ops.push('0 0 1 RG');
   for (const st of engrave) {
     if (st.length < 4) continue;
-    ops.push(`${P(st[0])} ${P(st[1])} m`);
-    for (let k = 2; k < st.length; k += 2) ops.push(`${P(st[k])} ${P(st[k + 1])} l`);
+    pen(st);
     ops.push('S');
   }
   ops.push('1 0 0 RG');

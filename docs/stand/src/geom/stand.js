@@ -1,10 +1,14 @@
 // Table name stand: a face that stands upright in a slotted, layered base.
 //
-// The whole object is two ideas. The face carries the name. The base is a stack
-// of identical boards where every layer but the bottom one has a slot cut
-// through it, so gluing the stack up leaves a socket with a floor. A laser
-// cannot cut half way through a board, and this is how you get a blind pocket
-// out of a machine that only cuts all the way.
+// The whole object is two ideas. The face carries the name; the base holds it up.
+//
+// The base is built one of two ways, and the layer count picks between them.
+// One board is the usual one: the slot goes straight through it and the face's
+// tenons come out flush underneath. Two or more boards give a blind socket
+// instead - every layer but the bottom is slotted, so gluing the stack up
+// leaves a pocket with a floor. A laser cannot cut half way into a board, and
+// stacking is the only way to get a pocket out of a machine that only cuts all
+// the way through.
 //
 // The face comes in two flavours:
 //
@@ -28,7 +32,11 @@ export const DEFAULTS = {
   line1: 'SHAKIMAH',
   line2: 'BINTI AB RAHMAN',
   baseText: 'SK TANAH MERAH',
-  face: 'sans',
+  // Blue Highway is the safe default: it is the only kind of face that survives
+  // both styles. A fine one looks right on a plate and falls apart the moment
+  // somebody switches to cut-out.
+  face: 'blue-highway',
+  face2: '',             // typeface for line 2; empty follows line 1
   align: 'center',
 
   size: 'medium',        // small | medium | large | custom | auto
@@ -51,7 +59,7 @@ export const DEFAULTS = {
   corner: 4,
   border: false,         // plate: an engraved line just inside the edge
 
-  baseLayers: 2,         // bottom one solid, the rest slotted
+  baseLayers: 1,         // 1 = slot straight through; 2+ = blind socket
   baseDepth: 0,          // 0 = work it out from the height
   overhang: 6,           // base sticks out this far past the face, each side
   slotInset: 14,         // slot stops this far short of each end
@@ -86,6 +94,7 @@ export const sizeOf = (id) => SIZE_PRESETS.find((s) => s.id === id) || null;
 
 export const PANEL_LABELS = {
   face: 'Face',
+  base: 'Base (slot through)',
   baseTop: 'Base top (slotted)',
   baseMid: 'Base middle (slotted)',
   baseBottom: 'Base bottom (solid)',
@@ -300,14 +309,14 @@ export function tenonSpans(faceW, inset, minGapForTwo = 110) {
  * dimensions exactly, and the leftover goes into the margins where it belongs
  * rather than into a letter that is 0.4 mm off the size on the label.
  */
-function fitToSize(p, faceData) {
+function fitToSize(p, faceData, face2Data) {
   const target = p.size === 'custom'
     ? { w: p.standW, h: p.standH }
     : sizeOf(p.size);
   if (!target || !(target.w > 0) || !(target.h > 0)) return { p, fitW: 0, fitH: 0 };
 
   const t = Math.max(0.5, p.thickness);
-  const layers = clamp(Math.round(p.baseLayers), 2, 6);
+  const layers = clamp(Math.round(p.baseLayers), 1, 6);
   // The label measures the whole object: the base is as wide as the face plus
   // its overhang, and as tall as the boards it is stacked from.
   const fitW = target.w - p.overhang * 2;
@@ -317,7 +326,7 @@ function fitToSize(p, faceData) {
   const cap1 = Math.max(2, p.cap1);
   const cap2 = Math.max(2, p.cap2);
   const l1 = line(p.line1, cap1, faceData);
-  const l2 = line(p.line2, cap2, faceData);
+  const l2 = line(p.line2, cap2, face2Data);
   const silhouette = p.style === 'silhouette';
   const hasL2 = l2.paths.length > 0;
   const stackL2 = hasL2 && (!silhouette || p.line2Cut);
@@ -372,16 +381,22 @@ export function buildStand(input = {}) {
   const raw = { ...DEFAULTS, ...input };
   const faceData = raw.faceData;
   if (!faceData) return EMPTY;
-  const fitted = fitToSize(raw, faceData);
+  // Line 2 is often a job title, and a title wants its own voice - so it gets
+  // its own typeface, falling back to the name's when none is chosen.
+  const face2Data = raw.faceData2 || faceData;
+  const fitted = fitToSize(raw, faceData, face2Data);
   const p = fitted.p;
   const { fitW, fitH } = fitted;
 
   const t = Math.max(0.5, p.thickness);
-  const layers = clamp(Math.round(p.baseLayers), 2, 6);
-  const tenonDepth = (layers - 1) * t;
+  const layers = clamp(Math.round(p.baseLayers), 1, 6);
+  // A single board is slotted right through, so the tenon runs the full
+  // thickness and finishes flush underneath. A stack keeps its bottom board
+  // solid, and the tenon only reaches the floor of the pocket that leaves.
+  const tenonDepth = layers === 1 ? t : (layers - 1) * t;
 
   const l1 = line(p.line1, Math.max(2, p.cap1), faceData);
-  const l2 = line(p.line2, Math.max(2, p.cap2), faceData);
+  const l2 = line(p.line2, Math.max(2, p.cap2), face2Data);
   if (!l1.paths.length && !l2.paths.length) return EMPTY;
 
   // ---- stack the two lines ------------------------------------------------
@@ -406,19 +421,37 @@ export function buildStand(input = {}) {
   const textW = Math.max(l1.advance, stackL2 ? l2.advance : 0);
   const sh1 = alignShift(p.align, l1.advance, textW);
   const sh2 = alignShift(p.align, l2.advance, textW);
-  const strokes = [
-    ...shiftPaths(l1.paths, sh1, b1),
-    ...(stackL2 ? shiftPaths(l2.paths, sh2, b2) : []),
+  const l1Paths = shiftPaths(l1.paths, sh1, b1);
+  const l2Paths = stackL2 ? shiftPaths(l2.paths, sh2, b2) : [];
+  const strokes = [...l1Paths, ...l2Paths];
+
+  // The two lines can be set in different kinds of face, so they take different
+  // routes into the distance field: a skeleton has to be given a thickness, a
+  // real letter already has one. Both can be in the same field at once.
+  const out1 = isOutline(faceData);
+  const out2 = isOutline(face2Data);
+  const cutStrokes = [...(out1 ? [] : l1Paths), ...(out2 ? [] : l2Paths)];
+  const cutShapes = [
+    ...(out1 ? shiftShapes(l1.shapes, sh1, b1) : []),
+    ...(stackL2 && out2 ? shiftShapes(l2.shapes, sh2, b2) : []),
   ];
-  // An outline face arrives with a thickness of its own; a stroke face has to be
-  // given one. Both end up in the same distance field, through different doors.
-  const outlineFace = isOutline(faceData);
-  const glyphShapes = outlineFace ? [
-    ...shiftShapes(l1.shapes, sh1, b1),
-    ...(stackL2 ? shiftShapes(l2.shapes, sh2, b2) : []),
-  ] : [];
-  const cutStroke = outlineFace ? meanStroke(glyphShapes) : Math.max(0.6, p.weight);
+  const penW = Math.max(0.6, p.weight);
+  // Whichever is thinner is the one that breaks, so that is the one to report.
+  const shapeW = cutShapes.length ? meanStroke(cutShapes) : Infinity;
+  const strokeW = cutStrokes.length ? penW : Infinity;
+  const thinnest = Math.min(shapeW, strokeW);
+  const cutStroke = Number.isFinite(thinnest) ? thinnest : penW;
   const ink = pathsBBox(strokes) || { x0: 0, y0: 0, x1: 0, y1: 0, w: 0, h: 0 };
+
+  // A skeleton face engraves as open lines the head follows; a real one engraves
+  // as closed letter shapes that have to be filled in. Both can appear on the
+  // same stand now, and they need different operations on the machine, so they
+  // are kept apart from here all the way to the file.
+  const engOpen = [];
+  const engFill = [];
+  const addEng = (paths, closed) => {
+    if (paths.length) (closed ? engFill : engOpen).push(...paths);
+  };
 
   const warnings = [];
   const panels = [];
@@ -427,6 +460,7 @@ export function buildStand(input = {}) {
   let faceHoles = [];
   let faceLoose = [];
   let faceEngrave = [];
+  let faceEngraveFill = [];
   let faceW;
   let bodyH;
   let bodyBottom;   // y of the shoulder that lands on the base
@@ -438,7 +472,7 @@ export function buildStand(input = {}) {
     const pad = Math.max(p.padX, w * 0.8);
     // A stroke face has to grow by half its width; an outline face is already
     // its own full width, so its ink extent is the real one.
-    const grow = outlineFace ? 0 : w / 2;
+    const grow = cutStrokes.length ? penW / 2 : 0;
     let barX0 = ink.x0 - grow - pad;
     let barX1 = ink.x1 + grow + pad;
     const barTop = (stackL2 ? b2 : b1) + p.overlap;
@@ -467,14 +501,14 @@ export function buildStand(input = {}) {
         barX0 = c - need / 2;
         barX1 = c + need / 2;
       }
-      faceEngrave = shiftPaths(l2.paths,
-        (barX0 + barX1 - l2.advance) / 2, barBottom + (barH - cap2) / 2);
+      addEng(shiftPaths(l2.paths,
+        (barX0 + barX1 - l2.advance) / 2, barBottom + (barH - cap2) / 2), out2);
     }
 
     const weld = outlineWelded(
-      outlineFace ? { glyphs: glyphShapes } : { strokes },
+      { strokes: cutStrokes, glyphs: cutShapes },
       [[barX0, barBottom, barX1, barTop]],
-      outlineFace ? 0.1 : w,
+      penW,
       Math.max(0, Math.min(p.bridge, Math.max(w, 1.5))),
     );
     const res = weld.res;
@@ -511,7 +545,7 @@ export function buildStand(input = {}) {
     if (w < 3) {
       warnings.push(`The letters average ${w.toFixed(1)} mm across - thin enough to `
         + 'snap when handled. '
-        + (outlineFace
+        + (shapeW <= strokeW
           ? 'This typeface is too fine to cut out. Use a heavier one, raise the '
             + 'capital height, or switch to the plate style and engrave it.'
           : 'Raise the letter thickness.'));
@@ -540,12 +574,15 @@ export function buildStand(input = {}) {
     faceOutline = roundedRect(x0, bodyBottom, faceW, bodyH, p.corner);
     const tenons = tenonSpans(faceW, p.slotInset).map(([a, b]) => [x0 + a, x0 + b]);
     faceOutline = dedupe([...faceOutline, ...tenonDips(bodyBottom, tenons, tenonDepth)]);
-    faceEngrave = strokes;
+    addEng(l1Paths, out1);
+    addEng(l2Paths, out2);
     if (p.border) {
       const inset = Math.max(2.5, Math.min(p.padX, p.padY) * 0.45);
       const b = roundedRect(x0 + inset, bodyBottom + inset,
         faceW - inset * 2, bodyH - inset * 2, Math.max(0.5, p.corner - inset * 0.5));
-      faceEngrave = [...faceEngrave, ringToFlat(b)];
+      // A border is a line whatever the letters are - scanning it solid would
+      // burn a filled frame rather than draw one.
+      engOpen.push(ringToFlat(b));
     }
   }
 
@@ -557,7 +594,8 @@ export function buildStand(input = {}) {
   faceOutline = mv(faceOutline);
   faceHoles = faceHoles.map(mv);
   faceLoose = faceLoose.map(mv);
-  faceEngrave = shiftPaths(faceEngrave, dx, dy);
+  faceEngrave = shiftPaths(engOpen, dx, dy);
+  faceEngraveFill = shiftPaths(engFill, dx, dy);
   const tenonsOnFace = tenonSpansOnFace(faceOutline, tenonDepth);
 
   panels.push({
@@ -567,6 +605,7 @@ export function buildStand(input = {}) {
     holes: faceHoles,
     loose: faceLoose,
     engrave: faceEngrave,
+    engraveFill: faceEngraveFill,
   });
 
   // ---- base ---------------------------------------------------------------
@@ -587,35 +626,44 @@ export function buildStand(input = {}) {
   // The base text sits in the strip in front of the slot - the only flat area
   // the finished stand shows you from the front.
   const baseEngrave = [];
+  const baseEngraveFill = [];
   const bl = line(p.baseText, Math.max(2, p.capBase), faceData);
   if (bl.paths.length) {
     const frontStrip = slotY - slotW / 2;
     const bx = (baseW - bl.advance) / 2;
     const by = Math.max(3, (frontStrip - Math.max(2, p.capBase)) / 2);
-    baseEngrave.push(...shiftPaths(bl.paths, bx, by));
+    (out1 ? baseEngraveFill : baseEngrave).push(...shiftPaths(bl.paths, bx, by));
     if (bl.advance > baseW - 8) {
       warnings.push('The base text is wider than the base. Shrink it or widen the stand.');
     }
   }
 
   for (let i = 0; i < layers; i++) {
-    const isBottom = i === layers - 1;
+    // On a stack the bottom board is the floor of the pocket, so it is the only
+    // one left solid. On a single board there is no floor: the slot goes
+    // through and the tenon finishes flush underneath.
+    const isBottom = layers > 1 && i === layers - 1;
     const isTop = i === 0;
     panels.push({
-      id: isBottom ? 'baseBottom' : isTop ? 'baseTop' : `baseMid${i}`,
-      label: isBottom ? PANEL_LABELS.baseBottom
-        : isTop ? PANEL_LABELS.baseTop : PANEL_LABELS.baseMid,
+      id: layers === 1 ? 'base'
+        : isBottom ? 'baseBottom' : isTop ? 'baseTop' : `baseMid${i}`,
+      label: layers === 1 ? PANEL_LABELS.base
+        : isBottom ? PANEL_LABELS.baseBottom
+          : isTop ? PANEL_LABELS.baseTop : PANEL_LABELS.baseMid,
       outline: roundedRect(0, 0, baseW, baseD, p.corner),
       holes: isBottom ? [] : baseSlots,
       loose: [],
       engrave: isTop ? baseEngrave : [],
+      engraveFill: isTop ? baseEngraveFill : [],
     });
   }
 
   // ---- checks worth making before anyone burns a sheet --------------------
-  if (tenonDepth < 4) {
+  // Only worth saying on a stack. A single board is slotted right through, so
+  // the whole thickness holds the face and there is nothing to deepen.
+  if (layers > 1 && tenonDepth < 4) {
     warnings.push(`The socket is only ${tenonDepth.toFixed(1)} mm deep. Add a base `
-      + 'layer, or the face will rock.');
+      + 'layer, or drop to a single board and let the slot go straight through.');
   }
   if (baseD < standHeight * 0.3) {
     warnings.push('The base is shallow for this height - it will tip forward easily.');
@@ -650,9 +698,17 @@ export function buildStand(input = {}) {
       tenonDepth, tenons: tenonsOnFace, layers,
       pieces, loose: faceLoose.length, holes: faceHoles.length, bridges: bridgeCount,
       cap1: p.cap1, cap2: p.cap2, cutStroke, fitScale: fitted.fitScale ?? 1,
+      // Which engrave operations this job actually needs. Closed letter shapes
+      // have to be filled - send those to a Line operation and the machine
+      // traces round each letter and leaves it hollow. Open strokes are the
+      // opposite: a Fill finds no enclosed area and marks nothing.
+      engraveFill: panels.some((x) => x.engraveFill?.length),
+      engraveLine: panels.some((x) => x.engrave.length),
       standHeight, textW,
       cutLength,
-      engraveLength: polylineLength(panels.flatMap((x) => x.engrave)),
+      engraveLength: polylineLength(
+        panels.flatMap((x) => [...x.engrave, ...(x.engraveFill || [])]),
+      ),
       warnings,
       empty: false,
     },

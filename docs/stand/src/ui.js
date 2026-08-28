@@ -131,6 +131,11 @@ const CATEGORY_NOTES = {
     + 'the tool gives them a thickness of its own.',
 };
 
+// Single line goes last. The four real typeface groups are what somebody is
+// choosing between; the stroke faces are a special case you reach for when you
+// want engraving speed, not a starting point.
+const CATEGORY_ORDER = ['block', 'serif', 'script', 'display', 'line'];
+
 let activeCat = null;
 
 /**
@@ -162,7 +167,7 @@ function facePicker(ctx) {
   const p = state.params;
   const current = ctx.faces.find((f) => f.id === p.face);
   if (!activeCat) activeCat = current?.cat || 'block';
-  const cats = [...new Set(ctx.faces.map((f) => f.cat))];
+  const cats = CATEGORY_ORDER.filter((c) => ctx.faces.some((f) => f.cat === c));
   const inCat = ctx.faces.filter((f) => f.cat === activeCat);
 
   // Only the category on screen is fetched. All twenty outline faces together
@@ -197,6 +202,42 @@ function facePicker(ctx) {
         : null);
     })),
   ];
+}
+
+/**
+ * A compact picker for line 2.
+ *
+ * The name gets the big gallery of previews because that is the decision people
+ * care about. Line 2 is usually a job title or a department - a real choice, but
+ * a secondary one - so it gets a grouped list instead of a second wall of
+ * thumbnails. What it looks like shows up in the preview immediately anyway.
+ */
+function face2Select(ctx) {
+  const p = state.params;
+  const sel2 = h('select', {
+    class: 'face-select',
+    onchange: (e) => {
+      const id = e.target.value;
+      setParam('face2', id);
+      if (id && !faceLoaded(id)) loadFace(id).then(() => ctx.refresh()).catch(() => {});
+      ctx.refresh();
+    },
+  });
+  sel2.append(h('option', { value: '' }, 'Same as the name'));
+  for (const c of CATEGORY_ORDER) {
+    const inCat = ctx.faces.filter((f) => f.cat === c);
+    if (!inCat.length) continue;
+    const grp = h('optgroup', { label: CATEGORY_NAMES[c] || c });
+    for (const f of inCat) grp.append(h('option', { value: f.id }, f.name));
+    sel2.append(grp);
+  }
+  sel2.value = p.face2 || '';
+  return h('div', { class: 'field' },
+    h('label', {}, 'Typeface for line 2'),
+    sel2,
+    h('p', { class: 'hint' },
+      'A job title reads better in something other than the name it sits under. '
+      + 'Leave it following the name if you would rather they matched.'));
 }
 
 // ---- inspector ------------------------------------------------------------
@@ -341,18 +382,24 @@ export function renderInspector(root, ctx) {
         + (d.bridges ? ` ${d.bridges} added here.` : ''))
       : null));
 
-  root.append(group('Typeface', true, ...facePicker(ctx)));
+  root.append(group('Typeface', true,
+    ...facePicker(ctx),
+    p.line2 ? face2Select(ctx) : null));
 
   root.append(group('Base', false,
     numberRow('Layers', p.baseLayers, {
-      min: 2, max: 6, step: 1,
+      min: 1, max: 6, step: 1,
       onInput: (v) => { setParam('baseLayers', Math.round(v)); ctx.refresh(); },
     }),
     h('p', { class: 'hint' },
-      `${d.layers} boards glued up: the bottom one solid, ${d.layers - 1} with the `
-      + `slot cut through. That leaves a socket ${rnd(d.tenonDepth, 1)} mm deep. A `
-      + 'laser cannot cut half way into a board, and this is how you get a '
-      + 'pocket out of a machine that only cuts all the way.'),
+      d.layers === 1
+        ? 'One board with the slot cut straight through it. The face drops in '
+          + `${rnd(d.tenonDepth, 1)} mm and finishes flush underneath - glue it `
+          + 'and you are done.'
+        : `${d.layers} boards glued up: the bottom one solid, ${d.layers - 1} with `
+          + `the slot cut through. That leaves a socket ${rnd(d.tenonDepth, 1)} mm `
+          + 'deep with a floor. A laser cannot cut half way into a board, so '
+          + 'stacking is the only way to get a pocket out of it.'),
     numberRow('Depth (mm, 0 = automatic)', p.baseDepth, {
       min: 0, max: 140, step: 1,
       onInput: (v) => { setParam('baseDepth', v); ctx.refresh(); },
@@ -388,9 +435,13 @@ export function renderInspector(root, ctx) {
       + 'finished part measures what it says. Fit makes the slot tighter than '
       + 'the tenon by that much, so it has to be pushed home.')));
 
+  // Hidden for now at the boss's request - the numbers are all in the export
+  // dialog and the top bar already carries the finished size. Flip this back on
+  // to bring the panel and its speed and sheet-width controls back.
+  const SHOW_JOB = false;
   const sheet = nest(r.panels, { sheetWidth: state.sheetWidth });
   const seconds = state.speed > 0 ? d.cutLength / state.speed : 0;
-  root.append(group('Job', false,
+  if (SHOW_JOB) root.append(group('Job', false,
     h('div', { class: 'stat' },
       h('span', {}, 'Pieces'), h('b', {}, String(r.panels.length))),
     h('div', { class: 'stat' },
@@ -458,14 +509,33 @@ export function fillExportDialog(dlg) {
     `${r.panels.length} pieces on a ${rnd(sheet.width, 1)} x ${rnd(sheet.height, 1)} mm `
     + `sheet of ${rnd(r.params.thickness, 1)} mm board, `
     + `${rnd(d.cutLength / 1000, 2)} m of cutting.`;
-  dlg.querySelector('#layerKey').replaceChildren(
-    h('span', {}, h('i', { style: `background:${LAYERS.cut.color}` }), LAYERS.cut.label),
-    h('span', {}, h('i', { style: `background:${LAYERS.engrave.color}` }),
-      LAYERS.engrave.label));
-  dlg.querySelector('#exportNote').textContent =
-    'Red is cut, blue is engraved - set the two to different power in your '
-    + 'machine. Both files carry real millimetres, so they import at size. Glue '
-    + 'the base layers up first, with the face already in the slot to line them up.';
+  // Only the layers this particular job actually contains, so the key never
+  // lists a colour that is not in the file.
+  const key = [
+    ['cut', true],
+    ['engraveFill', d.engraveFill],
+    ['engrave', d.engraveLine],
+  ].filter(([, on]) => on).map(([id]) => LAYERS[id]);
+  dlg.querySelector('#layerKey').replaceChildren(...key.map((L) => h('span', {},
+    h('i', { style: `background:${L.color};border:1px solid var(--line-strong)` }),
+    L.label)));
+
+  const notes = ['Red is cut.'];
+  if (d.engraveFill) {
+    notes.push('Black is the filled shape of each letter - set it to Fill or '
+      + 'Scan, because a Line operation would trace round them and leave them '
+      + 'hollow.');
+  }
+  if (d.engraveLine) {
+    notes.push('Blue is single-line strokes - set it to Line or Engrave, '
+      + 'because a Fill would find no enclosed area and mark nothing.');
+  }
+  notes.push('Both files carry real millimetres, so they import at size.');
+  notes.push(r.derived.layers === 1
+    ? 'The slot goes right through the base; push the face in until it is flush '
+      + 'underneath, then glue.'
+    : 'Glue the base layers up with the face already in the slot, so they line up.');
+  dlg.querySelector('#exportNote').textContent = notes.join(' ');
   const empty = !r.panels.length;
   dlg.querySelector('#dlSvg').disabled = empty;
   dlg.querySelector('#dlPdf').disabled = empty;

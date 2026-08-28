@@ -64,9 +64,15 @@ export class View {
       sheetWidth: opts.sheetWidth || 600,
     });
     const span = this.frame(width, height);
-    const { cut, engrave } = collect(placed);
+    const { cut, engrave, engraveFill } = collect(placed);
     const sw = Math.max(0.15, span / 700);
 
+    const fd = engraveFill.map((l) => `${lineD(l, height)}Z`).filter(Boolean).join(' ');
+    if (fd) {
+      this.svg.append(el('path', {
+        d: fd, class: 'engrave-fill', 'fill-rule': 'nonzero', stroke: 'none',
+      }));
+    }
     const ed = engrave.map((l) => lineD(l, height)).filter(Boolean).join(' ');
     if (ed) {
       this.svg.append(el('path', {
@@ -120,14 +126,19 @@ export class View {
       transform: `translate(${faceX} ${flip(t)}) scale(1 1)`,
     });
     faceG.append(el('path', { d: faceD, class: 'solid', 'stroke-width': sw }));
-    if (face.engrave?.length) {
-      const ed = face.engrave.map((l) => lineD(l, 0)).filter(Boolean).join(' ');
-      if (ed) {
-        faceG.append(el('path', {
-          d: ed, class: 'engrave', fill: 'none', 'stroke-width': sw * 0.8,
-          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-        }));
-      }
+    const burnFill = (face.engraveFill || [])
+      .map((l) => `${lineD(l, 0)}Z`).filter(Boolean).join(' ');
+    if (burnFill) {
+      faceG.append(el('path', {
+        d: burnFill, class: 'burn-fill', 'fill-rule': 'nonzero', stroke: 'none',
+      }));
+    }
+    const burnLine = (face.engrave || []).map((l) => lineD(l, 0)).filter(Boolean).join(' ');
+    if (burnLine) {
+      faceG.append(el('path', {
+        d: burnLine, class: 'burn', fill: 'none', 'stroke-width': sw * 0.8,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      }));
     }
     g.append(faceG);
 

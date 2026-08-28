@@ -37,10 +37,13 @@ let cacheKey = '';
 
 export function getResult() {
   const face = faceLoaded(state.params.face);
-  const key = JSON.stringify(state.params) + (face ? face.id : '-');
+  const face2 = state.params.face2 ? faceLoaded(state.params.face2) : null;
+  const key = `${JSON.stringify(state.params)}|${face ? face.id : '-'}`
+    + `|${face2 ? face2.id : '-'}`;
   if (cache && cacheKey === key) return cache;
-  cache = buildStand({ ...state.params, faceData: face });
+  cache = buildStand({ ...state.params, faceData: face, faceData2: face2 });
   cache.face = face;
+  cache.face2 = face2 || face;
   cacheKey = key;
   return cache;
 }
