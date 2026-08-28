@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Crosshair,
   Lightbulb,
+  PenLine,
   Puzzle,
   LockKeyhole,
   Sparkles,
@@ -99,6 +100,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 7,
+    title: 'Text Engraver',
+    description:
+      'Teks satu garisan untuk ukiran laju. Dapat fail SVG atau PDF ikut saiz mm.',
+    href: '#/text',
+    color: '#c2610f',
+    softBg: '#fdf1e7',
+    border: '#f6d9bd',
+    Icon: PenLine,
+  },
+  {
+    number: 8,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',

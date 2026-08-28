@@ -4,6 +4,7 @@ import { App } from './App'
 import { HomePage } from './pages/HomePage'
 import { BoxMakerPage } from './pages/BoxMakerPage'
 import { PuzzlePage } from './pages/PuzzlePage'
+import { TextEngraverPage } from './pages/TextEngraverPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -87,6 +88,8 @@ const Root = () => {
       return <BoxMakerPage />
     case 'puzzle':
       return <PuzzlePage />
+    case 'text':
+      return <TextEngraverPage />
     case 'maintenance':
       return <MaintenanceChooserPage />
     case 'troubleshoot':

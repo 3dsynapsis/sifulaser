@@ -38,6 +38,12 @@ export const PLAN_FEATURES: PlanFeature[] = [
     tiers: SEMUA,
   },
   {
+    label: 'Text Engraver — teks satu garisan',
+    detail:
+      'Fon satu garisan untuk ukiran laju, saiz dalam mm sebenar. Keluar SVG atau PDF.',
+    tiers: SEMUA,
+  },
+  {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
     tiers: DIGITAL,
