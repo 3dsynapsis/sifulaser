@@ -200,8 +200,13 @@ export function buildBox(input = {}) {
     : null;
 
   const pivotZ = wallH + t / 2;
-  const hingeR = t * 0.75;
-  const bossR = hingeR + Math.max(1.2, t * 0.6);
+  // The pin's cross-section is pinH (along the hinge) by t (the board), so the hole
+  // has to clear its half-diagonal. A shorter pin means a smaller hole, a smaller
+  // lug, and less of it poking above the closed lid - the reference tool's lug
+  // reaches almost exactly the top of the box, so keep this tight.
+  const pinH = t * 0.65;
+  const hingeR = Math.hypot(pinH, t) / 2 + Math.max(0.1, fit);
+  const bossR = hingeR + Math.max(0.8, t * 0.3);
   const pivotBack = W - 1.5 * t;
   const pivotFront = 1.5 * t;
   // Which walls carry a hinge, in box Y. Two of them for the double-leaf style.
@@ -325,7 +330,7 @@ export function buildBox(input = {}) {
 
   // ---- lid ----------------------------------------------------------------
   const lidX = () => ({ bx0: t + p.lidGap, bx1: L - t - p.lidGap });
-  const pinAt = (y, from) => [{ s: y - t / 2 - from, e: y + t / 2 - from }];
+  const pinAt = (y, from) => [{ s: y - pinH / 2 - from, e: y + pinH / 2 - from }];
 
   if (lidded) {
     const g = p.lidGap;
