@@ -28,10 +28,14 @@ Setiap perubahan ikut 4 langkah ni. Jangan skip langkah 2.
 
 ## Peraturan
 
-- **Sentiasa tanya sebelum langkah 4.** Push ke `main` terus menjadi live di
-  sifulaser.com — tiada staging, tiada peringkat semakan.
-- **Bawa kerja sampai langkah 2 secara automatik**, kemudian berhenti dan
-  lapor kepada Bos. Langkah 3–4 tunggu kelulusan.
+- **Jalankan sampai langkah 4 tanpa tanya.** Bos beri kebenaran tetap pada
+  28 Ogos 2026: tak perlu minta kelulusan untuk push ke `main`.
+- Tetapi ingat push ke `main` terus menjadi live di sifulaser.com — tiada
+  staging, tiada peringkat semakan. Jadi **sahkan dahulu sebelum push**:
+  `npm run typecheck`, `npm run build`, dan lihat perubahan itu dalam
+  pratonton. Selepas push, semak laman sebenar.
+- Langkah 1–2 (commit + push branch) kekal wajib. Branch itu jaring
+  keselamatan; jangan commit terus atas `main`.
 - **Build dahulu sebelum push** kalau ada perubahan dalam `src/`.
   GitHub Pages serve dari folder `docs/`, jadi perubahan `src/` sahaja
   TIDAK akan nampak di laman sebenar:
