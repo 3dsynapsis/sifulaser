@@ -93,10 +93,12 @@ export const CLASS_SEAT_LIMIT = 10
 
 export const CLASS_INFO = {
   title: 'Kelas Training Fizikal Alignment Laser',
-  dateLabel: 'Tarikh akan diumumkan',
+  dateLabel: 'Sabtu, 12 September 2026',
   timeLabel: '9:30 pagi – 1:30 tengah hari',
   durationLabel: '4 jam',
-  locationLabel: 'Lokasi akan diumumkan',
+  locationLabel:
+    '3D Synapsis, 44a, Jalan Keluli AK7/AK, Seksyen 7, 40000 Shah Alam, Selangor',
+  locationUrl: 'https://maps.app.goo.gl/dgSTQMqnD1udUVLE6',
   seatsLabel: `Terhad ${CLASS_SEAT_LIMIT} peserta`,
 }
 

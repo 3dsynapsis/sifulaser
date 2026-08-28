@@ -236,14 +236,21 @@ export const PlansPage = () => {
                   {CLASS_INFO.timeLabel} ({CLASS_INFO.durationLabel})
                 </dd>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <MapPin
-                  className="h-4 w-4 shrink-0 text-[#6d28d9]"
+                  className="mt-px h-4 w-4 shrink-0 text-[#6d28d9]"
                   aria-hidden="true"
                 />
                 <dt className="sr-only">Lokasi</dt>
                 <dd className="text-xs font-bold text-[#6d28d9]">
-                  {CLASS_INFO.locationLabel}
+                  <a
+                    href={CLASS_INFO.locationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-[#c4b5fd] underline-offset-2 transition-colors hover:decoration-[#6d28d9]"
+                  >
+                    {CLASS_INFO.locationLabel}
+                  </a>
                 </dd>
               </div>
               <div className="flex items-center gap-2">
