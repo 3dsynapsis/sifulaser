@@ -26,6 +26,12 @@ export const PLAN_FEATURES: PlanFeature[] = [
     tiers: SEMUA,
   },
   {
+    label: 'Box Maker — reka kotak finger joint',
+    detail:
+      'Masukkan saiz, terus dapat fail SVG siap potong. Ada divider 2 atau 4 ruang.',
+    tiers: SEMUA,
+  },
+  {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
     tiers: DIGITAL,
