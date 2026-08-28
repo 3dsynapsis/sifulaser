@@ -97,16 +97,44 @@ export function renderBackdrop(root, onPick) {
 }
 
 // ---- size presets ---------------------------------------------------------
-// Real board sizes people actually buy or already have on the bed, plus the two
-// paper sizes because photo prints are the usual puzzle artwork.
-const SIZE_PRESETS = [
-  { label: 'A5', w: 210, h: 148 },
-  { label: 'A4', w: 297, h: 210 },
-  { label: 'A3', w: 420, h: 297 },
-  { label: '300 x 200', w: 300, h: 200 },
-  { label: '400 x 300', w: 400, h: 300 },
-  { label: '600 x 400', w: 600, h: 400 },
+// Board sizes people actually have on the bed, plus the paper sizes because a
+// photo print is the usual puzzle artwork.
+//
+// A preset carries the piece grid as well as the board, because the two are not
+// independent: drop a 15 x 10 grid onto a square board and every piece comes out
+// half as wide as it is tall. Each grid here is picked to land on roughly 20 mm
+// square pieces, which is the size that is still easy to pick up.
+export const SIZE_PRESETS = [
+  { label: '100 x 100', w: 100, h: 100, cols: 5, rows: 5 },
+  { label: 'A5', w: 210, h: 148, cols: 10, rows: 7 },
+  { label: 'A4', w: 297, h: 210, cols: 14, rows: 10 },
+  { label: 'A3', w: 420, h: 297, cols: 20, rows: 14 },
+  { label: '300 x 200', w: 300, h: 200, cols: 15, rows: 10 },
+  { label: '400 x 300', w: 400, h: 300, cols: 20, rows: 15 },
+  { label: '600 x 400', w: 600, h: 400, cols: 30, rows: 20 },
 ];
+
+/** How far from square the pieces are, as a ratio >= 1. */
+export function squashRatio(pieceW, pieceH) {
+  if (!(pieceW > 0) || !(pieceH > 0)) return 1;
+  return Math.max(pieceW, pieceH) / Math.min(pieceW, pieceH);
+}
+
+/**
+ * The grid closest to square for this board, keeping roughly the piece count the
+ * user already asked for.
+ *
+ * Adjusting only the rows is not enough: on a 3:1 board with 5 columns the best
+ * whole number of rows is 2, which still leaves the pieces 20% out. Solving both
+ * axes from the area gets it exact - cols = sqrt(N x aspect), rows = cols/aspect.
+ */
+export function squareGrid(width, height, cols, rows) {
+  const aspect = width / height;
+  const n = Math.max(4, cols * rows);
+  const c = Math.max(2, Math.min(60, Math.round(Math.sqrt(n * aspect))));
+  const r = Math.max(2, Math.min(60, Math.round(c / aspect)));
+  return { cols: c, rows: r };
+}
 
 // ---- inspector ------------------------------------------------------------
 const groupOpen = new Map();
@@ -132,15 +160,24 @@ export function renderInspector(root, ctx) {
   // ---- Size comes first: it is the number people already know before they
   // open the tool, and everything below is a fraction of it.
   root.append(group('Size', true,
-    h('div', { class: 'seg seg-wrap' }, SIZE_PRESETS.map((s) => h('button', {
-      type: 'button',
-      'aria-pressed': String(p.width === s.w && p.height === s.h),
-      title: `${s.w} x ${s.h} mm`,
+    h('div', { class: 'presets' }, SIZE_PRESETS.map((s) => h('button', {
+      class: 'preset', type: 'button',
+      'aria-pressed': String(p.width === s.w && p.height === s.h
+        && p.cols === s.cols && p.rows === s.rows),
+      title: `${s.w} x ${s.h} mm, ${s.cols * s.rows} pieces of about `
+        + `${rnd(s.w / s.cols, 0)} mm`,
       onclick: () => {
-        update((st) => { st.params.width = s.w; st.params.height = s.h; }, { geometry: true });
+        update((st) => {
+          st.params.width = s.w;
+          st.params.height = s.h;
+          st.params.cols = s.cols;
+          st.params.rows = s.rows;
+        }, { geometry: true });
         ctx.refresh();
       },
-    }, s.label))),
+    },
+    h('b', {}, s.label),
+    h('span', {}, `${s.cols} x ${s.rows} pieces`)))),
     numberRow('Width (mm)', p.width, {
       min: 20, max: 1200, step: 1,
       onInput: (v) => { setParam('width', v); ctx.refresh(); },
@@ -152,6 +189,9 @@ export function renderInspector(root, ctx) {
     h('p', { class: 'hint' },
       'The finished board. Cut your picture to exactly this size and stick it '
       + 'down before you cut the puzzle.')));
+
+  const squash = squashRatio(d.pieceW, d.pieceH);
+  const squareFix = squareGrid(p.width, p.height, p.cols, p.rows);
 
   root.append(group('Pieces', true,
     numberRow('Columns', p.cols, {
@@ -166,6 +206,24 @@ export function renderInspector(root, ctx) {
     h('div', { class: 'stat' },
       h('span', {}, 'Piece size'),
       h('b', {}, `${rnd(d.pieceW, 1)} x ${rnd(d.pieceH, 1)} mm`)),
+    squash > 1.12
+      ? h('div', { class: 'fixrow' },
+        h('p', { class: 'warn' },
+          `These pieces are ${Math.round((squash - 1) * 100)}% out of square. `
+          + 'A jigsaw reads as stretched long before it looks wrong on paper, so '
+          + 'match the grid to the board.'),
+        h('button', {
+          class: 'ghost', type: 'button',
+          onclick: () => {
+            const g = squareGrid(p.width, p.height, p.cols, p.rows);
+            update((st) => {
+              st.params.cols = g.cols;
+              st.params.rows = g.rows;
+            }, { geometry: true });
+            ctx.refresh();
+          },
+        }, `Make them square (${squareFix.cols} x ${squareFix.rows})`))
+      : null,
     d.pieceW < 12 || d.pieceH < 12
       ? h('p', { class: 'warn' },
         'Under about 12 mm a piece gets fiddly to pick up, and thin board starts '

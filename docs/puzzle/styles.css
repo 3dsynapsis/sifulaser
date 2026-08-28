@@ -367,8 +367,22 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .stage[data-backdrop="dark"] .preview .cut-b { stroke: #f2f4f8; }
 
 /* Size presets wrap onto as many rows as they need. */
-.seg-wrap { flex-wrap: wrap; }
-.seg-wrap button { flex: 1 0 30%; }
+/* Size presets: two lines each, so the piece grid is visible before you click. */
+.presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.preset {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+  border: 1.5px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); padding: 6px 6px 7px; cursor: pointer;
+  text-align: center; font: inherit; color: var(--muted);
+}
+.preset b { font-size: 12px; font-weight: 700; color: var(--ink); }
+.preset span { font-size: 10.5px; }
+.preset:hover { border-color: var(--muted); }
+.preset[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.preset[aria-pressed="true"] b { color: var(--accent); }
+
+.fixrow { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.fixrow .ghost { font-size: 12px; padding: 0 10px; height: 30px; }
 
 .midbar { display: flex; justify-content: center; }
 .midbar .ghost { height: 32px; padding: 0 14px; white-space: nowrap; }
