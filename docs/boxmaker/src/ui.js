@@ -168,6 +168,65 @@ function boxThumb(style, base) {
 </svg>`;
 }
 
+/**
+ * Card art for the divider choice: the same open box, looked into from above,
+ * with the interior panels standing in it.
+ */
+function dividerThumb(count, base) {
+  const c = {
+    rim: shade(base, 0.14),
+    inner: shade(base, -0.46),
+    innerB: shade(base, -0.36),
+    floor: shade(base, -0.16),
+    div: shade(base, -0.02),
+    divTop: shade(base, 0.2),
+    edge: shade(base, -0.62),
+  };
+
+  const T = [48, 26]; const R = [80, 40]; const F = [48, 54]; const L = [16, 40];
+  const H = 16;
+  const Rb = shift(R, 0, H); const Fb = shift(F, 0, H); const Lb = shift(L, 0, H);
+  const iT = [48, 28.6]; const iR = [74, 40]; const iF = [48, 51.4]; const iL = [22, 40];
+  const D = 11;
+  const fT = shift(iT, 0, D); const fR = shift(iR, 0, D);
+  const fL = shift(iL, 0, D); const fF = shift(iF, 0, D);
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+
+  // Dividers stop short of the rim, so their tops sit below the opening.
+  const SUNK = D * 0.4;
+  /** A divider standing between the two rim midpoints p and q. */
+  const wall = (p0, q0) => {
+    const p = shift(p0, 0, SUNK);
+    const q = shift(q0, 0, SUNK);
+    const a = shift(p0, 0, D);
+    const b = shift(q0, 0, D);
+    return `<polygon points="${P([p, q, b, a])}" fill="${c.div}"/>` +
+      `<polygon points="${P([p, q, shift(q, 0, 2.2), shift(p, 0, 2.2)])}" fill="${c.divTop}"/>` +
+      `<polygon points="${P([p, q, b, a])}" fill="none" stroke="${c.edge}" ` +
+      `stroke-width=".9" stroke-linejoin="round"/>`;
+  };
+
+  // The length divider runs from one long side to the other; the width divider
+  // crosses it. Drawing the crossing one last reads as the half-lap.
+  const dLength = count >= 2 ? wall(mid(iL, iT), mid(iF, iR)) : '';
+  const dWidth = count >= 4 ? wall(mid(iT, iR), mid(iL, iF)) : '';
+
+  return `<svg viewBox="0 0 96 74" aria-hidden="true">
+  <polygon points="${P([iL, iT, fT, fL])}" fill="${c.inner}"/>
+  <polygon points="${P([iT, iR, fR, fT])}" fill="${c.innerB}"/>
+  <polygon points="${P([fT, fR, fF, fL])}" fill="${c.floor}"/>
+  ${dLength}
+  ${dWidth}
+  <path d="M${P([T, R, F, L])}Z M${P([iT, iR, iF, iL])}Z" fill="${c.rim}" fill-rule="evenodd"/>
+  <polygon points="${P([L, F, Fb, Lb])}" fill="${shade(base, -0.04)}"/>
+  <polygon points="${P([F, R, Rb, Fb])}" fill="${shade(base, -0.3)}"/>
+  <g fill="none" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round" opacity=".8">
+    <path d="M${P([L, F, Fb, Lb])}Z"/><path d="M${P([F, R, Rb, Fb])}Z"/>
+    <path d="M${P([T, R, F, L])}Z"/><path d="M${P([iT, iR, iF, iL])}Z"/>
+  </g>
+</svg>`;
+}
+
 // ---- viewport cube -------------------------------------------------------
 // One cabinet-projection cube; the face that matters is tinted. Faces that would
 // be hidden (back, left, bottom) reuse a visible face and mirror the whole cube,
@@ -219,6 +278,22 @@ const STYLES = [
     label: 'Double Window',
     hint: 'Two leaves meeting in the middle, each hinged on its own wall and '
       + 'resting on the side walls, with a finger hole where they join',
+  },
+];
+
+const DIVIDERS = [
+  { id: 0, label: 'None', hint: 'One open compartment' },
+  {
+    id: 2,
+    label: '2 spaces',
+    hint: 'One panel across the middle of the length, tenoned into the front and '
+      + 'back walls',
+  },
+  {
+    id: 4,
+    label: '4 spaces',
+    hint: 'Two panels half-lapped into a cross, each tenoned into its own pair of '
+      + 'walls',
   },
 ];
 
@@ -328,6 +403,26 @@ function overallInspector(root, ctx) {
       },
       h('span', { class: 'art', html: boxThumb(id, mat.color) }),
       label)))));
+
+  root.append(group('Divider', true,
+    h('div', { class: 'cards' }, DIVIDERS.map(({ id, label, hint }) =>
+      h('button', {
+        class: 'card', type: 'button',
+        'aria-pressed': String((p.divider || 0) === id),
+        title: hint,
+        onclick: () => { setParam('divider', id); clampDecor(); ctx.refresh(); },
+      },
+      h('span', { class: 'art', html: dividerThumb(id, mat.color) }),
+      label))),
+    (p.divider ? numberRow('Divider height (% of depth)', p.dividerHeight, {
+      min: 20, max: 100, step: 5,
+      onInput: (v) => { setParam('dividerHeight', Math.round(v)); ctx.refresh(); },
+    }) : null),
+    h('p', { class: 'hint' },
+      'Dividers tenon through the walls the same way the floor does, and the '
+      + 'four-space pair half-laps in the middle so it locks itself square. '
+      + 'Keeping them short of the rim leaves room to reach in, and a lid closes '
+      + 'over them rather than onto them.')));
 
   root.append(group('Dimensions', true,
     dimRow('Length', 'length', ctx),
@@ -715,6 +810,9 @@ const STEPS = [
   ['Lay them out', 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.'],
   ['Floor into the front wall', 'The slitted tenons push through the mortises. They should click, not fight.'],
   ['Add a side wall', 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.'],
+  ['Dividers before the far walls', 'Stand the long divider in the front wall '
+    + 'mortises, drop the crossing one onto it, then bring the side walls in over '
+    + 'their tenons. Once the box is closed they cannot go in.'],
   ['Lid pins first (lidded and double)', 'Slot each lid or leaf pin into the hole in the side wall boss before you close the second side. The double style has two of them per side.'],
   ['Close it up', 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.'],
 ];

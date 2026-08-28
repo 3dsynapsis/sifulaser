@@ -11,6 +11,12 @@
 //   * lid (lidded) - walls drop to H - t, the lid drops between them and pivots on
 //     square pins riding in round holes inside a boss on the side walls. A rounded
 //     lip on the front edge gives you something to hook a finger under.
+//   * dividers - interior panels standing on the floor, tenoned through the walls
+//     the same way the floor is. They stop short of the rim so the compartments
+//     stay easy to reach into and a lid never lands on them. Four compartments
+//     means two of them crossing, so they are half-lapped: the length divider is
+//     notched from its top edge, the width divider from its bottom edge, and the
+//     second drops straight onto the first.
 //
 // Hinge clearance rule: whatever sits BEHIND the pivot swings down as the front
 // lifts, straight into the rim it was resting on. Keeping that tail to at most
@@ -27,6 +33,8 @@ import {
 
 export const DEFAULTS = {
   style: 'open',        // 'open' | 'lidded' | 'double'
+  divider: 0,           // interior compartments: 0 (none) | 2 | 4
+  dividerHeight: 60,    // % of the interior depth the dividers stand up
   length: 100,          // X
   width: 76,            // Y
   height: 50,           // Z (outer, including the lid on a lidded box)
@@ -42,12 +50,14 @@ export const DEFAULTS = {
 };
 
 export const PANEL_ORDER = [
-  'front', 'back', 'left', 'right', 'bottom', 'top', 'leafFront', 'leafBack',
+  'front', 'back', 'left', 'right', 'bottom', 'divLength', 'divWidth',
+  'top', 'leafFront', 'leafBack',
 ];
 
 export const PANEL_LABELS = {
   front: 'Front', back: 'Back', left: 'Left', right: 'Right',
   bottom: 'Bottom', top: 'Lid', leafFront: 'Leaf front', leafBack: 'Leaf back',
+  divLength: 'Divider (across)', divWidth: 'Divider (along)',
 };
 
 /**
@@ -220,6 +230,30 @@ export function buildBox(input = {}) {
   const shoulderGap = bossHalf + Math.max(1, t * 0.4);
   const notchR = Math.max(4, Math.min(L * 0.075, (W / 2 - 3 * t) * 0.45, 14));
 
+  // ---- dividers -----------------------------------------------------------
+  // They stand on the floor and rise part-way up, so the compartments stay open
+  // to reach into and a lid closes over them rather than onto them. Both run
+  // through the middle: the "length" divider spans Y at x = L/2 and tenons into
+  // the front and back walls, the "width" divider spans X at y = W/2 and tenons
+  // into the side walls.
+  const divCount = p.divider === 2 || p.divider === 4 ? p.divider : 0;
+  const divBase = floorZ + t;      // top face of the floor
+  const divFrac = Math.min(1, Math.max(0.2, (p.dividerHeight ?? 60) / 100));
+  const divH = (wallH - divBase) * divFrac;
+  const divCross = divCount === 4;
+  const divOK = divCount > 0
+    && divH > Math.max(6, t * 3)
+    && Math.min(L, W) > 8 * t;
+  // A divider only stands square if it is pinned in more than one place, so its
+  // module is capped at a sixth of the height - that always yields >= 2 tenons
+  // where the wall's own module would often have given 1.
+  const divFeats = divOK
+    ? featureLayout(divH, Math.max(2, Math.min(m, divH / 6)))
+    : [];
+  /** Mortises for one divider, centred on `u` in a wall's local frame. */
+  const divMortises = (u) =>
+    divFeats.map((f) => shrinkRect(u - t / 2, divBase + f.s, t, f.e - f.s, fit));
+
   const panels = [];
 
   // ---- front / back -------------------------------------------------------
@@ -233,6 +267,8 @@ export function buildBox(input = {}) {
       ...edgeRun([x0, wallH], [x0, 0], flipFeatures(vFeats, wallH), t),
     ];
     const holes = xFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
+    // The length divider sits dead centre, so it lands on u = L/2 either way round.
+    if (divOK) holes.push(...divMortises(L / 2));
     return { outline: dedupe(pts), holes };
   };
 
@@ -289,6 +325,7 @@ export function buildBox(input = {}) {
       ...edgeRun([0, wallH], [0, 0], flipFeatures(vFeats, wallH), -t),
     ];
     const holes = yFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
+    if (divOK && divCross) holes.push(...divMortises(W / 2));
     const r = hingeR + Math.max(0.1, fit);
     for (const u of bossUs) holes.push(ellipse(u, pivotZ, r, r, 40));
     return { outline: dedupe(pts), holes };
@@ -326,6 +363,51 @@ export function buildBox(input = {}) {
       id: 'bottom', label: PANEL_LABELS.bottom, outline: dedupe(pts), holes: [],
       frame: { origin: [0, 0, floorZ + t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
     }));
+  }
+
+  // ---- divider panels -----------------------------------------------------
+  // `span` is the outer wall-to-wall run the panel bridges; the body stops at the
+  // inner faces and tenons reach back out through them. `lap` cuts the half-lap
+  // slot for the crossing pair - 'top' on the one that goes in first, 'bottom' on
+  // the one that drops onto it.
+  function buildDivider(span, lap) {
+    const a = t;
+    const b = span - t;
+    const mid = span / 2;
+    const half = divH / 2;
+    const slotW = Math.max(0.3, t - fit);
+    const slot = (from) => [{ s: from - slotW / 2, e: from + slotW / 2 }];
+    const top = lap === 'top' ? slot(b - mid) : [];      // walked b -> a
+    const bottom = lap === 'bottom' ? slot(mid - a) : []; // walked a -> b
+    return dedupe([
+      ...edgeRun([a, 0], [b, 0], bottom, -half),
+      ...edgeRun([b, 0], [b, divH], divFeats, t),
+      ...edgeRun([b, divH], [a, divH], top, -half),
+      ...edgeRun([a, divH], [a, 0], flipFeatures(divFeats, divH), t),
+    ]);
+  }
+
+  if (divOK) {
+    panels.push(normalisePanel({
+      id: 'divLength',
+      label: PANEL_LABELS.divLength,
+      outline: buildDivider(W, divCross ? 'top' : null),
+      holes: [],
+      frame: {
+        origin: [L / 2 + t / 2, 0, divBase], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0],
+      },
+    }));
+    if (divCross) {
+      panels.push(normalisePanel({
+        id: 'divWidth',
+        label: PANEL_LABELS.divWidth,
+        outline: buildDivider(L, 'bottom'),
+        holes: [],
+        frame: {
+          origin: [0, W / 2 - t / 2, divBase], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0],
+        },
+      }));
+    }
   }
 
   // ---- lid ----------------------------------------------------------------
@@ -465,6 +547,7 @@ export function buildBox(input = {}) {
     derived: {
       wallH, floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       vFeats, xFeats, yFeats,
+      divCount: divOK ? divCount : 0, divBase, divH, divFeats,
     },
     panels,
   };

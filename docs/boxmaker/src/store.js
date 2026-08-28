@@ -37,7 +37,7 @@ function initialState() {
     selection: null,
     sheet: '600x400',
     lidOpen: false,
-    backdrop: 'dark',
+    backdrop: 'light',
     showLabels: true,
     name: 'Untitled box',
   };
@@ -197,6 +197,8 @@ export const material = () => MATERIALS.find((m) => m.id === state.material)
 /** Drop decorations that no longer fit after the panel shrank. */
 export function clampDecor() {
   const b = getBox();
+  // Turning dividers or the lid off can delete the panel that was being edited.
+  if (!b.panels.some((p) => p.id === state.face)) state.face = 'front';
   for (const p of b.panels) {
     for (const o of state.decor[p.id] || []) {
       o.x = Math.min(Math.max(o.x, -o.w), p.size.w);
