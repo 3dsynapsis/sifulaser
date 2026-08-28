@@ -4,7 +4,7 @@ import {
   state, update, setParam, getBox, currentPanel, decorFor, selectedObject,
   MATERIALS, material, canUndo, canRedo, clampDecor, reset,
 } from './store.js';
-import { PANEL_LABELS } from './geom/box.js';
+import { PANEL_LABELS, SCREW } from './geom/box.js';
 import { makeObject, PROCESSES, objectRings, measureText } from './geom/decor.js';
 import { FONTS, loadFont } from './fonts.js';
 import { SHEETS } from './exportSvg.js';
@@ -466,7 +466,45 @@ function overallInspector(root, ctx) {
   ));
 
   const fitTicks = ['Looser', 'Loose', 'Standard', 'Tight', 'Tighter'];
+  const d = getBox().derived;
   root.append(group('Joints', false,
+    h('div', { class: 'field' },
+      h('label', {}, 'Corner joint'),
+      h('div', { class: 'seg' }, [
+        ['standard', 'Standard'], ['screw', 'Screw'],
+      ].map(([id, label]) => h('button', {
+        type: 'button', 'aria-pressed': String((p.joint || 'standard') === id),
+        title: id === 'standard'
+          ? 'Finger joints, glued. Permanent.'
+          : 'Finger joints plus M3 screws into captive nuts. Comes apart again.',
+        onclick: () => { setParam('joint', id); ctx.refresh(); },
+      }, label))),
+      p.joint === 'screw' && d.screwTooSmall
+        ? h('p', { class: 'warn' },
+          'This box is too small for screws: the nut pockets reaching in from '
+          + 'opposite edges would run into each other. Make it larger, or use '
+          + 'the standard joint.')
+        : p.joint === 'screw'
+          ? h('p', { class: 'hint' },
+            `${d.screwCount} x ${SCREW.name} screws, ${d.screwZs.length} on each `
+            + 'of the four corners. The finger joints hold the box square by '
+            + 'themselves, so you press it together first and then drive the '
+            + 'screws one-handed. No glue, and it comes apart again.')
+          : h('p', { class: 'hint' },
+            'Finger joints, glued. Pick Screw to make the box demountable.')),
+    p.joint === 'screw' && !d.screwTooSmall
+      ? numberRow('Screws per corner', p.screwsPerEdge, {
+        min: 1, max: 4, step: 1,
+        onInput: (v) => { setParam('screwsPerEdge', Math.round(v)); ctx.refresh(); },
+      })
+      : null,
+    p.joint === 'screw' && d.screwEar > 0
+      ? h('p', { class: 'hint' },
+        `The side walls stand ${rnd(d.screwEar, 1)} mm proud at the corners. `
+        + 'That overhang is what gives the screw hole enough edge to hold on to '
+        + `at ${p.thickness} mm board - it shrinks on thicker stock and is gone `
+        + 'by 7 mm. The box measures that much wider across, front to back.')
+      : null,
     h('div', { class: 'field' },
       h('label', {}, 'Interference fit'),
       liveRange({
@@ -536,6 +574,17 @@ function summaryRows() {
     h('div', { class: 'stat' }, h('span', {}, 'Path length'), h('b', {}, `${(cut / 1000).toFixed(2)} m`)),
     h('div', { class: 'stat' }, h('span', {}, 'Board area'), h('b', {}, `${(area / 100).toFixed(0)} cm²`)),
     h('div', { class: 'stat' }, h('span', {}, 'Wall height'), h('b', {}, `${rnd(box.derived.wallH, 1)} mm`)),
+    box.derived.screwCount
+      ? h('div', { class: 'stat' },
+        h('span', {}, 'Hardware'),
+        h('b', {}, `${box.derived.screwCount} x ${SCREW.name}x${box.derived.screwLength} `
+          + `+ ${box.derived.screwCount} nuts`))
+      : null,
+    box.derived.screwCount
+      ? h('p', { class: 'hint' },
+        'Button head or pan head, not countersunk - a flat head needs a '
+        + 'countersink drilled by hand afterwards, which the laser cannot do.')
+      : null,
     h('p', { class: 'hint' }, 'Path length counts every cut and outline once - a fill engrave takes far longer than its outline suggests.'),
   ];
 }
@@ -810,6 +859,9 @@ const STEPS = [
   ['Lay them out', 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.'],
   ['Floor into the front wall', 'The slitted tenons push through the mortises. They should click, not fight.'],
   ['Add a side wall', 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.'],
+  ['Screw joints: nuts in first', 'Drop an M3 nut into each pocket before you '
+    + 'close that corner up. Once the box is together you cannot reach them. They '
+    + 'stay put on their own - the pocket is cut to the nut, not to a gap.'],
   ['Dividers before the far walls', 'Stand the long divider in the front wall '
     + 'mortises, drop the crossing one onto it, then bring the side walls in over '
     + 'their tenons. Once the box is closed they cannot go in.'],

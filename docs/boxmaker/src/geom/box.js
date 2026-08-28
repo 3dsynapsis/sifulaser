@@ -33,6 +33,8 @@ import {
 
 export const DEFAULTS = {
   style: 'open',        // 'open' | 'lidded' | 'double'
+  joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
+  screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
   dividerHeight: 60,    // % of the interior depth the dividers stand up
   length: 100,          // X
@@ -59,6 +61,48 @@ export const PANEL_LABELS = {
   bottom: 'Bottom', top: 'Lid', leafFront: 'Leaf front', leafBack: 'Leaf back',
   divLength: 'Divider (across)', divWidth: 'Divider (along)',
 };
+
+/**
+ * M3, and only M3 - one screw, one nut, one drill bit to own.
+ *
+ * The hard part is edge distance, not thickness. The screw has to run inside the
+ * thickness of the wall it threads into, so on the wall it passes through the
+ * hole lands only t/2 from the edge. On 3 mm board that is 1.5 mm and a 3.2 mm
+ * hole would break clean out. `ear` in buildBox is the answer: the side wall's
+ * fingers stand slightly proud at the corners, which is all the room the hole
+ * needs, and it shrinks to nothing on thicker board.
+ */
+export const SCREW = {
+  name: 'M3',
+  clear: 3.2,        // clearance hole through the panel the screw passes through
+  nutAF: 5.5,        // hex nut across the flats
+  nutSlack: 0.2,     // pocket is this much wider, so the nut drops in but cannot turn
+  nutT: 2.4,         // nut thickness, i.e. how much thread the screw must reach
+  nutLen: 5.5,       // pocket depth, long enough to push the nut in with a finger
+  neck: 6,           // channel from the panel edge to the pocket
+  headD: 5.5,        // button head, for the summary only
+};
+
+const STOCK_LENGTHS = [8, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40];
+
+/**
+ * The shortest stock screw that still reaches the nut: through the wall it
+ * passes, down the neck, and into the thread. Nobody wants to be told to buy an
+ * M3 x 21, so this only ever names a length you can actually order.
+ */
+export const screwLength = (t) => {
+  const min = t + SCREW.neck + SCREW.nutT;
+  return STOCK_LENGTHS.find((L) => L >= min) ?? Math.ceil(min / 5) * 5;
+};
+
+/**
+ * Pocket depth. Above 20 mm the stock lengths jump in fives, so on thick board
+ * the screw we just named can be a good deal longer than it strictly needs to
+ * be - and a screw that bottoms out on solid board never clamps anything. The
+ * pocket is therefore cut deep enough to swallow whatever screw was chosen.
+ */
+export const pocketDepth = (t) =>
+  Math.max(SCREW.nutLen, screwLength(t) - t - SCREW.neck + 1);
 
 /**
  * Even run of joint features centred on an edge, alternating feature/gap at one
@@ -88,7 +132,7 @@ export function featureLayout(edge, module_) {
 
 /** Mirror a feature list about an edge of length L (keeps it ordered). */
 const flipFeatures = (feats, L) =>
-  feats.map((f) => ({ s: L - f.e, e: L - f.s })).reverse();
+  feats.map((f) => ({ ...f, s: L - f.e, e: L - f.s })).reverse();
 
 /** Shift a feature list so it is measured from `off` instead of 0. */
 const shiftFeatures = (feats, off) =>
@@ -98,6 +142,23 @@ const shiftFeatures = (feats, off) =>
 function featureProfile(s, e, depth, opts = {}) {
   const out = [[s, 0]];
   const sgn = Math.sign(depth) || 1;
+
+  // The screw joint's keyhole: a narrow channel in from the edge that opens into
+  // a pocket the nut drops into. The pocket is only as wide as the nut's flats,
+  // so the nut cannot turn - which is the whole point, you tighten the screw
+  // one-handed. `s..e` is the pocket width; the channel is centred inside it.
+  if (opts.tslot) {
+    const { channel, pocketW, pocketL, neck } = opts.tslot;
+    const mid = (s + e) / 2;
+    const d1 = sgn * neck;
+    const d2 = sgn * (neck + pocketL);
+    return [
+      [mid - channel / 2, 0], [mid - channel / 2, d1],
+      [mid - pocketW / 2, d1], [mid - pocketW / 2, d2],
+      [mid + pocketW / 2, d2], [mid + pocketW / 2, d1],
+      [mid + channel / 2, d1], [mid + channel / 2, 0],
+    ];
+  }
 
   // A half-round dip, used for the finger hole where the two leaves meet.
   if (opts.arc) {
@@ -152,6 +213,10 @@ function featureProfile(s, e, depth, opts = {}) {
 /**
  * Walk one edge a->b emitting `feats` as tabs (depth > 0, outward for a CCW ring)
  * or notches (depth < 0). Returns the points for this edge, excluding `b`.
+ *
+ * A feature may carry its own `depth` and `opts`, which lets one edge mix kinds -
+ * the screw joint puts finger tabs and nut pockets on the same edge, pointing
+ * opposite ways. Features must be sorted along the walk.
  */
 function edgeRun(a, b, feats, depth, opts = {}) {
   const d = sub(b, a);
@@ -164,7 +229,9 @@ function edgeRun(a, b, feats, depth, opts = {}) {
     const s = Math.max(0, f.s);
     const e = Math.min(L, f.e);
     if (e - s <= 1e-6) continue;
-    for (const [t, o] of featureProfile(s, e, depth, opts)) pts.push(P(t, o));
+    const fd = f.depth == null ? depth : f.depth;
+    const fo = f.opts || opts;
+    for (const [t, o] of featureProfile(s, e, fd, fo)) pts.push(P(t, o));
   }
   return pts;
 }
@@ -254,6 +321,74 @@ export function buildBox(input = {}) {
   const divMortises = (u) =>
     divFeats.map((f) => shrinkRect(u - t / 2, divBase + f.s, t, f.e - f.s, fit));
 
+  // ---- screw joint --------------------------------------------------------
+  // Front and back carry the nut pockets, cut into their vertical edges; the
+  // side walls carry the clearance holes. The screw therefore runs inside the
+  // front wall's thickness, which is why the board has to be thicker than it.
+  //
+  // Screws go where the finger joint leaves room. Rather than force a spacing,
+  // the free runs between tabs are measured and the biggest ones are used - so a
+  // screw never lands on a tab, and there are only ever as many as asked for.
+  const wantScrew = p.joint === 'screw';
+  const nutPocketL = pocketDepth(t);
+  const screwReachAhead = SCREW.neck + nutPocketL;
+  // Two pockets reach in from opposite edges of the same wall, so the wall has to
+  // be wide enough for both plus some material between them.
+  const screwRoom = Math.min(L, W) - 2 * t > 2 * screwReachAhead + 6;
+  // The screw sits on the mid-plane of the wall it threads into, which is only
+  // t/2 from the edge of the wall it passes through - on 3 mm board that is
+  // 1.5 mm, and a 3.2 mm hole there breaks straight out of the edge. So the side
+  // wall's fingers are made to stand a little proud at the corners, which buys
+  // the hole the edge distance it needs. The overhang shrinks as the board gets
+  // thicker and disappears entirely once t/2 alone is enough.
+  const edgeWant = SCREW.clear / 2 + 1.8;
+  const screwFits = wantScrew && screwRoom;
+  const ear = screwFits ? Math.max(0, Math.round((edgeWant - t / 2) * 10) / 10) : 0;
+  const pocketW = SCREW.nutAF + SCREW.nutSlack;
+  const screwReach = screwReachAhead;
+  const tslotOpts = {
+    tslot: {
+      channel: SCREW.clear, pocketW, pocketL: nutPocketL, neck: SCREW.neck,
+    },
+  };
+
+  function screwHeights() {
+    if (!screwFits) return [];
+    const want = Math.max(1, Math.min(4, Math.round(p.screwsPerEdge ?? 2)));
+    const need = pocketW + 3;
+    // Free runs on the vertical edge: between the finger tabs, and clear of the
+    // band where the floor's own mortises already are.
+    const blocked = [...vFeats.map((f) => [f.s, f.e]),
+      [floorZ - 1, floorZ + t + 1]].sort((a, b) => a[0] - b[0]);
+    const free = [];
+    let at = 0;
+    for (const [bs, be] of blocked) {
+      if (bs - at >= need) free.push([at, bs]);
+      at = Math.max(at, be);
+    }
+    if (wallH - at >= need) free.push([at, wallH]);
+    return free
+      .sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))
+      .slice(0, want)
+      .map(([a, b]) => (a + b) / 2)
+      .sort((a, b) => a - b);
+  }
+  const screwZs = screwHeights();
+
+  /** Nut pockets for one vertical edge, measured from the start of the walk. */
+  const tslotFeats = (from, flip) => screwZs.map((z) => {
+    const at = flip ? from - z : z - from;
+    return {
+      s: at - pocketW / 2, e: at + pocketW / 2,
+      depth: -screwReach, opts: tslotOpts,
+    };
+  });
+
+  /** Merge tabs and nut pockets onto one edge, in walk order. */
+  const withSlots = (feats, from, flip) => (screwZs.length
+    ? [...feats, ...tslotFeats(from, flip)].sort((a, b) => a.s - b.s)
+    : feats);
+
   const panels = [];
 
   // ---- front / back -------------------------------------------------------
@@ -262,9 +397,11 @@ export function buildBox(input = {}) {
     const x1 = L - t;
     const pts = [
       ...edgeRun([x0, 0], [x1, 0], [], 0),
-      ...edgeRun([x1, 0], [x1, wallH], vFeats, t),
+      // right edge walks upward from z = 0, left edge downward from z = wallH
+      ...edgeRun([x1, 0], [x1, wallH], withSlots(vFeats, 0, false), t),
       ...edgeRun([x1, wallH], [x0, wallH], [], 0),
-      ...edgeRun([x0, wallH], [x0, 0], flipFeatures(vFeats, wallH), t),
+      ...edgeRun([x0, wallH], [x0, 0],
+        withSlots(flipFeatures(vFeats, wallH), wallH, true), t),
     ];
     const holes = xFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
     // The length divider sits dead centre, so it lands on u = L/2 either way round.
@@ -287,16 +424,16 @@ export function buildBox(input = {}) {
 
   // ---- left / right -------------------------------------------------------
   // The top edge runs right->left and bulges into a boss at every hinge.
-  function topEdgeWithBosses(bossUs) {
-    const plain = edgeRun([W, wallH], [0, wallH], [], 0);
+  function topEdgeWithBosses(bossUs, eL = 0, eR = W) {
+    const plain = edgeRun([eR, wallH], [eL, wallH], [], 0);
     const dz = pivotZ - wallH;
     if (!bossUs.length || bossR <= Math.abs(dz) + 0.05) return plain;
     const hw = Math.sqrt(bossR * bossR - dz * dz);
     const usable = bossUs
-      .filter((u) => u + hw < W - 0.01 && u - hw > 0.01)
-      .sort((a, b) => b - a); // walking from u = W down to u = 0
+      .filter((u) => u + hw < eR - 0.01 && u - hw > eL + 0.01)
+      .sort((a, b) => b - a); // walking from the right end down to the left
     if (!usable.length) return plain;
-    const pts = [[W, wallH]];
+    const pts = [[eR, wallH]];
     for (const bossU of usable) {
       const uA = bossU + hw;
       const uB = bossU - hw;
@@ -311,21 +448,32 @@ export function buildBox(input = {}) {
       }
       pts.push([uB, wallH]);
     }
-    pts.push([0, wallH]);
+    pts.push([eL, wallH]);
     return pts;
   }
 
   /** `uOf` maps a box-Y coordinate to this panel's local u. */
   const buildSide = (uOf) => {
     const bossUs = pivots.map(uOf);
+    // Finger tips sit at -ear and W+ear; the notches still bottom out on the
+    // inner face of the wall they receive, so they simply get `ear` deeper.
+    const eL = -ear;
+    const eR = W + ear;
     const pts = [
-      ...edgeRun([0, 0], [W, 0], [], 0),
-      ...edgeRun([W, 0], [W, wallH], vFeats, -t),
-      ...topEdgeWithBosses(bossUs),
-      ...edgeRun([0, wallH], [0, 0], flipFeatures(vFeats, wallH), -t),
+      ...edgeRun([eL, 0], [eR, 0], [], 0),
+      ...edgeRun([eR, 0], [eR, wallH], vFeats, -(t + ear)),
+      ...topEdgeWithBosses(bossUs, eL, eR),
+      ...edgeRun([eL, wallH], [eL, 0], flipFeatures(vFeats, wallH), -(t + ear)),
     ];
     const holes = yFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
     if (divOK && divCross) holes.push(...divMortises(W / 2));
+    // Clearance holes for the screws. They sit on the mid-plane of the wall the
+    // screw threads into, which is half a board thickness in from each end.
+    for (const z of screwZs) {
+      for (const y of [t / 2, W - t / 2]) {
+        holes.push(ellipse(uOf(y), z, SCREW.clear / 2, SCREW.clear / 2, 32));
+      }
+    }
     const r = hingeR + Math.max(0.1, fit);
     for (const u of bossUs) holes.push(ellipse(u, pivotZ, r, r, 40));
     return { outline: dedupe(pts), holes };
@@ -548,6 +696,12 @@ export function buildBox(input = {}) {
       wallH, floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       vFeats, xFeats, yFeats,
       divCount: divOK ? divCount : 0, divBase, divH, divFeats,
+      // 4 vertical corners, this many screws on each
+      screwZs,
+      screwCount: screwZs.length * 4,
+      screwLength: screwLength(t),
+      screwEar: ear,
+      screwTooSmall: wantScrew && !screwRoom,
     },
     panels,
   };
