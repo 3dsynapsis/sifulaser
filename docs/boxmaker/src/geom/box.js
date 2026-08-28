@@ -12,6 +12,12 @@
 //     square pins riding in round holes inside a boss on the side walls. A rounded
 //     lip on the front edge gives you something to hook a finger under.
 //
+// Hinge clearance rule: whatever sits BEHIND the pivot swings down as the front
+// lifts, straight into the rim it was resting on. Keeping that tail to at most
+// t/2 puts its lowest corner exactly on the wall's inner top corner, so the two
+// are tangent at rest and separate immediately - which is why every hinged panel
+// stops at the inner face of its own wall rather than at the outer edge.
+//
 // Local panel coordinates are millimetres, y-up, origin at the panel bbox corner.
 
 import {
@@ -325,7 +331,7 @@ export function buildBox(input = {}) {
     const g = p.lidGap;
     const { bx0, bx1 } = lidX();
     const by0 = t;
-    const by1 = W;
+    const by1 = W - t; // inner face of the back wall - see the hinge clearance rule
     const lipW = Math.min((bx1 - bx0) * 0.45, Math.max(24, L * 0.28));
     const lipC = (bx0 + bx1) / 2;
     const lip = [{ s: lipC - lipW / 2 - bx0, e: lipC + lipW / 2 - bx0 }];
@@ -355,28 +361,29 @@ export function buildBox(input = {}) {
     const arc = { arc: true };
     const notchMid = [{ s: L / 2 - notchR, e: L / 2 + notchR }];
 
-    // front leaf: front outer face -> just short of the middle
+    // front leaf: inner face of the front wall -> just short of the middle
     {
       const fy = mid - g / 2;
+      const fy0 = t;
       const sy = pivotFront + shoulderGap;
-      const pin = pinAt(pivotFront, 0);
+      const pin = pinAt(pivotFront, fy0);
       const wide = sy < fy - t;
       const pts = wide
         ? [
-          ...edgeRun([xi0, 0], [xi1, 0], [], 0),
-          ...edgeRun([xi1, 0], [xi1, sy], pin, t + g),
+          ...edgeRun([xi0, fy0], [xi1, fy0], [], 0),
+          ...edgeRun([xi1, fy0], [xi1, sy], pin, t + g),
           ...edgeRun([xi1, sy], [xo1, sy], [], 0),
           ...edgeRun([xo1, sy], [xo1, fy], [], 0),
           ...edgeRun([xo1, fy], [xo0, fy], notchMid, -notchR, arc),
           ...edgeRun([xo0, fy], [xo0, sy], [], 0),
           ...edgeRun([xo0, sy], [xi0, sy], [], 0),
-          ...edgeRun([xi0, sy], [xi0, 0], flipFeatures(pin, sy), t + g),
+          ...edgeRun([xi0, sy], [xi0, fy0], flipFeatures(pin, sy - fy0), t + g),
         ]
         : [
-          ...edgeRun([xi0, 0], [xi1, 0], [], 0),
-          ...edgeRun([xi1, 0], [xi1, fy], pin, t + g),
+          ...edgeRun([xi0, fy0], [xi1, fy0], [], 0),
+          ...edgeRun([xi1, fy0], [xi1, fy], pin, t + g),
           ...edgeRun([xi1, fy], [xi0, fy], [{ s: xi1 - L / 2 - notchR, e: xi1 - L / 2 + notchR }], -notchR, arc),
-          ...edgeRun([xi0, fy], [xi0, 0], flipFeatures(pin, fy), t + g),
+          ...edgeRun([xi0, fy], [xi0, fy0], flipFeatures(pin, fy - fy0), t + g),
         ];
       panels.push(normalisePanel({
         id: 'leafFront', label: PANEL_LABELS.leafFront, outline: dedupe(pts), holes: [],
@@ -388,6 +395,7 @@ export function buildBox(input = {}) {
     // back leaf: mirror of the above, hinged on the back wall
     {
       const by = mid + g / 2;
+      const by1 = W - t;
       const sy = pivotBack - shoulderGap;
       const pin = pinAt(pivotBack, sy);
       const wide = sy > by + t;
@@ -397,17 +405,17 @@ export function buildBox(input = {}) {
           ...edgeRun([xo0, by], [xo1, by], notchMid, -notchR, arc),
           ...edgeRun([xo1, by], [xo1, sy], [], 0),
           ...edgeRun([xo1, sy], [xi1, sy], [], 0),
-          ...edgeRun([xi1, sy], [xi1, W], pin, t + g),
-          ...edgeRun([xi1, W], [xi0, W], [], 0),
-          ...edgeRun([xi0, W], [xi0, sy], flipFeatures(pin, W - sy), t + g),
+          ...edgeRun([xi1, sy], [xi1, by1], pin, t + g),
+          ...edgeRun([xi1, by1], [xi0, by1], [], 0),
+          ...edgeRun([xi0, by1], [xi0, sy], flipFeatures(pin, by1 - sy), t + g),
           ...edgeRun([xi0, sy], [xo0, sy], [], 0),
           ...edgeRun([xo0, sy], [xo0, by], [], 0),
         ]
         : [
           ...edgeRun([xi0, by], [xi1, by], [{ s: L / 2 - xi0 - notchR, e: L / 2 - xi0 + notchR }], -notchR, arc),
-          ...edgeRun([xi1, by], [xi1, W], pinNarrow, t + g),
-          ...edgeRun([xi1, W], [xi0, W], [], 0),
-          ...edgeRun([xi0, W], [xi0, by], flipFeatures(pinNarrow, W - by), t + g),
+          ...edgeRun([xi1, by], [xi1, by1], pinNarrow, t + g),
+          ...edgeRun([xi1, by1], [xi0, by1], [], 0),
+          ...edgeRun([xi0, by1], [xi0, by], flipFeatures(pinNarrow, by1 - by), t + g),
         ];
       panels.push(normalisePanel({
         id: 'leafBack', label: PANEL_LABELS.leafBack, outline: dedupe(pts), holes: [],
