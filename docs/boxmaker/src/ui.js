@@ -222,6 +222,31 @@ const STYLES = [
   },
 ];
 
+export const BACKDROPS = [
+  {
+    id: 'dark',
+    label: 'Dark backdrop',
+    swatch: 'radial-gradient(120% 110% at 28% 18%, #4c4c50 0%, #2b2b2e 78%)',
+  },
+  {
+    id: 'light',
+    label: 'Light backdrop',
+    swatch: 'radial-gradient(120% 110% at 28% 18%, #ffffff 0%, #dde1e8 78%)',
+  },
+];
+
+/** Backdrop is a viewing preference, so it lives on the stage, not the inspector. */
+export function renderBackdrop(root, onPick) {
+  root.replaceChildren(...BACKDROPS.map((b) => h('button', {
+    type: 'button',
+    title: b.label,
+    'aria-label': b.label,
+    'aria-pressed': String(state.backdrop === b.id),
+    style: `background:${b.swatch}`,
+    onclick: () => onPick(b.id),
+  })));
+}
+
 // ---------------------------------------------------------------- bottom bar
 const CAMERAS = [
   ['persp', 'Persp.'], ['front', 'Front'], ['right', 'Right'],

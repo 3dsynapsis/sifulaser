@@ -332,21 +332,39 @@ export function buildBox(input = {}) {
   const lidX = () => ({ bx0: t + p.lidGap, bx1: L - t - p.lidGap });
   const pinAt = (y, from) => [{ s: y - pinH / 2 - from, e: y + pinH / 2 - from }];
 
+  // Past its hinge the lid widens to the full length and lands on the side walls,
+  // so the closed box reads as one flat top instead of a panel sunk between two
+  // exposed wall edges.
   if (lidded) {
     const g = p.lidGap;
-    const { bx0, bx1 } = lidX();
-    const by0 = t;
-    const by1 = W - t; // inner face of the back wall - see the hinge clearance rule
-    const lipW = Math.min((bx1 - bx0) * 0.45, Math.max(24, L * 0.28));
-    const lipC = (bx0 + bx1) / 2;
-    const lip = [{ s: lipC - lipW / 2 - bx0, e: lipC + lipW / 2 - bx0 }];
-    const pinFeat = pinAt(pivotBack, by0);
-    const pts = [
-      ...edgeRun([bx0, by0], [bx1, by0], lip, t, { round: t * 0.75 }),
-      ...edgeRun([bx1, by0], [bx1, by1], pinFeat, t + g),
-      ...edgeRun([bx1, by1], [bx0, by1], [], 0),
-      ...edgeRun([bx0, by1], [bx0, by0], flipFeatures(pinFeat, by1 - by0), t + g),
-    ];
+    const { bx0: xi0, bx1: xi1 } = lidX();
+    const xo0 = 0;
+    const xo1 = L;
+    const fy = t;          // front edge: inner face of the front wall
+    const by = W - t;      // rear edge: inner face of the back wall
+    const sy = pivotBack - shoulderGap;
+    const lipW = Math.min(L * 0.45, Math.max(24, L * 0.28));
+    const lip = [{ s: L / 2 - lipW / 2, e: L / 2 + lipW / 2 }];
+    const lipInset = [{ s: L / 2 - lipW / 2 - xi0, e: L / 2 + lipW / 2 - xi0 }];
+    const pin = pinAt(pivotBack, sy);
+    const wide = sy > fy + t;
+    const pts = wide
+      ? [
+        ...edgeRun([xo0, fy], [xo1, fy], lip, t, { round: t * 0.75 }),
+        ...edgeRun([xo1, fy], [xo1, sy], [], 0),
+        ...edgeRun([xo1, sy], [xi1, sy], [], 0),
+        ...edgeRun([xi1, sy], [xi1, by], pin, t + g),
+        ...edgeRun([xi1, by], [xi0, by], [], 0),
+        ...edgeRun([xi0, by], [xi0, sy], flipFeatures(pin, by - sy), t + g),
+        ...edgeRun([xi0, sy], [xo0, sy], [], 0),
+        ...edgeRun([xo0, sy], [xo0, fy], [], 0),
+      ]
+      : [
+        ...edgeRun([xi0, fy], [xi1, fy], lipInset, t, { round: t * 0.75 }),
+        ...edgeRun([xi1, fy], [xi1, by], pinAt(pivotBack, fy), t + g),
+        ...edgeRun([xi1, by], [xi0, by], [], 0),
+        ...edgeRun([xi0, by], [xi0, fy], flipFeatures(pinAt(pivotBack, fy), by - fy), t + g),
+      ];
     panels.push(normalisePanel({
       id: 'top', label: PANEL_LABELS.top, outline: dedupe(pts), holes: [],
       hinge: { v: pivotBack, sign: -1 },

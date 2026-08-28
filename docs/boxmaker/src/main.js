@@ -11,7 +11,7 @@ import { loadFont, preload } from './fonts.js';
 import { exportSvg, exportPanel } from './exportSvg.js';
 import {
   renderFaces, renderInspector, openPopover, shapeMenu, emojiMenu, imageMenu,
-  fillExportDialog, fillAssembleDialog,
+  fillExportDialog, fillAssembleDialog, renderBackdrop,
 } from './ui.js';
 import {
   readAsDataUrl, readAsText, svgTextToRings, glyphToDataUrl, imageSize,
@@ -30,6 +30,8 @@ const els = {
   lidBtn: $('#lidBtn'),
   status: $('#status'),
   popover: $('#popover'),
+  stage: document.querySelector('.stage'),
+  backdrop: $('#backdropPick'),
   name: $('#projectName'),
   undo: $('#undoBtn'),
   redo: $('#redoBtn'),
@@ -76,6 +78,12 @@ function refresh(opts = {}) {
   els.stage2d.hidden = state.view !== '2d';
   els.tools.hidden = state.view !== '2d';
   els.lidBtn.hidden = !(state.view === '3d' && state.params.style !== 'open');
+  els.backdrop.hidden = state.view !== '3d';
+  els.stage.dataset.backdrop = state.backdrop;
+  renderBackdrop(els.backdrop, (id) => {
+    update((s) => { s.backdrop = id; }, { history: false });
+    refresh();
+  });
   els.lidBtn.textContent = state.lidOpen ? 'Close the box' : 'Open the box';
   els.undo.disabled = !canUndo();
   els.redo.disabled = !canRedo();
@@ -87,6 +95,7 @@ function refresh(opts = {}) {
       charred: !!mat.char,
       grain: mat.grain || 'wood',
       burn: burnColor(mat.color),
+      backdrop: state.backdrop,
     });
     view3d.setLidOpen(state.lidOpen);
     view3d.resize();

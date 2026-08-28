@@ -37,6 +37,7 @@ function initialState() {
     selection: null,
     sheet: '600x400',
     lidOpen: false,
+    backdrop: 'dark',
     showLabels: true,
     name: 'Untitled box',
   };
@@ -155,6 +156,7 @@ function persist() {
         decor: state.decor,
         material: state.material,
         sheet: state.sheet,
+        backdrop: state.backdrop,
         name: state.name,
       }));
     } catch { /* private mode, quota - not worth interrupting the user */ }
@@ -170,6 +172,7 @@ export function load() {
     state.decor = { ...emptyDecor(), ...(data.decor || {}) };
     state.material = data.material || state.material;
     state.sheet = data.sheet || state.sheet;
+    state.backdrop = data.backdrop || state.backdrop;
     state.name = data.name || state.name;
     dirty = true;
     return true;

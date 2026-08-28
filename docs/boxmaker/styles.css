@@ -142,19 +142,48 @@ button { font-family: inherit; }
   position: relative; flex: 1; min-width: 0;
   background: radial-gradient(125% 105% at 28% 18%, var(--stage) 0%, var(--stage-2) 78%);
 }
+/* The preview backdrop is the viewer's choice, independent of the UI theme. */
+.stage[data-backdrop="light"] {
+  --stage: #ffffff;
+  --stage-2: #dde1e8;
+  --dim-ink: #23272e;
+  --dim-halo: rgba(255, 255, 255, .75);
+  --dim-soft: rgba(35, 39, 46, .45);
+}
+.stage[data-backdrop="dark"] {
+  --dim-ink: #ffffff;
+  --dim-halo: rgba(0, 0, 0, .55);
+  --dim-soft: rgba(255, 255, 255, .45);
+}
+
+.backdrop-pick {
+  position: absolute; top: 14px; left: 14px; z-index: 5;
+  display: flex; gap: 3px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: var(--shadow);
+}
+.backdrop-pick button {
+  width: 26px; height: 26px; padding: 0; cursor: pointer;
+  border: 1.5px solid var(--line-strong); border-radius: 7px;
+}
+.backdrop-pick button:hover { border-color: var(--muted); }
+.backdrop-pick button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
 .stage-pane { position: absolute; inset: 0; }
 .stage-pane[hidden] { display: none; }
 #stage2d { background: var(--bg); }
 #stage3d canvas { display: block; }
 
 .dim-overlay { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-.dim-line { stroke: rgba(255, 255, 255, .85); stroke-width: 1.1; }
-.dim-ext { stroke: rgba(255, 255, 255, .45); stroke-width: 1; }
-.dim-head { fill: rgba(255, 255, 255, .85); }
+.dim-line { stroke: var(--dim-ink); stroke-width: 1.1; opacity: .85; }
+.dim-ext { stroke: var(--dim-soft); stroke-width: 1; }
+.dim-head { fill: var(--dim-ink); opacity: .85; }
 .dim-text {
-  fill: #fff; font: 500 13px/1 ui-sans-serif, system-ui, sans-serif;
+  fill: var(--dim-ink); font: 500 13px/1 ui-sans-serif, system-ui, sans-serif;
   text-anchor: middle; paint-order: stroke;
-  stroke: rgba(0, 0, 0, .55); stroke-width: 3px; stroke-linejoin: round;
+  stroke: var(--dim-halo); stroke-width: 3px; stroke-linejoin: round;
 }
 
 .editor-svg { display: block; touch-action: none; user-select: none; }

@@ -95,8 +95,8 @@ export class View3D {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x2a2f38, 1.5);
-    this.scene.add(hemi);
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x2a2f38, 1.5);
+    this.scene.add(this.hemi);
     const key = new THREE.DirectionalLight(0xffffff, 2.1);
     key.position.set(180, -260, 320);
     key.castShadow = true;
@@ -237,6 +237,13 @@ export class View3D {
   }
 
   build(box, decorFor, opts = {}) {
+    // A pale backdrop needs a lighter bounce and a softer contact shadow, or the
+    // box looks like a cut-out floating on the page.
+    const pale = opts.backdrop === 'light';
+    this.hemi.groundColor.set(pale ? 0xd7dbe2 : 0x2a2f38);
+    this.hemi.intensity = pale ? 1.9 : 1.5;
+    this.ground.material.opacity = pale ? 0.16 : 0.28;
+
     this.disposeBuild();
     this.meshes = [];
     this.lidGroups = [];
