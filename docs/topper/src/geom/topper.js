@@ -27,7 +27,7 @@ export const DEFAULTS = {
   face: 'great-vibes',
   align: 'center',
 
-  width: 150,            // mm across the whole topper
+  width: 160,            // mm across the whole topper; an 8 inch cake
   lineHeight: 72,        // % of cap height between baselines; under 100 overlaps
   thicken: 0,            // mm added all round the lettering
   weight: 4,             // stroke faces only: what a skeleton gets fattened to
@@ -45,6 +45,27 @@ export const DEFAULTS = {
   thickness: 3,
   kerf: 0.2,
 };
+
+/**
+ * The two cake sizes worth offering, and where the numbers come from.
+ *
+ * A topper is not sized in the abstract - it is sized against the cake, and the
+ * rule the trade uses is that it should be an inch or two narrower than the top
+ * tier, so a border of icing still shows around it. Anything wider hangs over
+ * the edge and looks like a mistake.
+ *
+ * Six and eight inches are the two birthday cakes almost everybody buys, so
+ * those are the two here. Everything else is what the width box is for.
+ */
+export const CAKE_SIZES = [
+  { id: 'cake6', name: '6 inch cake', cake: 152, width: 120 },
+  { id: 'cake8', name: '8 inch cake', cake: 203, width: 160 },
+];
+
+export const cakeSizeOf = (id) => CAKE_SIZES.find((c) => c.id === id) || null;
+
+/** Which standard size a width corresponds to, if any. */
+export const cakeSizeFor = (mm) => CAKE_SIZES.find((c) => Math.abs(c.width - mm) < 0.5) || null;
 
 /** Cast acrylic is what these are made from, and the reason is not cosmetic. */
 export const MIN_STROKE = 2.5;   // mm; thinner than this snaps in 3 mm acrylic
@@ -79,13 +100,17 @@ export const PRESETS = [
   {
     id: 'birthday',
     name: 'Happy Birthday',
-    note: 'Three lines, joined hard enough to need no connectors.',
+    note: 'Three lines in Great Vibes, overlapping at 80%.',
     params: {
       text: 'Happy\nBirthday\nSylvia',
-      face: 'grand-hotel',
+      face: 'great-vibes',
       width: 180,
-      lineHeight: 70,
+      lineHeight: 80,
       thicken: 1.6,
+      // Two thin connectors rather than the fatter letters it would take to
+      // do without them. Deliberate: the point of Great Vibes is its
+      // hairlines, and thickening far enough to weld every letter buries them.
+      bridge: 0.5,
       stakes: 2,
       stakeLength: 55,
       stakeSpread: 55,
@@ -251,7 +276,7 @@ const EMPTY = {
   params: { ...DEFAULTS },
   panels: [],
   derived: {
-    width: 0, height: 0, textWidth: 0, textHeight: 0, capMM: 0,
+    width: 0, height: 0, visibleHeight: 0, textWidth: 0, textHeight: 0, capMM: 0,
     pieces: 0, loose: 0, holes: 0, bridges: 0, stroke: 0, suggestThicken: 0,
     stakeAt: [], stakeSnapped: 0, balance: 0, cutLength: 0,
     lines: 0, warnings: [], empty: true,
@@ -680,6 +705,12 @@ export function buildTopper(input = {}) {
     derived: {
       width: size.w,
       height: size.h,
+      // The height a guide means when it says a script topper wants five to
+      // seven inches is the part you can SEE. The stakes are in the cake, so
+      // counting them makes a topper look far bigger on paper than on the table.
+      visibleHeight: Math.max(0, size.h - (wanted.length ? Math.min(
+        size.h * 0.5, Math.max(8, p.stakeLength * 0.72),
+      ) : 0)),
       textWidth: ink.w,
       textHeight: ink.h,
       capMM,

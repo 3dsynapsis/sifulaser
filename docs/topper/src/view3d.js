@@ -265,6 +265,29 @@ export class View3D {
       return [face, side];
     }
 
+    if (finish === 'wood') {
+      // A wood face is its grain, so unlike every other sheet in the list this
+      // one really does carry a picture. Matt, and no environment map worth
+      // speaking of: falcata reflects the room about as much as a beer mat.
+      const face = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: this.surface('wood', hex, 'colour'),
+        roughness: 0.82,
+        metalness: 0,
+        envMapIntensity: 0.25,
+      });
+      // The cut edge of plywood comes off the bed charred, and it is much darker
+      // than the face - keeping a trace of the board so falcata and a darker
+      // timber would not look identical along the edge.
+      const side = new THREE.MeshStandardMaterial({
+        color: color.clone().multiplyScalar(0.16).lerp(new THREE.Color('#151311'), 0.55),
+        roughness: 0.95,
+        metalness: 0,
+        envMapIntensity: 0.15,
+      });
+      return [face, side];
+    }
+
     if (finish === 'glitter') {
       const face = new THREE.MeshStandardMaterial({
         color: 0xffffff,

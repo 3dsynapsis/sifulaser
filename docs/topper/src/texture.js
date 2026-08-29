@@ -1,8 +1,10 @@
 // Procedural surfaces for the 3D preview. No image files.
 //
-// This tool cuts one material, so this file knows about one material. The wood
-// and MDF grain the other tools paint is not here, because there is no wood in
-// the list - a topper goes into food, and wood takes up grease and cannot be
+// Mostly this tool cuts acrylic, and an acrylic finish is barely a picture at
+// all. Falcata is the exception and it is the opposite: a wood face IS its
+// grain, so that one gets the figured profile the other tools paint. The rest of
+// this file is about surfaces that have no pattern - a topper goes into food,
+// and where wood is chosen it is a single-use piece, because wood takes up
 // washed clean.
 //
 // An acrylic finish is mostly not a picture at all. A mirror sheet has no
@@ -50,6 +52,71 @@ function blankCanvas(w = SIZE, h = SIZE) {
   return c;
 }
 
+const PROFILE = 4096;   // samples of the cross-grain lightness curve
+
+/**
+ * One period of the cross-grain lightness curve, ported from 12_Box Maker.
+ *
+ * A sum of sine bands at INTEGER frequencies, which is the whole trick: an
+ * integer number of periods across the tile means the left edge meets the right
+ * edge exactly, so one 40 mm tile repeats across a whole topper with no seam to
+ * spot. The sharpened peaks stand in for the open pores that make falcata read
+ * as falcata rather than as beige.
+ */
+function grainProfile(rand, { figure, pores, poreFreq }) {
+  const bands = [1, 2, 3, 5, 7, 11, 13, 17, 23, 29, 37, 43]
+    .map((f) => ({ f, a: 1 / Math.sqrt(f), p: rand() * Math.PI * 2 }));
+  const norm = bands.reduce((sum, b) => sum + b.a, 0);
+  const out = new Float32Array(PROFILE);
+  for (let i = 0; i < PROFILE; i++) {
+    let v = 0;
+    for (const b of bands) v += b.a * Math.sin(2 * Math.PI * b.f * (i / PROFILE) + b.p);
+    v /= norm;
+    let l = 1 + v * figure;
+    if (pores > 0) {
+      const pk = Math.sin(2 * Math.PI * poreFreq * (i / PROFILE) + v * 2.1);
+      l -= Math.max(0, pk) ** 14 * pores;
+    }
+    out[i] = l;
+  }
+  return out;
+}
+
+/** A wood face: the grain profile swept down the board with a whisper of drift. */
+function woodCanvas(hex) {
+  const rand = rngFrom(`wood|${hex}`);
+  const profile = grainProfile(rand, { figure: 0.055, pores: 0.13, poreFreq: 96 });
+  const w1 = rand() * Math.PI * 2;
+  const w2 = rand() * Math.PI * 2;
+  const [r0, g0, b0] = hexToRgb(hex);
+  const canvas = blankCanvas();
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(SIZE, SIZE);
+  const d = img.data;
+  let n = 0;
+  for (let y = 0; y < SIZE; y++) {
+    const t = y / SIZE;
+    // Sawn boards run far straighter than a wood shader usually admits.
+    const wob = 0.0035 * Math.sin(2 * Math.PI * t + w1)
+      + 0.0015 * Math.sin(6 * Math.PI * t + w2);
+    for (let x = 0; x < SIZE; x++) {
+      let u = x / SIZE + wob;
+      u -= Math.floor(u);
+      let l = profile[(u * PROFILE) | 0];
+      // Hash noise keyed on the pixel, so the speckle tiles without a seam too.
+      const h = Math.imul((x * 73856093) ^ (y * 19349663), 2654435761) >>> 0;
+      l += (h / 4294967296 - 0.5) * 0.012;
+      const k = n++ * 4;
+      d[k] = clamp255(r0 * l);
+      d[k + 1] = clamp255(g0 * l);
+      d[k + 2] = clamp255(b0 * l);
+      d[k + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
 /**
  * A field of glitter flecks: 0 away from one, 1 at its centre.
  *
@@ -91,12 +158,18 @@ function fleckField() {
 /**
  * The colour on the face of the sheet.
  *
- * kind: 'none' | 'mirror' | 'clear' | 'glitter'. Only glitter returns anything.
+ * kind: 'none' | 'mirror' | 'clear' | 'glitter' | 'wood'. Only glitter and wood
+ * return anything - the rest have no pattern to paint.
  * A plain, mirrored or clear sheet has no pattern to paint - it is the
  * material's own colour, and a map of it would be a flat image the renderer has
  * to sample for no gain. Null means "use the colour directly".
  */
 export function boardCanvas(hex, kind = 'none') {
+  if (kind === 'wood') {
+    const wk = `wood|${hex}`;
+    if (!cache.has(wk)) cache.set(wk, woodCanvas(hex));
+    return cache.get(wk);
+  }
   if (kind !== 'glitter') return null;
   const key = `colour|${hex}`;
   if (cache.has(key)) return cache.get(key);

@@ -2,12 +2,13 @@
 // Control idioms follow the Box Maker so the six tools feel like one family.
 
 import {
-  state, update, setParam, getResult, canUndo, canRedo, reset, UNITS, unitOf,
+  state, update, setParam, getResult, canUndo, canRedo, reset, CM,
   MATERIALS, material, setMaterial, setBoardNumber, applyPreset,
 } from './store.js';
 import { layout, faceLoaded, faceFailed, loadFace, isOutline } from './geom/text.js';
 import {
   CONNECT_MODES, MIN_STROKE, PRESETS, matchesPreset,
+  CAKE_SIZES, cakeSizeOf, cakeSizeFor,
 } from './geom/topper.js';
 import { LAYERS } from './export.js';
 
@@ -244,7 +245,6 @@ export function renderInspector(root, ctx) {
   const p = state.params;
   const r = getResult();
   const d = r.derived;
-  const u = unitOf(state.unit);
 
   // ---- the message is the whole object, so it goes first.
   const area = h('textarea', {
@@ -274,20 +274,33 @@ export function renderInspector(root, ctx) {
       + 'whole message has to come off the sheet as one piece. Spaces are a '
       + 'good way to nudge a short line into line with a long one.')));
 
+  // Nobody knows what width a topper should be; everybody knows what size their
+  // cake is. So the size is offered as the cake, and the millimetres follow.
+  const matched = cakeSizeFor(p.width);
   root.append(group('Size', true,
     h('div', { class: 'field' },
-      h('label', {}, 'Units'),
-      seg(UNITS.map((x) => [x.id, x.name]), state.unit, (id) => {
-        update((s) => { s.unit = id; }, { history: false });
-        ctx.refresh();
-      })),
-    numberRow(`Width across (${u.name})`, p.width / u.per, {
-      min: 40 / u.per, max: 500 / u.per, step: u.step,
-      onInput: (v) => { setParam('width', v * u.per); ctx.refresh(); },
+      h('label', {}, 'Cake it sits on'),
+      seg(CAKE_SIZES.map((c) => [c.id, `${c.name} - ${c.width / CM} cm`]),
+        matched ? matched.id : '',
+        (id) => { setParam('width', cakeSizeOf(id).width); ctx.refresh(); })),
+    h('p', { class: 'hint' },
+      'A topper wants to be an inch or two narrower than the top of the cake, so '
+      + 'a border of icing still shows around it. Wider than that and it hangs '
+      + 'over the edge. Set your own width below for anything else.'),
+    numberRow('Width across (cm)', p.width / CM, {
+      min: 4, max: 50, step: 0.5,
+      onInput: (v) => { setParam('width', v * CM); ctx.refresh(); },
     }),
     h('div', { class: 'stat' },
-      h('span', {}, 'Finished size'),
-      h('b', {}, `${rnd(d.width, 1)} x ${rnd(d.height, 1)} mm`))));
+      h('span', {}, 'Finished piece'),
+      h('b', {}, `${rnd(d.width / CM, 1)} x ${rnd(d.height / CM, 1)} cm`)),
+    // What the piece measures and what anyone at the table sees are different
+    // numbers, because a good part of it is in the cake.
+    d.visibleHeight < d.height - 0.5
+      ? h('div', { class: 'stat' },
+        h('span', {}, 'Shows above the cake'),
+        h('b', {}, `${rnd(d.visibleHeight / CM, 1)} cm tall`))
+      : null));
 
   root.append(group('Typeface', true, ...facePicker(ctx)));
 
@@ -401,10 +414,15 @@ export function renderInspector(root, ctx) {
       onInput: (v) => { setBoardNumber('kerf', v); ctx.refresh(); },
     }),
     h('p', { class: 'hint' },
-      'Every one of these is cast acrylic, and that is not a preference. A '
-      + 'topper goes into food: wood is porous, takes up moisture and grease '
-      + 'from the cake and cannot be washed clean again. Cast acrylic also cuts '
-      + 'with a polished edge, which extruded acrylic does not.')));
+      mat.finish === 'wood'
+        ? 'Falcata makes a good topper and a cheaper one, but it is for one '
+          + 'occasion. Wood is porous: it takes up moisture and grease from the '
+          + 'cake and cannot be washed clean again, so it does not come back out '
+          + 'for the next birthday the way acrylic does.'
+        : 'Cast acrylic wipes clean and can be used again, which is why most of '
+          + 'this list is acrylic - a topper goes into food. Cast also cuts with '
+          + 'a polished edge where extruded acrylic goes cloudy. Falcata is there '
+          + 'too, for a single occasion.')));
 
   root.append(h('button', {
     class: 'link', type: 'button',

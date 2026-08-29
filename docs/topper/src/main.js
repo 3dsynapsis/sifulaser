@@ -103,7 +103,7 @@ function drawPreview() {
   // 3D tab hidden shows a segmented control with nothing selected, on every
   // refresh, for the rest of the session.
   if (state.view === '3d' && view3dFailed) {
-    update((s) => { s.view = 'cake'; }, { history: false });
+    update((s) => { s.view = 'flat'; }, { history: false });
   }
   const is3d = state.view === '3d' && ensure3d() != null;
   els.preview.hidden = is3d;
@@ -129,7 +129,7 @@ function drawPreview() {
   const d = r.derived;
   const label = d.empty
     ? 'Type a message to begin'
-    : `${rnd(d.width, 1)} x ${rnd(d.height, 1)} mm`;
+    : `${rnd(d.width / 10, 1)} x ${rnd(d.height / 10, 1)} cm`;
   els.hint.textContent = is3d && !d.empty ? 'Drag to orbit, scroll to zoom' : label;
   els.hint.classList.add('show');
   els.readout.textContent = d.empty ? '' : label;
@@ -145,7 +145,11 @@ function refresh() {
     refresh();
   });
   renderActions({ undoBtn: els.undo, redoBtn: els.redo });
-  els.vCake.setAttribute('aria-selected', String(state.view === 'cake'));
+  // The cake view is retired from the tab strip: the 3D preview answers the
+  // same question better, and two pictures of one object is one too many. The
+  // drawing code stays - tools/samples.mjs renders with it and it is under
+  // test - it simply has no tab any more.
+  els.vCake.hidden = true;
   els.vFlat.setAttribute('aria-selected', String(state.view === 'flat'));
   // A tab that cannot be shown should not be offered. With no working GL the
   // tool quietly becomes the two-view tool it was before, rather than a
@@ -185,7 +189,6 @@ const setView = (v) => {
   update((s) => { s.view = v; }, { history: false });
   refresh();
 };
-els.vCake.addEventListener('click', () => setView('cake'));
 els.vFlat.addEventListener('click', () => setView('flat'));
 els.v3d.addEventListener('click', () => setView('3d'));
 
