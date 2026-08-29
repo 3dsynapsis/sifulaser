@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   Box,
+  CakeSlice,
   ClipboardCheck,
   Crosshair,
   Lightbulb,
@@ -147,6 +148,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 11,
+    title: 'Cake Topper',
+    description:
+      'Nama untuk atas kek, satu keping dengan pancang. Untuk akrilik tuang.',
+    href: '#/topper',
+    color: '#b8386b',
+    softBg: '#fdeff5',
+    border: '#f7d3e2',
+    Icon: CakeSlice,
+  },
+  {
+    number: 12,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',

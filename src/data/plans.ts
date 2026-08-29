@@ -65,6 +65,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     tiers: SEMUA,
   },
   {
+    label: 'Cake Topper — nama untuk atas kek',
+    detail:
+      'Satu keping dengan pancang, siap untuk akrilik tuang. 33 pilihan fon. '
+      + 'Ia memberi amaran kalau huruf terlalu halus, atau kalau ia akan senget.',
+    tiers: SEMUA,
+  },
+  {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
     tiers: DIGITAL,

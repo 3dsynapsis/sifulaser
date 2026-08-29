@@ -8,6 +8,7 @@ import { TextEngraverPage } from './pages/TextEngraverPage'
 import { StandPage } from './pages/StandPage'
 import { QrPage } from './pages/QrPage'
 import { AdjustPage } from './pages/AdjustPage'
+import { TopperPage } from './pages/TopperPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -99,6 +100,8 @@ const Root = () => {
       return <QrPage />
     case 'adjust':
       return <AdjustPage />
+    case 'topper':
+      return <TopperPage />
     case 'maintenance':
       return <MaintenanceChooserPage />
     case 'troubleshoot':
