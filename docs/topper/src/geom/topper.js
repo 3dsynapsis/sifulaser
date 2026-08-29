@@ -491,6 +491,72 @@ const span2 = (seg) => (seg[2] - seg[0]) ** 2 + (seg[3] - seg[1]) ** 2;
  */
 const longestBridge = (segs) => segs.reduce((m, s) => Math.max(m, Math.hypot(s[2] - s[0], s[3] - s[1])), 0);
 
+/** An even sample of every point in a set of groups, as [[x,y],...]. */
+function samplePoints(groups, want) {
+  const all = [];
+  for (const g of groups) for (const r of g) all.push(...asPoints(r));
+  const stride = Math.max(1, Math.floor(all.length / want));
+  const out = [];
+  for (let i = 0; i < all.length; i += stride) out.push(all[i]);
+  return out;
+}
+
+/** Flat [x,y,x,y] to [[x,y],...], which is what nearestPair reads. */
+const asPoints = (flatRing) => {
+  const out = new Array(flatRing.length / 2);
+  for (let i = 0; i < flatRing.length; i += 2) out[i / 2] = [flatRing[i], flatRing[i + 1]];
+  return out;
+};
+
+/**
+ * The shortest strut from the lettering to the frame in each direction round it.
+ *
+ * A ring of sectors covers every direction the lettering could be held from, and
+ * taking the shortest link within each keeps every candidate a short strut
+ * rather than a bar thrown across open space.
+ *
+ * The caller picks by bearing, which is the part that took three goes to get
+ * right. Counting how many open regions the frame ends up with is exact on
+ * paper - a ring joined to a blob at k points has k regions - and on a real
+ * piece it kept answering the wrong question: it read the eight triangles
+ * between the double square`s crossing bands as holds, then read a perfectly
+ * good one as none. What is known for certain is which bridge attached the
+ * lettering, because this code is what made it. Working from that instead of
+ * from the shape of the result is both simpler and true.
+ */
+function holdCandidates(letters, frame) {
+  const lp = samplePoints(letters, 600);
+  const fp = samplePoints(frame, 400);
+  if (!lp.length || !fp.length) return [];
+
+  let cx = 0;
+  let cy = 0;
+  for (const [x, y] of fp) { cx += x; cy += y; }
+  cx /= fp.length;
+  cy /= fp.length;
+
+  const SECTORS = 10;
+  const bestIn = new Array(SECTORS).fill(null);
+  const bestLen = new Array(SECTORS).fill(Infinity);
+  const sectorOf = (x, y) => {
+    const a = Math.atan2(y - cy, x - cx);
+    return Math.min(SECTORS - 1,
+      Math.floor(((a + Math.PI * 2) % (Math.PI * 2)) / ((Math.PI * 2) / SECTORS)));
+  };
+  for (const p of lp) {
+    for (const q of fp) {
+      const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2;
+      const s = sectorOf((p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+      if (d < bestLen[s]) { bestLen[s] = d; bestIn[s] = [p[0], p[1], q[0], q[1]]; }
+    }
+  }
+  return bestIn
+    .map((seg, i) => ({ seg, len: bestLen[i] }))
+    .filter((c) => c.seg)
+    .sort((a, b) => a.len - b.len)
+    .map((c) => c.seg);
+}
+
 /** The hole with the largest bounding box, which in a framed piece is its middle. */
 function widestHole(holes) {
   let best = null;
@@ -533,10 +599,23 @@ function nearestPair(a, b, samples = 300) {
  * bridging it papers over that - so "dots only" fixes the unavoidable and leaves
  * the avoidable visible.
  */
-function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
+function weld(input, opts, mode, bridgeW, dotArea, anchor = null) {
   let res = strokesToOutline(input.strokes || [], opts);
   const bridges = [];
-  if (mode === 'none' || !(bridgeW > 0)) return { res, bridges: 0, span: 0 };
+  const framed = Boolean(anchor);
+  let hungOn = null;
+  let hungSize = 0;
+
+
+  if (mode === 'none' || !(bridgeW > 0)) {
+    return {
+      res,
+      bridges: 0,
+      span: 0,
+      holds: 0,
+      holdSpan: 0,
+    };
+  }
 
   for (let round = 0; round < 3 && res.outers.length > 1; round++) {
     const main = res.outers[0];
@@ -563,6 +642,7 @@ function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
     // an o, the eye of an e - and a bridge that dives into one of those joins
     // the same two pieces by a worse-looking route.
     for (const o of want) {
+      const size = Math.abs(ringArea(o));
       let seg = nearestPair(o, main);
       let best = seg ? span2(seg) : Infinity;
       if (framed) {
@@ -576,13 +656,72 @@ function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
           if (d < best) { best = d; seg = alt; }
         }
       }
-      if (seg) bridges.push(seg);
+      if (!seg) continue;
+      bridges.push(seg);
+      // The biggest thing that had to be tied on is the lettering. Remembering
+      // which strut did it is the whole basis for placing the second one.
+      if (framed && size > hungSize) { hungSize = size; hungOn = seg; }
     }
     res = strokesToOutline(input.strokes || [], {
       ...opts, bridges: { paths: bridges, weight: bridgeW },
     });
   }
-  return { res, bridges: bridges.length, span: longestBridge(bridges) };
+
+  // Two different jobs, so two different numbers. Everything bridged up to here
+  // exists to tie back something that would otherwise drop out of the sheet - a
+  // stray letter, a dot - and those have to be short or they are the ugliest
+  // thing on the piece. The strut added below is structural: it goes where the
+  // piece needs holding, and it is long when that is what it takes. Averaging
+  // the two into one figure would let a deliberate strut hide a connector that
+  // had gone wandering.
+  const span = longestBridge(bridges);
+  let holdSpan = 0;
+  let holds = hungOn ? 1 : 0;
+
+  // One hold is a hinge. The lettering is the heavy part, the frame is what the
+  // topper gets picked up by, and a single join carries the whole weight of the
+  // words every time it is handled - a join that is a bridge, the thinnest thing
+  // on the piece. Acrylic gives no warning before it goes.
+  //
+  // Only when the lettering had to be bridged on at all. Where it runs into the
+  // frame and welds along it, it is held over a length no strut can improve on,
+  // and adding one would be a bar across open space for nothing.
+  //
+  // Well away from the first, not merely elsewhere: two holds side by side are
+  // one hinge slightly widened. A quarter turn is the least that spans the piece
+  // rather than propping up one corner of it.
+  if (framed && hungOn && res.outers.length === 1) {
+    let cx = 0;
+    let cy = 0;
+    let n = 0;
+    for (const g of anchor.frame) {
+      for (const r of g) {
+        for (let i = 0; i < r.length; i += 2) { cx += r[i]; cy += r[i + 1]; n++; }
+      }
+    }
+    cx /= n;
+    cy /= n;
+    const bearing = (seg) => Math.atan2(
+      (seg[1] + seg[3]) / 2 - cy, (seg[0] + seg[2]) / 2 - cx,
+    );
+    const held = bearing(hungOn);
+    const apart = (t) => Math.abs(((t - held + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+
+    const far = holdCandidates(anchor.letters, anchor.frame)
+      .filter((seg) => apart(bearing(seg)) >= Math.PI * 0.5);
+    const seg = far[0];
+    if (seg) {
+      bridges.push(seg);
+      res = strokesToOutline(input.strokes || [], {
+        ...opts, bridges: { paths: bridges, weight: bridgeW },
+      });
+      holdSpan = Math.hypot(seg[2] - seg[0], seg[3] - seg[1]);
+      holds = 2;
+    }
+  }
+  return {
+    res, bridges: bridges.length, span, holds, holdSpan,
+  };
 }
 
 export function buildTopper(input = {}) {
@@ -731,13 +870,15 @@ export function buildTopper(input = {}) {
   // ---- one shape -----------------------------------------------------------
   const all = [...groups, ...(frame || []), ...stakeShapes];
   const dotArea = Math.max(2, (stroke * 2) ** 2);
-  const { res, bridges, span: bridgeSpan } = weld(
+  const {
+    res, bridges, span: bridgeSpan, holds, holdSpan,
+  } = weld(
     { strokes },
     { weight: penW, glyphs: all, grow: thicken },
     p.connect,
     Math.max(0, Math.min(p.bridge, Math.max(stroke, 1.2))),
     dotArea,
-    Boolean(frame),
+    frame ? { letters: groups, frame } : null,
   );
   if (!res.outers.length) return EMPTY;
 
@@ -861,6 +1002,8 @@ export function buildTopper(input = {}) {
       pieces,
       border: p.border,
       bridgeSpan,
+      holds,
+      holdSpan,
       loose: loose.length,
       holes: holes.length,
       bridges,
