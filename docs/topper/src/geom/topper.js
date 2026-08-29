@@ -27,7 +27,7 @@ export const DEFAULTS = {
   face: 'great-vibes',
   align: 'center',
 
-  width: 160,            // mm across the whole topper; an 8 inch cake
+  width: 180,            // mm across the whole topper; suits an 8 inch cake
   lineHeight: 72,        // % of cap height between baselines; under 100 overlaps
   thicken: 0,            // mm added all round the lettering
   weight: 4,             // stroke faces only: what a skeleton gets fattened to
@@ -58,8 +58,8 @@ export const DEFAULTS = {
  * those are the two here. Everything else is what the width box is for.
  */
 export const CAKE_SIZES = [
-  { id: 'cake6', name: '6 inch cake', cake: 152, width: 120 },
-  { id: 'cake8', name: '8 inch cake', cake: 203, width: 160 },
+  { id: 'cake6', name: '12 cm', cake: 152, width: 120 },
+  { id: 'cake8', name: '18 cm', cake: 203, width: 180 },
 ];
 
 export const cakeSizeOf = (id) => CAKE_SIZES.find((c) => c.id === id) || null;
