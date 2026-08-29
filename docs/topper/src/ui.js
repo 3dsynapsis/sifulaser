@@ -3,9 +3,12 @@
 
 import {
   state, update, setParam, getResult, canUndo, canRedo, reset, UNITS, unitOf,
+  MATERIALS, material, setMaterial, setBoardNumber, applyPreset,
 } from './store.js';
-import { layout, faceLoaded, loadFace, isOutline } from './geom/text.js';
-import { CONNECT_MODES, MIN_STROKE } from './geom/topper.js';
+import { layout, faceLoaded, faceFailed, loadFace, isOutline } from './geom/text.js';
+import {
+  CONNECT_MODES, MIN_STROKE, PRESETS, matchesPreset,
+} from './geom/topper.js';
 import { LAYERS } from './export.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
@@ -179,6 +182,43 @@ function facePicker(ctx) {
   ];
 }
 
+// ---- presets --------------------------------------------------------------
+/**
+ * Somebody opening this tool for the first time wants a cake topper, not a
+ * lesson in line height. These go at the very top because one click gets them a
+ * finished, warning-free piece they can then type their own name into - which
+ * is also the fastest way to learn what the settings underneath are for.
+ *
+ * A preset that matches what is on screen is shown as chosen, but only until
+ * anything is edited: it is a starting point, not a mode.
+ */
+function presetPicker(ctx) {
+  const p = state.params;
+  const current = PRESETS.find((x) => matchesPreset(x, p));
+  return [
+    h('div', { class: 'cards presets' }, PRESETS.map((x) => h('button', {
+      class: 'card', type: 'button', title: x.note,
+      'aria-pressed': String(current?.id === x.id),
+      onclick: () => {
+        applyPreset(x);
+        // The face a preset asks for is usually not in memory: the picker only
+        // fetches a category when somebody opens it. Draw with what is there,
+        // then draw again when the face lands - or when it does not. A failed
+        // fetch has to redraw as well, because the preset's face is already
+        // committed by then and the canvas is blank until something says why.
+        if (!faceLoaded(x.params.face)) {
+          loadFace(x.params.face).then(() => ctx.refresh(), () => ctx.refresh());
+        }
+        ctx.refresh();
+      },
+    }, x.name))),
+    h('p', { class: 'hint' },
+      'Each of these sets the whole design - the words, the typeface, the width, '
+      + 'the line height, the thickening and the stakes - because those numbers '
+      + 'only work together. Type your own name over the placeholder.'),
+  ];
+}
+
 // ---- inspector ------------------------------------------------------------
 const groupOpen = new Map();
 
@@ -217,6 +257,8 @@ export function renderInspector(root, ctx) {
     onchange: (e) => { setParam('text', e.target.value); ctx.refresh(); },
   });
   area.value = p.text;
+
+  root.append(group('Start from', true, ...presetPicker(ctx)));
 
   root.append(group('Message', true,
     area,
@@ -333,20 +375,36 @@ export function renderInspector(root, ctx) {
           Math.abs(d.balance) > 1 ? 'leans over' : 'sits square'))
       : null));
 
+  const mat = material();
+  const matSel = h('select', {
+    'aria-label': 'Acrylic sheet',
+    onchange: (e) => { setMaterial(e.target.value); ctx.refresh(); },
+  }, MATERIALS.map((m) => h('option', {
+    value: m.id, ...(m.id === state.material ? { selected: true } : {}),
+  }, m.id === 'custom' ? m.name : `${m.name} (${m.t} mm)`)));
+
   root.append(group('Material', false,
+    h('div', { class: 'field' }, h('label', {}, 'Acrylic'), matSel),
+    h('div', { class: 'row' },
+      h('span', { class: 'swatch', style: `background:${mat.color}` }),
+      h('span', { class: 'muted' },
+        `${mat.name} · ${rnd(p.thickness, 2)} mm · ${rnd(p.kerf, 2)} mm kerf`)),
+    // Both of these are the sheet's own numbers, so the picker sets them - but a
+    // shop that has measured its actual stock has to be able to overrule it, and
+    // doing so is what makes the sheet custom.
     numberRow('Thickness (mm)', p.thickness, {
       min: 1, max: 10, step: 0.1,
-      onInput: (v) => { setParam('thickness', v); ctx.refresh(); },
+      onInput: (v) => { setBoardNumber('thickness', v); ctx.refresh(); },
     }),
     numberRow('Kerf (mm)', p.kerf, {
       min: 0, max: 1, step: 0.02,
-      onInput: (v) => { setParam('kerf', v); ctx.refresh(); },
+      onInput: (v) => { setBoardNumber('kerf', v); ctx.refresh(); },
     }),
     h('p', { class: 'hint' },
-      'Cut this from cast acrylic. It goes into food, and wood is porous - it '
-      + 'takes up moisture and grease from the cake and cannot be washed clean '
-      + 'again. Cast acrylic also cuts with a polished edge, which extruded '
-      + 'acrylic does not.')));
+      'Every one of these is cast acrylic, and that is not a preference. A '
+      + 'topper goes into food: wood is porous, takes up moisture and grease '
+      + 'from the cake and cannot be washed clean again. Cast acrylic also cuts '
+      + 'with a polished edge, which extruded acrylic does not.')));
 
   root.append(h('button', {
     class: 'link', type: 'button',
@@ -367,7 +425,18 @@ export function renderInspector(root, ctx) {
 }
 
 export function renderWarnings(root) {
-  const { warnings } = getResult().derived;
+  const r = getResult();
+  const warnings = [...r.derived.warnings];
+  // A typeface that did not arrive leaves buildTopper with nothing to build from
+  // and no warning to give - it cannot tell a face that failed from one that is
+  // still on its way, and the second is what every face is at start-up. So the
+  // one place that does know says it, rather than leaving a blank canvas to be
+  // read as "type a message".
+  if (!r.face && faceFailed(state.params.face)) {
+    warnings.unshift(`The typeface "${state.params.face}" did not load, so there `
+      + 'is nothing to draw. Check the connection and pick it again, or choose '
+      + 'another face.');
+  }
   root.replaceChildren(...warnings.map((w) => h('div', { class: 'warn-box' }, w)));
   root.hidden = !warnings.length;
 }
@@ -428,16 +497,26 @@ export function fillHelpDialog(dlg) {
       + 'where the weight actually sits and says so before you cut.'),
     h('h3', {}, 'Material'),
     h('p', {},
-      'Cast acrylic. It goes into food: wood is porous, takes up moisture and '
-      + 'grease, and cannot be washed clean. Cast also cuts with a polished edge '
-      + 'where extruded goes cloudy.'),
+      'Cast acrylic, and the list has nothing else in it. A topper goes into '
+      + 'food: wood is porous, takes up moisture and grease, and cannot be '
+      + 'washed clean. Cast also cuts with a polished edge where extruded goes '
+      + 'cloudy. Choosing a sheet sets the kerf as well as the colour, because '
+      + 'both are properties of the same real material.'),
+    h('h3', {}, 'The three views'),
+    h('p', {},
+      'On the cake shows what will be above the icing and what will be buried, '
+      + 'and marks where the weight sits against where the stakes hold it. Flat '
+      + 'is the piece exactly as the file is written. 3D is the finish - mirror '
+      + 'and glitter are not colours, they are surfaces, and this is the only '
+      + 'view that can show you the difference before you cut one.'),
     h('h3', {}, 'Credits'),
     h('p', { class: 'hint' },
       'The idea came from Cuttle’s Cake Topper Generator, including the nine '
       + 'typefaces it recommends. The engine here is our own - the same distance '
       + 'field that welds the lettering in our Stand Nama tool. Every typeface is '
       + 'public domain, SIL Open Font License or Apache 2.0, listed with its '
-      + 'licence in src/font/LICENCES.txt.'));
+      + 'licence in src/font/LICENCES.txt. The 3D view is drawn with three.js, '
+      + 'MIT licensed, vendored in vendor/.'));
 }
 
 export function renderActions({ undoBtn, redoBtn }) {

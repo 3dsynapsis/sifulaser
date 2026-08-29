@@ -83,6 +83,75 @@ export function offsetPolygon(pts, d) {
   return out;
 }
 
+/**
+ * Offset a closed ring so the region it encloses grows by `d` all round,
+ * whichever way the ring happens to be wound.
+ *
+ * offsetPolygon walks the outward normals of a *counter-clockwise* ring, so on a
+ * clockwise one - which is how a counter comes out of the outliner - the sign is
+ * reversed, and a call meant to shrink a hole opens it up instead. Kerf
+ * compensation is asking "move this edge out of the material"; it must not have
+ * to know which kind of ring it was handed to get the answer right.
+ */
+export function growRing(pts, d) {
+  if (!(Math.abs(d) > 1e-9)) return dedupe(pts);
+  return offsetPolygon(pts, isCCW(pts) ? d : -d);
+}
+
+/** Even-odd point-in-polygon on a closed ring of [x, y] pairs. */
+export function pointInRing(pt, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if ((yi > pt[1]) !== (yj > pt[1])
+        && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Sort a flat list of rings into solids, each with the holes that belong to it.
+ *
+ * Winding is not enough to decide this. A welded name arrives as the lettering,
+ * the counters inside it and any piece that came away loose, all in one list
+ * with no record of which contains which - so containment is counted instead. An
+ * odd nesting depth is a hole, an even one is solid, which also gets the awkward
+ * case right: the island inside the counter of an 'a' is at depth two and comes
+ * back solid, because that is what drops out of the sheet.
+ *
+ * This lives here rather than in the 3D view because it is ring arithmetic with
+ * no WebGL in it, and the view is the one place a node test cannot reach.
+ */
+export function nestRings(rings) {
+  const valid = rings.filter((r) => r && r.length > 2);
+  const depth = valid.map((r) => {
+    let d = 0;
+    for (const other of valid) {
+      if (other !== r && pointInRing(r[0], other)) d++;
+    }
+    return d;
+  });
+  const solids = [];
+  valid.forEach((r, i) => {
+    if (depth[i] % 2 === 0) solids.push({ ring: r, holes: [] });
+  });
+  valid.forEach((r, i) => {
+    if (depth[i] % 2 === 0) return;
+    // A ring can sit inside several solids at once; it belongs to the tightest
+    // one, or a counter is punched out of the whole piece standing behind it.
+    let best = null;
+    for (const s of solids) {
+      if (!pointInRing(r[0], s.ring)) continue;
+      if (!best || Math.abs(area(s.ring)) < Math.abs(area(best.ring))) best = s;
+    }
+    if (best) best.holes.push(r);
+  });
+  return solids;
+}
+
 /** Circle / ellipse as a polygon, CCW. */
 export function ellipse(cx, cy, rx, ry, seg = 64) {
   const pts = [];

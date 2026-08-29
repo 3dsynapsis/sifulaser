@@ -1,6 +1,6 @@
 // Wiring: store -> preview + inspector, and the toolbar actions.
 
-import { state, load, update, getResult, undo, redo } from './store.js';
+import { state, load, update, getResult, undo, redo, material } from './store.js';
 import { loadFace } from './geom/text.js';
 import { View } from './view.js';
 import {
@@ -14,6 +14,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   stage: $('#stage'),
   preview: $('#stagePreview'),
+  stage3d: $('#stage3d'),
   inspector: $('#inspector'),
   backdrop: $('#backdropPick'),
   warnings: $('#warnings'),
@@ -25,6 +26,7 @@ const els = {
   redo: $('#redoBtn'),
   vCake: $('#vCake'),
   vFlat: $('#vFlat'),
+  v3d: $('#v3d'),
   exportDlg: $('#exportDlg'),
   helpDlg: $('#helpDlg'),
 };
@@ -33,6 +35,37 @@ load();
 els.name.value = state.name;
 
 const view = new View(els.preview);
+
+/**
+ * The 3D view is fetched and built the first time somebody asks for it, not at
+ * start-up.
+ *
+ * Two reasons, and the second is the one that matters. A WebGL context and a
+ * megabyte of three.js are not worth paying for on a machine that only ever
+ * looks at the cake - so view3d.js, and the vendor files it pulls in, come in
+ * through a dynamic import rather than a static one. A static import would put
+ * them in this module's own graph, which means they are fetched on every load
+ * whether or not the tab is ever touched, and a vendor file that 404s or fails
+ * to parse takes main.js down with it - no views at all, not even the flat one.
+ *
+ * The second reason is that creating the context can throw outright where there
+ * is no working GL, and a topper tool that cannot draw a flat outline because a
+ * 3D preview failed is a worse tool than one with two views. Either failure -
+ * the fetch or the context - lands in the same place: the tab hides itself, the
+ * view falls back to the cake, and the other two carry on.
+ */
+let view3d = null;
+let view3dFailed = false;
+let view3dLoading = false;
+function ensure3d() {
+  if (view3d || view3dFailed || view3dLoading) return view3d;
+  view3dLoading = true;
+  import('./view3d.js')
+    .then(({ View3D }) => { view3d = new View3D(els.stage3d); })
+    .catch(() => { view3dFailed = true; })
+    .then(() => { view3dLoading = false; refresh(); });
+  return null;
+}
 
 const ctx = {
   faces: [],
@@ -59,13 +92,45 @@ function schedulePreview() {
 
 function drawPreview() {
   const r = getResult();
+  // The backdrop lives on the stage, which is the parent of both panes, and the
+  // 3D canvas is drawn with an alpha channel - so one gradient sits behind all
+  // three views and the picker means the same thing in every one of them.
   els.stage.dataset.backdrop = state.backdrop;
-  view.render(r, { mode: state.view });
+  // Asking for 3D on a machine with no working GL falls back to the cake rather
+  // than to an empty pane - and puts the *state* back to the cake, not just the
+  // drawing. A view the tool has given up on cannot be left as the chosen one:
+  // the tab strip is rendered from state.view, so leaving it at '3d' with the
+  // 3D tab hidden shows a segmented control with nothing selected, on every
+  // refresh, for the rest of the session.
+  if (state.view === '3d' && view3dFailed) {
+    update((s) => { s.view = 'cake'; }, { history: false });
+  }
+  const is3d = state.view === '3d' && ensure3d() != null;
+  els.preview.hidden = is3d;
+  els.stage3d.hidden = !is3d;
+
+  const m = material();
+  if (is3d) {
+    view3d.build(r, {
+      color: m.color,
+      finish: m.finish || 'none',
+      backdrop: state.backdrop,
+    });
+    view3d.resize();
+  } else {
+    view.render(r, {
+      mode: state.view === 'flat' ? 'flat' : 'cake',
+      // Clear acrylic has no colour to paint flat, so the cake view keeps its
+      // own neutral rather than showing a pale blue topper.
+      color: state.view === 'flat' || m.finish === 'clear' ? null : m.color,
+    });
+  }
+
   const d = r.derived;
   const label = d.empty
     ? 'Type a message to begin'
     : `${rnd(d.width, 1)} x ${rnd(d.height, 1)} mm`;
-  els.hint.textContent = label;
+  els.hint.textContent = is3d && !d.empty ? 'Drag to orbit, scroll to zoom' : label;
   els.hint.classList.add('show');
   els.readout.textContent = d.empty ? '' : label;
   renderWarnings(els.warnings);
@@ -82,6 +147,11 @@ function refresh() {
   renderActions({ undoBtn: els.undo, redoBtn: els.redo });
   els.vCake.setAttribute('aria-selected', String(state.view === 'cake'));
   els.vFlat.setAttribute('aria-selected', String(state.view === 'flat'));
+  // A tab that cannot be shown should not be offered. With no working GL the
+  // tool quietly becomes the two-view tool it was before, rather than a
+  // three-view tool with one view that does nothing.
+  els.v3d.hidden = view3dFailed;
+  els.v3d.setAttribute('aria-selected', String(state.view === '3d' && !view3dFailed));
 }
 
 /**
@@ -117,6 +187,22 @@ const setView = (v) => {
 };
 els.vCake.addEventListener('click', () => setView('cake'));
 els.vFlat.addEventListener('click', () => setView('flat'));
+els.v3d.addEventListener('click', () => setView('3d'));
+
+// A hidden pane measures zero, so the observer inside View3D reports nothing
+// useful while a 2D view is showing. Resizing the window and then switching to
+// 3D would otherwise leave a canvas the wrong size until something nudged it.
+window.addEventListener('resize', () => view3d?.resize());
+
+// The 3D scene and the framing of the cake view are the two parts of this tool
+// a node test cannot see, so leave a way to read them back from a browser.
+// Behind a query flag, because a global handle on the store is a debugging tool
+// and not part of the app.
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__app = {
+    state, refresh, getResult, view, get view3d() { return view3d; },
+  };
+}
 
 $('#helpBtn').addEventListener('click', () => {
   fillHelpDialog(els.helpDlg);

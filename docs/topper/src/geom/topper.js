@@ -18,7 +18,7 @@
 //
 // Millimetres throughout, y-up, outer rings counter-clockwise.
 
-import { offsetPolygon, bbox } from './path.js';
+import { growRing, bbox } from './path.js';
 import { layout, isOutline } from './text.js';
 import { strokesToOutline, ringArea } from './outline.js';
 
@@ -54,6 +54,196 @@ export const CONNECT_MODES = [
   ['dots', 'Dots only'],
   ['none', 'Nothing'],
 ];
+
+/**
+ * The occasions people actually order, each as a whole set of settings.
+ *
+ * A preset that only fills in the words is a trap. Width, line height and
+ * thickening are not decoration here - they are what decides whether the piece
+ * comes off the sheet in one piece and whether the strokes survive being pushed
+ * into a cake. Drop three lines of Grand Hotel into the width and thickening
+ * somebody last used for two lines of Lobster and the result is either in bits
+ * or too fine to handle, and it arrives with a warning attached. So every one of
+ * these carries the numbers that go with its own words.
+ *
+ * The numbers are not guesses either. Each was walked up from the lightest
+ * thickening that builds clean and left at the first setting that needs no
+ * connectors at all, or as close to that as the words allow - and there is a
+ * test that builds all eight and fails if any of them warns about anything.
+ *
+ * The names are placeholders and are meant to be typed over. They are real
+ * names rather than "NAME" because a preset should show what the thing looks
+ * like, and a row of capitals in a script face does not.
+ */
+export const PRESETS = [
+  {
+    id: 'birthday',
+    name: 'Happy Birthday',
+    note: 'Three lines, joined hard enough to need no connectors.',
+    params: {
+      text: 'Happy\nBirthday\nSylvia',
+      face: 'grand-hotel',
+      width: 180,
+      lineHeight: 70,
+      thicken: 1.6,
+      stakes: 2,
+      stakeLength: 55,
+      stakeSpread: 55,
+    },
+  },
+  {
+    id: 'hari-jadi',
+    name: 'Selamat Hari Jadi',
+    note: 'The same in Malay. Wider, because "Hari Jadi" is a longer line.',
+    params: {
+      text: 'Selamat\nHari Jadi\nAisyah',
+      face: 'great-vibes',
+      width: 200,
+      lineHeight: 68,
+      thicken: 2,
+      stakes: 2,
+      stakeLength: 55,
+      stakeSpread: 58,
+    },
+  },
+  {
+    id: 'nikah',
+    name: 'Nikah',
+    note: 'Two names and an ampersand. Taller than it is wide, so the stakes '
+      + 'sit close in under the lettering rather than out at the edges.',
+    params: {
+      text: 'Aiman\n&\nNadia',
+      face: 'great-vibes',
+      width: 170,
+      lineHeight: 62,
+      thicken: 2.2,
+      stakes: 2,
+      stakeLength: 60,
+      stakeSpread: 50,
+    },
+  },
+  {
+    id: 'pengantin',
+    name: 'Selamat Pengantin Baru',
+    note: 'A long second line. Courgette is upright enough to stay readable at '
+      + 'this length, and thickens into one piece cleanly.',
+    params: {
+      text: 'Selamat\nPengantin Baru',
+      face: 'courgette',
+      width: 200,
+      lineHeight: 80,
+      thicken: 1.6,
+      stakes: 2,
+      stakeLength: 50,
+      stakeSpread: 62,
+    },
+  },
+  {
+    id: 'aqiqah',
+    name: 'Aqiqah',
+    note: 'Two lines, the second a full name. Wide and shallow, so the stakes '
+      + 'go well apart.',
+    params: {
+      text: 'Aqiqah\nMuhammad Danish',
+      face: 'great-vibes',
+      width: 190,
+      lineHeight: 72,
+      thicken: 1.2,
+      stakes: 2,
+      stakeLength: 50,
+      stakeSpread: 62,
+    },
+  },
+  {
+    id: 'tahniah',
+    name: 'Tahniah',
+    note: 'Lobster is heavy to begin with, so it needs less growing than a '
+      + 'script - but it stands its letters apart, so it still needs some.',
+    params: {
+      text: 'Tahniah\nNur Aisyah',
+      face: 'lobster',
+      width: 170,
+      lineHeight: 80,
+      thicken: 1.8,
+      stakes: 2,
+      stakeLength: 50,
+      stakeSpread: 60,
+    },
+  },
+  {
+    id: 'bersara',
+    name: 'Selamat Bersara',
+    note: 'Three lines with a long third. The weight sits low, so the stakes '
+      + 'are the full default length.',
+    params: {
+      text: 'Selamat\nBersara\nEncik Rahman',
+      face: 'grand-hotel',
+      width: 200,
+      lineHeight: 68,
+      thicken: 1.4,
+      stakes: 2,
+      stakeLength: 55,
+      stakeSpread: 55,
+    },
+  },
+  {
+    id: 'anniversary',
+    name: 'Anniversary',
+    note: 'Two lines and no name to fit, so it takes the lightest thickening '
+      + 'of the eight and keeps Parisienne fine.',
+    params: {
+      text: 'Happy\nAnniversary',
+      face: 'parisienne',
+      width: 190,
+      lineHeight: 70,
+      thicken: 1,
+      stakes: 2,
+      stakeLength: 50,
+      stakeSpread: 60,
+    },
+  },
+];
+
+/**
+ * A preset as a complete parameter set.
+ *
+ * Everything the preset does not name goes back to its default rather than
+ * being inherited, because inheriting is the whole failure mode: leave "Connect
+ * nothing" or a hand-set stake width behind and the preset builds into
+ * something the preset was never tested at.
+ *
+ * `sheet` is the exception, and it is not decoration either. Thickness and kerf
+ * describe the acrylic actually on the bed, and choosing a message is not a
+ * statement about that - so those two carry over untouched.
+ */
+export function presetParams(preset, sheet = {}) {
+  return {
+    ...DEFAULTS,
+    ...preset.params,
+    thickness: sheet.thickness ?? DEFAULTS.thickness,
+    kerf: sheet.kerf ?? DEFAULTS.kerf,
+  };
+}
+
+/**
+ * Is this design still the preset, whole?
+ *
+ * Against everything applyPreset would put in place, not only the eight fields
+ * the preset names. Taking the unnamed ones back to their defaults is half of
+ * what a preset does, so those count too - and checking only the named eight
+ * leaves the card lit after the stakes, the alignment or the connect mode have
+ * been changed. That is worse than never lighting it: the tool claims a preset
+ * the design has already left, and clicking the card that makes the claim throws
+ * those edits away with no warning.
+ *
+ * Thickness and kerf compare equal by construction, because presetParams carries
+ * them across untouched - what acrylic is on the bed is not part of which
+ * message this is.
+ */
+export function matchesPreset(preset, params) {
+  const want = presetParams(preset, params);
+  return Object.keys(want).every((k) => params[k] === want[k]);
+}
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -130,6 +320,38 @@ export function centroidOf(groups) {
   return Math.abs(a) < 1e-9
     ? { x: 0, y: 0, area: 0 }
     : { x: cx / (6 * a), y: cy / (6 * a), area: a };
+}
+
+/**
+ * Centre of weight of a set of open stroke paths.
+ *
+ * A single-line face has no contours. Its glyphs are polylines, and the pen
+ * width is given to them later by the outliner - so there is no ring to run a
+ * shoelace over. Handing one to centroidOf anyway is not merely imprecise, it is
+ * meaningless: the shoelace closes each path back to its own start point and
+ * measures the area of that accidental loop, which for a script that wanders
+ * left and right can come out near zero or negative. Dividing by it throws the
+ * centre of weight hundreds of millimetres off the piece, and everything that
+ * reads it - the lean warning, the marker in the cake view - follows it there.
+ *
+ * A constant-width pen lays the same mass on every millimetre it travels, so the
+ * centre of weight is the length-weighted mean of the segment midpoints. That is
+ * exact for the shape the pen sweeps, bar the caps and the corners.
+ */
+export function strokeCentroid(paths) {
+  let m = 0;
+  let cx = 0;
+  let cy = 0;
+  for (const st of paths) {
+    for (let k = 2; k < st.length; k += 2) {
+      const l = Math.hypot(st[k] - st[k - 2], st[k + 1] - st[k - 1]);
+      if (!(l > 0)) continue;
+      m += l;
+      cx += ((st[k] + st[k - 2]) / 2) * l;
+      cy += ((st[k + 1] + st[k - 1]) / 2) * l;
+    }
+  }
+  return m > 0 ? { x: cx / m, y: cy / m, length: m } : { x: 0, y: 0, length: 0 };
 }
 
 /**
@@ -378,7 +600,9 @@ export function buildTopper(input = {}) {
   // the difference between a photo and a slice of humiliation.
   // The lettering only. The stakes are buried in the cake, so their weight is
   // not what leans the thing over - what leans it is everything above the icing.
-  const cent = centroidOf(outlineFace ? groups : [strokes]);
+  // A filled face is weighed by area, a single-line face by path length. They
+  // are not interchangeable: an open polyline has no area to weigh.
+  const cent = outlineFace ? centroidOf(groups) : strokeCentroid(strokes);
   let balance = 0;
   if (wanted.length) {
     const lo = Math.min(...wanted);
@@ -403,9 +627,15 @@ export function buildTopper(input = {}) {
   let loose = res.outers.slice(1).map((r) => shift(r, dx, dy));
   let holes = res.holes.map((r) => shift(r, dx, dy));
   if (k > 0) {
-    outer = offsetPolygon(outer, k);
-    loose = loose.map((r) => offsetPolygon(r, k));
-    holes = holes.map((r) => offsetPolygon(r, -k));
+    // Half a beam outside the part on every edge. On an outer that means a
+    // bigger ring; on a counter it means a *smaller* one, because the beam eats
+    // its way outwards from the path into the material surrounding the hole.
+    // growRing does the winding bookkeeping - counters come back clockwise, and
+    // asking offsetPolygon directly for -k on one of those widens it by a beam
+    // instead of narrowing it, which leaves every stroke a full kerf too thin.
+    outer = growRing(outer, k);
+    loose = loose.map((r) => growRing(r, k));
+    holes = holes.map((r) => growRing(r, -k));
   }
 
   let cutLength = 0;
@@ -428,6 +658,24 @@ export function buildTopper(input = {}) {
       engraveFill: [],
       size: { w: size.w, h: size.h },
       thickness: p.thickness,
+      // Where this drawing lives in space, for the 3D preview. `origin` is the
+      // world point the panel's own (0, 0) lands on, U and V span its plane and
+      // N is the outward normal; the board fills the slab between that plane and
+      // one thickness behind it, so origin is on the face you are looking at.
+      //
+      // World axes are the ones somebody looking at a cake would use: x across,
+      // y back into the cake, z up from the board. A topper is one flat piece
+      // standing upright, so it needs no assembly and no seatings - its own x
+      // runs across the width, its own y runs up, and it faces the reader. Its
+      // (0, 0) is the bottom-left of the outline, which puts the stake tips on
+      // z = 0 - standing on the table, the way it is photographed before it goes
+      // into the cake.
+      frame: {
+        origin: [0, 0, 0],
+        U: [1, 0, 0],
+        V: [0, 0, 1],
+        N: [0, -1, 0],
+      },
     }],
     derived: {
       width: size.w,

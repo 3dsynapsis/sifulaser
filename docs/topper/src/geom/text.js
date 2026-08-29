@@ -16,24 +16,44 @@ let basePath = new URL('../font/', import.meta.url).href;
 export function setFontBase(href) {
   basePath = href;
   FACE_CACHE.clear();
+  FAILED.clear();
 }
+
+// Faces that were asked for and did not arrive. "Not in the cache" cannot tell
+// those from the ones nobody has opened yet, and the two want opposite handling:
+// the second is the ordinary state of thirty-two faces at start-up and deserves
+// silence, while the first leaves the tool with nothing to draw and has to say
+// so - otherwise the canvas simply goes blank with no account of why.
+const FAILED = new Set();
 
 export async function loadFace(id) {
   if (FACE_CACHE.has(id)) return FACE_CACHE.get(id);
-  const res = await fetch(`${basePath}${id}.json`);
-  if (!res.ok) throw new Error(`font ${id} failed to load (${res.status})`);
-  const face = await res.json();
-  FACE_CACHE.set(id, face);
-  return face;
+  try {
+    const res = await fetch(`${basePath}${id}.json`);
+    if (!res.ok) throw new Error(`font ${id} failed to load (${res.status})`);
+    const face = await res.json();
+    FACE_CACHE.set(id, face);
+    FAILED.delete(id);
+    return face;
+  } catch (err) {
+    FAILED.add(id);
+    throw err;
+  }
 }
 
 export function faceLoaded(id) {
   return FACE_CACHE.get(id) || null;
 }
 
+/** Asked for, and not delivered. See FAILED above. */
+export function faceFailed(id) {
+  return FAILED.has(id);
+}
+
 /** Put a face in the cache directly, for Node and for preloaded data. */
 export function putFace(face) {
   FACE_CACHE.set(face.id, face);
+  FAILED.delete(face.id);
   return face;
 }
 
