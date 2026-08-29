@@ -24,6 +24,7 @@ import { strokesToOutline, ringArea } from './outline.js';
 import {
   borderOf, fitWidth, innerRadius, lowestY, shiftGroups,
 } from './border.js';
+import { weldTittles } from './tittle.js';
 
 export const DEFAULTS = {
   text: 'Happy\nBirthday\nAisyah',
@@ -480,6 +481,16 @@ export function meanStroke(groups) {
 /** How long a bridge is, squared - only used to compare two of them. */
 const span2 = (seg) => (seg[2] - seg[0]) ** 2 + (seg[3] - seg[1]) ** 2;
 
+/**
+ * The longest connector in a set, in millimetres.
+ *
+ * A count of bridges says how many joins were needed; this says how bad the
+ * worst one looks. They are not the same thing - one bar reaching across the
+ * whole piece is uglier than four that disappear into the letters - and it was
+ * the length, not the count, that gave the dot of an i away.
+ */
+const longestBridge = (segs) => segs.reduce((m, s) => Math.max(m, Math.hypot(s[2] - s[0], s[3] - s[1])), 0);
+
 /** The hole with the largest bounding box, which in a framed piece is its middle. */
 function widestHole(holes) {
   let best = null;
@@ -525,7 +536,7 @@ function nearestPair(a, b, samples = 300) {
 function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
   let res = strokesToOutline(input.strokes || [], opts);
   const bridges = [];
-  if (mode === 'none' || !(bridgeW > 0)) return { res, bridges: 0 };
+  if (mode === 'none' || !(bridgeW > 0)) return { res, bridges: 0, span: 0 };
 
   for (let round = 0; round < 3 && res.outers.length > 1; round++) {
     const main = res.outers[0];
@@ -541,15 +552,29 @@ function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
     // wider than the width on the label, which is the one number this tool
     // promises.
     //
-    // Only the largest hole, and only when there is a frame. Every other hole is
-    // a counter - the middle of an o, the eye of an e - and a bridge that dives
-    // into one of those joins the same two pieces by a worse-looking route.
-    const opening = framed ? widestHole(res.holes) : null;
+    // EVERY hole, not just the widest. Once letters weld to a ring they cut its
+    // middle into several regions, and the dot of an i floats in whichever one
+    // it happens to land in - usually a small one, right above its own stem.
+    // Offering only the widest hole sent that dot reaching across the topper to
+    // the far side of the ring: a straight bar through open space, the ugliest
+    // thing on the piece, when the stem it belongs to was two millimetres away.
+    //
+    // Still only with a frame. Unframed, the holes are counters - the middle of
+    // an o, the eye of an e - and a bridge that dives into one of those joins
+    // the same two pieces by a worse-looking route.
     for (const o of want) {
       let seg = nearestPair(o, main);
-      if (opening && !bboxWithin(opening, o)) {
-        const alt = nearestPair(o, opening);
-        if (alt && (!seg || span2(alt) < span2(seg))) seg = alt;
+      let best = seg ? span2(seg) : Infinity;
+      if (framed) {
+        for (const h of res.holes) {
+          // Not the loose piece own counters: bridging a letter to the inside
+          // of itself joins nothing and costs a connector.
+          if (bboxWithin(h, o)) continue;
+          const alt = nearestPair(o, h);
+          if (!alt) continue;
+          const d = span2(alt);
+          if (d < best) { best = d; seg = alt; }
+        }
       }
       if (seg) bridges.push(seg);
     }
@@ -557,7 +582,7 @@ function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
       ...opts, bridges: { paths: bridges, weight: bridgeW },
     });
   }
-  return { res, bridges: bridges.length };
+  return { res, bridges: bridges.length, span: longestBridge(bridges) };
 }
 
 export function buildTopper(input = {}) {
@@ -586,7 +611,9 @@ export function buildTopper(input = {}) {
       : p.align === 'right' ? widest - r.advance : 0;
     const dy = -i * step;
     if (outlineFace) {
-      for (const rings of r.shapes) groups.push(shiftRings(rings, dx, dy));
+      // shiftRings first: weldTittles is handed fresh arrays that way, so it
+      // never writes into the glyph data the face cache is holding on to.
+      for (const rings of r.shapes) groups.push(weldTittles(shiftRings(rings, dx, dy)));
     } else {
       for (const st of r.paths) {
         const out = new Array(st.length);
@@ -704,7 +731,7 @@ export function buildTopper(input = {}) {
   // ---- one shape -----------------------------------------------------------
   const all = [...groups, ...(frame || []), ...stakeShapes];
   const dotArea = Math.max(2, (stroke * 2) ** 2);
-  const { res, bridges } = weld(
+  const { res, bridges, span: bridgeSpan } = weld(
     { strokes },
     { weight: penW, glyphs: all, grow: thicken },
     p.connect,
@@ -833,6 +860,7 @@ export function buildTopper(input = {}) {
       lines: laid.filter(Boolean).length,
       pieces,
       border: p.border,
+      bridgeSpan,
       loose: loose.length,
       holes: holes.length,
       bridges,
