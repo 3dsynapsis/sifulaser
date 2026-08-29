@@ -3,24 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stand Maker - table name stands for the laser</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🪧</text></svg>">
+<title>QR Maker - engravable QR codes for the laser</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>▩</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="app">
   <header class="topbar">
     <div class="brand">
-      <span class="logo">▤</span>
-      <input id="projectName" class="name-input" value="Untitled stand" spellcheck="false" aria-label="Project name">
+      <span class="logo">▩</span>
+      <input id="projectName" class="name-input" value="Untitled QR" spellcheck="false" aria-label="Project name">
       <span id="status" class="status">Saved</span>
     </div>
 
     <div class="midbar">
       <div class="viewtoggle" role="tablist" aria-label="View">
-        <button class="vt" id="vAssembled" role="tab" aria-selected="true">Assembled</button>
-        <button class="vt" id="vFlat" role="tab" aria-selected="false">Flat</button>
-        <button class="vt" id="v3d" role="tab" aria-selected="false">3D</button>
+        <button class="vt" id="vArtwork" role="tab" aria-selected="true">Artwork</button>
+        <button class="vt" id="vLayers" role="tab" aria-selected="false">Layers</button>
       </div>
     </div>
 
@@ -28,7 +27,7 @@
       <span class="muted" id="sizeReadout"></span>
       <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
       <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
-      <button class="icon-btn" id="helpBtn" title="How a name stand goes together">?</button>
+      <button class="icon-btn" id="helpBtn" title="What decides whether a QR code scans">?</button>
       <button class="primary" id="exportBtn">Export</button>
     </div>
   </header>
@@ -36,7 +35,6 @@
   <main class="layout">
     <section class="stage" id="stage">
       <div id="stagePreview" class="stage-pane"></div>
-      <div id="stage3d" class="stage-pane" hidden></div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Preview backdrop"></div>
       <div class="warnings" id="warnings" hidden></div>
       <div class="stage-hint" id="stageHint"></div>
@@ -62,7 +60,7 @@
 
 <dialog id="helpDlg" class="dlg">
   <form method="dialog" class="dlg-body">
-    <h2>How a name stand goes together</h2>
+    <h2>What decides whether a QR code scans</h2>
     <div id="helpBody"></div>
     <div class="dlg-actions"><button value="ok" class="primary">Got it</button></div>
   </form>

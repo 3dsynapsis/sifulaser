@@ -6,6 +6,8 @@ import { BoxMakerPage } from './pages/BoxMakerPage'
 import { PuzzlePage } from './pages/PuzzlePage'
 import { TextEngraverPage } from './pages/TextEngraverPage'
 import { StandPage } from './pages/StandPage'
+import { QrPage } from './pages/QrPage'
+import { AdjustPage } from './pages/AdjustPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -93,6 +95,10 @@ const Root = () => {
       return <TextEngraverPage />
     case 'stand':
       return <StandPage />
+    case 'qr':
+      return <QrPage />
+    case 'adjust':
+      return <AdjustPage />
     case 'maintenance':
       return <MaintenanceChooserPage />
     case 'troubleshoot':

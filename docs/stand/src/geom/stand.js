@@ -371,7 +371,7 @@ const EMPTY = {
   params: { ...DEFAULTS },
   panels: [],
   derived: {
-    faceW: 0, faceH: 0, bodyH: 0, baseW: 0, baseD: 0, tenonDepth: 0,
+    faceW: 0, faceH: 0, bodyH: 0, baseW: 0, baseD: 0, slotY: 0, tenonDepth: 0,
     tenons: [], pieces: 0, loose: 0, holes: 0, standHeight: 0,
     cutLength: 0, engraveLength: 0, warnings: [], empty: true,
   },
@@ -658,6 +658,8 @@ export function buildStand(input = {}) {
     });
   }
 
+  placeInSpace(panels, { t, layers, tenonDepth, faceW, baseW, slotY });
+
   // ---- checks worth making before anyone burns a sheet --------------------
   // Only worth saying on a stack. A single board is slotted right through, so
   // the whole thickness holds the face and there is nothing to deepen.
@@ -694,7 +696,7 @@ export function buildStand(input = {}) {
     params: { ...p, thickness: t, baseLayers: layers },
     panels,
     derived: {
-      faceW, faceH: bodyH + tenonDepth, bodyH, baseW, baseD,
+      faceW, faceH: bodyH + tenonDepth, bodyH, baseW, baseD, slotY,
       tenonDepth, tenons: tenonsOnFace, layers,
       pieces, loose: faceLoose.length, holes: faceHoles.length, bridges: bridgeCount,
       cap1: p.cap1, cap2: p.cap2, cutStroke, fitScale: fitted.fitScale ?? 1,
@@ -713,6 +715,60 @@ export function buildStand(input = {}) {
       empty: false,
     },
   };
+}
+
+/**
+ * Where each panel sits in the assembled object.
+ *
+ * A panel's rings are a flat 2D drawing; a frame says where that drawing lives
+ * in the finished stand. `origin` is the world point the panel's own (0, 0)
+ * lands on, U and V span its plane, and N is the outward face normal - the side
+ * the engraving is on. The board occupies the slab between the frame plane and
+ * one thickness behind it, so `origin` is always on the *visible* surface.
+ *
+ * World axes are the ones a customer would use looking at the stand on a desk:
+ * x runs along the width, y runs back into the desk, z is up from the table.
+ *
+ * Two seatings are the whole point of this function and both are easy to get
+ * wrong:
+ *
+ *   The face's own (0, 0) is the bottom of its tenons, not its shoulder, because
+ *   the outline was normalised after the tenon dips were cut into it. So it goes
+ *   at (base height - tenon depth). Through a single board the tenons come out
+ *   flush underneath and that is zero - the table itself. On a stack it is the
+ *   floor of the pocket. Using one board's thickness for both floats the face
+ *   clear of a single-board base, which is exactly the bug the assembled view
+ *   had, and there is a test that locks this number.
+ *
+ *   The face is a board of finite thickness, and the slot in the base is cut
+ *   about the same centre line. Both straddle slotY by half a thickness, so the
+ *   two agree by construction rather than by two numbers happening to match.
+ */
+function placeInSpace(panels, { t, layers, tenonDepth, faceW, baseW, slotY }) {
+  const baseTall = layers * t;
+  panels.forEach((pan, idx) => {
+    if (pan.id === 'face') {
+      pan.frame = {
+        // The slots are cut at (tenon x + overhang), so the face has to start at
+        // the same overhang or the tenons miss them. baseW = faceW + 2*overhang
+        // says that same thing the other way round; the two must not drift apart.
+        origin: [(baseW - faceW) / 2, slotY - t / 2, baseTall - tenonDepth],
+        U: [1, 0, 0],   // the face's own x runs across the width of the stand
+        V: [0, 0, 1],   // its own y runs up
+        N: [0, -1, 0],  // and it looks out towards whoever is reading it
+      };
+      return;
+    }
+    // The face is panel 0, so base layer i is panel i+1, counting down from the
+    // top board. Its visible surface is the top of that board.
+    const i = idx - 1;
+    pan.frame = {
+      origin: [0, 0, (layers - i) * t],
+      U: [1, 0, 0],
+      V: [0, 1, 0],
+      N: [0, 0, 1],
+    };
+  });
 }
 
 /** Read the tenons back off a finished face outline, so they cannot drift. */

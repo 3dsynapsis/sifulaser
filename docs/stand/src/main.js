@@ -1,10 +1,11 @@
 // Wiring: store -> preview + inspector, and the toolbar actions.
 
 import {
-  state, load, update, getResult, undo, redo,
+  state, load, update, getResult, undo, redo, material,
 } from './store.js';
 import { loadFace, putFace } from './geom/text.js';
 import { View } from './view.js';
+import { View3D } from './view3d.js';
 import {
   renderInspector, renderBackdrop, renderActions, renderWarnings,
   fillExportDialog, fillHelpDialog, rnd,
@@ -16,6 +17,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   stage: $('#stage'),
   preview: $('#stagePreview'),
+  stage3d: $('#stage3d'),
   inspector: $('#inspector'),
   backdrop: $('#backdropPick'),
   warnings: $('#warnings'),
@@ -27,6 +29,7 @@ const els = {
   redo: $('#redoBtn'),
   vAssembled: $('#vAssembled'),
   vFlat: $('#vFlat'),
+  v3d: $('#v3d'),
   exportDlg: $('#exportDlg'),
   helpDlg: $('#helpDlg'),
 };
@@ -35,6 +38,48 @@ load();
 els.name.value = state.name;
 
 const view = new View(els.preview);
+
+/**
+ * The 3D view is built the first time somebody asks for it, not at start-up.
+ *
+ * Two reasons, and the second is the important one. A WebGL context and a
+ * megabyte of three.js are not worth paying for on a machine that only ever
+ * uses the flat view - but more than that, creating the context can throw
+ * outright on a machine with no working GL, and a name stand tool that cannot
+ * draw a 2D outline because a 3D preview failed is a worse tool.
+ */
+let view3d = null;
+let view3dFailed = false;
+function ensure3d() {
+  if (view3d || view3dFailed) return view3d;
+  try {
+    view3d = new View3D(els.stage3d);
+  } catch {
+    view3dFailed = true;
+  }
+  return view3d;
+}
+
+const rgb = (hex) => [
+  (parseInt(hex.slice(1), 16) >> 16) & 255,
+  (parseInt(hex.slice(1), 16) >> 8) & 255,
+  parseInt(hex.slice(1), 16) & 255,
+];
+
+const hex2 = (ch) => `#${ch.map((c) => Math.max(0, Math.min(255, Math.round(c)))
+  .toString(16).padStart(2, '0')).join('')}`;
+
+/** A polished acrylic edge: the stock's own colour, a shade darker. */
+const shadeHex = (hex, k) => hex2(rgb(hex).map((c) => (k >= 0 ? c + (255 - c) * k : c * (1 + k))));
+
+/** Soot black, holding a trace of the stock so walnut and falcata still differ. */
+const charColor = (hex) => hex2(rgb(hex).map((c) => 16 + c * 0.09));
+
+/** Engraving reads dark on pale stock and pale on dark - black acrylic burns light. */
+function burnColor(hex) {
+  const [r, g, b] = rgb(hex);
+  return 0.299 * r + 0.587 * g + 0.114 * b < 90 ? '#e8e2d8' : '#3a2a1c';
+}
 
 const ctx = {
   faces: [],
@@ -65,13 +110,41 @@ function schedulePreview() {
 
 function drawPreview() {
   const r = getResult();
+  // The backdrop lives on the stage, which is the parent of both panes, and the
+  // 3D canvas is drawn with an alpha channel - so one gradient sits behind all
+  // three views and the picker means the same thing in every one of them.
   els.stage.dataset.backdrop = state.backdrop;
-  view.render(r, { mode: state.view, sheetWidth: state.sheetWidth });
+  // Asking for 3D on a machine with no working GL falls back to the assembled
+  // elevation rather than to an empty pane.
+  const is3d = state.view === '3d' && ensure3d() != null;
+  els.preview.hidden = is3d;
+  els.stage3d.hidden = !is3d;
+
+  if (is3d) {
+    const m = material();
+    view3d.build(r, {
+      color: m.color,
+      // Wood, MDF and card come off the bed with a charred edge; acrylic keeps
+      // its own colour, just darker where the light does not reach.
+      edge: m.char ? charColor(m.color) : shadeHex(m.color, -0.18),
+      charred: !!m.char,
+      grain: m.grain || 'wood',
+      burn: burnColor(m.color),
+      backdrop: state.backdrop,
+    });
+    view3d.resize();
+  } else {
+    view.render(r, {
+      mode: state.view === 'flat' ? 'flat' : 'assembled',
+      sheetWidth: state.sheetWidth,
+    });
+  }
+
   const d = r.derived;
   const label = d.empty
     ? 'Type a name to begin'
     : `${rnd(d.baseW, 1)} x ${rnd(d.baseD, 1)} x ${rnd(d.standHeight, 1)} mm`;
-  els.hint.textContent = label;
+  els.hint.textContent = is3d && !d.empty ? 'Drag to orbit, scroll to zoom' : label;
   els.hint.classList.add('show');
   els.readout.textContent = d.empty ? '' : label;
   renderWarnings(els.warnings);
@@ -88,6 +161,11 @@ function refresh() {
   renderActions({ undoBtn: els.undo, redoBtn: els.redo });
   els.vAssembled.setAttribute('aria-selected', String(state.view === 'assembled'));
   els.vFlat.setAttribute('aria-selected', String(state.view === 'flat'));
+  // A tab that cannot be shown should not be offered. If GL is missing the tool
+  // quietly becomes the two-view tool it was before, rather than a three-view
+  // tool with one view that does nothing.
+  els.v3d.hidden = view3dFailed;
+  els.v3d.setAttribute('aria-selected', String(state.view === '3d' && !view3dFailed));
 }
 
 /**
@@ -123,6 +201,12 @@ const setView = (v) => {
 };
 els.vAssembled.addEventListener('click', () => setView('assembled'));
 els.vFlat.addEventListener('click', () => setView('flat'));
+els.v3d.addEventListener('click', () => setView('3d'));
+
+// A hidden pane measures zero, so the observer inside View3D reports nothing
+// useful while the 2D view is showing. Resizing the window then switching to 3D
+// would leave a canvas the wrong size until something else nudged it.
+window.addEventListener('resize', () => view3d?.resize());
 
 $('#helpBtn').addEventListener('click', () => {
   fillHelpDialog(els.helpDlg);
@@ -133,6 +217,13 @@ $('#exportBtn').addEventListener('click', () => {
   fillExportDialog(els.exportDlg);
   els.exportDlg.showModal();
 });
+
+// The 3D scene is the one part of this tool a node test cannot reach, so leave a
+// way to read it back from a browser. Behind a query flag, because a global
+// handle on the store is a debugging tool and not part of the app.
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__app = { state, refresh, getResult, view, get view3d() { return view3d; } };
+}
 
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stand Maker - table name stands for the laser</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🪧</text></svg>">
+<title>Template Adjuster - refit a downloaded SVG to the material you have</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📐</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,23 +12,19 @@
   <header class="topbar">
     <div class="brand">
       <span class="logo">▤</span>
-      <input id="projectName" class="name-input" value="Untitled stand" spellcheck="false" aria-label="Project name">
+      <input id="projectName" class="name-input" value="Untitled refit" spellcheck="false" aria-label="Project name">
       <span id="status" class="status">Saved</span>
     </div>
 
     <div class="midbar">
-      <div class="viewtoggle" role="tablist" aria-label="View">
-        <button class="vt" id="vAssembled" role="tab" aria-selected="true">Assembled</button>
-        <button class="vt" id="vFlat" role="tab" aria-selected="false">Flat</button>
-        <button class="vt" id="v3d" role="tab" aria-selected="false">3D</button>
-      </div>
+      <span class="tally" id="tally"></span>
     </div>
 
     <div class="actions">
       <span class="muted" id="sizeReadout"></span>
       <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
       <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
-      <button class="icon-btn" id="helpBtn" title="How a name stand goes together">?</button>
+      <button class="icon-btn" id="helpBtn" title="What the two knobs do">?</button>
       <button class="primary" id="exportBtn">Export</button>
     </div>
   </header>
@@ -36,20 +32,32 @@
   <main class="layout">
     <section class="stage" id="stage">
       <div id="stagePreview" class="stage-pane"></div>
-      <div id="stage3d" class="stage-pane" hidden></div>
+      <div class="drop-veil" id="dropVeil" hidden>Drop an SVG to refit it</div>
+      <div class="empty-state" id="emptyState">
+        <h1>Refit a downloaded template</h1>
+        <p>Drop an SVG here, or open one. Then set the size you want and the board
+           you actually have - they are two separate knobs, and a joinery file
+           needs both.</p>
+        <div class="empty-actions">
+          <button class="primary" id="openBtn2">Open an SVG</button>
+          <button class="ghost" id="sampleBtn2">Load a sample</button>
+        </div>
+      </div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Preview backdrop"></div>
       <div class="warnings" id="warnings" hidden></div>
-      <div class="stage-hint" id="stageHint"></div>
     </section>
 
     <aside class="inspector" id="inspector"></aside>
   </main>
 </div>
 
+<input type="file" id="fileInput" accept=".svg,image/svg+xml" hidden>
+
 <dialog id="exportDlg" class="dlg">
   <form method="dialog" class="dlg-body">
     <h2>Export</h2>
     <p class="muted" id="exportSummary"></p>
+    <div id="exportOpts"></div>
     <div class="layer-key" id="layerKey"></div>
     <p class="note" id="exportNote"></p>
     <div class="dlg-actions">
@@ -62,7 +70,7 @@
 
 <dialog id="helpDlg" class="dlg">
   <form method="dialog" class="dlg-body">
-    <h2>How a name stand goes together</h2>
+    <h2>Size and thickness are not the same job</h2>
     <div id="helpBody"></div>
     <div class="dlg-actions"><button value="ok" class="primary">Got it</button></div>
   </form>

@@ -51,6 +51,20 @@ export const PLAN_FEATURES: PlanFeature[] = [
     tiers: SEMUA,
   },
   {
+    label: 'QR Generator — kod QR untuk laser',
+    detail:
+      'Masukkan link, terus dapat SVG atau PDF. Saiz dalam mm sebenar, dan ia '
+      + 'beri amaran kalau modul terlalu halus untuk diimbas selepas diukir.',
+    tiers: SEMUA,
+  },
+  {
+    label: 'Template Adjuster — padankan fail dengan material anda',
+    detail:
+      'Muat naik SVG yang anda muat turun, ubah saiz keseluruhan dan tebal '
+      + 'material secara berasingan. Ia lapor apa yang diubah dan apa yang tidak.',
+    tiers: SEMUA,
+  },
+  {
     label: 'Simulator Level 2 — Head Laser',
     detail: 'Termasuk dua jenis head: Bodor dan XD Laser.',
     tiers: DIGITAL,

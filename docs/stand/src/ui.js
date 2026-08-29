@@ -3,6 +3,7 @@
 
 import {
   state, update, setParam, setStyle, setSize, getResult, canUndo, canRedo, reset,
+  MATERIALS, material, setMaterial, setBoardNumber,
 } from './store.js';
 import { layout, faceLoaded, loadFace, isOutline } from './geom/text.js';
 import { SIZE_PRESETS, sizeOf } from './geom/stand.js';
@@ -417,21 +418,39 @@ export function renderInspector(root, ctx) {
       onInput: (v) => { setParam('corner', v); ctx.refresh(); },
     })));
 
+  const mat = material();
+  const matSel = h('select', {
+    onchange: (e) => { setMaterial(e.target.value); ctx.refresh(); },
+  }, MATERIALS.map((m) => h('option', {
+    value: m.id, ...(m.id === state.material ? { selected: true } : {}),
+  }, m.id === 'custom' ? m.name : `${m.name} (${m.t} mm)`)));
+
   root.append(group('Material', false,
+    h('div', { class: 'field' }, h('label', {}, 'Board'), matSel),
+    h('div', { class: 'row' },
+      h('span', { class: 'swatch', style: `background:${mat.color}` }),
+      h('span', { class: 'muted' },
+        `${mat.name} · ${rnd(p.thickness, 2)} mm · ${rnd(p.kerf, 2)} mm kerf`)),
+    // These two are the board's own numbers, so the picker sets them - but a
+    // shop that has measured its actual stock has to be able to overrule it,
+    // and doing so is what makes the board custom.
     numberRow('Thickness (mm)', p.thickness, {
       min: 1.5, max: 12, step: 0.1,
-      onInput: (v) => { setParam('thickness', v); ctx.refresh(); },
+      onInput: (v) => { setBoardNumber('thickness', v); ctx.refresh(); },
     }),
     numberRow('Kerf (mm)', p.kerf, {
       min: 0, max: 1, step: 0.02,
-      onInput: (v) => { setParam('kerf', v); ctx.refresh(); },
+      onInput: (v) => { setBoardNumber('kerf', v); ctx.refresh(); },
     }),
+    // Fit is not a property of the board. It is how hard you want to push.
     numberRow('Fit (mm)', p.fit, {
       min: -0.3, max: 0.4, step: 0.01,
       onInput: (v) => { setParam('fit', v); ctx.refresh(); },
     }),
     h('p', { class: 'hint' },
-      'Kerf is how wide your beam burns; every path moves half of it so the '
+      'A board is one thing, so choosing it sets the thickness the stand is cut '
+      + 'for, the kerf that stock burns at, and the colour the 3D view shows. '
+      + 'Kerf is how wide your beam burns; every path moves half of it so the '
       + 'finished part measures what it says. Fit makes the slot tighter than '
       + 'the tenon by that much, so it has to be pushed home.')));
 

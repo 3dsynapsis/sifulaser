@@ -7,6 +7,8 @@ export type Route =
   | 'puzzle'
   | 'text'
   | 'stand'
+  | 'qr'
+  | 'adjust'
   | 'maintenance'
   | 'troubleshoot'
   | 'weekly'
@@ -32,6 +34,10 @@ const parseRoute = (hash: string): Route => {
       return 'text'
     case 'stand':
       return 'stand'
+    case 'qr':
+      return 'qr'
+    case 'adjust':
+      return 'adjust'
     case 'maintenance':
       return 'maintenance'
     case 'troubleshoot':

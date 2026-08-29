@@ -6,7 +6,9 @@ import {
   Lightbulb,
   PenLine,
   Puzzle,
+  QrCode,
   RectangleHorizontal,
+  Scaling,
   LockKeyhole,
   Sparkles,
   Stethoscope,
@@ -123,6 +125,28 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 9,
+    title: 'QR Generator',
+    description:
+      'Tukar link jadi kod QR untuk laser. Saiz mm sebenar, ada bingkai keychain.',
+    href: '#/qr',
+    color: '#2f7d4f',
+    softBg: '#eef7f1',
+    border: '#cfe6d8',
+    Icon: QrCode,
+  },
+  {
+    number: 10,
+    title: 'Template Adjuster',
+    description:
+      'Fail SVG dari internet tak padan material anda? Ubah saiz dan tebalnya.',
+    href: '#/adjust',
+    color: '#b3384a',
+    softBg: '#fdf0f2',
+    border: '#f6d3d9',
+    Icon: Scaling,
+  },
+  {
+    number: 11,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',

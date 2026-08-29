@@ -87,13 +87,19 @@ export class View {
       }));
     }
     for (const { panel, bb, dx, dy } of placed) {
-      this.svg.append(el('text', {
+      // Label the node, then append it. append() returns nothing, so writing
+      // through it threw before the first part was ever named - and because the
+      // throw escaped render(), it took the size readout, the warnings and the
+      // whole inspector down with it every time the flat view was opened.
+      const tag = el('text', {
         x: dx + bb.x0 + bb.w / 2,
         y: height - (dy + bb.y0) + span * 0.028,
         class: 'panel-tag',
         'font-size': span * 0.022,
         'text-anchor': 'middle',
-      })).textContent = panel.label;
+      });
+      tag.textContent = panel.label;
+      this.svg.append(tag);
     }
   }
 
