@@ -15,7 +15,26 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { OrbitControls } from '../vendor/OrbitControls.js';
-import { boardCanvas, roughnessCanvas, studioEnvCanvas, TILE_MM } from './texture.js';
+import {
+  boardCanvas, roughnessCanvas, studioEnvCanvas, TILE_MM, tileFor,
+} from './texture.js';
+
+/**
+ * The colour of a laser-cut plywood edge: nearly black, holding a trace of the
+ * board so falcata and a dark timber do not char identically.
+ *
+ * Worked on the sRGB hex rather than on a THREE.Color, and that is the whole
+ * point. Colour management converts a hex to linear on the way in, so scaling
+ * it there and reading the hex back lands far brighter than the same sum in
+ * sRGB - an edge meant to be #262422 came out #49453b, which is milky coffee
+ * rather than soot.
+ */
+const charHex = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map((c) => Math.round(16 + c * 0.09));
+  return `#${ch.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+};
 import { nestRings } from './geom/path.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -186,7 +205,8 @@ export class View3D {
         tex = new THREE.CanvasTexture(canvas);
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(1 / TILE_MM, 1 / TILE_MM);
+        const tile = tileFor(kind);
+        tex.repeat.set(1 / tile, 1 / tile);
         // A roughness map is data, not a picture: pushing it through the sRGB
         // curve would make every fleck read rougher than it was drawn.
         if (which !== 'rough') tex.colorSpace = THREE.SRGBColorSpace;
@@ -276,11 +296,8 @@ export class View3D {
         metalness: 0,
         envMapIntensity: 0.25,
       });
-      // The cut edge of plywood comes off the bed charred, and it is much darker
-      // than the face - keeping a trace of the board so falcata and a darker
-      // timber would not look identical along the edge.
       const side = new THREE.MeshStandardMaterial({
-        color: color.clone().multiplyScalar(0.16).lerp(new THREE.Color('#151311'), 0.55),
+        color: new THREE.Color(charHex(hex)),
         roughness: 0.95,
         metalness: 0,
         envMapIntensity: 0.15,

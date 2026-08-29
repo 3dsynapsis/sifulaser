@@ -27,9 +27,13 @@ export const DEFAULTS = {
   face: 'great-vibes',
   align: 'center',
 
-  width: 180,            // mm across the whole topper; suits an 8 inch cake
+  width: 120,            // mm across the whole topper; suits a 6 inch cake
   lineHeight: 72,        // % of cap height between baselines; under 100 overlaps
-  thicken: 0,            // mm added all round the lettering
+  // Not zero. At the standard 12 cm a script this fine measures 2.45 mm, which
+  // is under the 2.5 mm a topper needs to survive being pushed into a cake -
+  // so with no thickening the tool would open on a warning about itself. 1.2 is
+  // where the default both clears that and stops needing bridges at all.
+  thicken: 1.2,          // mm added all round the lettering
   weight: 4,             // stroke faces only: what a skeleton gets fattened to
 
   connect: 'dots-and-letters',   // dots-and-letters | dots | none
@@ -59,7 +63,6 @@ export const DEFAULTS = {
  */
 export const CAKE_SIZES = [
   { id: 'cake6', name: '12 cm', cake: 152, width: 120 },
-  { id: 'cake8', name: '18 cm', cake: 203, width: 180 },
 ];
 
 export const cakeSizeOf = (id) => CAKE_SIZES.find((c) => c.id === id) || null;
@@ -104,16 +107,16 @@ export const PRESETS = [
     params: {
       text: 'Happy\nBirthday\nSylvia',
       face: 'great-vibes',
-      width: 180,
-      lineHeight: 80,
-      thicken: 1.6,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
       // Two thin connectors rather than the fatter letters it would take to
       // do without them. Deliberate: the point of Great Vibes is its
       // hairlines, and thickening far enough to weld every letter buries them.
       bridge: 0.5,
-      stakes: 2,
-      stakeLength: 55,
-      stakeSpread: 55,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
     },
   },
   {
@@ -123,12 +126,12 @@ export const PRESETS = [
     params: {
       text: 'Selamat\nHari Jadi\nAisyah',
       face: 'great-vibes',
-      width: 200,
-      lineHeight: 68,
-      thicken: 2,
-      stakes: 2,
-      stakeLength: 55,
-      stakeSpread: 58,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
     },
   },
   {
@@ -139,12 +142,12 @@ export const PRESETS = [
     params: {
       text: 'Aiman\n&\nNadia',
       face: 'great-vibes',
-      width: 170,
-      lineHeight: 62,
-      thicken: 2.2,
-      stakes: 2,
-      stakeLength: 60,
-      stakeSpread: 50,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
     },
   },
   {
@@ -155,12 +158,12 @@ export const PRESETS = [
     params: {
       text: 'Selamat\nPengantin Baru',
       face: 'courgette',
-      width: 200,
-      lineHeight: 80,
-      thicken: 1.6,
-      stakes: 2,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
       stakeLength: 50,
-      stakeSpread: 62,
+      stakeWidth: 5,
     },
   },
   {
@@ -171,12 +174,12 @@ export const PRESETS = [
     params: {
       text: 'Aqiqah\nMuhammad Danish',
       face: 'great-vibes',
-      width: 190,
-      lineHeight: 72,
-      thicken: 1.2,
-      stakes: 2,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
       stakeLength: 50,
-      stakeSpread: 62,
+      stakeWidth: 5,
     },
   },
   {
@@ -187,12 +190,12 @@ export const PRESETS = [
     params: {
       text: 'Tahniah\nNur Aisyah',
       face: 'lobster',
-      width: 170,
-      lineHeight: 80,
-      thicken: 1.8,
-      stakes: 2,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
       stakeLength: 50,
-      stakeSpread: 60,
+      stakeWidth: 5,
     },
   },
   {
@@ -203,12 +206,12 @@ export const PRESETS = [
     params: {
       text: 'Selamat\nBersara\nEncik Rahman',
       face: 'grand-hotel',
-      width: 200,
-      lineHeight: 68,
-      thicken: 1.4,
-      stakes: 2,
-      stakeLength: 55,
-      stakeSpread: 55,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
     },
   },
   {
@@ -219,12 +222,12 @@ export const PRESETS = [
     params: {
       text: 'Happy\nAnniversary',
       face: 'parisienne',
-      width: 190,
-      lineHeight: 70,
-      thicken: 1,
-      stakes: 2,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      stakes: 1,
       stakeLength: 50,
-      stakeSpread: 60,
+      stakeWidth: 5,
     },
   },
 ];

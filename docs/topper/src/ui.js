@@ -279,14 +279,14 @@ export function renderInspector(root, ctx) {
   const matched = cakeSizeFor(p.width);
   root.append(group('Size', true,
     h('div', { class: 'field' },
-      h('label', {}, 'Common sizes'),
+      h('label', {}, 'Standard size'),
       seg(CAKE_SIZES.map((c) => [c.id, c.name]), matched ? matched.id : '',
         (id) => { setParam('width', cakeSizeOf(id).width); ctx.refresh(); })),
     h('p', { class: 'hint' },
-      'These are topper widths, not cake widths: 12 cm suits a 6 inch cake and '
-      + '18 cm an 8 inch one. A topper wants to be an inch or two narrower than '
-      + 'the top of the cake so a border of icing still shows around it - wider '
-      + 'than that and it hangs over the edge.'),
+      'That is a topper width, not a cake width - 12 cm suits a 6 inch cake. A '
+      + 'topper wants to be an inch or two narrower than the top of the cake so '
+      + 'a border of icing still shows around it; wider than that and it hangs '
+      + 'over the edge. Set your own width below for any other cake.'),
     numberRow('Width across (cm)', p.width / CM, {
       min: 4, max: 50, step: 0.5,
       onInput: (v) => { setParam('width', v * CM); ctx.refresh(); },

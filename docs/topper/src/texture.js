@@ -23,6 +23,18 @@
 const SIZE = 512;          // texture pixels
 export const TILE_MM = 40; // how many millimetres one tile covers
 
+/**
+ * How many millimetres one tile covers, per finish.
+ *
+ * Glitter is flecks a few tenths of a millimetre across, so its tile has to be
+ * small or the flecks come out the size of dinner plates. Wood is the opposite:
+ * the figure in a board runs over tens of millimetres, and at a 40 mm tile it
+ * repeats twice inside a single letter and reads as noise rather than as grain.
+ * Ninety is what the Box Maker paints a board face at, and it is the scale the
+ * profile was drawn for.
+ */
+export const tileFor = (kind) => (kind === 'wood' ? 90 : TILE_MM);
+
 const cache = new Map();
 
 function rngFrom(str) {
