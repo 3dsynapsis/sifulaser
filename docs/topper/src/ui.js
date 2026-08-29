@@ -11,6 +11,7 @@ import {
   CAKE_SIZES, cakeSizeOf, cakeSizeFor,
 } from './geom/topper.js';
 import { LAYERS } from './export.js';
+import { BORDERS, borderOf, fitWidth } from './geom/border.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
@@ -72,6 +73,39 @@ function numberRow(label, value, { min, max, step = 1, unit, onInput, slider = t
       range,
       h('div', { class: 'num', style: 'flex:0 0 92px' },
         num, unit && h('span', { class: 'unit' }, unit))));
+}
+
+/**
+ * The thumbnail on a border card, drawn from the border`s own geometry.
+ *
+ * Not a hand-drawn icon: a picture of the shape that disagrees with the shape
+ * is a picture that lies, and it would go on lying every time one of them is
+ * adjusted. Built at a fixed 100 units wide so every card is the same size,
+ * and with a band far thicker than the real default, because five millimetres
+ * in a hundred is a hairline at forty-six pixels tall.
+ *
+ * One path per group, never one path for all of them: the double square is two
+ * overlapping frames, and a single even-odd path would cancel where they cross
+ * and punch holes through the middle of the star.
+ */
+function borderArt(b) {
+  const groups = fitWidth(b.build(100, 11), 100);
+  if (!groups) {
+    return `<svg viewBox="-54 -54 108 108" aria-hidden="true">`
+      + `<rect x="-42" y="-42" width="84" height="84" rx="9" fill="none"`
+      + ` stroke="currentColor" stroke-width="4" stroke-dasharray="9 8"`
+      + ` opacity=".45"/></svg>`;
+  }
+  // y is up in the geometry and down in SVG.
+  const paths = groups.map((g) => {
+    const d = g.map((r) => {
+      let s = `M${rnd(r[0], 1)} ${rnd(-r[1], 1)}`;
+      for (let i = 2; i < r.length; i += 2) s += `L${rnd(r[i], 1)} ${rnd(-r[i + 1], 1)}`;
+      return `${s}Z`;
+    }).join('');
+    return `<path d="${d}" fill="currentColor" fill-rule="evenodd"/>`;
+  }).join('');
+  return `<svg viewBox="-54 -54 108 108" aria-hidden="true">${paths}</svg>`;
 }
 
 function seg(options, current, onPick) {
@@ -301,6 +335,25 @@ export function renderInspector(root, ctx) {
         h('span', {}, 'Shows above the cake'),
         h('b', {}, `${rnd(d.visibleHeight / CM, 1)} cm tall`))
       : null));
+
+  // Between Size and Typeface on purpose. A frame is the second decision, not
+  // the last one: it changes how big the lettering can be and whether the face
+  // has to be thickened at all, so choosing it after the face would mean
+  // choosing the face twice.
+  root.append(group('Border', true,
+    h('div', { class: 'cards' }, BORDERS.map((b) => h('button', {
+      type: 'button',
+      class: 'card',
+      'aria-pressed': String(p.border === b.id),
+      onclick: () => { setParam('border', b.id); ctx.refresh(); },
+    }, h('span', { class: 'art', html: borderArt(b) }), b.name))),
+    h('p', { class: 'hint' }, borderOf(p.border).note),
+    p.border === 'none' ? null : numberRow('Frame thickness (mm)', p.borderWidth, {
+      min: 1.5,
+      max: 15,
+      step: 0.5,
+      onInput: (v) => { setParam('borderWidth', v); ctx.refresh(); },
+    })));
 
   root.append(group('Typeface', true, ...facePicker(ctx)));
 

@@ -21,6 +21,9 @@
 import { growRing, bbox } from './path.js';
 import { layout, isOutline } from './text.js';
 import { strokesToOutline, ringArea } from './outline.js';
+import {
+  borderOf, fitWidth, innerRadius, lowestY, shiftGroups,
+} from './border.js';
 
 export const DEFAULTS = {
   text: 'Happy\nBirthday\nAisyah',
@@ -35,6 +38,9 @@ export const DEFAULTS = {
   // where the default both clears that and stops needing bridges at all.
   thicken: 1.2,          // mm added all round the lettering
   weight: 4,             // stroke faces only: what a skeleton gets fattened to
+
+  border: 'none',        // see BORDERS in border.js
+  borderWidth: 5,        // mm across the band of the frame itself
 
   connect: 'dots-and-letters',   // dots-and-letters | dots | none
   bridge: 2.5,           // mm across a bridge
@@ -145,6 +151,26 @@ export const PRESETS = [
       width: 120,
       lineHeight: 90,
       thicken: 0.5,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
+    },
+  },
+  {
+    id: 'nikah-2',
+    name: 'Nikah 2',
+    note: 'The same two names inside a leafy ring. The frame carries the piece, '
+      + 'so the script keeps its hairlines instead of being fattened until it '
+      + 'welds to itself.',
+    params: {
+      text: 'Amirul\n&\nSofea',
+      face: 'great-vibes',
+      border: 'vine',
+      borderWidth: 5,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      bridge: 0.5,
       stakes: 1,
       stakeLength: 50,
       stakeWidth: 5,
@@ -451,6 +477,28 @@ export function meanStroke(groups) {
   return per > 0 ? (2 * area) / per : 0;
 }
 
+/** How long a bridge is, squared - only used to compare two of them. */
+const span2 = (seg) => (seg[2] - seg[0]) ** 2 + (seg[3] - seg[1]) ** 2;
+
+/** The hole with the largest bounding box, which in a framed piece is its middle. */
+function widestHole(holes) {
+  let best = null;
+  let area = 0;
+  for (const h of holes) {
+    const b = bbox(h);
+    const a = (b.x1 - b.x0) * (b.y1 - b.y0);
+    if (a > area) { area = a; best = h; }
+  }
+  return best;
+}
+
+/** Is ring `inner` entirely within the bounding box of ring `outer`? */
+function bboxWithin(inner, outer) {
+  const a = bbox(inner);
+  const b = bbox(outer);
+  return a.x0 >= b.x0 && a.x1 <= b.x1 && a.y0 >= b.y0 && a.y1 <= b.y1;
+}
+
 function nearestPair(a, b, samples = 300) {
   const sa = Math.max(1, Math.floor(a.length / samples));
   const sb = Math.max(1, Math.floor(b.length / samples));
@@ -474,7 +522,7 @@ function nearestPair(a, b, samples = 300) {
  * bridging it papers over that - so "dots only" fixes the unavoidable and leaves
  * the avoidable visible.
  */
-function weld(input, opts, mode, bridgeW, dotArea) {
+function weld(input, opts, mode, bridgeW, dotArea, framed = false) {
   let res = strokesToOutline(input.strokes || [], opts);
   const bridges = [];
   if (mode === 'none' || !(bridgeW > 0)) return { res, bridges: 0 };
@@ -485,8 +533,24 @@ function weld(input, opts, mode, bridgeW, dotArea) {
       mode === 'dots-and-letters' || Math.abs(ringArea(o)) <= dotArea
     ));
     if (!want.length) break;
+    // With a frame, the opening in the middle of it is a target for bridges as
+    // well as its outside edge. A frame is a ring: its outer contour is on the
+    // FAR side of the band, so a letter sitting inside one that bridged to that
+    // contour would drive its connector clean through the frame and leave half
+    // a bridge width sticking out past the silhouette - the piece then measures
+    // wider than the width on the label, which is the one number this tool
+    // promises.
+    //
+    // Only the largest hole, and only when there is a frame. Every other hole is
+    // a counter - the middle of an o, the eye of an e - and a bridge that dives
+    // into one of those joins the same two pieces by a worse-looking route.
+    const opening = framed ? widestHole(res.holes) : null;
     for (const o of want) {
-      const seg = nearestPair(o, main);
+      let seg = nearestPair(o, main);
+      if (opening && !bboxWithin(opening, o)) {
+        const alt = nearestPair(o, opening);
+        if (alt && (!seg || span2(alt) < span2(seg))) seg = alt;
+      }
       if (seg) bridges.push(seg);
     }
     res = strokesToOutline(input.strokes || [], {
@@ -543,7 +607,35 @@ export function buildTopper(input = {}) {
   // Without this, thickening quietly makes the topper wider than the number in
   // the box, which is exactly the kind of promise a tool should not break.
   const addedW = Math.max(0, p.thicken) * 2 + Math.max(0, p.kerf);
-  const s = Math.max(0.01, p.width - addedW) / measure.w;
+  const outerW = Math.max(0.01, p.width - addedW);
+
+  // With a frame the width on the label belongs to the FRAME, and the lettering
+  // is sized to sit inside it. The fill factor is over one on purpose: the text
+  // is meant to run into the frame and weld to it, which is the whole reason
+  // for having one. Fitting it neatly inside would leave a ring with loose
+  // letters rattling about in the middle of it.
+  const shape = borderOf(p.border);
+  const frame = fitWidth(
+    shape.build(outerW, Math.max(0.5, p.borderWidth)),
+    outerW,
+  );
+  let s;
+  if (frame) {
+    // The lettering is fitted to the largest circle inside the frame, then
+    // pushed out by half the ring so it runs into the frame and welds to it.
+    // Half, not more: past the middle of the band the letters would break
+    // out through the outer edge, and the width on the label would stop
+    // being the width of the finished piece.
+    const diag = Math.hypot(measure.w, measure.h) || 1;
+    // How much of the opening the lettering is allowed to take. One means it
+    // runs into the middle of the band and welds there, which is what a plain
+    // frame wants. A frame with something growing off it says less than one,
+    // so its decoration is not buried under the text.
+    const reach = innerRadius(frame) + Math.max(0.5, p.borderWidth) * 0.5;
+    s = (reach * 2 * (shape.fill ?? 1)) / diag;
+  } else {
+    s = outerW / measure.w;
+  }
   const capMM = NOMINAL * s;
   groups = groups.map((g) => scaleRings(g, s));
   const strokes = strokePaths.map((st) => st.map((v) => v * s));
@@ -555,12 +647,20 @@ export function buildTopper(input = {}) {
   const stroke = rawStroke + thicken * 2;
 
   const ink = outlineFace ? ringsBBox(groups) : ringsBBox([strokes]);
+
+  // A frame comes back centred on the origin; the lettering sits wherever the
+  // baselines put it. Move the frame onto the ink so the two are concentric -
+  // otherwise the union of the two is a box far larger than either, the piece
+  // measures half again what was asked for, and the weight hangs off to one
+  // side of the stakes.
+  if (frame) shiftGroups(frame, (ink.x0 + ink.x1) / 2, (ink.y0 + ink.y1) / 2);
   const lastBase = -(laid.length - 1) * step * s;
 
   // ---- stakes ------------------------------------------------------------
   // They have to bite into the lettering, so the top of a stake sits above the
   // last baseline rather than under the descenders.
   const nStakes = clamp(Math.round(p.stakes), 0, 2);
+  let frameStakeTop = 0;
   const rise = Math.max(2, capMM * 0.18);
   const yTop = lastBase + rise;
   const probeY = lastBase + rise * 0.35;
@@ -585,12 +685,24 @@ export function buildTopper(input = {}) {
       return best;
     });
   }
+  // A frame is continuous, so there is nothing to hunt for: the stake goes on
+  // the bottom of it, centred, and bites upward into the ring.
+  if (frame) {
+    // Two stakes are pulled in to whatever the frame is still solid across at
+    // its bottom - a circle and a heart both come to a point down there, and
+    // a pair set to the full spread would hang off either side of it.
+    const sp = Math.min(half, innerRadius(frame) * 0.5);
+    wanted = nStakes === 2 ? [mid - sp, mid + sp] : nStakes === 1 ? [mid] : [];
+    snapped = 0;
+    frameStakeTop = lowestY(frame) + Math.max(2, p.borderWidth * 0.9);
+  }
+  const stakeTop = frame ? frameStakeTop : yTop;
   const stakeShapes = wanted.map((x) => [
-    stakePolygon(x, yTop, p.stakeLength, p.stakeWidth, p.stakeTaper),
+    stakePolygon(x, stakeTop, p.stakeLength, p.stakeWidth, p.stakeTaper),
   ]);
 
   // ---- one shape -----------------------------------------------------------
-  const all = [...groups, ...stakeShapes];
+  const all = [...groups, ...(frame || []), ...stakeShapes];
   const dotArea = Math.max(2, (stroke * 2) ** 2);
   const { res, bridges } = weld(
     { strokes },
@@ -598,6 +710,7 @@ export function buildTopper(input = {}) {
     p.connect,
     Math.max(0, Math.min(p.bridge, Math.max(stroke, 1.2))),
     dotArea,
+    Boolean(frame),
   );
   if (!res.outers.length) return EMPTY;
 
@@ -719,6 +832,7 @@ export function buildTopper(input = {}) {
       capMM,
       lines: laid.filter(Boolean).length,
       pieces,
+      border: p.border,
       loose: loose.length,
       holes: holes.length,
       bridges,
