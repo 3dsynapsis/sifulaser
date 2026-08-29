@@ -56,9 +56,11 @@ export const MATERIALS = [
   { id: 'custom', name: 'Custom acrylic', color: '#cdd3d9', finish: 'none' },
 ];
 
-// Mirror gold is what most of these are ordered in, so it is what the tool
-// opens on rather than an abstract default nobody would choose.
-const DEFAULT_MATERIAL = 'mirror-gold';
+// Falcata is the sheet the shop actually keeps, so it is what the tool opens on.
+// It also sets a wider beam than the acrylics - 0.2 mm against 0.15 - so opening
+// on it means the first file somebody exports is compensated for the board they
+// are most likely to put on the bed.
+const DEFAULT_MATERIAL = 'falcata3';
 
 export const materialOf = (id) => MATERIALS.find((m) => m.id === id) || MATERIALS[0];
 
