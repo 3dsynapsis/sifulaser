@@ -249,7 +249,7 @@ export function renderInspector(root, ctx) {
   // ---- the message is the whole object, so it goes first.
   const area = h('textarea', {
     class: 'text-area', spellcheck: 'false', rows: 3,
-    placeholder: 'Happy\nBirthday\nSylvia',
+    placeholder: 'Happy\nBirthday\nAisyah',
     oninput: (e) => {
       update((s) => { s.params.text = e.target.value; }, { history: false });
       ctx.refreshPreviewOnly();

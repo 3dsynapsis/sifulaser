@@ -23,7 +23,7 @@ import { layout, isOutline } from './text.js';
 import { strokesToOutline, ringArea } from './outline.js';
 
 export const DEFAULTS = {
-  text: 'Happy\nBirthday\nSylvia',
+  text: 'Happy\nBirthday\nAisyah',
   face: 'great-vibes',
   align: 'center',
 
@@ -105,7 +105,7 @@ export const PRESETS = [
     name: 'Happy Birthday',
     note: 'Three lines in Great Vibes, overlapping at 80%.',
     params: {
-      text: 'Happy\nBirthday\nSylvia',
+      text: 'Happy\nBirthday\nAisyah',
       face: 'great-vibes',
       width: 120,
       lineHeight: 90,
@@ -204,7 +204,7 @@ export const PRESETS = [
     note: 'Three lines with a long third. The weight sits low, so the stakes '
       + 'are the full default length.',
     params: {
-      text: 'Selamat\nBersara\nEncik Rahman',
+      text: 'Selamat\nBersara\nRahman',
       face: 'grand-hotel',
       width: 120,
       lineHeight: 90,
