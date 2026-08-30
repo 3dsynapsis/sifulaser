@@ -5,7 +5,8 @@ import { loadFace } from './geom/text.js';
 import { View } from './view.js';
 import {
   renderInspector, renderBackdrop, renderActions, renderWarnings,
-  fillExportDialog, fillHelpDialog, rnd,
+  fillExportDialog, fillHelpDialog, fillSaveDialog, fillFilesDialog,
+  saveQuietly, rnd,
 } from './ui.js';
 import { toSvg, toPdf } from './export.js';
 
@@ -27,6 +28,10 @@ const els = {
   vCake: $('#vCake'),
   vFlat: $('#vFlat'),
   v3d: $('#v3d'),
+  saveBtn: $('#saveBtn'),
+  filesBtn: $('#filesBtn'),
+  saveDlg: $('#saveDlg'),
+  filesDlg: $('#filesDlg'),
   exportDlg: $('#exportDlg'),
   helpDlg: $('#helpDlg'),
 };
@@ -222,10 +227,38 @@ $('#exportBtn').addEventListener('click', () => {
   els.exportDlg.showModal();
 });
 
+els.saveBtn.addEventListener('click', () => {
+  fillSaveDialog(els.saveDlg, ctx);
+  els.saveDlg.showModal();
+});
+
+els.filesBtn.addEventListener('click', () => {
+  fillFilesDialog(els.filesDlg, ctx);
+  els.filesDlg.showModal();
+});
+
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'svg') download('svg');
   else if (v === 'pdf') download('pdf');
+});
+
+// Exporting is the moment somebody decides a design is finished, so it is the
+// moment worth keeping - and they are signed in by then, because the download
+// asked them to be. It updates whatever design is already open rather than
+// adding another, or three exports in an afternoon leave three near-identical
+// entries in the list.
+//
+// Hung on the click rather than on the dialog closing, for two reasons. A save
+// must not be lost because the download threw on the line before it. And the
+// close event is not dispatched the same way everywhere - the browser used to
+// test this does not fire it at all - which is a poor thing for the only copy
+// of a design to depend on.
+els.exportDlg.addEventListener('click', (event) => {
+  const button = event.target.closest && event.target.closest('button');
+  if (!button) return;
+  if (button.value !== 'svg' && button.value !== 'pdf') return;
+  void saveQuietly();
 });
 
 document.addEventListener('keydown', (e) => {

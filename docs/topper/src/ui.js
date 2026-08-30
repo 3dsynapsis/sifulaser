@@ -12,7 +12,7 @@ import {
 } from './geom/topper.js';
 import { LAYERS } from './export.js';
 import { BORDERS, borderOf, fitWidth } from './geom/border.js';
-import { renderDesigns } from './designs.js';
+import * as gallery from './designs.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
@@ -269,6 +269,33 @@ function group(title, open, ...body) {
 
 const ALIGNS = [['left', 'Left'], ['center', 'Centre'], ['right', 'Right']];
 
+/**
+ * What the dialogs are allowed to see of the store.
+ *
+ * Narrow on purpose: the gallery needs to read the design and put one back,
+ * and nothing else. Handing it the whole store would let it grow reaching
+ * into parts that are none of its business.
+ */
+const galleryStore = {
+  name: () => state.name,
+  params: () => ({ ...state.params }),
+  material: () => state.material,
+  rename: (name) => update((s) => { s.name = name; }, { history: false }),
+  apply: (row) => applyDesign(row),
+};
+
+/** Save the design on screen without asking - used on the way out of Export. */
+export const saveQuietly = () => gallery.saveQuietly(galleryStore);
+
+const dialogFiller = (build) => function fill(dlg, ctx) {
+  const close = () => dlg.close();
+  const again = () => fill(dlg, ctx);
+  dlg.replaceChildren(build(h, galleryStore, () => { close(); ctx.refresh(); }, again));
+};
+
+export const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+export const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+
 export function renderInspector(root, ctx) {
   if (sliderDragging) return;
   const active = document.activeElement;
@@ -295,14 +322,6 @@ export function renderInspector(root, ctx) {
 
   root.append(group('Start from', true, ...presetPicker(ctx)));
 
-  // Under the presets, because both answer the same question - what am I
-  // starting from - and one of the two answers is "what I made last week".
-  root.append(renderDesigns({ h, group }, ctx, {
-    name: () => state.name,
-    params: () => ({ ...state.params }),
-    material: () => state.material,
-    apply: (row) => applyDesign(row),
-  }));
 
   root.append(group('Message', true,
     area,
