@@ -64,5 +64,9 @@
 
 <script type="module" src="src/main.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Sign in before download. Served from the site, so it is absent when a
+     tool is run on its own during development - and absent means export
+     works, which is the right way for a funnel to fail. -->
+<script type="module" src="/shared/export-gate.js"></script>
 </body>
 </html>

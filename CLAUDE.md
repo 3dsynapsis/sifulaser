@@ -62,6 +62,11 @@ sahaja, ia akan terpadam senyap kali berikutnya mana-mana alat dikemas kini.
 
 Kalau tambah alat baharu, salin snippet itu ke `index.html` alat tersebut.
 
+Alat juga memuatkan `/shared/export-gate.js`, yang minta pengguna daftar masuk
+sebelum boleh muat turun. Tag itu pun diletak dalam **sumber** alat atas sebab
+yang sama. Alat kekal percuma untuk diguna — gate itu hanya pada butang Export,
+dan ia corong jualan, bukan kunci: bendera yang dibacanya localStorage biasa.
+
 ## Sejarah
 
 Kekalkan sejarah **lurus** — fast-forward sahaja, elakkan merge commit.

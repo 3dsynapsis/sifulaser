@@ -12,11 +12,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import type { User } from 'firebase/auth'
 import { IS_CONFIGURED, loadFirebase } from './firebase'
+import { publishSession, safeNext } from './session'
 
 interface AuthValue {
   /** true jika Firebase sudah dikonfigurasi (butang login dipaparkan). */
@@ -58,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [classParticipant, setClassParticipant] = useState(false)
   const [loading, setLoading] = useState(IS_CONFIGURED)
   const [error, setError] = useState<string | null>(null)
+  const signInRef = useRef<(() => Promise<void>) | null>(null)
 
   useEffect(() => {
     const pending = loadFirebase()
@@ -71,6 +74,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (cancelled) return
         unsubscribe = authApi.onAuthStateChanged(auth, (nextUser) => {
           setUser(nextUser)
+          // The tools cannot see Firebase, so leave them a note they can.
+          publishSession(nextUser?.email ?? null)
           if (!nextUser) {
             setPaid(false)
             setPaidUntil(null)
@@ -139,6 +144,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user])
 
+  // A tool sent somebody here to sign in, and wants them back afterwards.
+  //
+  // The popup is opened from an effect rather than waiting for a click,
+  // because they already clicked - in the tool. A browser that blocks a popup
+  // with no gesture behind it will block this one, and that is survivable: the
+  // sign-in button on this page is right there, so the worst case is one more
+  // click rather than a dead end.
+  useEffect(() => {
+    if (loading) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('signin') !== '1') return
+    const next = safeNext(params.get('next'))
+
+    if (!user) {
+      void signInRef.current?.()
+      return
+    }
+    // Signed in. Clear the parameters so a refresh does not repeat this, and
+    // put them back in the tool they came from.
+    if (next) {
+      window.location.replace(next)
+      return
+    }
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [user, loading])
+
   const signIn = useCallback(async () => {
     const pending = loadFirebase()
     if (!pending) return
@@ -157,6 +188,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError('Login gagal. Sila cuba lagi.')
     }
   }, [])
+
+  // Declared after the effect above, which reaches it through this ref rather
+  // than forcing the callback to be hoisted.
+  signInRef.current = signIn
 
   const signOut = useCallback(async () => {
     const pending = loadFirebase()
