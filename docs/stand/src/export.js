@@ -23,6 +23,12 @@ const MM_TO_PT = 72 / 25.4;
 
 export const LAYERS = {
   cut: { id: 'cut', color: '#ff0000', label: 'Cut' },
+  // A Plate 3D is cut from two sheets of two different materials, and it all
+  // goes out in one file. That only works if the mirror letters arrive on a
+  // layer of their own: cut the board layer, change the sheet, cut this one.
+  // Merged into the ordinary cut layer they would run in the same pass, on
+  // whatever single sheet happened to be on the bed.
+  cutMirror: { id: 'cut-mirror', color: '#ff00ff', label: 'Cut (Mirror acrylic)' },
   engraveFill: { id: 'engrave-fill', color: '#000000', label: 'Engrave (Fill)' },
   engrave: { id: 'engrave-line', color: '#0000ff', label: 'Engrave (Line)' },
 };
@@ -88,6 +94,7 @@ const moveRing = (pts, dx, dy) => pts.map(([x, y]) => [x + dx, y + dy]);
 /** Everything to cut, everything to scan solid, everything to score as a line. */
 export function collect(placed) {
   const cut = [];
+  const cutMirror = [];
   const engrave = [];
   const engraveFill = [];
   const move = (st, dx, dy) => {
@@ -99,13 +106,14 @@ export function collect(placed) {
     return out;
   };
   for (const { panel, dx, dy } of placed) {
-    cut.push(moveRing(panel.outline, dx, dy));
-    for (const h of panel.holes) cut.push(moveRing(h, dx, dy));
-    for (const l of panel.loose || []) cut.push(moveRing(l, dx, dy));
+    const into = panel.material === 'mirror' ? cutMirror : cut;
+    into.push(moveRing(panel.outline, dx, dy));
+    for (const h of panel.holes) into.push(moveRing(h, dx, dy));
+    for (const l of panel.loose || []) into.push(moveRing(l, dx, dy));
     for (const st of panel.engrave || []) engrave.push(move(st, dx, dy));
     for (const st of panel.engraveFill || []) engraveFill.push(move(st, dx, dy));
   }
-  return { cut, engrave, engraveFill };
+  return { cut, cutMirror, engrave, engraveFill };
 }
 
 const ringPath = (pts, height) => {
@@ -126,8 +134,9 @@ const linePath = (flat, height) => {
 export function toSvg(panels, opts = {}) {
   const o = { title: 'Name stand', gap: 6, sheetWidth: 600, strokeWidth: 0.1, ...opts };
   const { placed, width, height } = nest(panels, o);
-  const { cut, engrave, engraveFill } = collect(placed);
+  const { cut, cutMirror, engrave, engraveFill } = collect(placed);
   const cd = cut.map((r) => ringPath(r, height)).filter(Boolean).join(' ');
+  const md = cutMirror.map((r) => ringPath(r, height)).filter(Boolean).join(' ');
   const ld = engrave.map((l) => linePath(l, height)).filter(Boolean).join(' ');
   const fd = engraveFill.map((l) => `${linePath(l, height)} Z`).filter(Boolean).join(' ');
   return [
@@ -145,6 +154,9 @@ export function toSvg(panels, opts = {}) {
     cd ? `<g id="${LAYERS.cut.id}" data-layer="${LAYERS.cut.label}" fill="none" `
       + `stroke="${LAYERS.cut.color}" stroke-width="${fmt(o.strokeWidth)}">`
       + `<path d="${cd}"/></g>` : '',
+    md ? `<g id="${LAYERS.cutMirror.id}" data-layer="${LAYERS.cutMirror.label}" `
+      + `fill="none" stroke="${LAYERS.cutMirror.color}" `
+      + `stroke-width="${fmt(o.strokeWidth)}"><path d="${md}"/></g>` : '',
     '</svg>',
   ].filter(Boolean).join('\n');
 }
@@ -157,7 +169,7 @@ export function toSvg(panels, opts = {}) {
 export function toPdf(panels, opts = {}) {
   const o = { title: 'Name stand', gap: 6, sheetWidth: 600, strokeWidth: 0.1, ...opts };
   const { placed, width, height } = nest(panels, o);
-  const { cut, engrave, engraveFill } = collect(placed);
+  const { cut, cutMirror, engrave, engraveFill } = collect(placed);
   const P = (v) => fmt(v * MM_TO_PT);
 
   const ops = [`${fmt(o.strokeWidth * MM_TO_PT)} w`, '1 J', '1 j'];
@@ -179,13 +191,20 @@ export function toPdf(panels, opts = {}) {
     pen(st);
     ops.push('S');
   }
+  const rings = (list) => {
+    for (const ring of list) {
+      if (ring.length < 2) continue;
+      ops.push(`${P(ring[0][0])} ${P(ring[0][1])} m`);
+      for (let i = 1; i < ring.length; i++) ops.push(`${P(ring[i][0])} ${P(ring[i][1])} l`);
+      ops.push('h S');
+    }
+  };
   ops.push('1 0 0 RG');
-  for (const ring of cut) {
-    if (ring.length < 2) continue;
-    ops.push(`${P(ring[0][0])} ${P(ring[0][1])} m`);
-    for (let i = 1; i < ring.length; i++) ops.push(`${P(ring[i][0])} ${P(ring[i][1])} l`);
-    ops.push('h S');
-  }
+  rings(cut);
+  // Magenta, and last, so the mirror letters stay a separate thing to whoever
+  // opens the file - the same split the SVG carries as its own layer.
+  ops.push('1 0 1 RG');
+  rings(cutMirror);
   const stream = ops.join('\n');
 
   const objects = [

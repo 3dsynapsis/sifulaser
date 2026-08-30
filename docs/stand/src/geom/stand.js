@@ -39,8 +39,8 @@ export const DEFAULTS = {
   face2: '',             // typeface for line 2; empty follows line 1
   align: 'center',
 
-  size: 'medium',        // small | medium | large | custom | auto
-  standW: 200,           // overall width, mm (custom only)
+  size: 'custom',        // small | medium | large | custom | auto
+  standW: 165,           // overall width, mm (custom only)
   standH: 55,            // overall standing height, mm (custom only)
 
   cap1: 20,              // cap height of the name, mm

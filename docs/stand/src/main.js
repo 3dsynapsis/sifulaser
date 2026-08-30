@@ -267,6 +267,7 @@ els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'svg') download('svg');
   else if (v === 'pdf') download('pdf');
+  else if (v === 'whatsapp') sendWhatsApp();
 });
 
 // Exporting is the moment somebody decides a design is finished, so it is the
@@ -280,7 +281,7 @@ els.exportDlg.addEventListener('close', () => {
 els.exportDlg.addEventListener('click', (event) => {
   const button = event.target.closest && event.target.closest('button');
   if (!button) return;
-  if (button.value !== 'svg' && button.value !== 'pdf') return;
+  if (!['svg', 'pdf', 'whatsapp'].includes(button.value)) return;
   void saveQuietly();
 });
 
@@ -296,40 +297,101 @@ document.addEventListener('keydown', (e) => {
   refresh();
 });
 
-function download(kind) {
+/**
+ * The file itself, built but not yet handed anywhere. Split out because it is
+ * now wanted twice: once to save to disk, once to send.
+ */
+function buildFile(kind) {
   const r = getResult();
-  if (!r.panels.length) return;
+  if (!r.panels.length) return null;
   const title = state.name || 'stand';
   const type = kind === 'pdf' ? 'application/pdf' : 'image/svg+xml';
   const base = (r.params.line1 || title).trim().replace(/[^\w-]+/g, '-').toLowerCase()
     || 'stand';
 
-  // A Plate 3D is cut from two different sheets. It cannot go out as one file:
-  // whatever the file says, a machine cuts what is in front of it, and the
-  // mirror letters would come out of the plywood. One file per sheet, each named
-  // after the stock it belongs on.
-  const board = r.panels.filter((x) => x.material !== 'mirror');
-  const mirror = r.panels.filter((x) => x.material === 'mirror');
-  const jobs = mirror.length
-    ? [[board, `${base}-board`, `${title} - board`],
-      [mirror, `${base}-mirror`, `${title} - mirror acrylic`]]
-    : [[r.panels, base, title]];
+  // One file, even for a Plate 3D, which is cut from two sheets. What keeps the
+  // mirror letters from being cut out of the plywood is not a second file but a
+  // layer of their own: cut the board layer, change the sheet, cut that one.
+  const opts = { title, sheetWidth: state.sheetWidth };
+  const body = kind === 'pdf' ? toPdf(r.panels, opts) : toSvg(r.panels, opts);
+  return { blob: new Blob([body], { type }), name: `${base}.${kind}`, type, result: r };
+}
 
-  jobs.forEach(([panels, name, sheetTitle], i) => {
-    if (!panels.length) return;
-    const opts = { title: sheetTitle, sheetWidth: state.sheetWidth };
-    const body = kind === 'pdf' ? toPdf(panels, opts) : toSvg(panels, opts);
-    const blob = new Blob([body], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name}.${kind}`;
-    document.body.appendChild(a);
-    // Staggered: two clicks in the same tick and the browser treats the second
-    // as a popup rather than a download.
-    setTimeout(() => { a.click(); a.remove(); }, i * 350);
-    setTimeout(() => URL.revokeObjectURL(url), 2000 + i * 350);
-  });
+function saveFile(file) {
+  const url = URL.createObjectURL(file.blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function download(kind) {
+  const file = buildFile(kind);
+  if (file) saveFile(file);
+}
+
+/**
+ * What the cutter needs to know, in the message rather than only in the file.
+ * A Plate 3D is two materials, and that is the part that goes wrong if it is
+ * left to be discovered by opening the drawing.
+ */
+function jobNote(r) {
+  const p = r.params;
+  const d = r.derived;
+  const style = { silhouette: 'Cut-out', plate3d: 'Plate 3D' }[p.style] || 'Plate';
+  const out = [
+    `*${p.line1}*${p.line2 ? ` / ${p.line2}` : ''}`,
+    `${style} - ${rnd(d.baseW, 1)} x ${rnd(d.standHeight, 1)} mm`,
+    // "Custom material" is what the picker calls a board nobody named. On a
+    // works order that reads like a specification when it is the absence of one.
+    `Board: ${material().id === 'custom' ? '' : `${material().name} `}${rnd(p.thickness, 1)} mm`,
+  ];
+  if (r.panels.some((x) => x.material === 'mirror')) {
+    out.push(`Name: ${mirrorOf(p.letterFinish).name} ${rnd(d.letterT, 1)} mm - cut the `
+      + '"Cut (Mirror acrylic)" layer from that, everything else from the board, '
+      + 'then glue the letters onto the scored guide.');
+  }
+  return out.join('\n');
+}
+
+/**
+ * Hand the cut file to WhatsApp.
+ *
+ * Where the browser and the OS allow it, the file goes across attached. Where
+ * they do not - which is most desktops - nothing can push a file into WhatsApp
+ * through a link: wa.me and the whatsapp: scheme carry text and nothing else.
+ * So the fallback saves the file and opens WhatsApp with the job written out,
+ * leaving one attachment to do by hand.
+ *
+ * canShare is checked synchronously, before anything is awaited. Past an await
+ * the click is no longer a user gesture and the browser blocks the window it
+ * would otherwise open.
+ */
+function sendWhatsApp() {
+  const file = buildFile('svg');
+  if (!file) return;
+  const text = jobNote(file.result);
+
+  let shareable = null;
+  try {
+    const f = new File([file.blob], file.name, { type: file.type });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) shareable = f;
+  } catch {
+    shareable = null;
+  }
+
+  if (shareable) {
+    // Cancelling the share sheet rejects; that is a choice, not a failure, so
+    // it must not then go and open a second thing behind them.
+    navigator.share({ files: [shareable], text }).catch(() => {});
+    return;
+  }
+
+  saveFile(file);
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
 export { putFace };

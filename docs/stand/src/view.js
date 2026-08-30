@@ -64,7 +64,7 @@ export class View {
       sheetWidth: opts.sheetWidth || 600,
     });
     const span = this.frame(width, height);
-    const { cut, engrave, engraveFill } = collect(placed);
+    const { cut, cutMirror, engrave, engraveFill } = collect(placed);
     const sw = Math.max(0.15, span / 700);
 
     const fd = engraveFill.map((l) => `${lineD(l, height)}Z`).filter(Boolean).join(' ');
@@ -84,6 +84,14 @@ export class View {
     if (cd) {
       this.svg.append(el('path', {
         d: cd, class: 'cut', fill: 'none', 'stroke-width': sw * 1.2,
+      }));
+    }
+    // Drawn apart from the rest of the cutting because it is cut apart from the
+    // rest: a different sheet, on its own layer in the exported file.
+    const md = cutMirror.map((r) => ringD(r, height)).filter(Boolean).join(' ');
+    if (md) {
+      this.svg.append(el('path', {
+        d: md, class: 'cut-mirror', fill: 'none', 'stroke-width': sw * 1.2,
       }));
     }
     for (const { panel, bb, dx, dy } of placed) {

@@ -397,6 +397,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .preview { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .cut { stroke: #d4383d; fill: none; }
+/* Cut on the other sheet. Its own colour because it is its own layer in the
+   file, and because the drawing should not suggest the mirror letters come
+   off the same board as everything drawn beside them. */
+.cut-mirror { stroke: #b8129b; fill: none; }
 .engrave { stroke: #2f6fd0; fill: none; }
 /* Opaque on purpose. The base has to actually hide the tenons buried in it, or
    the assembled view shows the joint through the wood as a ragged bottom edge. */

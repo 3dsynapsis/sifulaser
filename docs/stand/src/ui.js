@@ -354,7 +354,8 @@ export function renderInspector(root, ctx) {
           + 'the bar under it, or it drops out of the sheet loose.'
         : raised
           ? 'The same plate, but the name is cut from mirror acrylic and glued on '
-            + 'so it stands proud. Two sheets, so the export is two files.'
+            + 'so it stands proud. It comes out on its own layer, to cut from a '
+            + 'separate sheet.'
           : 'A rounded plate with the name engraved on it. Nothing to break, and '
             + 'any typeface works however fine it is.'),
     raised
@@ -584,19 +585,17 @@ function formatTime(s) {
 export function fillExportDialog(dlg) {
   const r = getResult();
   const d = r.derived;
-  // Plate 3D leaves on two sheets of two different materials, and so as two
-  // files. Saying "one sheet of 5 mm board" would be a straight lie about what
-  // is about to come out of the machine.
-  const boardP = r.panels.filter((x) => x.material !== 'mirror');
+  // Plate 3D is cut from two materials in one file, so the summary has to name
+  // both. "One sheet of 5 mm board" would be a straight lie about half of what
+  // is in the file.
   const mirrorP = r.panels.filter((x) => x.material === 'mirror');
-  const sheet = nest(boardP, { sheetWidth: state.sheetWidth });
+  const sheet = nest(r.panels, { sheetWidth: state.sheetWidth });
   const dims = (n) => `${rnd(n.width, 1)} x ${rnd(n.height, 1)} mm`;
   dlg.querySelector('#exportSummary').textContent = mirrorP.length
-    ? `Two files. ${boardP.length} pieces on a ${dims(sheet)} sheet of `
-      + `${rnd(r.params.thickness, 1)} mm board, and the name on a `
-      + `${dims(nest(mirrorP, { sheetWidth: state.sheetWidth }))} piece of `
-      + `${rnd(d.letterT, 1)} mm mirror acrylic. `
-      + `${rnd(d.cutLength / 1000, 2)} m of cutting.`
+    ? `${r.panels.length} pieces on a ${dims(sheet)} sheet, `
+      + `${rnd(d.cutLength / 1000, 2)} m of cutting. The name is on its own layer: `
+      + `cut that from ${rnd(d.letterT, 1)} mm mirror acrylic, everything else `
+      + `from ${rnd(r.params.thickness, 1)} mm board.`
     : `${r.panels.length} pieces on a ${dims(sheet)} `
       + `sheet of ${rnd(r.params.thickness, 1)} mm board, `
       + `${rnd(d.cutLength / 1000, 2)} m of cutting.`;
@@ -604,6 +603,7 @@ export function fillExportDialog(dlg) {
   // lists a colour that is not in the file.
   const key = [
     ['cut', true],
+    ['cutMirror', mirrorP.length > 0],
     ['engraveFill', d.engraveFill],
     ['engrave', d.engraveLine],
   ].filter(([, on]) => on).map(([id]) => LAYERS[id]);
@@ -612,6 +612,10 @@ export function fillExportDialog(dlg) {
     L.label)));
 
   const notes = ['Red is cut.'];
+  if (mirrorP.length) {
+    notes.push('Magenta is cut as well, but out of the mirror acrylic - run it as '
+      + 'its own job with that sheet on the bed, never in the same pass as the red.');
+  }
   if (d.engraveFill) {
     notes.push('Black is the filled shape of each letter - set it to Fill or '
       + 'Scan, because a Line operation would trace round them and leave them '
@@ -620,6 +624,10 @@ export function fillExportDialog(dlg) {
   if (d.engraveLine) {
     notes.push('Blue is single-line strokes - set it to Line or Engrave, '
       + 'because a Fill would find no enclosed area and mark nothing.');
+  }
+  if (mirrorP.length) {
+    notes.push('The blue name on the plate is the guide the mirror letters are glued '
+      + 'onto. It is scored just inside them, so a letter sitting right covers it.');
   }
   notes.push('Both files carry real millimetres, so they import at size.');
   notes.push(r.derived.layers === 1
@@ -630,6 +638,7 @@ export function fillExportDialog(dlg) {
   const empty = !r.panels.length;
   dlg.querySelector('#dlSvg').disabled = empty;
   dlg.querySelector('#dlPdf').disabled = empty;
+  dlg.querySelector('#dlWa').disabled = empty;
 }
 
 export function fillHelpDialog(dlg) {
