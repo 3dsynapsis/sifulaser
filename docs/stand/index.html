@@ -18,9 +18,12 @@
 
     <div class="midbar">
       <div class="viewtoggle" role="tablist" aria-label="View">
-        <button class="vt" id="vAssembled" role="tab" aria-selected="true">Assembled</button>
+        <!-- 3D first, because it is what opens. A selected tab sitting at the far
+             end of the strip reads as though something else was the starting
+             point and this one was chosen. -->
+        <button class="vt" id="v3d" role="tab" aria-selected="true">3D</button>
+        <button class="vt" id="vAssembled" role="tab" aria-selected="false">Assembled</button>
         <button class="vt" id="vFlat" role="tab" aria-selected="false">Flat</button>
-        <button class="vt" id="v3d" role="tab" aria-selected="false">3D</button>
       </div>
     </div>
 

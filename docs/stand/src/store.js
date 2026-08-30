@@ -239,7 +239,6 @@ function persist() {
         params: state.params,
         material: state.material,
         speed: state.speed,
-        view: state.view,
         backdrop: state.backdrop,
         sheetWidth: state.sheetWidth,
         name: state.name,
@@ -256,7 +255,11 @@ export function load() {
     Object.assign(state.params, data.params || {});
     state.material = data.material || state.material;
     state.speed = data.speed || state.speed;
-    state.view = data.view || state.view;
+    // The view is deliberately NOT restored. It is how you are looking at the
+    // stand, not part of the stand - and restoring it meant the 3D default only
+    // ever reached people who had never opened the tool before. Everybody else
+    // kept whatever tab they happened to leave on, months ago, and the default
+    // silently did nothing for them.
     state.backdrop = data.backdrop || state.backdrop;
     state.sheetWidth = data.sheetWidth || state.sheetWidth;
     state.name = data.name || state.name;
