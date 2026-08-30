@@ -131,6 +131,27 @@ export function setParam(key, value) {
  * numbers are already in the fields - somebody who has measured their own stock
  * should not lose it by opening the picker.
  */
+/**
+ * Load a design that came back from the account.
+ *
+ * One update() so it is a single undo step: opening the wrong design is one
+ * Ctrl+Z away from being undone, rather than a field at a time.
+ */
+export function applyDesign(row) {
+  update((s) => {
+    Object.assign(s.params, row.params || {});
+    if (row.name) s.name = row.name;
+    if (row.material) {
+      const m = materialOf(row.material);
+      s.material = m.id;
+      if (m.id !== 'custom') {
+        s.params.thickness = m.t;
+        s.params.kerf = m.kerf;
+      }
+    }
+  });
+}
+
 export function setMaterial(id) {
   const m = materialOf(id);
   update((s) => {

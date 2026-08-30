@@ -3,8 +3,9 @@
 
 import {
   state, update, setParam, setStyle, setSize, getResult, canUndo, canRedo, reset,
-  MATERIALS, material, setMaterial, setBoardNumber,
+  MATERIALS, material, setMaterial, setBoardNumber, applyDesign,
 } from './store.js';
+import * as gallery from './designs.js';
 import { layout, faceLoaded, loadFace, isOutline } from './geom/text.js';
 import { SIZE_PRESETS, sizeOf } from './geom/stand.js';
 import { LAYERS, nest } from './export.js';
@@ -254,6 +255,33 @@ function group(title, open, ...body) {
 }
 
 const ALIGNS = [['left', 'Left'], ['center', 'Centre'], ['right', 'Right']];
+
+/**
+ * What the dialogs are allowed to see of the store: read the design, put one
+ * back, and nothing else.
+ */
+const galleryStore = {
+  name: () => state.name,
+  params: () => ({ ...state.params }),
+  material: () => state.material,
+  rename: (name) => update((s) => { s.name = name; }, { history: false }),
+  apply: (row) => applyDesign(row),
+};
+
+/** Save without asking - used on the way out of Export. */
+export const saveQuietly = () => gallery.saveQuietly(galleryStore);
+
+/** Open a saved design by id, for arrivals from another tool. */
+export const openDesignById = (id) => gallery.openById(galleryStore, id);
+
+const dialogFiller = (build) => function fill(dlg, ctx) {
+  const close = () => dlg.close();
+  const again = () => fill(dlg, ctx);
+  dlg.replaceChildren(build(h, galleryStore, () => { close(); ctx.refresh(); }, again));
+};
+
+export const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+export const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
 
 export function renderInspector(root, ctx) {
   if (sliderDragging) return;

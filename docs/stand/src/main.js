@@ -9,6 +9,7 @@ import { View3D } from './view3d.js';
 import {
   renderInspector, renderBackdrop, renderActions, renderWarnings,
   fillExportDialog, fillHelpDialog, rnd,
+  fillSaveDialog, fillFilesDialog, saveQuietly, openDesignById,
 } from './ui.js';
 import { toSvg, toPdf } from './export.js';
 
@@ -30,6 +31,10 @@ const els = {
   vAssembled: $('#vAssembled'),
   vFlat: $('#vFlat'),
   v3d: $('#v3d'),
+  saveBtn: $('#saveBtn'),
+  filesBtn: $('#filesBtn'),
+  saveDlg: $('#saveDlg'),
+  filesDlg: $('#filesDlg'),
   exportDlg: $('#exportDlg'),
   helpDlg: $('#helpDlg'),
 };
@@ -152,6 +157,10 @@ function drawPreview() {
 }
 
 function refresh() {
+  // Opening a saved design renames the project, and the box in the top bar has
+  // to follow - but never while it is focused, or a rewrite would move the
+  // cursor mid-word.
+  if (document.activeElement !== els.name) els.name.value = state.name;
   drawPreview();
   renderInspector(els.inspector, ctx);
   renderBackdrop(els.backdrop, (id) => {
@@ -182,6 +191,23 @@ async function boot() {
   refresh();
   await loadFace(state.params.face).catch(() => null);
   refresh();
+
+  // Arrived from the gallery in another tool: ?design=<id> says which one to
+  // open. After the first paint, so the tool is usable while it loads, and the
+  // parameter is cleared afterwards so a refresh does not undo whatever has
+  // been changed since.
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    const opened = await openDesignById(wanted);
+    if (opened) {
+      await loadFace(state.params.face).catch(() => null);
+      els.name.value = state.name;
+      refresh();
+    }
+    const url = new URL(location.href);
+    url.searchParams.delete('design');
+    history.replaceState(null, '', url.pathname + url.search);
+  }
 }
 
 boot();
@@ -225,10 +251,35 @@ if (new URLSearchParams(location.search).has('debug')) {
   window.__app = { state, refresh, getResult, view, get view3d() { return view3d; } };
 }
 
+els.saveBtn.addEventListener('click', () => {
+  fillSaveDialog(els.saveDlg, ctx);
+  els.saveDlg.showModal();
+});
+
+els.filesBtn.addEventListener('click', () => {
+  fillFilesDialog(els.filesDlg, ctx);
+  els.filesDlg.showModal();
+});
+
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'svg') download('svg');
   else if (v === 'pdf') download('pdf');
+});
+
+// Exporting is the moment somebody decides a design is finished, so it is the
+// moment worth keeping. It updates whatever design is already open rather than
+// adding another, or three exports in an afternoon leave three near-identical
+// entries in the list.
+//
+// Hung on the click rather than on the dialog closing: a save must not be lost
+// because the download threw on the line before it, and the close event is not
+// dispatched the same way by every browser.
+els.exportDlg.addEventListener('click', (event) => {
+  const button = event.target.closest && event.target.closest('button');
+  if (!button) return;
+  if (button.value !== 'svg' && button.value !== 'pdf') return;
+  void saveQuietly();
 });
 
 document.addEventListener('keydown', (e) => {
