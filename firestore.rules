@@ -16,9 +16,21 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (request.auth != null && request.auth.uid == uid);
 
+      // A new record may carry these six fields and nothing else, and the
+      // three that decide anything have to start empty. Checking only
+      // `paid == false` left the rest wide open: a user could write their own
+      // record with plan: "class" and take a seat in the count on the admin
+      // panel - enough of them and it would report the class full and turn
+      // real customers away. Access itself was never reachable that way, since
+      // `paid` stays false and only an admin may update, but a booking system
+      // anyone can fill with ghosts is still broken.
       allow create: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.paid == false;
+        && request.resource.data.keys().hasOnly(
+             ['email', 'name', 'paid', 'paidUntil', 'plan', 'createdAt'])
+        && request.resource.data.paid == false
+        && request.resource.data.paidUntil == null
+        && request.resource.data.plan == null;
 
       // Hanya admin boleh menukar status bayaran dan penanda pakej,
       // dan hanya medan tersebut sahaja.

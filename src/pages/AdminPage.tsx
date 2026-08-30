@@ -89,7 +89,11 @@ export const AdminPage = () => {
   const stats = useMemo(() => {
     if (!rows) return null
     const active = rows.filter(isAccessActive).length
-    const kelas = rows.filter(isClassParticipant).length
+    // Paid as well as marked, because a seat is something an admin granted.
+    // The rules now stop anyone writing `plan` into their own record, so this
+    // is the second line rather than the first - and it also ignores any
+    // record that was written before those rules were tightened.
+    const kelas = rows.filter((row) => isClassParticipant(row) && row.paid).length
     return { total: rows.length, active, kelas, free: rows.length - active }
   }, [rows])
 

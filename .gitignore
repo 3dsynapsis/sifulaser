@@ -1,3 +1,14 @@
 node_modules
 .DS_Store
 *.local
+
+# Nothing secret is committed today, and this is what keeps it that way:
+# a .env added later would otherwise be picked up by `git add -A` and land
+# in a public repository without anyone noticing.
+.env
+.env.*
+!.env.example
+
+# Build noise and editor droppings.
+dist
+*.log

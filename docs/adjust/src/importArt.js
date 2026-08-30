@@ -27,6 +27,72 @@ export const readAsText = (file) => new Promise((resolve, reject) => {
 });
 
 /**
+ * Turn SVG source into a live element that cannot do anything but be a shape.
+ *
+ * The obvious way to get an SVG onto the page is to assign the file text to
+ * innerHTML, and that is what this used to do. It hands the file the run of the
+ * site. A <script> inserted that way does not run, which is the trap - it looks
+ * safe - but an event handler does: <image onerror>, <animate onbegin>, and the
+ * SVG root`s own onload all fire the moment the node is put in the document.
+ * Verified on the live site, not assumed.
+ *
+ * What that buys an attacker is not a defaced drawing. Every tool here shares an
+ * origin with the account pages, so code running in one can read the signed-in
+ * user`s Firebase credentials out of storage. Sharing SVG templates is the most
+ * ordinary thing in the world for laser work, which makes "open this file" a
+ * short path to somebody else`s account.
+ *
+ * So the file is parsed in a document that is not live - DOMParser runs nothing
+ * and fetches nothing - stripped of everything that carries behaviour rather
+ * than geometry, and only then imported. XML first, because that is what an SVG
+ * is; the HTML parser second, because plenty of real files are not well-formed
+ * and refusing them would be a regression dressed up as security.
+ */
+const UNSAFE_TAGS = [
+  'script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video',
+  'animate', 'animatetransform', 'animatemotion', 'set', 'handler',
+];
+
+export function parseSvgSafely(text) {
+  const src = String(text ?? '');
+  const parser = new DOMParser();
+  let svg = null;
+
+  const xml = parser.parseFromString(src, 'image/svg+xml');
+  if (!xml.querySelector('parsererror')) {
+    const root = xml.documentElement;
+    if (root && root.nodeName.toLowerCase() === 'svg') svg = root;
+  }
+  if (!svg) {
+    // Lenient pass. Still inert: a document from DOMParser is not browsing
+    // context connected, so nothing in it executes or loads.
+    svg = parser.parseFromString(src, 'text/html').querySelector('svg');
+  }
+  if (!svg) return null;
+
+  for (const node of svg.querySelectorAll(UNSAFE_TAGS.join(','))) node.remove();
+  if (UNSAFE_TAGS.includes(svg.nodeName.toLowerCase())) return null;
+
+  const scrub = (el) => {
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.replace(/[\s\u0000-\u001f]/g, '').toLowerCase();
+      // Handlers, in any spelling.
+      if (name.startsWith('on')) { el.removeAttribute(attr.name); continue; }
+      // Links out: a reference into this same file is fine, anything else is
+      // either a script URL or a request that tells someone the file was opened.
+      if (name === 'href' || name.endsWith(':href') || name === 'src') {
+        if (!attr.value.trim().startsWith('#')) el.removeAttribute(attr.name);
+        continue;
+      }
+      if (value.includes('javascript:')) el.removeAttribute(attr.name);
+    }
+    for (const child of el.children) scrub(child);
+  };
+  scrub(svg);
+  return svg;
+}
+/**
  * Sample every shape element into a polygon, keeping what it was painted with.
  * Uses the browser's own path maths via getPointAtLength, so arcs and beziers
  * come out right without a path parser.
@@ -37,9 +103,10 @@ export const readAsText = (file) => new Promise((resolve, reject) => {
 export function svgTextToShapes(text, { tolerance = 0.35 } = {}) {
   const host = document.createElement('div');
   host.style.cssText = 'position:absolute;left:-99999px;top:0;width:1000px;height:1000px';
-  host.innerHTML = text;
-  const svg = host.querySelector('svg');
-  if (!svg) return [];
+  const parsed = parseSvgSafely(text);
+  if (!parsed) return [];
+  const svg = document.importNode(parsed, true);
+  host.appendChild(svg);
   // Stripping the declared size makes getScreenCTM report viewBox units, which
   // is the only frame the whole file agrees on. The physical size is recovered
   // separately, from the text, by svgDocScale().
