@@ -4,6 +4,7 @@ import {
   Check,
   Crown,
   GraduationCap,
+  ChartNoAxesColumn,
   MailWarning,
   ShieldCheck,
   Undo2,
@@ -240,6 +241,40 @@ export const AdminPage = () => {
             </div>
           </div>
         ) : null}
+
+        {/*
+          Cloudflare holds the visitor numbers, and reading them needs an API
+          token. This site is static - GitHub Pages, no server of its own - so a
+          token shipped with the app would be readable by anyone who opened the
+          console, and the admin check above is React, not security. So the panel
+          points at the numbers rather than fetching them.
+
+          The account is left out of the URL on purpose: Cloudflare resolves
+          ":account" against whoever is signed in, which keeps the account id out
+          of a bundle anybody can download.
+        */}
+        <a
+          className="card flex items-center gap-3 p-4 transition hover:border-screw-2"
+          href="https://dash.cloudflare.com/?to=/:account/web-analytics"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef5fd]">
+            <ChartNoAxesColumn
+              className="h-5 w-5 text-screw-2"
+              aria-hidden="true"
+            />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-ink">
+              Pelawat laman
+            </span>
+            <span className="block text-xs text-muted">
+              Cloudflare Web Analytics - tukar julat ke 7 hari untuk pelawat
+              mingguan. Meliputi laman utama dan kelapan-lapan alat.
+            </span>
+          </span>
+        </a>
 
         {stats && stats.kelas >= CLASS_SEAT_LIMIT ? (
           <p className="rounded-xl border border-[#f6ddc0] bg-[#fdf3e8] px-4 py-3 text-sm font-semibold text-[#a3540b]">
