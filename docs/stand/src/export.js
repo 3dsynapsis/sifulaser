@@ -178,13 +178,20 @@ export function toPdf(panels, opts = {}) {
     for (let k = 2; k < st.length; k += 2) ops.push(`${P(st[k])} ${P(st[k + 1])} l`);
   };
   ops.push('0 0 0 rg');
+  // Every ring of every letter is closed into ONE path, and that path is filled
+  // once at the end. PDF's `f` is a non-zero fill, which is what makes a counter
+  // a counter - but only across subpaths of the same path. Filling each ring as
+  // it was drawn, the way this used to, gave the counter nothing to cancel
+  // against and painted the middle of every A, B and R solid black. The SVG was
+  // right all along because it puts the same rings in a single <path>.
+  let filling = false;
   for (const st of engraveFill) {
     if (st.length < 4) continue;
     pen(st);
-    // Non-zero fill matches the winding the glyph data already carries, so a
-    // counter stays a counter and an overlapping stroke does not cancel out.
-    ops.push('h f');
+    ops.push('h');
+    filling = true;
   }
+  if (filling) ops.push('f');
   ops.push('0 0 1 RG');
   for (const st of engrave) {
     if (st.length < 4) continue;
