@@ -7,7 +7,7 @@ import {
 } from './store.js';
 import * as gallery from './designs.js';
 import { layout, faceLoaded, loadFace, isOutline } from './geom/text.js';
-import { SIZE_PRESETS, sizeOf } from './geom/stand.js';
+import { SIZE_PRESETS, sizeOf, MIRRORS } from './geom/stand.js';
 import { LAYERS, nest } from './export.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
@@ -295,6 +295,7 @@ export function renderInspector(root, ctx) {
   const r = getResult();
   const d = r.derived;
   const silhouette = p.style === 'silhouette';
+  const raised = p.style === 'plate3d';
   const outlineFace = isOutline(r.face);
 
   // ---- Size comes first: it is the thing a customer chooses.
@@ -345,14 +346,46 @@ export function renderInspector(root, ctx) {
       seg(ALIGNS, p.align, (id) => { setParam('align', id); ctx.refresh(); }))));
 
   root.append(group('Style', true,
-    seg([['plate', 'Plate'], ['silhouette', 'Cut-out']], p.style,
+    seg([['plate', 'Plate'], ['plate3d', 'Plate 3D'], ['silhouette', 'Cut-out']], p.style,
       (id) => { setStyle(id); ctx.refresh(); }),
     h('p', { class: 'hint' },
       silhouette
         ? 'The letters are the outline. Every one has to touch its neighbour or '
           + 'the bar under it, or it drops out of the sheet loose.'
-        : 'A rounded plate with the name engraved on it. Nothing to break, and '
-          + 'any typeface works however fine it is.'),
+        : raised
+          ? 'The same plate, but the name is cut from mirror acrylic and glued on '
+            + 'so it stands proud. Two sheets, so the export is two files.'
+          : 'A rounded plate with the name engraved on it. Nothing to break, and '
+            + 'any typeface works however fine it is.'),
+    raised
+      ? h('div', { class: 'field' },
+        h('label', {}, 'Mirror finish'),
+        seg(MIRRORS.map((m) => [m.id, m.name.replace(' Mirror', '')]), p.letterFinish,
+          (id) => { setParam('letterFinish', id); ctx.refresh(); }))
+      : null,
+    raised
+      ? numberRow('Mirror thickness (mm)', p.letterT, {
+        min: 1, max: 10, step: 0.5,
+        onInput: (v) => { setParam('letterT', v); ctx.refresh(); },
+      })
+      : null,
+    raised && !outlineFace
+      ? numberRow('Letter thickness (mm)', p.weight, {
+        min: 1, max: 20, step: 0.5,
+        onInput: (v) => { setParam('weight', v); ctx.refresh(); },
+      })
+      : null,
+    raised
+      ? h('div', { class: 'stat' },
+        h('span', {}, 'Name is'),
+        h('b', {}, `${d.gluePieces} piece${d.gluePieces === 1 ? '' : 's'} to glue on`))
+      : null,
+    raised
+      ? h('p', { class: 'hint' },
+        'Tape over the letters before you lift them out of the sheet and they '
+        + 'come away as one, already spaced - the only practical way to glue a '
+        + 'row of loose letters straight.')
+      : null,
     !silhouette
       ? h('label', { class: 'check' },
         h('input', {
@@ -551,11 +584,22 @@ function formatTime(s) {
 export function fillExportDialog(dlg) {
   const r = getResult();
   const d = r.derived;
-  const sheet = nest(r.panels, { sheetWidth: state.sheetWidth });
-  dlg.querySelector('#exportSummary').textContent =
-    `${r.panels.length} pieces on a ${rnd(sheet.width, 1)} x ${rnd(sheet.height, 1)} mm `
-    + `sheet of ${rnd(r.params.thickness, 1)} mm board, `
-    + `${rnd(d.cutLength / 1000, 2)} m of cutting.`;
+  // Plate 3D leaves on two sheets of two different materials, and so as two
+  // files. Saying "one sheet of 5 mm board" would be a straight lie about what
+  // is about to come out of the machine.
+  const boardP = r.panels.filter((x) => x.material !== 'mirror');
+  const mirrorP = r.panels.filter((x) => x.material === 'mirror');
+  const sheet = nest(boardP, { sheetWidth: state.sheetWidth });
+  const dims = (n) => `${rnd(n.width, 1)} x ${rnd(n.height, 1)} mm`;
+  dlg.querySelector('#exportSummary').textContent = mirrorP.length
+    ? `Two files. ${boardP.length} pieces on a ${dims(sheet)} sheet of `
+      + `${rnd(r.params.thickness, 1)} mm board, and the name on a `
+      + `${dims(nest(mirrorP, { sheetWidth: state.sheetWidth }))} piece of `
+      + `${rnd(d.letterT, 1)} mm mirror acrylic. `
+      + `${rnd(d.cutLength / 1000, 2)} m of cutting.`
+    : `${r.panels.length} pieces on a ${dims(sheet)} `
+      + `sheet of ${rnd(r.params.thickness, 1)} mm board, `
+      + `${rnd(d.cutLength / 1000, 2)} m of cutting.`;
   // Only the layers this particular job actually contains, so the key never
   // lists a colour that is not in the file.
   const key = [

@@ -4,6 +4,7 @@ import {
   state, load, update, getResult, undo, redo, material,
 } from './store.js';
 import { loadFace, putFace } from './geom/text.js';
+import { mirrorOf } from './geom/stand.js';
 import { View } from './view.js';
 import { View3D } from './view3d.js';
 import {
@@ -135,6 +136,7 @@ function drawPreview() {
       charred: !!m.char,
       grain: m.grain || 'wood',
       burn: burnColor(m.color),
+      mirror: mirrorOf(state.params.letterFinish).color,
       backdrop: state.backdrop,
     });
     view3d.resize();
@@ -298,21 +300,36 @@ function download(kind) {
   const r = getResult();
   if (!r.panels.length) return;
   const title = state.name || 'stand';
-  const opts = { title, sheetWidth: state.sheetWidth };
-  const body = kind === 'pdf' ? toPdf(r.panels, opts) : toSvg(r.panels, opts);
   const type = kind === 'pdf' ? 'application/pdf' : 'image/svg+xml';
   const base = (r.params.line1 || title).trim().replace(/[^\w-]+/g, '-').toLowerCase()
     || 'stand';
 
-  const blob = new Blob([body], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${base}.${kind}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  // A Plate 3D is cut from two different sheets. It cannot go out as one file:
+  // whatever the file says, a machine cuts what is in front of it, and the
+  // mirror letters would come out of the plywood. One file per sheet, each named
+  // after the stock it belongs on.
+  const board = r.panels.filter((x) => x.material !== 'mirror');
+  const mirror = r.panels.filter((x) => x.material === 'mirror');
+  const jobs = mirror.length
+    ? [[board, `${base}-board`, `${title} - board`],
+      [mirror, `${base}-mirror`, `${title} - mirror acrylic`]]
+    : [[r.panels, base, title]];
+
+  jobs.forEach(([panels, name, sheetTitle], i) => {
+    if (!panels.length) return;
+    const opts = { title: sheetTitle, sheetWidth: state.sheetWidth };
+    const body = kind === 'pdf' ? toPdf(panels, opts) : toSvg(panels, opts);
+    const blob = new Blob([body], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}.${kind}`;
+    document.body.appendChild(a);
+    // Staggered: two clicks in the same tick and the browser treats the second
+    // as a popup rather than a download.
+    setTimeout(() => { a.click(); a.remove(); }, i * 350);
+    setTimeout(() => URL.revokeObjectURL(url), 2000 + i * 350);
+  });
 }
 
 export { putFace };

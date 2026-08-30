@@ -28,9 +28,9 @@ import { layout, isOutline } from './text.js';
 import { strokesToOutline, ringArea } from './outline.js';
 
 export const DEFAULTS = {
-  style: 'plate',        // plate | silhouette
-  line1: 'SHAKIMAH',
-  line2: 'BINTI AB RAHMAN',
+  style: 'silhouette',   // plate | plate3d | silhouette
+  line1: 'FAZRIN',
+  line2: 'ABD RAHMAN',
   baseText: 'SK TANAH MERAH',
   // Blue Highway is the safe default: it is the only kind of face that survives
   // both styles. A fine one looks right on a plate and falls apart the moment
@@ -59,6 +59,9 @@ export const DEFAULTS = {
   corner: 4,
   border: false,         // plate: an engraved line just inside the edge
 
+  letterT: 3,            // plate 3D: thickness of the mirror sheet, mm
+  letterFinish: 'gold',  // plate 3D: which mirror acrylic the name is cut from
+
   baseLayers: 1,         // 1 = slot straight through; 2+ = blind socket
   baseDepth: 0,          // 0 = work it out from the height
   overhang: 6,           // base sticks out this far past the face, each side
@@ -69,9 +72,27 @@ export const DEFAULTS = {
   fit: 0.05,
 };
 
-/** The two styles are presets, not a single switch - each needs its own sizes. */
+/**
+ * The mirror acrylics the raised name is cut from. Colour only - they are the
+ * same stock in three finishes, so nothing but the preview changes.
+ */
+export const MIRRORS = [
+  { id: 'gold', name: 'Gold Mirror', color: '#e0b83c' },
+  { id: 'silver', name: 'Silver Mirror', color: '#c2c7cc' },
+  { id: 'rose', name: 'Rose Gold Mirror', color: '#c08a74' },
+];
+
+export const mirrorOf = (id) => MIRRORS.find((m) => m.id === id) || MIRRORS[0];
+
+/** The styles are presets, not a single switch - each needs its own sizes. */
 export const STYLE_PRESETS = {
   plate: { cap1: 20, cap2: 9, lineGap: 3, padX: 14, padY: 9, corner: 4 },
+  // Same plate, but the name is a separate piece glued on top. The stroke is
+  // lighter than the cut-out's because nothing here has to hold itself up - a
+  // glued letter is supported along its whole length.
+  plate3d: {
+    cap1: 20, cap2: 9, lineGap: 3, padX: 14, padY: 9, corner: 4, weight: 3.5,
+  },
   silhouette: {
     cap1: 34, cap2: 9, lineGap: -4, weight: 5, barHeight: 18, corner: 3, padX: 10,
     line2Cut: false,
@@ -94,6 +115,7 @@ export const sizeOf = (id) => SIZE_PRESETS.find((s) => s.id === id) || null;
 
 export const PANEL_LABELS = {
   face: 'Face',
+  letters: 'Name (mirror acrylic)',
   base: 'Base (slot through)',
   baseTop: 'Base top (slotted)',
   baseMid: 'Base middle (slotted)',
@@ -412,6 +434,11 @@ export function buildStand(input = {}) {
   // every cut letter then sits directly on the bar.
   const cap2 = Math.max(2, p.cap2);
   const silhouette = p.style === 'silhouette';
+  // Plate 3D is a plate in every way that touches the plate's own geometry, so
+  // it deliberately does not set `silhouette`. It differs in one place only:
+  // what happens to line 1.
+  const raised = p.style === 'plate3d';
+  const letterT = Math.max(0.5, p.letterT);
   const hasL2 = l2.paths.length > 0;
   const stackL2 = hasL2 && (!silhouette || p.line2Cut);
   const engraveL2OnBar = silhouette && hasL2 && !p.line2Cut;
@@ -466,6 +493,8 @@ export function buildStand(input = {}) {
   let bodyBottom;   // y of the shoulder that lands on the base
   let pieces = 1;
   let bridgeCount = 0;
+  let raisedRes = null;   // plate 3D: the name, traced as solid pieces
+  let gluePieces = 0;     // plate 3D: how many of them have to be glued on
 
   if (silhouette) {
     const w = cutStroke;
@@ -574,7 +603,40 @@ export function buildStand(input = {}) {
     faceOutline = roundedRect(x0, bodyBottom, faceW, bodyH, p.corner);
     const tenons = tenonSpans(faceW, p.slotInset).map(([a, b]) => [x0 + a, x0 + b]);
     faceOutline = dedupe([...faceOutline, ...tenonDips(bodyBottom, tenons, tenonDepth)]);
-    addEng(l1Paths, out1);
+    // Plate 3D raises line 1 rather than engraving it: the name is cut from a
+    // sheet of mirror acrylic and glued on. It is traced the same way a cut-out
+    // is, because a skeleton face has no body until one is given to it - the
+    // difference is that nothing is welded to anything, since every letter is
+    // meant to come away as its own piece.
+    if (raised) {
+      raisedRes = strokesToOutline(out1 ? [] : l1Paths, {
+        weight: penW,
+        glyphs: out1 ? shiftShapes(l1.shapes, sh1, b1) : [],
+      });
+      // The same name, scored on the plate underneath: the guide you lay the
+      // mirror letters against. Without it, six loose letters have to be lined up
+      // by eye on a blank plate.
+      //
+      // Scored a hair inside the letter rather than on its edge. An engraved line
+      // has width of its own and straddles the path it follows, so a guide drawn
+      // at the true edge leaves half a burnt line showing all the way round the
+      // finished letter. Inside, the letter covers it completely - and it going
+      // out of sight is itself the signal that the letter is seated right.
+      const rw0 = out1 ? meanStroke(l1.shapes) : penW;
+      const inset = Math.min(0.3, Math.max(0.05,
+        (Number.isFinite(rw0) ? rw0 : penW) * 0.12));
+      // One negative offset does both contours: offsetPolygon goes by winding, so
+      // the same value shrinks an outer ring and opens a counter - each of them a
+      // step into the solid of the letter.
+      for (const ring of [...raisedRes.outers, ...raisedRes.holes]) {
+        const g = offsetPolygon(ring, -inset);
+        if (g && g.length > 2) engOpen.push(ringToFlat(g));
+      }
+    } else {
+      addEng(l1Paths, out1);
+    }
+    // Line 2 stays engraved either way. At a 9 mm cap its letters would be
+    // smaller than the smear of glue meant to hold them.
     addEng(l2Paths, out2);
     if (p.border) {
       const inset = Math.max(2.5, Math.min(p.padX, p.padY) * 0.45);
@@ -607,6 +669,39 @@ export function buildStand(input = {}) {
     engrave: faceEngrave,
     engraveFill: faceEngraveFill,
   });
+
+  // ---- the raised name ----------------------------------------------------
+  // Cut from a different sheet, so it is its own panel and carries its own
+  // thickness. It keeps the exact position the layout gave it: lifted off the
+  // sheet under a strip of transfer tape the whole name stays spaced and level,
+  // which is the only practical way to glue six loose letters straight.
+  if (raisedRes && raisedRes.outers.length) {
+    panels.push({
+      id: 'letters',
+      label: PANEL_LABELS.letters,
+      material: 'mirror',
+      thickness: letterT,
+      outline: mv(raisedRes.outers[0]),
+      holes: raisedRes.holes.map(mv),
+      loose: raisedRes.outers.slice(1).map(mv),
+      engrave: [],
+      engraveFill: [],
+    });
+
+    const rw = out1 ? meanStroke(l1.shapes) : penW;
+    if (rw < 2) {
+      warnings.push(`The raised letters average ${rw.toFixed(1)} mm across - thin `
+        + 'enough to snap while you are peeling them off the sheet. '
+        + (out1
+          ? 'This typeface is too fine to cut. Use a heavier one or raise the '
+            + 'capital height.'
+          : 'Raise the letter thickness.'));
+    }
+    // Deliberately not a warning. Loose pieces are what this style IS - unlike a
+    // cut-out, where every extra piece is a failure. A caution that fires on
+    // every single design teaches people to ignore cautions.
+    gluePieces = raisedRes.outers.length;
+  }
 
   // ---- base ---------------------------------------------------------------
   const standHeight = layers * t + bodyH;
@@ -658,7 +753,7 @@ export function buildStand(input = {}) {
     });
   }
 
-  placeInSpace(panels, { t, layers, tenonDepth, faceW, baseW, slotY });
+  placeInSpace(panels, { t, letterT, layers, tenonDepth, faceW, baseW, slotY });
 
   // ---- checks worth making before anyone burns a sheet --------------------
   // Only worth saying on a stack. A single board is slotted right through, so
@@ -686,7 +781,9 @@ export function buildStand(input = {}) {
     }
     const bb = bbox(pan.outline);
     pan.size = { w: bb.w, h: bb.h };
-    pan.thickness = t;
+    // The raised name is cut from a different sheet, so it keeps its own
+    // thickness rather than the board's.
+    pan.thickness = pan.material === 'mirror' ? letterT : t;
     for (const ring of [pan.outline, ...pan.holes, ...pan.loose]) {
       cutLength += ringLength(ring);
     }
@@ -699,6 +796,7 @@ export function buildStand(input = {}) {
       faceW, faceH: bodyH + tenonDepth, bodyH, baseW, baseD, slotY,
       tenonDepth, tenons: tenonsOnFace, layers,
       pieces, loose: faceLoose.length, holes: faceHoles.length, bridges: bridgeCount,
+      gluePieces, letterT,
       cap1: p.cap1, cap2: p.cap2, cutStroke, fitScale: fitted.fitScale ?? 1,
       // Which engrave operations this job actually needs. Closed letter shapes
       // have to be filled - send those to a Line operation and the machine
@@ -744,9 +842,26 @@ export function buildStand(input = {}) {
  *   about the same centre line. Both straddle slotY by half a thickness, so the
  *   two agree by construction rather than by two numbers happening to match.
  */
-function placeInSpace(panels, { t, layers, tenonDepth, faceW, baseW, slotY }) {
+function placeInSpace(panels, { t, letterT, layers, tenonDepth, faceW, baseW, slotY }) {
   const baseTall = layers * t;
-  panels.forEach((pan, idx) => {
+  const faceX = (baseW - faceW) / 2;
+  const faceZ = baseTall - tenonDepth;
+  // Counted rather than derived from the index: the panel list is no longer
+  // face-then-base-layers now that a raised name can sit between them, and an
+  // index that assumed it was would put the base boards inside each other.
+  let layerIdx = 0;
+  panels.forEach((pan) => {
+    if (pan.id === 'letters') {
+      // Glued to the front of the plate: its own front face stands one letter
+      // thickness proud, and N points out at the reader, which is -y.
+      pan.frame = {
+        origin: [faceX, slotY - t / 2 - letterT, faceZ],
+        U: [1, 0, 0],
+        V: [0, 0, 1],
+        N: [0, -1, 0],
+      };
+      return;
+    }
     if (pan.id === 'face') {
       pan.frame = {
         // The slots are cut at (tenon x + overhang), so the face has to start at
@@ -759,9 +874,9 @@ function placeInSpace(panels, { t, layers, tenonDepth, faceW, baseW, slotY }) {
       };
       return;
     }
-    // The face is panel 0, so base layer i is panel i+1, counting down from the
-    // top board. Its visible surface is the top of that board.
-    const i = idx - 1;
+    // Base layers, counted down from the top board. Its visible surface is the
+    // top of that board.
+    const i = layerIdx++;
     pan.frame = {
       origin: [0, 0, (layers - i) * t],
       U: [1, 0, 0],

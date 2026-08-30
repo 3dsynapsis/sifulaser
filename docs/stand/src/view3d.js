@@ -263,6 +263,17 @@ export class View3D {
     const lineMat = new THREE.LineBasicMaterial({
       color: new THREE.Color(opts.burn || '#3a2a1c'),
     });
+    // Mirror acrylic, for the raised name on a Plate 3D. There is no environment
+    // map in this scene, and a fully metallic surface with nothing to reflect
+    // renders black - so this is deliberately part metal: enough to throw a hard
+    // highlight off the key light, not so much that the gold goes out.
+    const mirrorColor = new THREE.Color(opts.mirror || '#c9a227');
+    const mirrorMat = new THREE.MeshStandardMaterial({
+      color: mirrorColor, roughness: 0.2, metalness: 0.3,
+    });
+    const mirrorEdge = new THREE.MeshStandardMaterial({
+      color: mirrorColor.clone().multiplyScalar(0.72), roughness: 0.3, metalness: 0.5,
+    });
 
     for (const panel of result.panels) {
       if (!panel.frame) continue;
@@ -272,12 +283,18 @@ export class View3D {
       // `loose` are pieces that fall out of the sheet as separate parts. In the
       // assembled object they are glued back where they were traced, so they
       // belong in the same extrusion as the piece they came out of.
+      // A panel cut from a different sheet carries its own thickness, so the
+      // board's is a fallback rather than the rule.
+      const pt = panel.thickness || t;
+      const mirror = panel.material === 'mirror';
+
       const shapes = ringsToShapes([panel.outline, ...panel.holes, ...(panel.loose || [])]);
       if (shapes.length) {
-        const geom = new THREE.ExtrudeGeometry(shapes, { depth: t, bevelEnabled: false });
+        const geom = new THREE.ExtrudeGeometry(shapes, { depth: pt, bevelEnabled: false });
         // The frame plane is the visible surface, so the board hangs behind it.
-        geom.translate(0, 0, -t);
-        const mesh = new THREE.Mesh(geom, [faceMat, sideMat]);
+        geom.translate(0, 0, -pt);
+        const mesh = new THREE.Mesh(geom,
+          mirror ? [mirrorMat, mirrorEdge] : [faceMat, sideMat]);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         group.add(mesh);
