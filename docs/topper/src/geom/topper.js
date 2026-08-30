@@ -179,22 +179,6 @@ export const PRESETS = [
     },
   },
   {
-    id: 'pengantin',
-    name: 'Selamat Pengantin Baru',
-    note: 'A long second line. Courgette is upright enough to stay readable at '
-      + 'this length, and thickens into one piece cleanly.',
-    params: {
-      text: 'Selamat\nPengantin Baru',
-      face: 'courgette',
-      width: 120,
-      lineHeight: 90,
-      thicken: 0.5,
-      stakes: 1,
-      stakeLength: 50,
-      stakeWidth: 5,
-    },
-  },
-  {
     id: 'aqiqah',
     name: 'Aqiqah',
     note: 'Two lines, the second a full name. Wide and shallow, so the stakes '
