@@ -565,3 +565,103 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .quiet { display: inline-flex; align-items: center; gap: 6px; }
 .quiet svg { width: 14px; height: 14px; opacity: 0.75; }
+
+/* ---------- phone ---------- */
+/* The side-by-side layout stops working well below 640px: the stage collapses
+   to a sliver and the top bar's three columns run off the edge. So stack it -
+   preview on top at the full width of the screen, settings in a scrolling
+   panel underneath - and give the top bar two rows so nothing collides.
+   Nothing here touches the tablet (900px) or desktop layout. */
+@media (max-width: 640px) {
+  /* top bar: brand and view tabs share row one, the buttons take row two. */
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand   mid"
+      "actions actions";
+    gap: 6px 8px;
+    padding: 6px 10px;
+  }
+  .brand { grid-area: brand; gap: 6px; }
+  .midbar, .topbar > .viewtoggle { grid-area: mid; }
+  .actions { grid-area: actions; flex-wrap: wrap; row-gap: 6px; gap: 6px; }
+
+  .logo { font-size: 16px; }
+  /* 16px, not 14. Safari zooms the whole page when a field under 16px takes
+     focus, and the layout that was just fitted into 375px is then wider than
+     the screen. This field is written with no type attribute, so the
+     input[type=text] rule that carries 16px never reached it. */
+  .name-input { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 16px; }
+  /* The autosave indicator - Saving... / Saved. Dropped on a phone for room,
+     and that is a real loss rather than a duplicate of the Save button: Save
+     only opens the dialog and never reports autosave state. The top bar is
+     already two rows tall here, so the room wins. */
+  .status { display: none; }
+
+  .vt { padding: 9px 11px; font-size: 12px; }
+
+  /* The size readout is information, not a button; it gets its own quiet line
+     rather than fighting the buttons for horizontal room. */
+  .actions > #sizeReadout { flex: 1 0 100%; order: -1; font-size: 11.5px; }
+
+  .icon-btn { width: 38px; height: 38px; font-size: 16px; }
+  .primary, .ghost, .soft { padding: 11px 14px; }
+
+  /* Icon only - the label "Reka bentuk saya" is the widest thing in the row
+     and the folder icon carries the same meaning. */
+  #filesBtn {
+    width: 38px; height: 38px; padding: 0;
+    justify-content: center; font-size: 0;
+  }
+  #filesBtn svg { width: 18px; height: 18px; }
+
+  /* ---- stacked layout ---- */
+  .layout { flex-direction: column; }
+
+  .stage {
+    flex: 5 1 0;
+    min-height: 240px;
+    /* dimension arrows are drawn outside the drawing box; on a phone the
+       settings panel is directly below them, so clip. */
+    overflow: hidden;
+  }
+
+  .inspector {
+    flex: 4 1 0;
+    width: auto;
+    min-height: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: 10px 12px 28px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .insp-title { margin: 2px 0 8px; }
+
+  /* ---- finger-sized controls ---- */
+  .group > summary { padding: 14px 12px; }
+  input[type="text"], input[type="number"], select, textarea {
+    /* 16px also stops iOS zooming the page when a field takes focus. */
+    font-size: 16px; padding: 10px 11px;
+  }
+  .seg button { padding: 12px 4px; font-size: 13px; }
+  .cat-tabs button { padding: 9px 13px; }
+  .face-opt { min-height: 48px; }
+  input[type="range"] { height: 28px; }
+
+  /* The dimension callouts cluster along the bottom and right of the drawing
+     once it fills a phone-width stage, so the hint moves clear of them. */
+  .stage-hint {
+    top: 12px; bottom: auto; max-width: calc(100% - 110px);
+    text-align: center; font-size: 11px; padding: 5px 10px;
+  }
+
+  /* ---- dialogs ---- */
+  /* A row of four or five export buttons is wider than the screen, so the row
+     wraps into pairs instead of pushing the primary action off the edge. */
+  .dlg-body { padding: 16px; gap: 12px; }
+  .dlg-actions { flex-wrap: wrap; gap: 8px; }
+  .dlg-actions button { flex: 1 1 42%; min-width: 0; }
+  .dlg-actions .ghost.wide { padding: 11px 12px; }
+  .layer-key { flex-wrap: wrap; gap: 6px 14px; }
+  #filesDlg .design-list { max-height: 40vh; }
+}

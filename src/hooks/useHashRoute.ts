@@ -17,6 +17,7 @@ export type Route =
   | 'wifi'
   | 'chiller'
   | 'kedai'
+  | 'blog'
   | 'pakej'
   | 'bayar'
   | 'about'
@@ -24,6 +25,8 @@ export type Route =
 
 const parseRoute = (hash: string): Route => {
   const path = hash.replace(/^#\/?/, '').replace(/\/$/, '')
+  // Blog ada pautan dalam untuk setiap episod (#/blog/81).
+  if (path === 'blog' || path.startsWith('blog/')) return 'blog'
   switch (path) {
     case 'simulator':
       return 'simulator'

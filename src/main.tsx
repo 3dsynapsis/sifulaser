@@ -13,6 +13,7 @@ import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
 import { AboutPage } from './pages/AboutPage'
+import { BlogPage } from './pages/BlogPage'
 import { PlansPage } from './pages/PlansPage'
 import { AdminPage } from './pages/AdminPage'
 import { PaymentPage } from './pages/PaymentPage'
@@ -109,6 +110,8 @@ const Root = () => {
     // Kedai kini sebahagian daripada About Me; pautan lama dikekalkan.
     case 'kedai':
       return <AboutPage />
+    case 'blog':
+      return <BlogPage />
     case 'weekly':
       return <MaintenanceRoute guide={WEEKLY_GUIDE} />
     case 'yearly':

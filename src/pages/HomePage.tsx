@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   Crosshair,
   Lightbulb,
+  Newspaper,
   PenLine,
   Puzzle,
   QrCode,
@@ -159,6 +160,17 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 12,
+    title: 'Blog',
+    description:
+      'Episod Laser — nota Sifu Hisham dari kerja harian, sedia untuk disalin.',
+    href: '#/blog',
+    color: '#0f766e',
+    softBg: '#e9f6f4',
+    border: '#c4e5e0',
+    Icon: Newspaper,
+  },
+  {
+    number: 13,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
