@@ -163,15 +163,26 @@ export async function list() {
  * hundred bytes instead of a few hundred kilobytes, the design stays editable,
  * and anything we improve in the tool tomorrow applies to designs saved today,
  * because they are cut fresh every time.
+ *
+ * `extra` is a JSON STRING, not an object, and that is deliberate. Some tools
+ * carry raw geometry rather than settings - the Box Maker keeps the outline of
+ * every imported ornament - and Firestore wraps each value in its own type
+ * envelope, so an array of two thousand coordinate pairs stored natively is
+ * several times larger than the same thing written out as text. One string
+ * field stays compact and keeps well clear of the megabyte a document is
+ * allowed.
  */
-export async function save({ id, name, params, material }) {
+export async function save({
+  id, name, params, material, tool, extra,
+}) {
   const body = {
     fields: toFields({
       name: String(name || 'Untitled topper').slice(0, 120),
-      tool: 'topper',
+      tool: String(tool || 'topper'),
       params,
       material: String(material || ''),
       updatedAt: new Date().toISOString(),
+      ...(extra ? { extra: String(extra) } : {}),
     }),
   };
   const doc = id

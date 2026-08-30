@@ -191,6 +191,32 @@ export function emit() {
   for (const fn of listeners) fn(state);
 }
 
+/**
+ * Load a design that came back from the account.
+ *
+ * The decoration is optional. A box whose ornaments were too large to store
+ * comes back as the box alone - the size, the joints, the material - and that
+ * is deliberate: better a design that opens with its box intact than a save
+ * that refused outright because somebody imported a photograph.
+ */
+export function applyDesign(row) {
+  let decor = null;
+  if (row.extra) {
+    try {
+      const parsed = JSON.parse(row.extra);
+      if (parsed && typeof parsed === 'object') decor = parsed.decor || null;
+    } catch {
+      decor = null;
+    }
+  }
+  update((s) => {
+    Object.assign(s.params, row.params || {});
+    if (row.name) s.name = row.name;
+    if (row.material) s.material = row.material;
+    if (decor) s.decor = { ...emptyDecor(), ...decor };
+  });
+}
+
 export const material = () => MATERIALS.find((m) => m.id === state.material)
   || MATERIALS.find((m) => m.id === DEFAULT_MATERIAL);
 

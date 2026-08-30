@@ -50,7 +50,7 @@ function initialState() {
     params: { ...DEFAULTS, thickness: m.t, kerf: m.kerf },
     material: m.id,
     speed: 20,           // mm/s cutting, for the time estimate only
-    view: 'assembled',   // assembled | flat | 3d
+    view: '3d',          // assembled | flat | 3d
     backdrop: 'light',
     sheetWidth: 600,
     name: 'Untitled stand',

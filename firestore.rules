@@ -61,13 +61,21 @@ service cloud.firestore {
         allow create, update: if request.auth != null
           && request.auth.uid == uid
           && request.resource.data.keys().hasOnly(
-               ['name', 'tool', 'params', 'material', 'updatedAt'])
+               ['name', 'tool', 'params', 'material', 'updatedAt', 'extra'])
           && request.resource.data.name is string
           && request.resource.data.name.size() <= 120
           && request.resource.data.tool is string
           && request.resource.data.tool.size() <= 40
           && request.resource.data.params is map
-          && request.resource.data.params.keys().size() <= 40;
+          && request.resource.data.params.keys().size() <= 40
+          // Optional, and a string rather than a structure: some tools carry raw
+          // geometry, and Firestore wraps every value in a type envelope, so two
+          // thousand coordinate pairs stored natively cost several times what the
+          // same thing costs written out as text. The bound keeps a single design
+          // well clear of the megabyte a document is allowed.
+          && (!('extra' in request.resource.data)
+              || (request.resource.data.extra is string
+                  && request.resource.data.extra.size() <= 700000));
 
         allow delete: if request.auth != null && request.auth.uid == uid;
       }

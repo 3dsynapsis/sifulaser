@@ -32,6 +32,22 @@ export const TOOLS = {
 /** The tool this copy of the gallery is running inside. */
 export const TOOL = 'topper';
 
+/**
+ * How much tool-specific data a design may carry, in bytes of JSON.
+ *
+ * Firestore allows a megabyte per document. This leaves room for the rest of
+ * it and for the difference between what a string measures here and what it
+ * occupies there. A Box Maker ornament of middling complexity - three shapes,
+ * a couple of thousand points - is about 85 KB, so this holds roughly five of
+ * them. Past that the box is saved without its decoration and the dialog says
+ * so, which is better than a save that fails with nothing to explain it.
+ */
+export const EXTRA_LIMIT = 450 * 1024;
+
+/** Set when the last save had to leave the decoration behind. */
+let droppedExtra = false;
+export const lastSaveDroppedExtra = () => droppedExtra;
+
 // Cached: the dialogs get opened repeatedly and the list rarely changes in
 // between.
 let designs = null;
@@ -79,11 +95,26 @@ const message = (err) => (err instanceof cloud.NotSignedIn
  */
 export async function saveCurrent(store, { name, asNew = false } = {}) {
   const title = String(name || store.name() || 'Untitled topper').trim();
+
+  // Tools that carry nothing beyond their settings leave this out entirely.
+  let extra = null;
+  droppedExtra = false;
+  if (typeof store.extra === 'function') {
+    const payload = store.extra();
+    if (payload) {
+      const text = JSON.stringify(payload);
+      if (text.length <= EXTRA_LIMIT) extra = text;
+      else droppedExtra = true;
+    }
+  }
+
   const id = await cloud.save({
     id: asNew ? null : openId,
     name: title,
     params: store.params(),
     material: store.material(),
+    tool: TOOL,
+    extra,
   });
   openId = id;
   openName = title;
@@ -188,6 +219,12 @@ export function saveDialogBody(h, store, close, rerender) {
     h('label', { class: 'field-label' }, 'Nama'),
     input,
     openId ? h('p', { class: 'hint' }, `Sedang mengedit: ${openName}`) : null,
+    droppedExtra
+      ? h('p', { class: 'warn-line' },
+        'Hiasan pada kotak ini terlalu besar untuk disimpan, jadi hanya ukuran '
+        + 'dan bentuk kotak yang disimpan. Eksport fail potong untuk menyimpan '
+        + 'hiasannya.')
+      : null,
     failure ? h('p', { class: 'warn-line' }, failure) : null,
     h('div', { class: 'dlg-actions' },
       h('button', { class: 'ghost', type: 'button', onclick: close }, 'Batal'),

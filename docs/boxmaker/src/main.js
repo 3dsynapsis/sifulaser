@@ -12,6 +12,7 @@ import { exportSvg, exportPanel } from './exportSvg.js';
 import {
   renderFaces, renderInspector, openPopover, shapeMenu, emojiMenu, imageMenu,
   fillExportDialog, fillAssembleDialog, renderBackdrop,
+  fillSaveDialog, fillFilesDialog, saveQuietly, openDesignById,
 } from './ui.js';
 import {
   readAsDataUrl, readAsText, svgTextToRings, glyphToDataUrl, imageSize,
@@ -35,6 +36,10 @@ const els = {
   name: $('#projectName'),
   undo: $('#undoBtn'),
   redo: $('#redoBtn'),
+  saveBtn: $('#saveBtn'),
+  filesBtn: $('#filesBtn'),
+  saveDlg: $('#saveDlg'),
+  filesDlg: $('#filesDlg'),
   exportDlg: $('#exportDlg'),
   assembleDlg: $('#assembleDlg'),
 };
@@ -68,6 +73,10 @@ const ctx = {
 };
 
 function refresh(opts = {}) {
+  // Opening a saved design renames the project, and the box in the top bar has
+  // to follow - but never while it is focused, or a rewrite would move the
+  // cursor mid-word.
+  if (document.activeElement !== els.name) els.name.value = state.name;
   const box = getBox();
   const mat = material();
 
@@ -302,10 +311,34 @@ $('#exportBtn').addEventListener('click', () => {
   els.exportDlg.showModal();
 });
 
+els.saveBtn.addEventListener('click', () => {
+  fillSaveDialog(els.saveDlg, ctx);
+  els.saveDlg.showModal();
+});
+
+els.filesBtn.addEventListener('click', () => {
+  fillFilesDialog(els.filesDlg, ctx);
+  els.filesDlg.showModal();
+});
+
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'all') downloadAll();
   else if (v === 'panel') downloadPanel();
+});
+
+// Exporting is the moment somebody decides a box is finished, so it is the
+// moment worth keeping. It updates whatever design is already open rather than
+// adding another.
+//
+// On the click rather than on the dialog closing: a save must not be lost
+// because the download threw on the line before it, and the close event is not
+// dispatched the same way by every browser.
+els.exportDlg.addEventListener('click', (event) => {
+  const button = event.target.closest && event.target.closest('button');
+  if (!button) return;
+  if (button.value !== 'all' && button.value !== 'panel') return;
+  void saveQuietly();
 });
 
 function download(name, text) {

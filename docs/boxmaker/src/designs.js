@@ -30,7 +30,7 @@ export const TOOLS = {
 };
 
 /** The tool this copy of the gallery is running inside. */
-export const TOOL = 'stand';
+export const TOOL = 'boxmaker';
 
 /**
  * How much tool-specific data a design may carry, in bytes of JSON.
@@ -94,7 +94,7 @@ const message = (err) => (err instanceof cloud.NotSignedIn
  * single sitting.
  */
 export async function saveCurrent(store, { name, asNew = false } = {}) {
-  const title = String(name || store.name() || 'Untitled stand').trim();
+  const title = String(name || store.name() || 'Untitled box').trim();
 
   // Tools that carry nothing beyond their settings leave this out entirely.
   let extra = null;
@@ -203,7 +203,7 @@ export function saveDialogBody(h, store, close, rerender) {
     busy = true;
     failure = null;
     try {
-      const name = input.value.trim() || 'Untitled stand';
+      const name = input.value.trim() || 'Untitled box';
       store.rename(name);
       await saveCurrent(store, { name, asNew });
       close();

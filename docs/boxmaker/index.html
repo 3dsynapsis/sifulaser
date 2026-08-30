@@ -25,6 +25,8 @@
       <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
       <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
       <button class="icon-btn" id="assembleBtn" title="How to assemble">?</button>
+      <button class="soft" id="saveBtn">Save</button>
+      <button class="ghost quiet" id="filesBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Reka bentuk saya</button>
       <button class="primary" id="exportBtn">Export</button>
     </div>
   </header>
@@ -56,6 +58,9 @@
 </div>
 
 <div class="popover" id="popover" hidden></div>
+
+<dialog id="saveDlg" class="dlg"></dialog>
+<dialog id="filesDlg" class="dlg"></dialog>
 
 <dialog id="exportDlg" class="dlg">
   <form method="dialog" class="dlg-body">

@@ -2,8 +2,9 @@
 
 import {
   state, update, setParam, getBox, currentPanel, decorFor, selectedObject,
-  MATERIALS, material, canUndo, canRedo, clampDecor, reset,
+  MATERIALS, material, canUndo, canRedo, clampDecor, reset, applyDesign,
 } from './store.js';
+import * as gallery from './designs.js';
 import { PANEL_LABELS, SCREW } from './geom/box.js';
 import { makeObject, PROCESSES, objectRings, measureText } from './geom/decor.js';
 import { FONTS, loadFont } from './fonts.js';
@@ -364,6 +365,37 @@ export function renderFaces(root, { onFace, onCamera, camera }) {
 }
 
 // ------------------------------------------------------------- inspector
+/**
+ * What the dialogs are allowed to see of the store.
+ *
+ * extra() is what makes this tool different from the others: a box carries
+ * the outline of every ornament on it, which is raw geometry rather than a
+ * setting. The gallery measures it and decides whether it will fit.
+ */
+const galleryStore = {
+  name: () => state.name,
+  params: () => ({ ...state.params }),
+  material: () => state.material,
+  extra: () => ({ decor: state.decor }),
+  rename: (name) => update((s) => { s.name = name; }, { history: false }),
+  apply: (row) => applyDesign(row),
+};
+
+/** Save without asking - used on the way out of Export. */
+export const saveQuietly = () => gallery.saveQuietly(galleryStore);
+
+/** Open a saved design by id, for arrivals from another tool. */
+export const openDesignById = (id) => gallery.openById(galleryStore, id);
+
+const dialogFiller = (build) => function fill(dlg, ctx) {
+  const close = () => dlg.close();
+  const again = () => fill(dlg, ctx);
+  dlg.replaceChildren(build(h, galleryStore, () => { close(); ctx.refresh(); }, again));
+};
+
+export const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+export const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+
 export function renderInspector(root, ctx) {
   if (sliderDragging) return; // the live control stays put until the drag ends
   root.replaceChildren();
