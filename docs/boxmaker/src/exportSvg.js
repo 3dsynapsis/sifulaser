@@ -2,6 +2,7 @@
 // so LightBurn / RDWorks / Lightburn-alikes can map them straight to layers.
 
 import { bbox, ringToPath, ringsToPath, translate, fmt } from './geom/path.js';
+import { labelPathData } from './geom/label.js';
 import { objectRings } from './geom/decor.js';
 
 export const LAYERS = {
@@ -106,7 +107,7 @@ function panelElements(placement, decor, opts) {
 }
 
 export function sheetToSvg(sheet, decorFor, opts = {}) {
-  const o = { strokeWidth: 0.1, labels: false, ...opts };
+  const o = { strokeWidth: 0.1, labels: false, labelSize: 4, ...opts };
   const buckets = { cut: [], 'engrave-line': [], 'engrave-fill': [] };
   const images = [];
   const labels = [];
@@ -156,12 +157,19 @@ export function sheetToSvg(sheet, decorFor, opts = {}) {
   }
 
   if (labels.length) {
-    parts.push('<g id="labels" fill="#9aa0a6" stroke="none">');
+    // Single-line strokes, not <text>. A <text> element sets in whatever font
+    // the machine that opens the file happens to have - and some laser
+    // front-ends drop it entirely, leaving panels with no marking at all. These
+    // are real polylines, so they look the same everywhere and a machine can
+    // actually follow them. No inner flip: the strokes are already y-up, which
+    // is the coordinate system this group is drawn in.
+    parts.push(
+      `<g id="labels" data-layer="Labels" fill="none" stroke="#9aa0a6" ` +
+      `stroke-width="${fmt(o.strokeWidth)}" stroke-linecap="round" ` +
+      `stroke-linejoin="round" opacity="0.75">`);
     for (const l of labels) {
-      parts.push(
-        `<g transform="translate(${fmt(l.x)} ${fmt(l.y)}) scale(1 -1)">` +
-        `<text x="0" y="0" font-family="sans-serif" font-size="4" ` +
-        `text-anchor="middle" opacity="0.5">${esc(l.text)}</text></g>`);
+      const d = labelPathData(l.text, l.x, l.y, o.labelSize);
+      if (d) parts.push(`<path d="${d}"/>`);
     }
     parts.push('</g>');
   }
