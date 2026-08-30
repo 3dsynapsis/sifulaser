@@ -53,6 +53,15 @@ Setiap perubahan ikut 4 langkah ni. Jangan skip langkah 2.
   - `Papar harga asal RM500 dicoret di sebelah RM250`
   - `Panel Admin: bezakan peserta kelas dan pelanggan digital`
 
+## Analitik
+
+Setiap halaman ada snippet Cloudflare Web Analytics sebelum `</body>`.
+Ia diletak dalam **sumber** setiap alat, bukan hanya dalam `docs/`, sebab alat
+di-vendor dengan menyalin `index.html` — kalau snippet itu hidup dalam `docs/`
+sahaja, ia akan terpadam senyap kali berikutnya mana-mana alat dikemas kini.
+
+Kalau tambah alat baharu, salin snippet itu ke `index.html` alat tersebut.
+
 ## Sejarah
 
 Kekalkan sejarah **lurus** — fast-forward sahaja, elakkan merge commit.
