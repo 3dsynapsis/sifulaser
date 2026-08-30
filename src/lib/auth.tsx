@@ -67,15 +67,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!pending) return
 
     let unsubscribe: (() => void) | undefined
+    let unsubToken: (() => void) | undefined
     let cancelled = false
 
     void pending
       .then(({ auth, authApi }) => {
         if (cancelled) return
+        // Two listeners on purpose. onAuthStateChanged drives what this app
+        // shows; onIdTokenChanged also fires each time Firebase refreshes the
+        // token, roughly hourly, which is what keeps the note the tools read
+        // from going stale under them an hour into a session.
+        unsubToken = authApi.onIdTokenChanged(auth, (tokenUser) => {
+          if (!tokenUser) { publishSession(null); return }
+          void tokenUser.getIdTokenResult().then((result) => {
+            publishSession({
+              email: tokenUser.email ?? '',
+              uid: tokenUser.uid,
+              token: result.token,
+              exp: Date.parse(result.expirationTime),
+            })
+          }).catch(() => publishSession(null))
+        })
+
         unsubscribe = authApi.onAuthStateChanged(auth, (nextUser) => {
           setUser(nextUser)
-          // The tools cannot see Firebase, so leave them a note they can.
-          publishSession(nextUser?.email ?? null)
           if (!nextUser) {
             setPaid(false)
             setPaidUntil(null)
@@ -90,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       cancelled = true
+      unsubToken?.()
       unsubscribe?.()
     }
   }, [])

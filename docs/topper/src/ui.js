@@ -3,7 +3,7 @@
 
 import {
   state, update, setParam, getResult, canUndo, canRedo, reset, CM,
-  MATERIALS, material, setMaterial, setBoardNumber, applyPreset,
+  MATERIALS, material, setMaterial, setBoardNumber, applyPreset, applyDesign,
 } from './store.js';
 import { layout, faceLoaded, faceFailed, loadFace, isOutline } from './geom/text.js';
 import {
@@ -12,6 +12,7 @@ import {
 } from './geom/topper.js';
 import { LAYERS } from './export.js';
 import { BORDERS, borderOf, fitWidth } from './geom/border.js';
+import { renderDesigns } from './designs.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
@@ -293,6 +294,15 @@ export function renderInspector(root, ctx) {
   area.value = p.text;
 
   root.append(group('Start from', true, ...presetPicker(ctx)));
+
+  // Under the presets, because both answer the same question - what am I
+  // starting from - and one of the two answers is "what I made last week".
+  root.append(renderDesigns({ h, group }, ctx, {
+    name: () => state.name,
+    params: () => ({ ...state.params }),
+    material: () => state.material,
+    apply: (row) => applyDesign(row),
+  }));
 
   root.append(group('Message', true,
     area,

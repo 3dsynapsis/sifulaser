@@ -2,25 +2,45 @@
 //
 // The seven tools under /topper, /boxmaker and the rest are plain ES modules
 // with no build step and no dependencies at all - that is deliberate, and
-// shipping the Firebase SDK into each of them to answer one yes-or-no question
-// would be a poor trade. They do share this origin, though, so the app can
-// simply leave a note here saying somebody is signed in, and they can read it.
+// shipping the Firebase SDK into each of them would be a poor trade. They do
+// share this origin, though, so the app leaves a note here and they read it.
 //
 // Deliberately NOT the Firebase session itself. That lives in IndexedDB under a
 // key and shape belonging to a library we do not control, and reading another
 // library's private storage is a bug waiting for its next major version. This
 // is our own format, and it is documented by being this file.
 //
-// It carries an email and nothing else - no token, nothing that would let the
-// holder act as the user. It is a flag for a sign-in prompt, and the tools use
-// it for exactly that.
+// ---------------------------------------------------------------------------
+// About the token, because it deserves saying out loud.
+//
+// This note carries the user's Firebase ID token, which is what lets a tool
+// save a design to Firestore as that user without the SDK. A bearer token in
+// localStorage is not something to do casually, so: the token only ever grants
+// what the security rules grant, which is that user's own record and their own
+// designs - never anyone else's. And any script running on this origin can
+// already pull the same token out of Firebase's own IndexedDB, so this does not
+// hand out access that was otherwise unreachable. It makes it easier to reach,
+// which is why the SVG import hole that would have allowed exactly that was
+// closed before this was written.
+//
+// Tokens last an hour. onIdTokenChanged fires when Firebase refreshes one, so
+// the note is rewritten and never goes stale behind the tools' backs.
+// ---------------------------------------------------------------------------
 
 export const SESSION_KEY = 'sifulaser.session'
 
-export const publishSession = (email: string | null): void => {
+export interface SharedSession {
+  email: string
+  uid: string
+  token: string
+  /** Milliseconds since epoch. The tools refuse a token past this. */
+  exp: number
+}
+
+export const publishSession = (session: SharedSession | null): void => {
   try {
-    if (email) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ email }))
+    if (session) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session))
     } else {
       localStorage.removeItem(SESSION_KEY)
     }

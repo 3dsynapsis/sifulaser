@@ -139,6 +139,11 @@ function drawPreview() {
 
 function refresh() {
   drawPreview();
+  // Opening a saved design renames the project, and the box in the top bar
+  // has to follow. Never while it is focused: refresh runs on every
+  // keystroke elsewhere, and rewriting the field under a cursor would move
+  // it to the end mid-word.
+  if (document.activeElement !== els.name) els.name.value = state.name;
   renderInspector(els.inspector, ctx);
   renderBackdrop(els.backdrop, (id) => {
     update((s) => { s.backdrop = id; }, { history: false });

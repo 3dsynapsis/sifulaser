@@ -39,6 +39,38 @@ service cloud.firestore {
              .hasOnly(['paid', 'paidUntil', 'plan']);
 
       allow delete: if false;
+
+      // Designs a customer saved from the tools.
+      //
+      // Kept under their own record so the rule is the uid in the path - there
+      // is no owner field to forge, and no way to phrase a query that reaches
+      // somebody else`s work. Admin may read them, because the point of saving
+      // designs on the server rather than in a browser is that when a customer
+      // says they have lost one, there is someone who can actually look.
+      //
+      // The shape is pinned. Without that, a signed-in customer could use this
+      // as free unlimited storage - and the storage, and the daily quota, are
+      // ours. A design is a few hundred bytes; these bounds are far above what
+      // the tool writes and far below anything worth abusing.
+      match /designs/{designId} {
+        allow read: if isAdmin()
+          || (request.auth != null && request.auth.uid == uid);
+
+        // create and update, spelled out: `write` would also cover delete,
+        // which has no request.resource to check and is handled on its own below.
+        allow create, update: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(
+               ['name', 'tool', 'params', 'material', 'updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.tool is string
+          && request.resource.data.tool.size() <= 40
+          && request.resource.data.params is map
+          && request.resource.data.params.keys().size() <= 40;
+
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Semua koleksi lain ditutup secara lalai.

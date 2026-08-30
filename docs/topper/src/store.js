@@ -151,6 +151,32 @@ export function setParam(key, value) {
 }
 
 /** Choosing a sheet sets the two numbers that are properties of that sheet. */
+/**
+ * Load a design that came back from the account.
+ *
+ * One update() so it is a single undo step: somebody who opens the wrong
+ * design presses Ctrl+Z once and is back where they were, rather than
+ * unwinding a field at a time.
+ *
+ * The sheet is applied through the same path as picking one by hand, so a
+ * design saved in Falcata comes back with Falcata`s thickness and kerf and
+ * not whatever the last project happened to be cut in.
+ */
+export function applyDesign(row) {
+  update((s) => {
+    Object.assign(s.params, row.params || {});
+    if (row.name) s.name = row.name;
+    if (row.material) {
+      const m = materialOf(row.material);
+      s.material = m.id;
+      if (m.id !== 'custom') {
+        s.params.thickness = m.t;
+        s.params.kerf = m.kerf;
+      }
+    }
+  });
+}
+
 export function setMaterial(id) {
   const m = materialOf(id);
   update((s) => {
