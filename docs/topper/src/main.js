@@ -257,6 +257,7 @@ els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'svg') download('svg');
   else if (v === 'pdf') download('pdf');
+  else if (v === 'whatsapp') sendWhatsApp();
 });
 
 // Exporting is the moment somebody decides a design is finished, so it is the
@@ -273,7 +274,7 @@ els.exportDlg.addEventListener('close', () => {
 els.exportDlg.addEventListener('click', (event) => {
   const button = event.target.closest && event.target.closest('button');
   if (!button) return;
-  if (button.value !== 'svg' && button.value !== 'pdf') return;
+  if (!['svg', 'pdf', 'whatsapp'].includes(button.value)) return;
   void saveQuietly();
 });
 
@@ -289,9 +290,9 @@ document.addEventListener('keydown', (e) => {
   refresh();
 });
 
-function download(kind) {
+function buildFile(kind) {
   const r = getResult();
-  if (!r.panels.length) return;
+  if (!r.panels.length) return null;
   const title = state.name || 'topper';
   const opts = { title, sheetWidth: 900 };
   const body = kind === 'pdf' ? toPdf(r.panels, opts) : toSvg(r.panels, opts);
@@ -302,13 +303,80 @@ function download(kind) {
   const base = (lines[lines.length - 1] || title).trim()
     .replace(/[^\w-]+/g, '-').toLowerCase() || 'topper';
 
-  const blob = new Blob([body], { type });
-  const url = URL.createObjectURL(blob);
+  return { blob: new Blob([body], { type }), name: `${base}-topper.${kind}`, type };
+}
+
+function saveFile(file) {
+  const url = URL.createObjectURL(file.blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${base}-topper.${kind}`;
+  a.download = file.name;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
+function download(kind) {
+  const file = buildFile(kind);
+  if (file) saveFile(file);
+}
+
+/**
+ * What the person cutting this needs to know, in the message rather than only
+ * in the file. They may well open it on a phone, hours later, without the tool
+ * in front of them.
+ */
+function jobNote() {
+  const r = getResult();
+  const d = r.derived;
+  const first = String(r.params.text || '').split(/\r?\n/).filter((l) => l.trim());
+  return [
+    `*${first.join(' / ') || state.name || 'Cake topper'}*`,
+    `Cake topper - ${rnd(d.width, 1)} x ${rnd(d.height, 1)} mm`,
+    `${rnd(r.params.thickness, 1)} mm ${material().name}`,
+    'All cut, nothing to engrave.',
+  ].join('\n');
+}
+
+/**
+ * Hand the cut file to WhatsApp.
+ *
+ * PDF rather than SVG: WhatsApp treats a PDF as a document anyone can open,
+ * while an SVG arrives as a file most phones will not preview and some clients
+ * refuse outright.
+ *
+ * Where the browser and the OS allow it the file goes across attached. Where
+ * they do not - which is most desktops - nothing can push a file into WhatsApp
+ * through a link: wa.me and the whatsapp: scheme carry text and nothing else.
+ * So the fallback saves the file and opens WhatsApp with the job written out,
+ * leaving one attachment to do by hand.
+ *
+ * canShare is checked synchronously, before anything is awaited. Past an await
+ * the click is no longer a user gesture and the browser blocks the window it
+ * would otherwise open.
+ */
+function sendWhatsApp() {
+  const file = buildFile('pdf');
+  if (!file) return;
+  const text = jobNote();
+
+  let shareable = null;
+  try {
+    const f = new File([file.blob], file.name, { type: file.type });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) shareable = f;
+  } catch {
+    shareable = null;
+  }
+
+  if (shareable) {
+    // Cancelling the share sheet rejects; that is a choice, not a failure, so it
+    // must not then go and open a second thing behind them.
+    navigator.share({ files: [shareable], text }).catch(() => {});
+    return;
+  }
+
+  saveFile(file);
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+}
+

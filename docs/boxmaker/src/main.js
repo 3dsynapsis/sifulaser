@@ -326,6 +326,7 @@ els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'all') downloadAll();
   else if (v === 'pdf') downloadAllPdf();
+  else if (v === 'whatsapp') sendWhatsApp();
   else if (v === 'panel') downloadPanel();
 });
 
@@ -339,7 +340,7 @@ els.exportDlg.addEventListener('close', () => {
 els.exportDlg.addEventListener('click', (event) => {
   const button = event.target.closest && event.target.closest('button');
   if (!button) return;
-  if (!['all', 'pdf', 'panel'].includes(button.value)) return;
+  if (!['all', 'pdf', 'whatsapp', 'panel'].includes(button.value)) return;
   void saveQuietly();
 });
 
@@ -374,6 +375,80 @@ function downloadAllPdf() {
       files.length > 1 ? `${base}-sheet${i + 1}.pdf` : `${base}.pdf`,
       f.pdf, 'application/pdf'), i * 200);
   });
+}
+
+/**
+ * What the person cutting this needs to know, in the message rather than only
+ * in the file. They may well open it on a phone, hours later, without the tool
+ * in front of them - and a box that arrives without its board thickness is a
+ * box that gets cut on the wrong board.
+ */
+function boxNote(files) {
+  const box = getBox();
+  const p = box.params;
+  const art = files.reduce((n, f) => n + f.art, 0);
+  const out = [
+    `*${state.name || 'Box'}*`,
+    `${p.length} x ${p.width} x ${p.height} mm outside`,
+    `${box.panels.length} panels on ${p.thickness} mm board, kerf ${p.kerf} mm`,
+    'Kerf and fit are already in the paths - cut as-is.',
+  ];
+  if (files.length > 1) out.push(`${files.length} sheets.`);
+  // Said out loud, because it is the one thing in the box that the PDF cannot
+  // carry and nobody would think to check for.
+  if (art) {
+    out.push(`${art} placed image${art === 1 ? '' : 's'} `
+      + `${art === 1 ? 'is' : 'are'} not in the PDF - ask for the SVG for those.`);
+  }
+  return out.join('\n');
+}
+
+/**
+ * Hand the cut files to WhatsApp.
+ *
+ * PDF rather than SVG: WhatsApp treats a PDF as a document anyone can open,
+ * while an SVG arrives as a file most phones will not preview.
+ *
+ * Where the browser and the OS allow it the files go across attached - all the
+ * sheets at once, because half a box is not a box. Where they do not, which is
+ * most desktops, nothing can push a file into WhatsApp through a link: wa.me
+ * and the whatsapp: scheme carry text and nothing else. So the fallback saves
+ * the sheets and opens WhatsApp with the job written out.
+ *
+ * canShare is checked synchronously, before anything is awaited. Past an await
+ * the click is no longer a user gesture and the browser blocks the window.
+ */
+function sendWhatsApp() {
+  const labels = $('#labelsChk').checked;
+  const sheets = exportPdf(getBox(), decorFor, { sheet: state.sheet, labels });
+  if (!sheets.length) return;
+  const base = (state.name || 'box').trim().replace(/[^\w-]+/g, '-').toLowerCase() || 'box';
+  const files = sheets.map((f, i) => ({
+    name: sheets.length > 1 ? `${base}-sheet${i + 1}.pdf` : `${base}.pdf`,
+    blob: new Blob([f.pdf], { type: 'application/pdf' }),
+    art: f.art,
+  }));
+  const text = boxNote(files);
+
+  let shareable = null;
+  try {
+    const fs = files.map((f) => new File([f.blob], f.name, { type: 'application/pdf' }));
+    if (navigator.canShare && navigator.canShare({ files: fs })) shareable = fs;
+  } catch {
+    shareable = null;
+  }
+
+  if (shareable) {
+    navigator.share({ files: shareable, text }).catch(() => {});
+    return;
+  }
+
+  // The pdf text, not the blob: download() wraps whatever it is given in a Blob
+  // of its own, and a Blob inside a Blob is a confusing way to write the same
+  // bytes.
+  files.forEach((f, i) => setTimeout(
+    () => download(f.name, sheets[i].pdf, 'application/pdf'), i * 200));
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
 function downloadPanel() {
