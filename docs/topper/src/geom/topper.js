@@ -41,6 +41,7 @@ export const DEFAULTS = {
   weight: 4,             // stroke faces only: what a skeleton gets fattened to
 
   border: 'none',        // see BORDERS in border.js
+  fill: 100,             // % of the room inside the frame the lettering takes
   borderWidth: 5,        // mm across the band of the frame itself
 
   connect: 'dots-and-letters',   // dots-and-letters | dots | none
@@ -302,6 +303,20 @@ export function matchesPreset(preset, params) {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+/**
+ * clamp, for a number that might not be one.
+ *
+ * Settings are read back out of a saved project, and a project is a lump of
+ * JSON in the browser`s storage that anything could have written. A clamp does
+ * not save you there: Math.max(50, Math.min(160, NaN)) is NaN, so one bad field
+ * scales the lettering by NaN, every coordinate in the piece becomes NaN, and
+ * the bounding box comes back null - the tool throws while drawing rather than
+ * showing anything at all.
+ */
+const clampNum = (v, lo, hi, fallback) => (Number.isFinite(v)
+  ? Math.max(lo, Math.min(hi, v))
+  : fallback);
+
 const EMPTY = {
   params: { ...DEFAULTS },
   panels: [],
@@ -490,6 +505,52 @@ const span2 = (seg) => (seg[2] - seg[0]) ** 2 + (seg[3] - seg[1]) ** 2;
  * the length, not the count, that gave the dot of an i away.
  */
 const longestBridge = (segs) => segs.reduce((m, s) => Math.max(m, Math.hypot(s[2] - s[0], s[3] - s[1])), 0);
+
+/** The bounding box of a whole frame. */
+function groupsBBox(groups) {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const g of groups) {
+    for (const r of g) {
+      for (let i = 0; i < r.length; i += 2) {
+        if (r[i] < x0) x0 = r[i];
+        if (r[i] > x1) x1 = r[i];
+        if (r[i + 1] < y0) y0 = r[i + 1];
+        if (r[i + 1] > y1) y1 = r[i + 1];
+      }
+    }
+  }
+  return { w: x1 - x0, h: y1 - y0 };
+}
+
+/**
+ * The narrowest gap between the lettering and the frame, in millimetres.
+ *
+ * Reported so the slider that sets it has a real number against it rather than
+ * a percentage nobody can picture. Zero means they touch, which is the good
+ * case: the letters weld into the frame and no strut is needed at all.
+ *
+ * Sampled, and deliberately measured here rather than anywhere else. Working it
+ * out from a separate reconstruction of the same geometry gave 21.6 mm where
+ * the piece itself had 6 - the reconstruction had drifted, and there was no way
+ * to tell from the number which of the two was wrong. Measured on the arrays
+ * the topper is actually built from, it cannot disagree with the piece.
+ */
+function gapToFrame(letters, frame) {
+  const lp = samplePoints(letters, 1500);
+  const fp = samplePoints(frame, 800);
+  if (!lp.length || !fp.length) return 0;
+  let best = Infinity;
+  for (const p of lp) {
+    for (const q of fp) {
+      const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2;
+      if (d < best) best = d;
+    }
+  }
+  return Math.sqrt(best);
+}
 
 /** An even sample of every point in a set of groups, as [[x,y],...]. */
 function samplePoints(groups, want) {
@@ -781,24 +842,26 @@ export function buildTopper(input = {}) {
   // for having one. Fitting it neatly inside would leave a ring with loose
   // letters rattling about in the middle of it.
   const shape = borderOf(p.border);
-  const frame = fitWidth(
-    shape.build(outerW, Math.max(0.5, p.borderWidth)),
-    outerW,
-  );
+  const band = clampNum(p.borderWidth, 0.5, 40, DEFAULTS.borderWidth);
+  const frame = fitWidth(shape.build(outerW, band), outerW);
   let s;
   if (frame) {
     // The lettering is fitted to the largest circle inside the frame, then
     // pushed out by half the ring so it runs into the frame and welds to it.
-    // Half, not more: past the middle of the band the letters would break
-    // out through the outer edge, and the width on the label would stop
-    // being the width of the finished piece.
     const diag = Math.hypot(measure.w, measure.h) || 1;
-    // How much of the opening the lettering is allowed to take. One means it
-    // runs into the middle of the band and welds there, which is what a plain
-    // frame wants. A frame with something growing off it says less than one,
-    // so its decoration is not buried under the text.
-    const reach = innerRadius(frame) + Math.max(0.5, p.borderWidth) * 0.5;
-    s = (reach * 2 * (shape.fill ?? 1)) / diag;
+    // How much of the opening the lettering takes. The border has an opinion -
+    // a plain ring wants the letters run into it, a frame with leaves growing
+    // off it wants them kept back so its decoration is not buried - and Fill
+    // is the reader of the two, because how close the words should sit to the
+    // frame is a matter of taste and nobody else can settle it.
+    const reach = innerRadius(frame) + band * 0.5;
+    s = (reach * 2 * (shape.fill ?? 1) * (clampNum(p.fill, 50, 160, 100) / 100)) / diag;
+    // Never past the frame, whatever Fill says. The width on the label is the
+    // frame`s width, so lettering allowed to reach outside it would make the
+    // piece bigger than the number in the box - and that number is the one
+    // promise this tool makes about what comes off the machine.
+    const box = groupsBBox(frame);
+    s = Math.min(s, box.w / measure.w, box.h / measure.h);
   } else {
     s = outerW / measure.w;
   }
@@ -820,6 +883,7 @@ export function buildTopper(input = {}) {
   // measures half again what was asked for, and the weight hangs off to one
   // side of the stakes.
   if (frame) shiftGroups(frame, (ink.x0 + ink.x1) / 2, (ink.y0 + ink.y1) / 2);
+  const frameGap = frame ? gapToFrame(groups, frame) : 0;
   const lastBase = -(laid.length - 1) * step * s;
 
   // ---- stakes ------------------------------------------------------------
@@ -860,7 +924,7 @@ export function buildTopper(input = {}) {
     const sp = Math.min(half, innerRadius(frame) * 0.5);
     wanted = nStakes === 2 ? [mid - sp, mid + sp] : nStakes === 1 ? [mid] : [];
     snapped = 0;
-    frameStakeTop = lowestY(frame) + Math.max(2, p.borderWidth * 0.9);
+    frameStakeTop = lowestY(frame) + Math.max(2, band * 0.9);
   }
   const stakeTop = frame ? frameStakeTop : yTop;
   const stakeShapes = wanted.map((x) => [
@@ -1004,6 +1068,7 @@ export function buildTopper(input = {}) {
       bridgeSpan,
       holds,
       holdSpan,
+      frameGap,
       loose: loose.length,
       holes: holes.length,
       bridges,

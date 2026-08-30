@@ -28,6 +28,20 @@
 
 import { ellipse, regularPolygon } from './path.js';
 
+// How much of the room inside a frame the lettering takes by default.
+//
+// One would mean the text block is inscribed in the largest circle the frame
+// leaves free, by its diagonal - and that leaves the words visibly marooned in
+// the middle of every shape but a circle, because the corners of a text block
+// are mostly empty and a hexagon or a star has far more room than its inscribed
+// circle admits. These are measured per shape: how far the lettering has to be
+// let out before an ordinary two or three line name reaches the frame.
+//
+// Not a value that can be right for every text. A name whose middle line is a
+// single ampersand has empty corners however big it is set, so its ink never
+// arrives at the ring no matter what this says - which is what the struts are
+// for. It is a sensible place to start, and Fill in the inspector moves it.
+
 const flat = (pts) => {
   const out = new Array(pts.length * 2);
   for (let i = 0; i < pts.length; i++) {
@@ -130,6 +144,7 @@ export const BORDERS = [
   {
     id: 'circle',
     name: 'Circle',
+    fill: 1.15,
     note: 'The usual one, and the easiest to letter inside.',
     build: (width, t) => {
       const R = width / 2;
@@ -140,6 +155,7 @@ export const BORDERS = [
   {
     id: 'hexagon',
     name: 'Hexagon',
+    fill: 1.35,
     // Spun 30 degrees off the default, which starts at the top: that puts the
     // points at three and nine, and the flats top and bottom, so the widest
     // part of the frame is level with the middle line of the text.
@@ -150,6 +166,7 @@ export const BORDERS = [
   {
     id: 'octagon',
     name: 'Octagon',
+    fill: 1.3,
     note: 'Eight sides. Flat top and bottom, so a long line of text has more room '
       + 'than a circle gives it.',
     build: (width, t) => [polygonRing(width, t, 8, 22.5)],
@@ -157,6 +174,7 @@ export const BORDERS = [
   {
     id: 'heart',
     name: 'Heart',
+    fill: 1.25,
     note: 'For a wedding or an anniversary. The notch at the top eats into the '
       + 'space, so a long first line is a tight fit.',
     build: (width, t) => {
@@ -222,6 +240,7 @@ export const BORDERS = [
   {
     id: 'double-square',
     name: 'Double square',
+    fill: 1.4,
     note: 'Two square frames crossing at forty-five degrees. Modern, and the eight '
       + 'points give the stake a corner to sit on.',
     build: (width, t) => {

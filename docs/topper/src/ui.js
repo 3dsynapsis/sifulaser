@@ -353,7 +353,27 @@ export function renderInspector(root, ctx) {
       max: 15,
       step: 0.5,
       onInput: (v) => { setParam('borderWidth', v); ctx.refresh(); },
-    })));
+    }),
+    // How close the words sit to the frame is taste, not arithmetic, so it is
+    // a control rather than a constant. The gap is read back in millimetres
+    // underneath, because a percentage on its own is not something anyone can
+    // picture on a piece of acrylic.
+    p.border === 'none' ? null : numberRow('Fill the frame (%)', p.fill, {
+      min: 50,
+      max: 130,
+      step: 1,
+      onInput: (v) => { setParam('fill', v); ctx.refresh(); },
+    }),
+    p.border === 'none' ? null : h('div', { class: 'stat' },
+      h('span', {}, 'Gap to the frame'),
+      h('b', {}, d.frameGap < 0.05 ? 'touching' : `${rnd(d.frameGap, 1)} mm`)),
+    p.border === 'none' ? null : h('p', { class: 'hint' },
+      d.frameGap < 0.05
+        ? 'The letters run into the frame, which is the strongest way to hold '
+          + 'them - nothing thin in between.'
+        : 'Turn this up to close the gap. Where the letters reach the frame they '
+          + 'weld to it; short of that they are held by struts, which the tool '
+          + 'adds in two places so the words cannot swing.')));
 
   root.append(group('Typeface', true, ...facePicker(ctx)));
 
