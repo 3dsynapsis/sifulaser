@@ -128,6 +128,27 @@ export const PRESETS = [
     },
   },
   {
+    id: 'birthday-2',
+    name: 'Happy Birthday 2',
+    note: 'The same words in a hexagon. A fine frame at 2.5 mm, and the lettering '
+      + 'held just short of it - the tool struts it top and bottom so nothing '
+      + 'swings.',
+    params: {
+      text: 'Happy\nBirthday\nAisyah',
+      face: 'great-vibes',
+      border: 'hexagon',
+      borderWidth: 2.5,
+      fill: 94,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      bridge: 0.5,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
+    },
+  },
+  {
     id: 'hari-jadi',
     name: 'Selamat Hari Jadi',
     note: 'The same in Malay. Wider, because "Hari Jadi" is a longer line.',
@@ -169,6 +190,25 @@ export const PRESETS = [
       face: 'great-vibes',
       border: 'vine',
       borderWidth: 5,
+      width: 120,
+      lineHeight: 90,
+      thicken: 0.5,
+      bridge: 0.5,
+      stakes: 1,
+      stakeLength: 50,
+      stakeWidth: 5,
+    },
+  },
+  {
+    id: 'nikah-3',
+    name: 'Nikah 3',
+    note: 'Two names in an octagon. The flat top and bottom give a short line more room than a circle does, and the frame carries the piece.',
+    params: {
+      text: 'Aiman\n&\nNadia',
+      face: 'great-vibes',
+      border: 'octagon',
+      borderWidth: 3,
+      fill: 90,
       width: 120,
       lineHeight: 90,
       thicken: 0.5,
@@ -516,24 +556,44 @@ function groupsBBox(groups) {
  * a percentage nobody can picture. Zero means they touch, which is the good
  * case: the letters weld into the frame and no strut is needed at all.
  *
- * Sampled, and deliberately measured here rather than anywhere else. Working it
- * out from a separate reconstruction of the same geometry gave 21.6 mm where
- * the piece itself had 6 - the reconstruction had drifted, and there was no way
- * to tell from the number which of the two was wrong. Measured on the arrays
- * the topper is actually built from, it cannot disagree with the piece.
+ * To the EDGES of the frame, not to its corners. An octagon is eight points; a
+ * circle is a hundred and sixty. Comparing point against point therefore works
+ * on one and not remotely on the other - on the octagon the nearest vertex can
+ * be nine millimetres away from lettering that is touching the middle of a
+ * flat, and the readout said nine millimetres while the piece came out welded
+ * in one with no connector at all. The same flaw, in a throwaway script, is
+ * what reported 21.6 mm across a gap the builder crossed with an 8.5 mm strut.
+ *
+ * Measured here on the arrays the topper is actually built from, so it cannot
+ * drift away from the piece.
  */
 function gapToFrame(letters, frame) {
   const lp = samplePoints(letters, 1500);
-  const fp = samplePoints(frame, 800);
-  if (!lp.length || !fp.length) return 0;
+  if (!lp.length) return 0;
   let best = Infinity;
-  for (const p of lp) {
-    for (const q of fp) {
-      const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2;
-      if (d < best) best = d;
+  for (const g of frame) {
+    for (const r of g) {
+      const n = r.length / 2;
+      if (n < 2) continue;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const ax = r[j * 2];
+        const ay = r[j * 2 + 1];
+        const dx = r[i * 2] - ax;
+        const dy = r[i * 2 + 1] - ay;
+        const len2 = dx * dx + dy * dy;
+        for (const p of lp) {
+          const t = len2 > 0
+            ? Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - ay) * dy) / len2))
+            : 0;
+          const ex = p[0] - (ax + dx * t);
+          const ey = p[1] - (ay + dy * t);
+          const d = ex * ex + ey * ey;
+          if (d < best) best = d;
+        }
+      }
     }
   }
-  return Math.sqrt(best);
+  return Number.isFinite(best) ? Math.sqrt(best) : 0;
 }
 
 /** An even sample of every point in a set of groups, as [[x,y],...]. */
