@@ -9,6 +9,7 @@ import { View2D } from './view2d.js';
 import { makeObject, measureText } from './geom/decor.js';
 import { loadFont, preload } from './fonts.js';
 import { exportSvg, exportPanel } from './exportSvg.js';
+import { exportPdf } from './exportPdf.js';
 import {
   renderFaces, renderInspector, openPopover, shapeMenu, emojiMenu, imageMenu,
   fillExportDialog, fillAssembleDialog, renderBackdrop,
@@ -324,6 +325,7 @@ els.filesBtn.addEventListener('click', () => {
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'all') downloadAll();
+  else if (v === 'pdf') downloadAllPdf();
   else if (v === 'panel') downloadPanel();
 });
 
@@ -337,12 +339,12 @@ els.exportDlg.addEventListener('close', () => {
 els.exportDlg.addEventListener('click', (event) => {
   const button = event.target.closest && event.target.closest('button');
   if (!button) return;
-  if (button.value !== 'all' && button.value !== 'panel') return;
+  if (!['all', 'pdf', 'panel'].includes(button.value)) return;
   void saveQuietly();
 });
 
-function download(name, text) {
-  const blob = new Blob([text], { type: 'image/svg+xml' });
+function download(name, text, type = 'image/svg+xml') {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -360,6 +362,17 @@ function downloadAll() {
   files.forEach((f, i) => {
     setTimeout(() => download(
       files.length > 1 ? `${base}-sheet${i + 1}.svg` : `${base}.svg`, f.svg), i * 200);
+  });
+}
+
+function downloadAllPdf() {
+  const labels = $('#labelsChk').checked;
+  const files = exportPdf(getBox(), decorFor, { sheet: state.sheet, labels });
+  const base = (state.name || 'box').trim().replace(/[^\w-]+/g, '-').toLowerCase() || 'box';
+  files.forEach((f, i) => {
+    setTimeout(() => download(
+      files.length > 1 ? `${base}-sheet${i + 1}.pdf` : `${base}.pdf`,
+      f.pdf, 'application/pdf'), i * 200);
   });
 }
 

@@ -158,14 +158,20 @@ export function toPdf(layers, opts = {}) {
   };
   if (doc.engraveFill.length) {
     ops.push('0 0 0 rg');
+    // Even-odd, because these rings came out of somebody else's file and their
+    // windings are whatever that program felt like. Even-odd makes a ring inside
+    // a ring a hole regardless of direction - but only when both rings are
+    // subpaths of ONE path. Filled ring by ring, as this used to be, even-odd
+    // has a single ring to consider and fills it solid, so the rule could never
+    // do the one job it was chosen for. Hence: close them all, fill once.
+    let filling = false;
     for (const ring of doc.engraveFill) {
       if (ring.length < 3) continue;
       pen(ring);
-      // Even-odd, because these rings came out of somebody else's file and
-      // their windings are whatever that program felt like. Even-odd makes a
-      // ring inside a ring a hole regardless of direction.
-      ops.push('h f*');
+      ops.push('h');
+      filling = true;
     }
+    if (filling) ops.push('f*');
   }
   if (doc.engrave.length) {
     ops.push('0 0 1 RG');

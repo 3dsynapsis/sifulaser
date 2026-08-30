@@ -193,13 +193,20 @@ export function toPdf(panels, opts = {}) {
     for (let k = 2; k < st.length; k += 2) ops.push(`${P(st[k])} ${P(st[k + 1])} l`);
   };
   ops.push('0 0 0 rg');
+  // Every rectangle is closed into ONE path and that path is filled once. `f`
+  // in PDF paints and then ends the path, so filling as each ring is drawn
+  // leaves nothing for a later ring to combine with: modules sharing an edge
+  // cannot read as one area, and anything with a hole in it - a letter, if this
+  // ever engraves one - comes out solid. The SVG has always drawn them as a
+  // single path, which is why the two did not match.
+  let filling = false;
   for (const st of engraveFill) {
     if (st.length < 4) continue;
     pen(st);
-    // Non-zero fill, so that two module rectangles sharing an edge read as one
-    // solid area rather than cancelling each other out along the join.
-    ops.push('h f');
+    ops.push('h');
+    filling = true;
   }
+  if (filling) ops.push('f');
   ops.push('0 0 1 RG');
   for (const st of engrave) {
     if (st.length < 4) continue;

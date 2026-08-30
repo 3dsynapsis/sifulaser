@@ -882,8 +882,18 @@ export function fillExportDialog(dlg, box) {
   sel.onchange = (e) => update((s) => { s.sheet = e.target.value; }, { history: false });
   dlg.querySelector('#exportSummary').textContent =
     `${box.panels.length} panels · ${box.params.length} × ${box.params.width} × ${box.params.height} mm · ${box.params.thickness} mm board`;
+  // Placed images cannot go into the PDF. A PDF image is an XObject with its own
+  // encoding, and a PNG cannot be carried across as it stands. Saying so is the
+  // whole point: artwork that silently fails to appear is worse than artwork
+  // that was never offered.
+  const art = box.panels.reduce(
+    (n, p) => n + decorFor(p).filter((o) => o.type === 'image').length, 0);
   dlg.querySelector('#exportNote').textContent =
-    `Kerf ${box.params.kerf} mm and a ${rnd(box.params.fit, 2)} mm interference fit are already baked into the paths — cut as-is.`;
+    `Kerf ${box.params.kerf} mm and a ${rnd(box.params.fit, 2)} mm interference fit are already baked into the paths — cut as-is.`
+    + (art
+      ? ` The PDF holds the vectors only — ${art} placed image${art === 1 ? '' : 's'}`
+        + ` ${art === 1 ? 'is' : 'are'} in the SVG alone.`
+      : '');
 }
 
 const STEPS = [

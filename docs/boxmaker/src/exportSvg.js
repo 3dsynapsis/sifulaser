@@ -16,7 +16,7 @@ export const SHEETS = [
   { id: '1200x900', name: '1200 x 900', w: 1200, h: 900 },
 ];
 
-const DEFAULT_SHEET = '600x400';
+export const DEFAULT_SHEET = '600x400';
 
 /**
  * Shelf-pack the panels. Returns sheets, each with placements in y-up sheet
@@ -84,8 +84,13 @@ function panelElements(placement, decor, opts) {
   const out = { cut: [], 'engrave-line': [], 'engrave-fill': [], images: [] };
 
   // Structural geometry is always a cut.
+  //
+  // Rings rather than path strings, because there are now two writers. An SVG
+  // wants a `d` attribute and a PDF wants operators, and the one thing neither
+  // may do is work out the geometry for itself - that is how two exports of the
+  // same box drift apart.
   const rings = [panel.outline, ...panel.holes];
-  out.cut.push(ringsToPath(shift(rings)));
+  out.cut.push(shift(rings));
 
   for (const obj of decor || []) {
     if (obj.type === 'image') {
@@ -96,7 +101,7 @@ function panelElements(placement, decor, opts) {
     const r = shift(objectRings(obj));
     if (!r.length) continue;
     out[obj.process] = out[obj.process] || [];
-    out[obj.process].push(ringsToPath(r));
+    out[obj.process].push(r);
   }
 
   if (opts.labels) {
@@ -106,8 +111,15 @@ function panelElements(placement, decor, opts) {
   return out;
 }
 
-export function sheetToSvg(sheet, decorFor, opts = {}) {
-  const o = { strokeWidth: 0.1, labels: false, labelSize: 4, ...opts };
+/**
+ * Everything on one sheet, as geometry: a list of ring groups per laser process,
+ * plus the raster art and the panel labels. Both writers start here, so the SVG
+ * and the PDF cannot disagree about what is on the sheet.
+ *
+ * Coordinates are y-up, the way the nester lays them out.
+ */
+export function sheetGeometry(sheet, decorFor, opts = {}) {
+  const o = { labels: false, labelSize: 4, ...opts };
   const buckets = { cut: [], 'engrave-line': [], 'engrave-fill': [] };
   const images = [];
   const labels = [];
@@ -115,11 +127,21 @@ export function sheetToSvg(sheet, decorFor, opts = {}) {
   for (const pl of sheet.placements) {
     const el = panelElements(pl, decorFor(pl.panel), o);
     for (const k of Object.keys(buckets)) {
-      if (el[k]) buckets[k].push(...el[k].filter(Boolean));
+      if (el[k]) buckets[k].push(...el[k].filter((g) => g && g.length));
     }
     images.push(...el.images);
     if (el.labels) labels.push(...el.labels);
   }
+  return { ...buckets, images, labels, w: sheet.w, h: sheet.h };
+}
+
+export function sheetToSvg(sheet, decorFor, opts = {}) {
+  const o = { strokeWidth: 0.1, labels: false, labelSize: 4, ...opts };
+  const geo = sheetGeometry(sheet, decorFor, o);
+  const buckets = {
+    cut: geo.cut, 'engrave-line': geo['engrave-line'], 'engrave-fill': geo['engrave-fill'],
+  };
+  const { images, labels } = geo;
 
   const parts = [];
   parts.push(
@@ -145,7 +167,7 @@ export function sheetToSvg(sheet, decorFor, opts = {}) {
   }
 
   for (const key of ['engrave-fill', 'engrave-line', 'cut']) {
-    const paths = buckets[key].filter(Boolean);
+    const paths = buckets[key].map((group) => ringsToPath(group)).filter(Boolean);
     if (!paths.length) continue;
     const L = LAYERS[key];
     const style = key === 'engrave-fill'
