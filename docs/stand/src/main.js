@@ -350,9 +350,11 @@ function jobNote(r) {
     `Board: ${material().id === 'custom' ? '' : `${material().name} `}${rnd(p.thickness, 1)} mm`,
   ];
   if (r.panels.some((x) => x.material === 'mirror')) {
+    // Named by colour, not by layer. A PDF carries no layer names - only the
+    // colours - and the colour is true of the SVG as well.
     out.push(`Name: ${mirrorOf(p.letterFinish).name} ${rnd(d.letterT, 1)} mm - cut the `
-      + '"Cut (Mirror acrylic)" layer from that, everything else from the board, '
-      + 'then glue the letters onto the scored guide.');
+      + 'magenta outlines from that, everything else from the board, then glue '
+      + 'the letters onto the scored guide.');
   }
   return out.join('\n');
 }
@@ -371,7 +373,10 @@ function jobNote(r) {
  * would otherwise open.
  */
 function sendWhatsApp() {
-  const file = buildFile('svg');
+  // PDF rather than SVG. WhatsApp treats a PDF as a document anyone can open;
+  // an SVG arrives as a file most phones will not preview, and some clients
+  // refuse the type outright.
+  const file = buildFile('pdf');
   if (!file) return;
   const text = jobNote(file.result);
 
