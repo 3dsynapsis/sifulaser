@@ -18,9 +18,13 @@
 
     <div class="midbar">
       <div class="viewtoggle" role="tablist" aria-label="View">
-        <button class="vt" id="vCake" role="tab" aria-selected="true">On the cake</button>
+        <!-- 3D first because 3D is what the tool opens on. A selected tab sitting
+             at the end of the strip reads as though something else is the
+             starting point and this one was picked. The retired "On the cake"
+             tab is gone rather than hidden: markup that only JavaScript keeps
+             out of sight is still there for anything that does not run it. -->
+        <button class="vt" id="v3d" role="tab" aria-selected="true">3D</button>
         <button class="vt" id="vFlat" role="tab" aria-selected="false">Flat</button>
-        <button class="vt" id="v3d" role="tab" aria-selected="false">3D</button>
       </div>
     </div>
 

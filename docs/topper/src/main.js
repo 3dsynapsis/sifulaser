@@ -25,7 +25,6 @@ const els = {
   name: $('#projectName'),
   undo: $('#undoBtn'),
   redo: $('#redoBtn'),
-  vCake: $('#vCake'),
   vFlat: $('#vFlat'),
   v3d: $('#v3d'),
   saveBtn: $('#saveBtn'),
@@ -157,9 +156,9 @@ function refresh() {
   renderActions({ undoBtn: els.undo, redoBtn: els.redo });
   // The cake view is retired from the tab strip: the 3D preview answers the
   // same question better, and two pictures of one object is one too many. The
-  // drawing code stays - tools/samples.mjs renders with it and it is under
+  // drawing code stays - it is still what the 2D preview falls back to when
+  // there is no working GL, tools/samples.mjs renders with it, and it is under
   // test - it simply has no tab any more.
-  els.vCake.hidden = true;
   els.vFlat.setAttribute('aria-selected', String(state.view === 'flat'));
   // A tab that cannot be shown should not be offered. With no working GL the
   // tool quietly becomes the two-view tool it was before, rather than a

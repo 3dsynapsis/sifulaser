@@ -252,7 +252,6 @@ function persist() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         params: state.params,
         material: state.material,
-        view: state.view,
         backdrop: state.backdrop,
         speed: state.speed,
         name: state.name,
@@ -273,9 +272,11 @@ export function load() {
     state.material = data.material
       ? materialOf(data.material).id
       : (data.params ? 'custom' : state.material);
-    // A project saved before the cake view was retired would come back with a
-    // view that has no tab left to show it selected.
-    state.view = data.view === 'cake' ? '3d' : (data.view || state.view);
+    // The view is deliberately NOT restored. It is how you are looking at the
+    // topper, not part of the topper - and restoring it meant the 3D default
+    // only ever reached people who had never opened the tool before. Everyone
+    // else stayed on whichever tab they left open, months ago. It also quietly
+    // fixes projects saved while the retired cake view was still selectable.
     state.backdrop = data.backdrop || state.backdrop;
     state.speed = data.speed || state.speed;
     state.name = data.name || state.name;
