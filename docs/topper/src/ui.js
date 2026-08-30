@@ -287,6 +287,9 @@ const galleryStore = {
 /** Save the design on screen without asking - used on the way out of Export. */
 export const saveQuietly = () => gallery.saveQuietly(galleryStore);
 
+/** Open a saved design by id. Used when arriving from another tool. */
+export const openDesignById = (id) => gallery.openById(galleryStore, id);
+
 const dialogFiller = (build) => function fill(dlg, ctx) {
   const close = () => dlg.close();
   const again = () => fill(dlg, ctx);

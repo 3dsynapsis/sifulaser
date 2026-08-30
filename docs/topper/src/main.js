@@ -6,7 +6,7 @@ import { View } from './view.js';
 import {
   renderInspector, renderBackdrop, renderActions, renderWarnings,
   fillExportDialog, fillHelpDialog, fillSaveDialog, fillFilesDialog,
-  saveQuietly, rnd,
+  saveQuietly, openDesignById, rnd,
 } from './ui.js';
 import { toSvg, toPdf } from './export.js';
 
@@ -182,6 +182,23 @@ async function boot() {
   refresh();
   await loadFace(state.params.face).catch(() => null);
   refresh();
+
+  // Arrived from the gallery in another tool: ?design=<id> says which one to
+  // open. Done after the first paint so the tool is already usable if the
+  // fetch is slow, and the parameter is cleared afterwards so a refresh does
+  // not undo whatever has been changed since.
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    const opened = await openDesignById(wanted);
+    if (opened) {
+      await loadFace(state.params.face).catch(() => null);
+      els.name.value = state.name;
+      refresh();
+    }
+    const url = new URL(location.href);
+    url.searchParams.delete('design');
+    history.replaceState(null, '', url.pathname + url.search);
+  }
 }
 
 boot();

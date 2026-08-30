@@ -18,6 +18,20 @@ import * as cloud from './cloud.js';
 
 const HOME = 'https://sifulaser.com/';
 
+/** Which tool a design belongs to, and where that tool lives. */
+export const TOOLS = {
+  topper: { name: 'Cake Topper', path: '/topper/' },
+  boxmaker: { name: 'Box Maker', path: '/boxmaker/' },
+  stand: { name: 'Stand Nama', path: '/stand/' },
+  qr: { name: 'QR Generator', path: '/qr/' },
+  puzzle: { name: 'Puzzle', path: '/puzzle/' },
+  text: { name: 'Text Engraver', path: '/text/' },
+  adjust: { name: 'Template Adjuster', path: '/adjust/' },
+};
+
+/** The tool this copy of the gallery is running inside. */
+export const TOOL = 'topper';
+
 // Cached: the dialogs get opened repeatedly and the list rarely changes in
 // between.
 let designs = null;
@@ -107,6 +121,29 @@ const signInBlock = (h, note) => [
   h('button', { class: 'primary wide', type: 'button', onclick: askSignIn },
     'Daftar masuk dengan Google'),
 ];
+
+/**
+ * Open a design by id, for a link that arrived from another tool.
+ *
+ * Returns false when there is nothing to open - not signed in, no such
+ * design, or it belongs to a different tool after all - so the caller can
+ * quietly carry on with whatever was already on screen.
+ */
+export async function openById(store, id) {
+  if (!id || !cloud.signedIn()) return false;
+  try {
+    const rows = await cloud.list();
+    designs = rows;
+    const row = rows.find((r) => r.id === id);
+    if (!row || (row.tool && row.tool !== TOOL)) return false;
+    store.apply(row);
+    openId = row.id;
+    openName = row.name;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Body of the Save dialog. */
 export function saveDialogBody(h, store, close, rerender) {
@@ -216,8 +253,19 @@ export function filesDialogBody(h, store, close, rerender) {
       h('button', {
         class: 'design-open',
         type: 'button',
-        title: 'Buka reka bentuk ini',
+        title: row.tool === TOOL
+          ? 'Buka reka bentuk ini'
+          : `Buka dalam ${(TOOLS[row.tool] || {}).name || row.tool}`,
         onclick: () => {
+          // A design made in another tool cannot be opened in this one -
+          // the settings are a different shape entirely - so go to the tool
+          // it belongs to and let that one open it.
+          if (row.tool && row.tool !== TOOL) {
+            const dest = TOOLS[row.tool];
+            if (!dest) return;
+            location.href = `${dest.path}?design=${encodeURIComponent(row.id)}`;
+            return;
+          }
           store.apply(row);
           openId = row.id;
           openName = row.name;
@@ -225,7 +273,10 @@ export function filesDialogBody(h, store, close, rerender) {
         },
       },
       h('span', { class: 'design-name' }, row.name || 'Tanpa nama'),
-      h('span', { class: 'design-when' }, when(row.updatedAt))),
+      h('span', { class: 'design-when' },
+        row.tool && row.tool !== TOOL
+          ? `${(TOOLS[row.tool] || {}).name || row.tool} - ${when(row.updatedAt)}`
+          : when(row.updatedAt))),
       h('button', {
         class: 'icon-btn',
         type: 'button',
