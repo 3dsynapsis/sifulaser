@@ -4,7 +4,7 @@ import {
   state, update, setParam, setMaterial, setSizePreset, sizePreset, getTag,
   currentPiece, decorFor, selectedObject, elementCount,
   MATERIALS, material, clampDecor, applyDesign, applyPreset, SIDES,
-  decorOutside,
+  decorOutside, reset,
 } from './store.js';
 import * as gallery from './designs.js';
 import {
@@ -439,6 +439,24 @@ function overallInspector(root, ctx) {
 
   // ---- summary ----
   root.append(group('Numbers', true, ...summaryRows(ctx)));
+
+  // Same control, same place and same wording as the Box Maker and Stand Nama.
+  // The warning names the artwork specifically: on this tool Start over throws
+  // away every placed graphic and imported SVG as well as the settings, and an
+  // imported file is the one thing here somebody cannot get back with a few
+  // clicks.
+  root.append(h('button', {
+    class: 'link', type: 'button',
+    onclick: () => {
+      const n = elementCount();
+      const art = n
+        ? ` This also deletes ${n} placed ${n === 1 ? 'element' : 'elements'}.`
+        : '';
+      if (!confirm(`Start over? This clears every setting on both sides.${art}`)) return;
+      reset();
+      ctx.refresh();
+    },
+  }, 'Start over'));
 }
 
 function summaryRows(ctx) {
