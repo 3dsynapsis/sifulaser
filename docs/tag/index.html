@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tag Generator - laser-cut luggage tags</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🏷️</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🏷</span>
+      <input id="projectName" class="name-input" value="Untitled tag" spellcheck="false" aria-label="Project name">
+      <span id="status" class="status">Saved</span>
+    </div>
+
+    <div class="midbar">
+      <span id="sizeReadout" class="readout"></span>
+    </div>
+
+    <div class="actions">
+      <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+      <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
+      <button class="icon-btn" id="assembleBtn" title="How to make it up">?</button>
+      <button class="soft" id="saveBtn">Save</button>
+      <button class="ghost quiet" id="filesBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Reka bentuk saya</button>
+      <button class="primary" id="exportBtn">Export</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="tools" id="tools">
+      <button class="tool" data-tool="clipart"><span>✦</span>Graphic</button>
+      <button class="tool" data-tool="import"><span>⇪</span>SVG</button>
+      <button class="tool" data-tool="text"><span>T</span>Text</button>
+      <button class="tool" data-tool="shape"><span>◇</span>Shape</button>
+      <div class="tool-spacer"></div>
+      <button class="tool" data-tool="fit"><span>⤢</span>Fit</button>
+      <button class="tool danger" data-tool="delete"><span>🗑</span>Delete</button>
+    </aside>
+
+    <section class="stage">
+      <div id="stage2d" class="stage-pane"></div>
+      <nav class="faces" id="sides" aria-label="Which side of the tag"></nav>
+    </section>
+
+    <aside class="inspector" id="inspector"></aside>
+  </main>
+</div>
+
+<div class="popover" id="popover" hidden></div>
+
+<dialog id="saveDlg" class="dlg"></dialog>
+<dialog id="filesDlg" class="dlg"></dialog>
+
+<dialog id="exportDlg" class="dlg">
+  <form method="dialog" class="dlg-body">
+    <h2>Export for the laser</h2>
+    <p class="muted" id="exportSummary"></p>
+    <div class="field">
+      <label for="sheetSel">Sheet</label>
+      <select id="sheetSel"></select>
+    </div>
+    <label class="check"><input type="checkbox" id="labelsChk" checked> Etch FRONT / BACK under each piece (grey layer, delete before cutting)</label>
+    <div class="layer-key">
+      <span><i style="background:#e5484d"></i>Cut</span>
+      <span><i style="background:#3b82f6"></i>Engrave (Line)</span>
+      <span><i style="background:#1f2328"></i>Engrave (Fill)</span>
+    </div>
+    <p class="note" id="exportNote"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="ghost">Cancel</button>
+      <button value="piece" class="ghost" id="dlPiece">This side only</button>
+      <button value="whatsapp" class="ghost" id="dlWa">Send WhatsApp</button>
+      <button value="pdf" class="ghost" id="dlPdf">Download PDF</button>
+      <button value="all" class="primary" id="dlAll">Download SVG</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="assembleDlg" class="dlg">
+  <form method="dialog" class="dlg-body">
+    <h2>How to make it up</h2>
+    <ol class="steps" id="assembleSteps"></ol>
+    <div class="dlg-actions"><button value="ok" class="primary">Got it</button></div>
+  </form>
+</dialog>
+
+<script type="module" src="src/main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Sign in before download. Served from the site, so it is absent when a
+     tool is run on its own during development - and absent means export
+     works, which is the right way for a funnel to fail. -->
+<script type="module" src="/shared/export-gate.js"></script>
+</body>
+</html>

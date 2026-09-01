@@ -31,17 +31,17 @@ export const TOOLS = {
 };
 
 /** The tool this copy of the gallery is running inside. */
-export const TOOL = 'boxmaker';
+export const TOOL = 'tag';
 
 /**
  * How much tool-specific data a design may carry, in bytes of JSON.
  *
  * Firestore allows a megabyte per document. This leaves room for the rest of
  * it and for the difference between what a string measures here and what it
- * occupies there. A Box Maker ornament of middling complexity - three shapes,
- * a couple of thousand points - is about 85 KB, so this holds roughly five of
- * them. Past that the box is saved without its decoration and the dialog says
- * so, which is better than a save that fails with nothing to explain it.
+ * occupies there. An imported SVG of middling complexity - a logo, a couple of
+ * thousand sampled points - is about 85 KB, so this holds roughly five of them.
+ * Past that the tag is saved without its artwork and the dialog says so, which
+ * is better than a save that fails with nothing to explain it.
  */
 export const EXTRA_LIMIT = 450 * 1024;
 
@@ -95,7 +95,7 @@ const message = (err) => (err instanceof cloud.NotSignedIn
  * single sitting.
  */
 export async function saveCurrent(store, { name, asNew = false } = {}) {
-  const title = String(name || store.name() || 'Untitled box').trim();
+  const title = String(name || store.name() || 'Untitled tag').trim();
 
   // Tools that carry nothing beyond their settings leave this out entirely.
   let extra = null;
@@ -204,7 +204,7 @@ export function saveDialogBody(h, store, close, rerender) {
     busy = true;
     failure = null;
     try {
-      const name = input.value.trim() || 'Untitled box';
+      const name = input.value.trim() || 'Untitled tag';
       store.rename(name);
       await saveCurrent(store, { name, asNew });
       close();
@@ -222,8 +222,8 @@ export function saveDialogBody(h, store, close, rerender) {
     openId ? h('p', { class: 'hint' }, `Sedang mengedit: ${openName}`) : null,
     droppedExtra
       ? h('p', { class: 'warn-line' },
-        'Hiasan pada kotak ini terlalu besar untuk disimpan, jadi hanya ukuran '
-        + 'dan bentuk kotak yang disimpan. Eksport fail potong untuk menyimpan '
+        'Hiasan pada tag ini terlalu besar untuk disimpan, jadi hanya bentuk, '
+        + 'slot dan teks tag yang disimpan. Eksport fail potong untuk menyimpan '
         + 'hiasannya.')
       : null,
     failure ? h('p', { class: 'warn-line' }, failure) : null,
@@ -327,7 +327,7 @@ export function filesDialogBody(h, store, close, rerender) {
       : null,
 
     h('p', { class: 'hint' },
-      'Yang disimpan ialah tetapannya - perkataan, font, bingkai, ukuran - bukan '
+      'Yang disimpan ialah tetapannya - bentuk, slot, perkataan, ukuran - bukan '
       + 'fail potong. Jadi reka bentuk lama masih boleh diedit, dan sentiasa '
       + 'dipotong dengan versi alat yang terkini.'),
 

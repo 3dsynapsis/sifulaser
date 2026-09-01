@@ -20,6 +20,7 @@ const HOME = 'https://sifulaser.com/';
 
 /** Which tool a design belongs to, and where that tool lives. */
 export const TOOLS = {
+  keychain: { name: 'Keychain', path: '/keychain/' },
   topper: { name: 'Cake Topper', path: '/topper/' },
   boxmaker: { name: 'Box Maker', path: '/boxmaker/' },
   stand: { name: 'Stand Nama', path: '/stand/' },
@@ -31,7 +32,7 @@ export const TOOLS = {
 };
 
 /** The tool this copy of the gallery is running inside. */
-export const TOOL = 'boxmaker';
+export const TOOL = 'keychain';
 
 /**
  * How much tool-specific data a design may carry, in bytes of JSON.
@@ -95,7 +96,7 @@ const message = (err) => (err instanceof cloud.NotSignedIn
  * single sitting.
  */
 export async function saveCurrent(store, { name, asNew = false } = {}) {
-  const title = String(name || store.name() || 'Untitled box').trim();
+  const title = String(name || store.name() || 'Untitled keychain').trim();
 
   // Tools that carry nothing beyond their settings leave this out entirely.
   let extra = null;
@@ -204,7 +205,7 @@ export function saveDialogBody(h, store, close, rerender) {
     busy = true;
     failure = null;
     try {
-      const name = input.value.trim() || 'Untitled box';
+      const name = input.value.trim() || 'Untitled keychain';
       store.rename(name);
       await saveCurrent(store, { name, asNew });
       close();

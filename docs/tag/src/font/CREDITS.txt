@@ -1,0 +1,45 @@
+The single-line face in src/geom/hershey-sans.js
+======================================================================
+
+Every word this tool engraves without an outline font - the name on the
+front, the "if found" card on the back, and the FRONT / BACK marks in the
+export - is set in this face. It must travel with the tool, and this
+acknowledgement must travel with it. Do not delete this file.
+
+Derived from the Hershey Fonts
+----------------------------------------------------------------------
+
+The Hershey Fonts were originally created by Dr. A. V. Hershey while
+working at the U. S. National Bureau of Standards.
+
+The format of the font data in the distribution these were converted from
+was originally created by:
+
+    James Hurt
+    Cognition, Inc.
+    900 Technology Park Drive
+    Billerica, MA 01821
+
+The Hershey distribution states that the fonts may be used by anyone for
+any purpose, commercial or otherwise, provided the two acknowledgements
+above are distributed with the font data, and provided the data is not
+redistributed in the specific format published by the U.S. NTIS. The
+embedded JavaScript object here is our own format, converted by the Text
+Engraver's tools/convert-jhf.mjs, so that condition is met.
+
+    sans  <-  futural  (Futura Light, simplex sans)
+
+Conversion note: Hershey hangs each glyph off the character's centre
+rather than the baseline, so the converter shifts the face down onto its
+own baseline (taken from a flat-bottomed capital) and records the
+resulting cap height of 21 units. Coordinates are flipped to y-up.
+
+Why a stroke face at all
+----------------------------------------------------------------------
+
+A phone number engraved as a filled outline is a raster job: the head
+sweeps the block line by line, and at 3 mm the counters of the digits are
+smaller than the spot, so it burns for minutes and comes out a smudge. A
+single-line face is one pass down the middle of each stroke - seconds,
+and legible at 2.5 mm because there is nothing to fill in. Small text on
+a small piece is the case this face was made for.

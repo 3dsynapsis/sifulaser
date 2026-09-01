@@ -27,6 +27,7 @@ export const TOOLS = {
   puzzle: { name: 'Puzzle', path: '/puzzle/' },
   text: { name: 'Text Engraver', path: '/text/' },
   adjust: { name: 'Template Adjuster', path: '/adjust/' },
+  tag: { name: 'Tag Generator', path: '/tag/' },
 };
 
 /** The tool this copy of the gallery is running inside. */

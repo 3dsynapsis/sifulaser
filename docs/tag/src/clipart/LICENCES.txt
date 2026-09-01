@@ -1,0 +1,36 @@
+Clipart shipped with the Tag Generator
+======================================================================
+
+Every drawing in ../clipart.js is an original construction made for this
+tool. None of it is traced from, derived from, or copied out of any icon
+set, stock library, or the reference generator this tool was measured
+against. Each one is a handful of lines and arcs written directly as SVG
+path data in that file, and the file is the source - there is no larger
+artwork it was reduced from.
+
+    suitcase   plane      globe      tag        compass    mountain
+    camera     anchor     heart      star       paw        house
+    pin        cloud      sun        boat       car        ticket
+
+Licence: CC0 1.0 Universal (public domain dedication).
+https://creativecommons.org/publicdomain/zero/1.0/
+
+They may be used, cut, sold and modified by anyone, for anything, with no
+attribution required.
+
+Why this file exists
+----------------------------------------------------------------------
+
+An exported cut file is a commercial deliverable. It leaves this site and
+goes onto somebody's laser, and from there onto something they sell. An
+icon whose terms nobody checked is not a decoration in that file, it is a
+liability travelling inside it.
+
+So the rule for this folder is the same as the rule for the font folders:
+nothing ships without a licence written down beside it, naming the item
+and the terms. If a licence cannot be established, the artwork does not
+go in. That is why this library is small and plain rather than large and
+borrowed.
+
+If anything is ever added here from a third party, it must be listed
+above with its source and its licence before it is added, not after.

@@ -10,6 +10,8 @@ export type Route =
   | 'qr'
   | 'adjust'
   | 'topper'
+  | 'keychain'
+  | 'tag'
   | 'maintenance'
   | 'troubleshoot'
   | 'weekly'
@@ -44,6 +46,10 @@ const parseRoute = (hash: string): Route => {
       return 'adjust'
     case 'topper':
       return 'topper'
+    case 'keychain':
+      return 'keychain'
+    case 'tag':
+      return 'tag'
     case 'maintenance':
       return 'maintenance'
     case 'troubleshoot':

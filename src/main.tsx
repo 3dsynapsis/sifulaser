@@ -9,6 +9,8 @@ import { StandPage } from './pages/StandPage'
 import { QrPage } from './pages/QrPage'
 import { AdjustPage } from './pages/AdjustPage'
 import { TopperPage } from './pages/TopperPage'
+import { KeychainPage } from './pages/KeychainPage'
+import { TagPage } from './pages/TagPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -103,6 +105,10 @@ const Root = () => {
       return <AdjustPage />
     case 'topper':
       return <TopperPage />
+    case 'keychain':
+      return <KeychainPage />
+    case 'tag':
+      return <TagPage />
     case 'maintenance':
       return <MaintenanceChooserPage />
     case 'troubleshoot':

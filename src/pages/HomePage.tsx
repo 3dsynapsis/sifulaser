@@ -5,6 +5,8 @@ import {
   ClipboardCheck,
   Crosshair,
   Lightbulb,
+  KeyRound,
+  Luggage,
   Newspaper,
   PenLine,
   Puzzle,
@@ -160,6 +162,28 @@ const CARDS: HomeCard[] = [
   },
   {
     number: 12,
+    title: 'Keychain Generator',
+    description:
+      'Nama jadi kekunci satu keping, siap lubang ring. Untuk akrilik atau kayu.',
+    href: '#/keychain',
+    color: '#c2610f',
+    softBg: '#fff1e6',
+    border: '#fadcc2',
+    Icon: KeyRound,
+  },
+  {
+    number: 13,
+    title: 'Tag Generator',
+    description:
+      'Tag beg dengan slot tali. Muka depan untuk nama, belakang untuk alamat.',
+    href: '#/tag',
+    color: '#2f5db0',
+    softBg: '#eef4fd',
+    border: '#d3e0f6',
+    Icon: Luggage,
+  },
+  {
+    number: 14,
     title: 'Blog',
     description:
       'Episod Laser — nota Sifu Hisham dari kerja harian, sedia untuk disalin.',
@@ -170,7 +194,7 @@ const CARDS: HomeCard[] = [
     Icon: Newspaper,
   },
   {
-    number: 13,
+    number: 15,
     title: 'About Me & Kedai Laser',
     description:
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',

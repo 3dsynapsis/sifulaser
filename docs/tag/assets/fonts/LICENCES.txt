@@ -1,0 +1,22 @@
+Outline typefaces bundled with the Tag Generator
+======================================================================
+
+These are the fonts offered by the Text tool, for the artwork a user
+places by hand. They are converted to outlines by opentype.js at export
+time, so what leaves in the cut file is geometry, not a font.
+
+All seven are under the SIL Open Font License, Version 1.1, which permits
+use, study, modification and redistribution, including in commercial
+work, and permits the embedding of the outlines in a document. The full
+licence text is at https://openfontlicense.org/
+
+    Inter-Variable.ttf        Inter            Rasmus Andersson       OFL-1.1
+    Roboto-Variable.ttf       Roboto           Christian Robertson    OFL-1.1
+    RobotoMono-Variable.ttf   Roboto Mono      Christian Robertson    OFL-1.1
+    Oswald-Variable.ttf       Oswald           Vernon Adams           OFL-1.1
+    BebasNeue-Regular.ttf     Bebas Neue       Ryoichi Tsunekawa      OFL-1.1
+    Lobster-Regular.ttf       Lobster          Pablo Impallari        OFL-1.1
+    Pacifico-Regular.ttf      Pacifico         Vernon Adams           OFL-1.1
+
+The single-line face used for the tag's own lettering is not here; it is
+embedded in src/geom/hershey-sans.js and credited in src/font/CREDITS.txt.
