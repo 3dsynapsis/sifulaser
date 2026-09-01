@@ -214,6 +214,34 @@ export const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
 export const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
 
 // ---------------------------------------------------------------- side bar
+/**
+ * The preview backdrop. Two choices, and the swatch shows the gradient it
+ * picks rather than a label, because the thing being chosen IS a colour.
+ */
+export const BACKDROPS = [
+  {
+    id: 'light',
+    label: 'Light backdrop',
+    swatch: 'radial-gradient(120% 110% at 28% 18%, #ffffff 0%, #e6e9ee 78%)',
+  },
+  {
+    id: 'dark',
+    label: 'Dark backdrop',
+    swatch: 'radial-gradient(120% 110% at 28% 18%, #4c4c50 0%, #2b2b2e 78%)',
+  },
+];
+
+export function renderBackdrop(root, onPick) {
+  root.replaceChildren(...BACKDROPS.map((b) => h('button', {
+    type: 'button',
+    title: b.label,
+    'aria-label': b.label,
+    'aria-pressed': String(state.backdrop === b.id),
+    style: `background:${b.swatch}`,
+    onclick: () => onPick(b.id),
+  })));
+}
+
 export function renderSides(root, onPick) {
   root.replaceChildren(...SIDES.map((id) => h('button', {
     class: 'face', type: 'button', 'aria-pressed': String(state.side === id),

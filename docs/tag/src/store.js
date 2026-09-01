@@ -59,7 +59,12 @@ function initialState() {
     // What the tool opens on. 3D, because the first thing anybody wants to know
     // about a tag is what it will look like - and because the back of a luggage
     // tag is half the product, and only the 3D view has a back to turn round to.
-    view: '3d',          // 3d | 2d
+    view: '3d',
+    // Light. A tag is cut from pale wood or bright acrylic, and on the dark
+    // stage the engraving read as the light part of a dark object - the
+    // opposite of the finished thing. The backdrop is how you are looking at
+    // the tag, not part of it, so it is not persisted either.
+    backdrop: 'light',          // light | dark
     side: 'front',
     decor: emptyDecor(),
     selection: null,

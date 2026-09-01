@@ -14,7 +14,7 @@ import { exportPdf } from './exportPdf.js';
 import { clipartSvg } from './clipart.js';
 import { readAsText, svgTextToRings } from './importArt.js';
 import {
-  renderInspector, renderSides, openPopover, shapeMenu, clipartMenu, importMenu,
+  renderInspector, renderSides, renderBackdrop, openPopover, shapeMenu, clipartMenu, importMenu,
   fillExportDialog, fillAssembleDialog, fillSaveDialog, fillFilesDialog,
   saveQuietly, openDesignById, rnd,
 } from './ui.js';
@@ -23,7 +23,9 @@ const $ = (sel) => document.querySelector(sel);
 
 const els = {
   stage2d: $('#stage2d'),
+  stage: $('#stage'),
   stage3d: $('#stage3d'),
+  backdrop: $('#backdropPick'),
   hint: $('#stageHint'),
   tools: $('#tools'),
   sides: $('#sides'),
@@ -126,6 +128,14 @@ function refresh(opts = {}) {
   // rather than to an empty pane.
   const is3d = state.view === '3d' && ensure3d() != null;
   els.stage3d.hidden = !is3d;
+  // The backdrop only means anything to the 3D view; the flat drawing has its
+  // own paper-white ground.
+  els.backdrop.hidden = !is3d;
+  els.stage.dataset.backdrop = state.backdrop;
+  renderBackdrop(els.backdrop, (id) => {
+    update((s) => { s.backdrop = id; }, { history: false });
+    refresh();
+  });
   els.stage2d.hidden = is3d;
   // The tool rail places and edits artwork on one piece at a time, which is a
   // 2D operation on a 2D drawing. In 3D there is nothing for it to act on.
@@ -152,6 +162,7 @@ function refresh(opts = {}) {
       charred: !!m.char,
       grain: m.grain || 'wood',
       burn: burnColor(m.color),
+      backdrop: state.backdrop,
     });
     view3d.resize();
   } else {

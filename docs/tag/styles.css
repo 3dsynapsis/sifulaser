@@ -143,6 +143,25 @@ button { font-family: inherit; }
   overflow: hidden;
 }
 /* The preview backdrop is the viewer's choice, independent of the UI theme. */
+/* Two swatches at the top-left of the stage, the same control the Box Maker,
+   Stand Nama and Cake Topper all carry. */
+.backdrop-pick {
+  position: absolute; top: 14px; left: 14px; z-index: 5;
+  display: flex; gap: 3px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: var(--shadow);
+}
+.backdrop-pick[hidden] { display: none; }
+.backdrop-pick button {
+  width: 26px; height: 26px; padding: 0; cursor: pointer;
+  border: 1.5px solid var(--line-strong); border-radius: 7px;
+}
+.backdrop-pick button:hover { border-color: var(--muted); }
+.backdrop-pick button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 .stage[data-backdrop="light"] {
   --stage: #ffffff;
   --stage-2: #dde1e8;
@@ -479,6 +498,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
      says the tag turns round. */
   .dim-overlay { display: none; }
 
+
   .stage {
     flex: 5 1 0;
     min-height: 240px;
@@ -576,8 +596,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 /* The one place the tool says the back of the tag is reachable. Top left, clear
    of the dimension labels and of the Front / Back strip along the bottom. */
 .stage-hint {
-  position: absolute; left: 12px; top: 10px; margin: 0;
-  max-width: min(280px, calc(100% - 24px));
+  /* Clear of the backdrop swatches, which sit at left: 14px and are about 68px
+     wide. They were added after this hint and landed straight on top of its
+     first words. */
+  position: absolute; left: 92px; top: 10px; margin: 0;
+  max-width: min(280px, calc(100% - 104px));
   font: 500 11.5px/1.35 inherit; color: var(--muted);
   background: var(--surface);
   background: color-mix(in srgb, var(--surface) 82%, transparent);
@@ -643,8 +666,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
      width dimension puts its label, the tag being centred in the pane. It is a
      hint, not a banner across the preview. */
   .stage-hint {
-    left: 8px; top: 8px; font-size: 11px; padding: 4px 8px;
-    max-width: 46%;
+    /* Under the backdrop swatches, not beside them. The swatch control sits at
+       the top-left and on a phone there is not enough room left over for a
+       sentence next to it - the hint lost its first words behind them. */
+    left: 12px; top: 52px; font-size: 11px; padding: 4px 8px;
+    max-width: calc(100% - 24px);
   }
   .cards.cards-6 { grid-template-columns: repeat(4, 1fr); }
   .clip-grid { grid-template-columns: repeat(6, 1fr); max-height: none; }
