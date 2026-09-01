@@ -17,6 +17,13 @@
     </div>
 
     <div class="midbar">
+      <!-- 3D first, because it is what the tool opens on. A selected tab sitting
+           at the far end of the strip reads as though something else was the
+           starting point and this one was chosen. -->
+      <div class="viewtoggle" role="tablist" aria-label="View">
+        <button class="vt" data-view="3d" role="tab" aria-selected="true">3D Design</button>
+        <button class="vt" data-view="2d" role="tab" aria-selected="false">2D Design</button>
+      </div>
       <span id="sizeReadout" class="readout"></span>
     </div>
 
@@ -41,8 +48,10 @@
       <button class="tool danger" data-tool="delete"><span>🗑</span>Delete</button>
     </aside>
 
-    <section class="stage">
-      <div id="stage2d" class="stage-pane"></div>
+    <section class="stage" id="stage">
+      <div id="stage3d" class="stage-pane"></div>
+      <div id="stage2d" class="stage-pane" hidden></div>
+      <p class="stage-hint" id="stageHint" hidden></p>
       <nav class="faces" id="sides" aria-label="Which side of the tag"></nav>
     </section>
 

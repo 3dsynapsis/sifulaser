@@ -5,6 +5,7 @@ import {
   undo, redo, canUndo, canRedo, beginGesture, endGesture, clampDecor,
 } from './store.js';
 import { View2D } from './view2d.js';
+import { View3D } from './view3d.js';
 import { makeObject, measureText } from './geom/decor.js';
 import { bbox, simplify } from './geom/path.js';
 import { loadFont, preload } from './fonts.js';
@@ -22,6 +23,8 @@ const $ = (sel) => document.querySelector(sel);
 
 const els = {
   stage2d: $('#stage2d'),
+  stage3d: $('#stage3d'),
+  hint: $('#stageHint'),
   tools: $('#tools'),
   sides: $('#sides'),
   inspector: $('#inspector'),
@@ -41,6 +44,49 @@ const els = {
 
 load();
 els.name.value = state.name;
+
+/**
+ * The 3D view is built the first time somebody asks for it, not at start-up.
+ *
+ * Two reasons, and the second is the one that matters. A WebGL context and a
+ * megabyte of three.js are not worth paying for on a machine that only ever
+ * uses the flat editor - but more than that, creating the context can throw
+ * outright where there is no working GL, and a tag tool that cannot draw a 2D
+ * outline because a 3D preview failed is a worse tool. If it throws, the tab
+ * disappears and this becomes the 2D-only tool it was before.
+ */
+let view3d = null;
+let view3dFailed = false;
+function ensure3d() {
+  if (view3d || view3dFailed) return view3d;
+  try {
+    view3d = new View3D(els.stage3d);
+  } catch {
+    view3dFailed = true;
+  }
+  return view3d;
+}
+
+const rgb = (hex) => [
+  (parseInt(hex.slice(1), 16) >> 16) & 255,
+  (parseInt(hex.slice(1), 16) >> 8) & 255,
+  parseInt(hex.slice(1), 16) & 255,
+];
+
+const hex2 = (ch) => `#${ch.map((c) => Math.max(0, Math.min(255, Math.round(c)))
+  .toString(16).padStart(2, '0')).join('')}`;
+
+/** A polished acrylic edge: the stock's own colour, a shade darker. */
+const shadeHex = (hex, k) => hex2(rgb(hex).map((c) => (k >= 0 ? c + (255 - c) * k : c * (1 + k))));
+
+/** Soot black, holding a trace of the stock so walnut and falcata still differ. */
+const charColor = (hex) => hex2(rgb(hex).map((c) => 16 + c * 0.09));
+
+/** Engraving reads dark on pale stock and pale on dark - black acrylic burns light. */
+function burnColor(hex) {
+  const [r, g, b] = rgb(hex);
+  return 0.299 * r + 0.587 * g + 0.114 * b < 90 ? '#e8e2d8' : '#3a2a1c';
+}
 
 const view2d = new View2D(els.stage2d, {
   select: (id) => { update((s) => { s.selection = id; }, { history: false }); refresh(); },
@@ -76,8 +122,52 @@ function refresh(opts = {}) {
   els.undo.disabled = !canUndo();
   els.redo.disabled = !canRedo();
 
+  // Asking for 3D on a machine with no working GL falls back to the flat editor
+  // rather than to an empty pane.
+  const is3d = state.view === '3d' && ensure3d() != null;
+  els.stage3d.hidden = !is3d;
+  els.stage2d.hidden = is3d;
+  // The tool rail places and edits artwork on one piece at a time, which is a
+  // 2D operation on a 2D drawing. In 3D there is nothing for it to act on.
+  els.tools.hidden = is3d;
+  // Permanent rather than a toast. It is the only place the tool says that the
+  // back of the tag is reachable, and somebody who arrives ten minutes into a
+  // job needs it as much as somebody who arrives in the first ten seconds.
+  els.hint.hidden = !is3d;
+  els.hint.textContent = 'Drag to turn it round - the contact details are on the back';
+  document.querySelectorAll('.vt').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.view === (is3d ? '3d' : '2d')));
+    // A tab that cannot be shown should not be offered.
+    if (b.dataset.view === '3d') b.hidden = view3dFailed;
+  });
+
   const active = document.activeElement;
-  view2d.render(piece, decorFor(piece), state.selection, state.params);
+  if (is3d) {
+    const m = material();
+    view3d.build(tag, decorFor, {
+      color: m.color,
+      // Wood, MDF and card come off the bed with a charred edge; acrylic keeps
+      // its own colour, just darker where the light does not reach.
+      edge: m.char ? charColor(m.color) : shadeHex(m.color, -0.18),
+      charred: !!m.char,
+      grain: m.grain || 'wood',
+      burn: burnColor(m.color),
+    });
+    view3d.resize();
+  } else {
+    view2d.render(piece, decorFor(piece), state.selection, state.params);
+  }
+  // Both views frame the tag once and then stay where the user put them, which
+  // is right for every edit that nudges a number: nobody wants the camera
+  // jumping while they drag the width slider. A preset is not that edit. It
+  // replaces the whole design in one click, and a 50 x 90 tag swapped for a
+  // 90 x 55 one leaves the camera standing inside it - the reward for clicking
+  // Staff tag is a close-up of grain. So the caller that changes everything
+  // asks for the view to be re-framed, and only that one does.
+  if (opts.reframe) {
+    if (is3d) view3d.frame();
+    else view2d.fit();
+  }
   if (opts.keepFocus && document.contains(opts.keepFocus)) opts.keepFocus.focus();
   else if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName) && document.contains(active)) {
     active.focus();
@@ -101,8 +191,18 @@ function refresh(opts = {}) {
   }
 }
 
+/**
+ * Front / Back.
+ *
+ * In the flat editor it picks which piece you are drawing on. In 3D there is
+ * only one object - the two pieces are glued together - so the same button
+ * swings the camera round to that face instead. One control, one meaning:
+ * "show me this side". It is also the thing that teaches somebody the back is
+ * reachable at all, which a bare orbit gesture does not.
+ */
 function openSide(id) {
   update((s) => { s.side = id; s.selection = null; }, { history: false });
+  if (state.view === '3d' && view3d) view3d.setView(id);
   refresh();
 }
 
@@ -228,6 +328,22 @@ async function importFile(file) {
 }
 
 // ------------------------------------------------------------------ chrome
+const setView = (v) => {
+  update((s) => { s.view = v; }, { history: false });
+  refresh();
+  // A pane that was hidden measured zero, so whichever view has just appeared
+  // has never been sized against the stage it is now filling.
+  if (v === '2d') view2d.applyViewBox(); else view3d?.resize();
+};
+document.querySelectorAll('.vt').forEach((b) => {
+  b.addEventListener('click', () => setView(b.dataset.view));
+});
+
+// A hidden pane measures zero, so the observer inside View3D reports nothing
+// useful while the flat editor is showing. Resizing the window and then
+// switching to 3D would otherwise leave a canvas the wrong size.
+window.addEventListener('resize', () => view3d?.resize());
+
 els.undo.addEventListener('click', () => { undo(); clampDecor(); refresh(); });
 els.redo.addEventListener('click', () => { redo(); clampDecor(); refresh(); });
 
@@ -408,7 +524,7 @@ window.addEventListener('keydown', (e) => {
     update((s) => { s.selection = null; }, { history: false });
     refresh();
   } else if (e.key === 'f') {
-    view2d.fit();
+    if (state.view === '3d') view3d?.frame(); else view2d.fit();
   } else if (e.key === 'Tab') {
     e.preventDefault();
     openSide(state.side === 'front' ? 'back' : 'front');
@@ -434,7 +550,10 @@ subscribe(() => {
 });
 
 if (new URLSearchParams(location.search).has('debug')) {
-  window.__app = { state, refresh, addObject, deleteSelected, view2d, getTag };
+  window.__app = {
+    state, refresh, addObject, deleteSelected, view2d, getTag,
+    get view3d() { return view3d; },
+  };
 }
 
 async function boot() {

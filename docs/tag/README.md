@@ -10,6 +10,8 @@ back to back. The front carries a name and any artwork; the back carries the
 
 ## What it does
 
+- Five ready designs at the top of the panel — Travel, School bag, Staff tag,
+  Pet tag, Save the date — each a whole tag you type your own name over
 - Eight shapes: rectangle, tag, arch, circle, square, octagon, triangle, heart,
   each at exactly the width and height you type
 - A strap slot — stadium, circle or square — with the board left around it
@@ -22,6 +24,26 @@ back to back. The front carries a name and any artwork; the back carries the
   Engrave (Line) and Engrave (Fill) on separate layers
 
 ## The parts worth knowing about
+
+**The presets set the whole tag, because the numbers only work together.** Five
+jobs, five shapes, five sizes: a 65 × 105 travel label with a posted address on
+the back, a 50 × 70 arch for a school bag that carries a phone number and
+deliberately no address, a 90 × 55 landscape staff plate, a 38 mm round pet disc
+whose whole back is one phone number, and a 70 mm heart for a wedding. Every
+number in them is measured rather than guessed — each slot position was walked
+against the real outline until the bridge cleared 3 mm, and each cap height was
+read back off a build and floored to a tenth, so the text is set at the largest
+size that fits and the tool has nothing left to say about it. `PRESETS`,
+`presetParams()` and `matchesPreset()` live in `geom/tag.js`; the tests build all
+five and fail if any of them so much as raises a note.
+
+The heart is the one worth reading the comments on. It dips to a notch on its own
+centre line, and the slot sits on that line, so anywhere above about 13 mm the
+hole is outside the shape altogether — 20 mm down is the first position with
+sound board all round. Below the slot, the bottom half of the writing room is the
+point of the heart, where there is no width to write in, so both blocks are
+nudged 7 mm up onto the lobes. Centred, the same words come out half the size.
+
 
 **The slot is the only thing on a luggage tag that ever fails.** It is the only
 place the strap pulls and it is the thinnest section. So `bridgeWidth()` measures
@@ -66,15 +88,42 @@ has to be described as the lesser of the two.
     src/geom/path.js      geometry primitives, incl. the RDP simplifier
     src/geom/decor.js     placed artwork (shared with the Box Maker)
     src/geom/label.js     the single-line face  — see src/font/CREDITS.txt
+    src/geom/assembly.js  where the two pieces sit once they are glued up
     src/clipart.js        the icon library      — see src/clipart/LICENCES.txt
     src/exportSvg.js      nesting + the SVG writer
     src/exportPdf.js      the PDF writer, hand-written
     src/store.js          state, undo/redo, materials, persistence
     src/ui.js             inspector, popovers, dialogs
+    src/view3d.js         the finished tag, glued up (from the Box Maker)
     src/view2d.js         the piece editor (from the Box Maker's face editor)
+    src/texture.js        procedural board surfaces for the 3D view
     src/designs.js        Save + "Reka bentuk saya"
     src/cloud.js          Firestore over REST
+    vendor/               three.js and OrbitControls, unmodified
     tools/test-geom.js    npm test
+
+## The 3D view shows one tag, not two pieces
+
+The tool opens on 3D. What it draws is the finished object — the two pieces glued
+back to back, at twice the board thickness, with the name burnt on one outer face
+and the contact details on the other. It is not the two cut pieces laid out side
+by side; that drawing already exists and it is called the 2D view.
+
+The consequence is the point. A luggage tag's whole job is on its back, so a
+preview that can only ever show the front is showing half the product. Here the
+back is genuinely on the back: the tag stands upright, the camera is held above
+the ground plane, and getting to the contact details is a horizontal drag. Front
+and Back in the stage swing the camera rather than swapping the drawing, so the
+control that picks a side to edit is also the one that turns the tag over.
+
+The back piece is mirrored, because that is what happens to a piece of card you
+turn over — see the frame comments in `src/geom/assembly.js`. Get it wrong and the
+phone number comes out in mirror writing.
+
+**The view is not saved.** `store.js` persists the tag; it does not persist how
+you were looking at it. Two other tools here had 3D as their default value for
+months while almost nobody saw it, because `load()` put the last-used tab back
+over the top and only first-time visitors ever met the default.
 
 ## Licences
 

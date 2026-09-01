@@ -14,6 +14,13 @@
   --grid: #e8eaee;
   --panel-fill: #ffffff;
   --dim: #2f7d4f;
+  /* The 3D dimension overlay. It is drawn over the stage, whose gradient is the
+     same dark grey in both themes, so the ink is white in both - these are not
+     duplicated in the dark block below, and they must not be, or the witness
+     lines would go black on a dark backdrop. */
+  --dim-ink: #ffffff;
+  --dim-halo: rgba(0, 0, 0, .55);
+  --dim-soft: rgba(255, 255, 255, .45);
   --shadow: 0 1px 2px rgba(16, 18, 21, .06), 0 8px 24px rgba(16, 18, 21, .06);
   --radius: 10px;
 }
@@ -128,6 +135,12 @@ button { font-family: inherit; }
 .stage {
   position: relative; flex: 1; min-width: 0;
   background: radial-gradient(125% 105% at 28% 18%, var(--stage) 0%, var(--stage-2) 78%);
+  /* The dimension witnesses are drawn outside the tag, so they leave the
+     stage as soon as you zoom in - and the first thing anyone does in a 3D
+     view is zoom. Unclipped they painted the width label over the toolbar,
+     on top of the view tabs, and then off the window entirely. The phone
+     rule already clipped; the desktop one never did. */
+  overflow: hidden;
 }
 /* The preview backdrop is the viewer's choice, independent of the UI theme. */
 .stage[data-backdrop="light"] {
@@ -459,6 +472,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .tool { flex: none; min-width: 54px; padding: 7px 4px; }
   .tool-spacer { flex: 1 0 8px; }
 
+  /* The size is already spelled out in the top bar - "51 x 90 mm, Falcata 3 mm"
+     - so on a phone the witness lines are a second copy of a number that is
+     already on screen, and they land on the hint box telling people the contact
+     details are on the back. That hint is worth more: it is the only thing that
+     says the tag turns round. */
+  .dim-overlay { display: none; }
+
   .stage {
     flex: 5 1 0;
     min-height: 240px;
@@ -534,10 +554,38 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* ---------- tag generator ---------- */
 
-/* The size readout sits where the Box Maker keeps its 3D/2D switch. There is
-   nothing to switch between here - a tag is flat - so the room goes to the one
-   number somebody checks over and over while they work. */
-.midbar { display: flex; justify-content: center; min-width: 0; }
+/* The centre of the top bar carries the view tabs, with the size readout beside
+   them - the one number somebody checks over and over while they work. */
+.midbar { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+
+.viewtoggle {
+  display: inline-flex; flex: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+}
+.vt {
+  border: 0; background: transparent; color: var(--muted);
+  font: 600 13px/1 inherit; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+  white-space: nowrap;
+}
+.vt[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.vt[hidden] { display: none; }
+
+/* The one place the tool says the back of the tag is reachable. Top left, clear
+   of the dimension labels and of the Front / Back strip along the bottom. */
+.stage-hint {
+  position: absolute; left: 12px; top: 10px; margin: 0;
+  max-width: min(280px, calc(100% - 24px));
+  font: 500 11.5px/1.35 inherit; color: var(--muted);
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px;
+  pointer-events: none;
+}
+.stage-hint[hidden] { display: none; }
+
 .readout {
   font: 600 12px/1 inherit; color: var(--muted); white-space: nowrap;
   background: var(--surface-2); border: 1px solid var(--line);
@@ -547,15 +595,26 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
      until it slides underneath them is worse than one that is clipped. */
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
-/* Under about a laptop width there is genuinely no room for it, and the same
-   two numbers are in the Numbers panel a scroll away. */
-@media (max-width: 1000px) { .midbar { display: none; } }
-@media (max-width: 640px) { .midbar { display: flex; } }
+/* Under about a laptop width there is genuinely no room for the readout beside
+   the tabs, and the same two numbers are in the Numbers panel a scroll away.
+   The tabs stay: they are the only way to change view. */
+@media (max-width: 1000px) { .readout { display: none; } }
+@media (max-width: 640px) { .readout { display: block; } }
 
 /* Eight shapes want narrower cards than the three the Box Maker shows. */
 .cards.cards-6 { grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .cards.cards-6 .card { padding: 5px 3px 6px; font-size: 10.5px; gap: 3px; }
 .cards.cards-6 .card svg { height: 40px; }
+
+/* Five ready designs, three across. Taller art than the shape cards, because
+   these are drawn at their own proportions - a 90 x 55 staff tag and a 65 x 105
+   travel tag have to be told apart at a glance, and a squat box flattens that
+   difference to nothing. The label wraps rather than being cut: "Save the date"
+   is three words and abbreviating it would lose which of the five it is. */
+.cards.presets { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.cards.presets .card { padding: 5px 4px 7px; font-size: 11px; line-height: 1.25; }
+.cards.presets .card svg { height: 52px; }
+.cards.presets .card .art { padding: 4px 3px; margin-bottom: 6px; }
 
 .stat b.bad { color: var(--danger); }
 
@@ -572,8 +631,21 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
       "mid     mid"
       "actions actions";
   }
-  .midbar { justify-content: flex-start; }
-  .readout { font-size: 11px; padding: 5px 10px; }
+  /* The tabs and the readout share the middle row: two compact tabs plus a
+     pill of about twenty-five characters comes to roughly 320px, which fits
+     the 355px a 375px phone leaves once the bar is padded. The readout is the
+     half that gives if it does not - it is information, the tabs are a
+     control. */
+  .midbar { justify-content: flex-start; gap: 8px; }
+  .vt { padding: 9px 10px; font-size: 12px; }
+  .readout { font-size: 11px; padding: 5px 9px; min-width: 0; flex: 0 1 auto; }
+  /* Under half the stage, so it stops short of the middle - which is where the
+     width dimension puts its label, the tag being centred in the pane. It is a
+     hint, not a banner across the preview. */
+  .stage-hint {
+    left: 8px; top: 8px; font-size: 11px; padding: 4px 8px;
+    max-width: 46%;
+  }
   .cards.cards-6 { grid-template-columns: repeat(4, 1fr); }
   .clip-grid { grid-template-columns: repeat(6, 1fr); max-height: none; }
   .clip-art svg { height: 34px; }

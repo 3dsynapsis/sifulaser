@@ -3,11 +3,13 @@
 import {
   state, update, setParam, setMaterial, setSizePreset, sizePreset, getTag,
   currentPiece, decorFor, selectedObject, elementCount,
-  MATERIALS, material, clampDecor, applyDesign, SIDES,
+  MATERIALS, material, clampDecor, applyDesign, applyPreset, SIDES,
+  decorOutside,
 } from './store.js';
 import * as gallery from './designs.js';
 import {
   SHAPES, SLOTS, BORDERS, SIZE_PRESETS, SQUARE_SHAPES, fitShapeRing, ringLength,
+  PRESETS, presetParams, matchesPreset, slotRing,
 } from './geom/tag.js';
 import { ringsToPath } from './geom/path.js';
 import { PROCESSES, objectRings, measureText, makeObject } from './geom/decor.js';
@@ -122,6 +124,70 @@ function shapeThumb(shape, radius) {
     + '</g></svg>';
 }
 
+// ----------------------------------------------------------- preset cards
+//
+// Drawn from the preset's own numbers, outline and slot together, at the real
+// proportions. That is the one thing the name cannot say: "Staff tag" and
+// "Travel" are both rectangles in words, and on the card one is a landscape
+// plate and the other a portrait label with a hole in its head. Each is fitted
+// to the card rather than drawn to a common scale, so a 38 mm pet disc is not a
+// speck beside a 105 mm travel tag - the picker is for telling them apart, and
+// the millimetres are two lines further down the panel.
+function presetThumb(pr) {
+  const p = presetParams(pr);
+  const ring = fitShapeRing(p.shape, p.width, p.height, p.radius);
+  const rings = [ring];
+  if (p.slot !== 'none') {
+    // A round hole takes its width from its height, the same way buildTag does
+    // it - the slot width field is left alone rather than being ignored twice.
+    const sw = p.slot === 'circle' ? p.slotH : p.slotW;
+    rings.push(slotRing(
+      p.slot, p.width / 2, p.height - p.slotEdge - p.slotH / 2, sw, p.slotH));
+  }
+  const m = Math.max(2, p.width * 0.06);
+  const d = ringsToPath(rings);
+  return `<svg viewBox="${-m} ${-m} ${p.width + m * 2} ${p.height + m * 2}" `
+    + 'aria-hidden="true">'
+    + `<g transform="translate(0 ${p.height}) scale(1 -1)">`
+    + `<path d="${d}" fill="currentColor" fill-opacity="0.12" fill-rule="evenodd" `
+    + `stroke="currentColor" stroke-width="${p.width / 34}" stroke-linejoin="round"/>`
+    + '</g></svg>';
+}
+
+/**
+ * Ready designs, at the top of the panel.
+ *
+ * Somebody opening this tool wants a luggage tag, not a lesson in slot bridges.
+ * One click gets them a finished, warning-free tag they can type their own name
+ * into - which is also the quickest way to learn what every setting below is
+ * for, because the cards move all of them at once.
+ *
+ * The card that matches what is on screen is shown as chosen, and stops being
+ * shown that way the moment anything is edited. It is a starting point, not a
+ * mode: a card still lit over a design that has left it would offer to throw
+ * those edits away without saying so.
+ */
+function presetPicker(ctx) {
+  const current = PRESETS.find((x) => matchesPreset(x, state.params));
+  return [
+    h('div', { class: 'cards presets' }, PRESETS.map((x) => h('button', {
+      class: 'card', type: 'button', title: x.note,
+      'aria-pressed': String(current?.id === x.id),
+      // Re-framed, not merely redrawn. A preset can take the tag from 50 x 90 to
+      // 90 x 55 in one click, and both views hold whatever zoom they were left
+      // at - so without this the reward for picking a card is a close-up of the
+      // middle of it.
+      onclick: () => { applyPreset(x); ctx.refresh({ reframe: true }); },
+    },
+    h('span', { class: 'art', html: presetThumb(x) }),
+    x.name))),
+    h('p', { class: 'hint' }, 'Each of these sets the whole tag - the shape, '
+      + 'the size, the slot, the border and both sides of the writing - because '
+      + 'those numbers only work together. Type your own name over the '
+      + 'placeholder. Anything you have already placed on the tag stays.'),
+  ];
+}
+
 // ------------------------------------------------------------------ gallery
 const galleryStore = {
   name: () => state.name,
@@ -198,6 +264,9 @@ function overallInspector(root, ctx) {
   const t = getTag();
   const d = t.derived;
   const set = (key, v) => { setParam(key, v); clampDecor(); ctx.refresh(); };
+
+  // ---- start from ----
+  root.append(group('Start from', true, ...presetPicker(ctx)));
 
   // ---- shape ----
   root.append(group('Shape', true,
@@ -373,6 +442,21 @@ function summaryRows(ctx) {
       h('span', {}, 'Engraved line'),
       h('b', {}, `${rnd(d.lineLength / 10, 1)} cm`)),
     ...d.warnings.map((w) => h('p', { class: 'warn-line' }, w)),
+    // Artwork that has ended up off the piece - usually after switching to a
+    // smaller preset with a shape already placed. clampDecor shrinks what it can,
+    // but text does not shrink with its box, so the result is checked. A cut path
+    // that leaves the tag is not cosmetic: the head follows it across the sheet.
+    ...(() => {
+      const off = decorOutside();
+      if (!off.length) return [];
+      const cuts = off.filter((o) => o.process === 'cut').length;
+      return [h('p', { class: 'warn-line' },
+        `${off.length} placed object${off.length === 1 ? '' : 's'} `
+        + `${off.length === 1 ? 'sits' : 'sit'} outside the tag`
+        + (cuts ? `, and ${cuts === 1 ? 'one is a cut' : `${cuts} of them are cuts`}`
+          + ' - that path will run off the piece and across the sheet' : '')
+        + '. Move or resize it, or delete it.')];
+    })(),
     ...d.notes.map((n) => h('p', { class: 'hint' }, n)),
     h('p', { class: 'hint' }, 'Both pieces are cut face up and glued back to '
       + 'back. Every shape here is symmetric and the slot is on the centre line, '

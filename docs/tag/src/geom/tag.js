@@ -122,6 +122,242 @@ export const DEFAULTS = {
   kerf: 0.2,
 };
 
+/**
+ * The five jobs a tag is actually bought for, each as a WHOLE design.
+ *
+ * A preset that only filled in the words would be a trap here, for the same
+ * reason it is in the cake topper: on a tag the numbers only work together. The
+ * text size that fits a 65 mm travel tag sets a 38 mm pet disc at a size nobody
+ * can read; the slot inset that leaves 7 mm of board on a rectangle puts the
+ * hole clean outside a heart, because a heart is a notch where a rectangle is an
+ * edge. Drop one preset's words into another's shape and the tool is right to
+ * complain - so each of these carries its own shape, size, slot, border and
+ * both blocks of text, and everything it does not name goes back to the
+ * default rather than being inherited.
+ *
+ * The numbers are measured, not guessed. Each slot position was walked against
+ * the real outline until the bridge cleared BRIDGE_GOOD, and each cap height was
+ * read back off a build with the cap set absurdly high and then floored to a
+ * tenth - so the text is set at the biggest size that fits and the tool has
+ * nothing to say about it. There is a test that builds all five and fails if any
+ * of them warns, and another that fails if any of them is set so small the
+ * legibility floor trips.
+ *
+ * The placeholders are real names and real Malaysian numbers rather than
+ * "YOUR NAME", because a preset is meant to show what the thing looks like and a
+ * row of Xs does not - and because the length of a name is exactly what decides
+ * whether the back fits. `Syarikat Anda Sdn Bhd` is literally "Your Company Sdn
+ * Bhd": a placeholder that reads as one, and cannot be mistaken for a real firm.
+ *
+ * The local and the international number are not a slip. A travel tag and a
+ * company tag are read abroad, so they carry +60; a school bag, a cat and a
+ * wedding stay in the country, so they carry the 012- form somebody here would
+ * actually write - and the shorter line is what buys those three tags their
+ * text size.
+ */
+export const PRESETS = [
+  {
+    id: 'travel',
+    name: 'Travel',
+    note: 'The classic. Name across the front, the whole contact card on the '
+      + 'back. 65 x 105 mm, which is the size airline tags have settled on and '
+      + 'the smallest that takes an address at a readable size.',
+    params: {
+      shape: 'tag',
+      width: 65,
+      height: 105,
+      radius: 5,
+      border: 'double',
+      borderInset: 3.5,
+      borderGap: 1.4,
+      // 18 mm takes a 12 mm strap with room to double it back through, and
+      // 7 mm down the head of a tag shape leaves 7 mm of board all round.
+      slot: 'stadium',
+      slotW: 18,
+      slotH: 5.5,
+      slotEdge: 7,
+      frontLines: 'NUR\nAISYAH',
+      frontCap: 9.8,
+      backHeading: 'IF FOUND, PLEASE CONTACT',
+      backName: 'Nur Aisyah Rahman',
+      backPhone: '+60 12-345 6789',
+      backAddress: '12 Jalan Melati 3\n47100 Puchong, Selangor',
+      backCap: 2.8,
+    },
+  },
+  {
+    id: 'school',
+    name: 'School bag',
+    note: "A name a teacher can read across a hall, and a parent's number on "
+      + 'the back. No address, deliberately: a tag on a child\'s bag tells a '
+      + 'stranger where that child lives.',
+    params: {
+      shape: 'arch',
+      width: 50,
+      height: 70,
+      radius: 5,
+      border: 'single',
+      borderInset: 3,
+      borderGap: 1.2,
+      // Narrower and shallower than the travel slot: this hangs off a backpack
+      // zip pull or a short cord, not off a suitcase handle.
+      slot: 'stadium',
+      slotW: 15,
+      slotH: 5,
+      slotEdge: 5,
+      frontLines: 'DANISH',
+      frontCap: 7.1,
+      backHeading: 'IF FOUND, PLEASE CALL',
+      backName: 'Danish Hakim',
+      backPhone: '012-345 6789',
+      backAddress: '',
+      backCap: 2.8,
+    },
+  },
+  {
+    id: 'staff',
+    name: 'Staff tag',
+    note: 'Landscape and plain-cornered, the way a company orders fifty of '
+      + 'them. Person on the front, the office on the back - so a bag left in a '
+      + "hotel goes back to a switchboard rather than to somebody's house.",
+    params: {
+      shape: 'rect',
+      width: 90,
+      height: 55,
+      // Nearly square corners. A staff tag is the one shape here nobody wants
+      // to look handmade.
+      radius: 2,
+      border: 'single',
+      borderInset: 3.5,
+      borderGap: 1.2,
+      slot: 'stadium',
+      slotW: 18,
+      slotH: 5,
+      slotEdge: 5,
+      frontLines: 'AZLAN IBRAHIM\nOperations',
+      frontCap: 6.8,
+      backHeading: 'RETURN TO',
+      backName: 'Syarikat Anda Sdn Bhd',
+      backPhone: '+60 3-1234 5678',
+      backAddress: 'No. 8, Jalan Teknologi 3/5\n81100 Johor Bahru',
+      backCap: 3.8,
+    },
+  },
+  {
+    id: 'pet',
+    name: 'Pet tag',
+    note: "A 38 mm disc on a split ring. The pet's name on the front and one "
+      + 'number on the back, and nothing else - there is no room for anything '
+      + 'else and a collar tag does not need it.',
+    params: {
+      shape: 'circle',
+      width: 38,
+      height: 38,
+      radius: 0,
+      // No border. Two engraved rings inside a 38 mm disc would take a third of
+      // the writing room to say nothing.
+      border: 'none',
+      borderInset: 3,
+      borderGap: 1.2,
+      textMargin: 2.5,
+      // A round hole, not a slot: this goes on a split ring, and 4.5 mm is what
+      // a ring off a collar clip needs.
+      slot: 'circle',
+      slotW: 4.5,
+      slotH: 4.5,
+      slotEdge: 3.5,
+      frontLines: 'COMEL',
+      frontCap: 6.1,
+      // Heading, owner and address all empty on purpose. The back is one line -
+      // the number - set as large as a 38 mm disc allows.
+      backHeading: '',
+      backName: '',
+      backPhone: '012-345 6789',
+      backAddress: '',
+      backCap: 2.3,
+    },
+  },
+  {
+    id: 'save-date',
+    name: 'Save the date',
+    note: 'A heart for a wedding favour: two words on the front, the couple, '
+      + 'the date and a number to RSVP on the back. Both blocks are nudged up '
+      + 'out of the point at the bottom, where a heart has no width to write in.',
+    params: {
+      shape: 'heart',
+      width: 70,
+      height: 70,
+      radius: 0,
+      border: 'none',
+      borderInset: 3,
+      borderGap: 1.2,
+      // 20 mm down, not 5. A heart dips to a notch on its own centre line, and
+      // the slot sits on that line - anywhere above about 13 mm the hole is
+      // outside the shape altogether. 20 mm is the first position with 3 mm of
+      // board all round, and it is also where a heart pendant is drilled.
+      slot: 'circle',
+      slotW: 5,
+      slotH: 5,
+      slotEdge: 20,
+      frontLines: 'TERIMA\nKASIH',
+      frontCap: 5.5,
+      // The nudge is the whole trick. Text is centred in the room below the
+      // slot, and on a heart the bottom half of that room is the point: centred,
+      // the block is measured against a row 20 mm wide and comes out too small
+      // to read. Lifted 7 mm it sits across the lobes, where the shape is at its
+      // widest, and the same words set half again as large.
+      frontNudge: 7,
+      backHeading: '12 . 04 . 2026',
+      backName: 'Aiman & Nadia',
+      backPhone: '012-345 6789',
+      backAddress: '',
+      backCap: 2.4,
+      backNudge: 7,
+    },
+  },
+];
+
+/**
+ * A preset as a complete parameter set.
+ *
+ * Everything the preset does not name goes back to its default rather than being
+ * inherited, because inheriting is the whole failure mode: leave a hand-set
+ * nudge, a 12 mm border inset or "no slot" behind and the preset builds into
+ * something it was never measured at.
+ *
+ * `thickness` and `kerf` are the exception, and not for tidiness. They describe
+ * the board actually on the bed, and choosing what kind of tag to make says
+ * nothing about that - so those two carry across untouched.
+ */
+export function presetParams(preset, sheet = {}) {
+  return {
+    ...DEFAULTS,
+    ...preset.params,
+    thickness: sheet.thickness ?? DEFAULTS.thickness,
+    kerf: sheet.kerf ?? DEFAULTS.kerf,
+  };
+}
+
+/**
+ * Is this design still the preset, whole?
+ *
+ * Against everything presetParams would put in place, not only the fields the
+ * preset happens to name. Taking the unnamed ones back to their defaults is half
+ * of what a preset does, so those count too - and checking only the named ones
+ * leaves the card lit after the slot, the leading or a nudge has been changed.
+ * That is worse than never lighting it: the tool claims a preset the design has
+ * already left, and clicking the card that makes the claim throws those edits
+ * away without a word.
+ *
+ * Thickness and kerf compare equal by construction, because presetParams carries
+ * them across untouched - what board is on the bed is not part of which tag
+ * this is.
+ */
+export function matchesPreset(preset, params) {
+  const want = presetParams(preset, params);
+  return Object.keys(want).every((k) => params[k] === want[k]);
+}
+
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const rnd1 = (v) => Math.round(v * 10) / 10;
 // Rounded DOWN for any number printed next to a threshold, so a measurement of
