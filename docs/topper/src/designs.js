@@ -20,13 +20,14 @@ const HOME = 'https://sifulaser.com/';
 
 /** Which tool a design belongs to, and where that tool lives. */
 export const TOOLS = {
-  topper: { name: 'Cake Topper', path: '/topper/' },
   boxmaker: { name: 'Box Maker', path: '/boxmaker/' },
-  stand: { name: 'Stand Nama', path: '/stand/' },
-  qr: { name: 'QR Generator', path: '/qr/' },
   puzzle: { name: 'Puzzle', path: '/puzzle/' },
   text: { name: 'Text Engraver', path: '/text/' },
+  stand: { name: 'Stand Nama', path: '/stand/' },
+  qr: { name: 'QR Generator', path: '/qr/' },
   adjust: { name: 'Template Adjuster', path: '/adjust/' },
+  topper: { name: 'Cake Topper', path: '/topper/' },
+  keychain: { name: 'Keychain', path: '/keychain/' },
   tag: { name: 'Tag Generator', path: '/tag/' },
 };
 
