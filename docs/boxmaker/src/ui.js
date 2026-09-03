@@ -140,6 +140,27 @@ function boxThumb(style, base) {
       `stroke-width=".9" stroke-linejoin="round"/>`;
   };
 
+  // Lift-off: a second tray, drawn hovering clear of the first. Everything the
+  // style is about is in the gap, so the gap is what the card shows.
+  const liftOff = style === 'shoebox' ? (() => {
+    const S = 1.06; const UP = 22; const D = 6;
+    const q = (pt) => [48 + (pt[0] - 48) * S, 40 + (pt[1] - 40) * S - UP];
+    const lT = q(T); const lR = q(R); const lF = q(F); const lL = q(L);
+    const lRb = shift(lR, 0, D); const lFb = shift(lF, 0, D); const lLb = shift(lL, 0, D);
+    // The thumb notch sits on the face you would actually lift from, so it has
+    // to follow that face's slope rather than sit level.
+    const mx = (lLb[0] + lFb[0]) / 2; const my = (lLb[1] + lFb[1]) / 2;
+    const deg = Math.atan2(lFb[1] - lLb[1], lFb[0] - lLb[0]) * 180 / Math.PI;
+    return `<polygon points="${P([lL, lF, lFb, lLb])}" fill="${c.left}"/>` +
+      `<polygon points="${P([lF, lR, lRb, lFb])}" fill="${c.right}"/>` +
+      `<polygon points="${P([lT, lR, lF, lL])}" fill="${c.lid}"/>` +
+      `<path d="M-3.4 0a3.4 3.4 0 0 0 6.8 0Z" fill="${c.edge}" opacity=".45" ` +
+      `transform="translate(${mx} ${my}) rotate(${deg})"/>` +
+      `<g fill="none" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round" opacity=".85">` +
+      `<path d="M${P([lL, lF, lFb, lLb])}Z"/><path d="M${P([lF, lR, lRb, lFb])}Z"/>` +
+      `<path d="M${P([lT, lR, lF, lL])}Z"/></g>`;
+  })() : '';
+
   const lid = style === 'lidded'
     ? leaf(L, T, [-3, -21]) +
       `<circle cx="${T[0] - 5}" cy="${T[1] - 2}" r="1.7" fill="${c.edge}" opacity=".55"/>`
@@ -166,6 +187,7 @@ function boxThumb(style, base) {
     <path d="M${P([T, R, F, L])}Z"/><path d="M${P([iT, iR, iF, iL])}Z"/>
   </g>
   ${leafFront}
+  ${liftOff}
 </svg>`;
 }
 
@@ -279,6 +301,12 @@ const STYLES = [
     label: 'Double Window',
     hint: 'Two leaves meeting in the middle, each hinged on its own wall and '
       + 'resting on the side walls, with a finger hole where they join',
+  },
+  {
+    id: 'shoebox',
+    label: 'Lift-off Lid',
+    hint: 'A second tray inverted over the first - it comes off completely, '
+      + 'the way a shoe box does',
   },
 ];
 
@@ -434,7 +462,8 @@ function overallInspector(root, ctx) {
         onclick: () => { setParam('style', id); clampDecor(); ctx.refresh(); },
       },
       h('span', { class: 'art', html: boxThumb(id, mat.color) }),
-      label)))));
+      label))),
+    ...(p.style === 'shoebox' ? liftOffRows(p, ctx) : [])));
 
   root.append(group('Divider', true,
     h('div', { class: 'cards' }, DIVIDERS.map(({ id, label, hint }) =>
@@ -575,6 +604,45 @@ function overallInspector(root, ctx) {
   }, 'Start over'));
 }
 
+/**
+ * Controls for the lift-off lid. Two of the three change how the box FITS rather
+ * than how it looks, so each one says in millimetres what it just did - a
+ * percentage of a wall height nobody has measured is not a number you can check
+ * against the thing on your bench.
+ */
+function liftOffRows(p, ctx) {
+  const d = getBox().derived.lid;
+  if (!d) return [];
+  const seg = (label, key, on, value) => h('div', { class: 'field' },
+    h('label', {}, label),
+    h('div', { class: 'seg' }, [[true, 'On'], [false, 'Off']].map(([v, text]) =>
+      h('button', {
+        type: 'button', 'aria-pressed': String(on === v),
+        onclick: () => { setParam(key, v); ctx.refresh(); },
+      }, text))),
+    value);
+  return [
+    numberRow('Lid depth (% of the wall)', p.lidDrop ?? 35, {
+      min: 10, max: 95, step: 5,
+      onInput: (v) => { setParam('lidDrop', Math.round(v)); ctx.refresh(); },
+    }),
+    numberRow('Lid clearance (mm)', p.lidSlack ?? 0.4, {
+      min: 0.1, max: 1.5, step: 0.05,
+      onInput: (v) => { setParam('lidSlack', v); ctx.refresh(); },
+    }),
+    seg('Thumb notch', 'lidNotch', (p.lidNotch ?? true) !== false, null),
+    h('p', { class: 'hint' },
+      `The skirt covers ${rnd(d.drop, 1)} mm of the wall, and the finished box `
+      + `measures ${rnd(d.outerL, 1)} x ${rnd(d.outerW, 1)} mm - the lid rides `
+      + 'outside the walls, so it is wider than the Length and Width below.'),
+    h('p', { class: 'hint' },
+      'Clearance is the gap on each side, and it is the only gap there is: kerf '
+      + 'is already compensated on both parts. Too little and the lid will not go '
+      + 'on at all, and there is nothing to do about that afterwards but cut '
+      + 'another one. Start at 0.4 mm, and open it up on materials that swell.'),
+  ];
+}
+
 function dimRow(label, key, ctx) {
   const p = state.params;
   const maxima = { length: 900, width: 900, height: 600 };
@@ -606,6 +674,12 @@ function summaryRows() {
     h('div', { class: 'stat' }, h('span', {}, 'Path length'), h('b', {}, `${(cut / 1000).toFixed(2)} m`)),
     h('div', { class: 'stat' }, h('span', {}, 'Board area'), h('b', {}, `${(area / 100).toFixed(0)} cm²`)),
     h('div', { class: 'stat' }, h('span', {}, 'Wall height'), h('b', {}, `${rnd(box.derived.wallH, 1)} mm`)),
+    box.derived.lid
+      ? h('div', { class: 'stat' },
+        h('span', {}, 'Overall size'),
+        h('b', {}, `${rnd(box.derived.lid.outerL, 1)} x ${rnd(box.derived.lid.outerW, 1)} `
+          + `x ${rnd(box.params.height, 1)} mm`))
+      : null,
     box.derived.screwCount
       ? h('div', { class: 'stat' },
         h('span', {}, 'Hardware'),
@@ -880,8 +954,14 @@ export function fillExportDialog(dlg, box) {
     value: s.id, ...(s.id === state.sheet ? { selected: true } : {}),
   }, `${s.w} × ${s.h} mm`)));
   sel.onchange = (e) => update((s) => { s.sheet = e.target.value; }, { history: false });
+  // A lift-off lid rides outside the walls, so the box that comes off the bed is
+  // wider than the Length and Width that were typed in. This line is the last
+  // thing anyone reads before cutting, so it names the size they will measure.
+  const outer = box.derived.lid
+    ? `${rnd(box.derived.lid.outerL, 1)} × ${rnd(box.derived.lid.outerW, 1)} × ${box.params.height} mm overall`
+    : `${box.params.length} × ${box.params.width} × ${box.params.height} mm`;
   dlg.querySelector('#exportSummary').textContent =
-    `${box.panels.length} panels · ${box.params.length} × ${box.params.width} × ${box.params.height} mm · ${box.params.thickness} mm board`;
+    `${box.panels.length} panels · ${outer} · ${box.params.thickness} mm board`;
   // Placed images cannot go into the PDF. A PDF image is an XObject with its own
   // encoding, and a PNG cannot be carried across as it stands. Saying so is the
   // whole point: artwork that silently fails to appear is worse than artwork

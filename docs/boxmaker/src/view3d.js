@@ -165,6 +165,12 @@ export class View3D {
       const target = this.lidOpen ? sign * 105 * DEG : 0;
       pivot.rotation.x += (target - pivot.rotation.x) * 0.18;
     }
+    // A lift-off lid has nothing to swing on, so opening the box raises it
+    // straight up instead - the motion you would actually make.
+    for (const { node, dist } of this.liftGroups || []) {
+      const target = this.lidOpen ? dist : 0;
+      node.position.z += (target - node.position.z) * 0.18;
+    }
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -247,6 +253,7 @@ export class View3D {
     this.disposeBuild();
     this.meshes = [];
     this.lidGroups = [];
+    this.liftGroups = [];
 
     const t = box.params.thickness;
     const color = new THREE.Color(opts.color || '#d8b483');
@@ -337,6 +344,15 @@ export class View3D {
         outer.add(pivot);
         this.lidGroups.push({ pivot, sign: panel.hinge.sign });
         this.root.add(outer);
+        this.meshes.push(mesh);
+        continue;
+      }
+
+      if (panel.lift) {
+        const riser = new THREE.Group();
+        riser.add(group);
+        this.liftGroups.push({ node: riser, dist: panel.lift });
+        this.root.add(riser);
         this.meshes.push(mesh);
         continue;
       }

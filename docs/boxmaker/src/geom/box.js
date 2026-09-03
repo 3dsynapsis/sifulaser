@@ -11,6 +11,12 @@
 //   * lid (lidded) - walls drop to H - t, the lid drops between them and pivots on
 //     square pins riding in round holes inside a boss on the side walls. A rounded
 //     lip on the front edge gives you something to hook a finger under.
+//   * lid (shoebox) - a second tray, wider by the fit gap plus two board
+//     thicknesses, inverted over the first. Its walls carry the same corner
+//     joints as the box; its top is caught in notches cut into their top edges,
+//     so it finishes flush rather than sitting in a well. This is the only style
+//     whose lid rides OUTSIDE the walls, and so the only one where the finished
+//     box is bigger than length x width.
 //   * dividers - interior panels standing on the floor, tenoned through the walls
 //     the same way the floor is. They stop short of the rim so the compartments
 //     stay easy to reach into and a lid never lands on them. Four compartments
@@ -32,7 +38,7 @@ import {
 } from './path.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -49,17 +55,23 @@ export const DEFAULTS = {
   slitWidth: 0.4,
   slitOvershoot: 0.4,   // how far a slit reaches past the tenon root
   lidGap: 0.3,          // clearance each side so the lid can swing
+  lidSlack: 0.4,        // lift-off lid: gap between its inner face and the box
+  lidDrop: 35,          // lift-off lid: % of the wall height its skirt covers
+  lidNotch: true,       // lift-off lid: thumb notch in the front of the skirt
 };
 
 export const PANEL_ORDER = [
   'front', 'back', 'left', 'right', 'bottom', 'divLength', 'divWidth',
   'top', 'leafFront', 'leafBack',
+  'lidTop', 'lidFront', 'lidBack', 'lidLeft', 'lidRight',
 ];
 
 export const PANEL_LABELS = {
   front: 'Front', back: 'Back', left: 'Left', right: 'Right',
   bottom: 'Bottom', top: 'Lid', leafFront: 'Leaf front', leafBack: 'Leaf back',
   divLength: 'Divider (across)', divWidth: 'Divider (along)',
+  lidTop: 'Lid top', lidFront: 'Lid front', lidBack: 'Lid back',
+  lidLeft: 'Lid left', lidRight: 'Lid right',
 };
 
 /**
@@ -259,7 +271,10 @@ export function buildBox(input = {}) {
   const H = Math.max(t * 6, p.height);
   const lidded = p.style === 'lidded';
   const double = p.style === 'double';
-  const hasLid = lidded || double;
+  // A lid that lifts clean off, so the walls stop a board short and the lid's own
+  // top makes up the height - the same bookkeeping as the hinged styles.
+  const shoebox = p.style === 'shoebox';
+  const hasLid = lidded || double || shoebox;
   const wallH = hasLid ? H - t : H;
   const floorZ = p.floorOffset == null ? t : Math.max(0, p.floorOffset);
   const m = Math.max(3, p.fingerSize);
@@ -388,6 +403,8 @@ export function buildBox(input = {}) {
   const withSlots = (feats, from, flip) => (screwZs.length
     ? [...feats, ...tslotFeats(from, flip)].sort((a, b) => a.s - b.s)
     : feats);
+
+  let lidInfo = null;
 
   const panels = [];
 
@@ -678,6 +695,128 @@ export function buildBox(input = {}) {
     }
   }
 
+  // ---- lift-off lid -------------------------------------------------------
+  // A second tray, inverted and dropped over the first. The walls carry the same
+  // corner finger joints as the box; the top is caught in notches cut into their
+  // top edges, so it finishes flush instead of sitting in a shallow well that
+  // collects dust.
+  //
+  // The whole style hangs on one number: the gap between the lid's inner face and
+  // the box's outer face. Kerf is already compensated on both parts, so this is a
+  // real clearance and it is the only clearance there is - which is why it starts
+  // generous. A lid half a millimetre too tight does not go on at all, and there
+  // is nothing to do about it afterwards but cut another one.
+  if (shoebox) {
+    const slack = Math.max(0.05, p.lidSlack ?? DEFAULTS.lidSlack);
+    // The screw joint leaves the side walls' fingers standing `ear` proud of W.
+    // The lid has to clear what was actually cut, not the nominal width.
+    const inL = L + 2 * slack;
+    const inW = W + 2 * ear + 2 * slack;
+    const oL = inL + 2 * t;
+    const oW = inW + 2 * t;
+
+    const frac = Math.min(0.95, Math.max(0.1, (p.lidDrop ?? DEFAULTS.lidDrop) / 100));
+    // Under about two and a half board thicknesses there is no room left to cut a
+    // corner joint into, so a very shallow lid is quietly deepened rather than
+    // exported as a part that cannot be assembled.
+    const drop = Math.min(wallH, Math.max(t * 2.5, wallH * frac));
+    const hL = drop + t;
+
+    // Corner joints are laid out over the skirt only, not the whole wall. They
+    // stay clear of the top band either way - the two joints never share a place
+    // along the edge - so this is a look, not a rule: every finger then falls in
+    // the band you can actually see, and the top board is left unbroken for the
+    // joint that holds the lid top.
+    const skirt = hL - t;
+    const lm = Math.max(3, Math.min(m, skirt / 5));
+    const cFeats = featureLayout(skirt, lm);
+
+    // Where the lid top's tabs land, in lid coordinates. featureLayout is centred
+    // and therefore symmetric, so one list serves a wall and the wall facing it.
+    const tabX = featureLayout(inL, m).map((f) => ({ s: t + f.s, e: t + f.e }));
+    const tabY = featureLayout(inW, m).map((f) => ({ s: t + f.s, e: t + f.e }));
+    // The receiving notch shrinks by `fit`, the same interference the floor
+    // mortises are cut with.
+    const snug = (fs) => fs.map((f) => ({ s: f.s + fit / 2, e: f.e - fit / 2 }));
+    /** Re-express absolute-axis features for a walk from a to b along that axis. */
+    const forWalk = (fs, a, b) => (b > a
+      ? fs.map((f) => ({ s: f.s - a, e: f.e - a }))
+      : fs.map((f) => ({ s: a - f.e, e: a - f.s })).reverse());
+
+    // The thumb notch, so there is something to hook a finger under. It is capped
+    // against the drop as well as the length: on a shallow lid a notch sized off
+    // the length alone would cut straight through into the top.
+    const thumbR = Math.min(
+      Math.max(4, Math.min(oL * 0.06, 12)), drop * 0.5, inL * 0.2,
+    );
+    const thumb = (p.lidNotch ?? true) !== false && thumbR >= 2.5;
+
+    /** Front and back of the lid: tabs on the corners, notches along the top. */
+    const wallX = (withThumb) => {
+      const x0 = t;
+      const x1 = oL - t;
+      const dip = withThumb && thumb
+        ? [{ s: inL / 2 - thumbR, e: inL / 2 + thumbR }]
+        : [];
+      return dedupe([
+        ...edgeRun([x0, 0], [x1, 0], dip, -thumbR, { arc: true }),
+        ...edgeRun([x1, 0], [x1, hL], cFeats, t),
+        ...edgeRun([x1, hL], [x0, hL], forWalk(snug(tabX), x1, x0), -t),
+        ...edgeRun([x0, hL], [x0, 0], flipFeatures(cFeats, hL), t),
+      ]);
+    };
+
+    /** Sides of the lid: they receive the corner tabs, and the top's Y tabs. */
+    const wallY = () => dedupe([
+      ...edgeRun([0, 0], [oW, 0], [], 0),
+      ...edgeRun([oW, 0], [oW, hL], cFeats, -t),
+      ...edgeRun([oW, hL], [0, hL], forWalk(snug(tabY), oW, 0), -t),
+      ...edgeRun([0, hL], [0, 0], flipFeatures(cFeats, hL), -t),
+    ]);
+
+    /** The top itself: a plain panel with a tab run on all four edges. */
+    const lidTop = () => {
+      const x0 = t;
+      const x1 = oL - t;
+      const y0 = t;
+      const y1 = oW - t;
+      return dedupe([
+        ...edgeRun([x0, y0], [x1, y0], forWalk(tabX, x0, x1), t),
+        ...edgeRun([x1, y0], [x1, y1], forWalk(tabY, y0, y1), t),
+        ...edgeRun([x1, y1], [x0, y1], forWalk(tabX, x1, x0), t),
+        ...edgeRun([x0, y1], [x0, y0], forWalk(tabY, y1, y0), t),
+      ]);
+    };
+
+    // Lid coordinates sit inside box coordinates: the skirt hangs `drop` below the
+    // rim and stands t + slack outside the walls on every side.
+    const ox = -(slack + t);
+    const oy = -(ear + slack + t);
+    const oz = wallH - drop;
+    // How far it rises when you open the box in the preview: clear of the rim,
+    // with enough daylight that it reads as lifted off rather than ajar.
+    const lift = drop + Math.max(10, H * 0.3);
+    const add = (id, outline, frame) => panels.push(normalisePanel({
+      id, label: PANEL_LABELS[id], outline, holes: [], lift, frame,
+    }));
+
+    add('lidFront', wallX(true),
+      { origin: [ox, oy, oz], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
+    add('lidBack', wallX(false),
+      { origin: [ox + oL, oy + oW, oz], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] });
+    add('lidLeft', wallY(),
+      { origin: [ox, oy + oW, oz], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] });
+    add('lidRight', wallY(),
+      { origin: [ox + oL, oy, oz], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] });
+    add('lidTop', lidTop(),
+      { origin: [ox, oy, oz + hL], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+
+    lidInfo = {
+      slack, drop, height: hL, outerL: oL, outerW: oW,
+      thumbR: thumb ? thumbR : 0,
+    };
+  }
+
   // ---- kerf compensation --------------------------------------------------
   const k = Math.max(0, p.kerf) / 2;
   for (const pan of panels) {
@@ -694,6 +833,7 @@ export function buildBox(input = {}) {
     params: { ...p, thickness: t, length: L, width: W, height: H },
     derived: {
       wallH, floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
+      lid: lidInfo,
       vFeats, xFeats, yFeats,
       divCount: divOK ? divCount : 0, divBase, divH, divFeats,
       // 4 vertical corners, this many screws on each
