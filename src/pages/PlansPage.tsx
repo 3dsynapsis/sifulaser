@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   CalendarDays,
   Check,
@@ -23,6 +22,7 @@ import {
   SAVING_LABEL,
 } from '../lib/access'
 import { useAuth } from '../lib/auth'
+import { SiteHeader } from '../components/SiteHeader'
 
 const featuresFor = (tier: TierId) =>
   PLAN_FEATURES.filter((feature) => feature.tiers.includes(tier))
@@ -69,15 +69,10 @@ export const PlansPage = () => {
 
   return (
     <div className="min-h-screen bg-canvas">
+      {/* Lihat AboutPage: bar nav mesti bertahan merentas keempat-empat
+          destinasi yang pillnya iklankan, bukan satu klik sahaja. */}
+      <SiteHeader />
       <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5 px-4 py-5 sm:py-8">
-        <a
-          href="#/"
-          className="inline-flex w-fit min-h-11 items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-muted transition-colors hover:bg-white hover:text-ink"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Utama
-        </a>
-
         <header className="text-center">
           <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
             Pakej &amp; Harga

@@ -11,6 +11,7 @@ import {
   MessageCircle,
   Newspaper,
 } from 'lucide-react'
+import { SiteHeader } from '../components/SiteHeader'
 import {
   BLOG_POSTS,
   SIGN_OFF,
@@ -298,15 +299,10 @@ const Pill = ({
 
 const BlogIndex = () => (
   <div className="min-h-screen bg-canvas">
+    {/* Lihat AboutPage: bar nav mesti bertahan merentas keempat-empat
+        destinasi yang pillnya iklankan, bukan satu klik sahaja. */}
+    <SiteHeader />
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-5 sm:py-8">
-      <a
-        href="#/"
-        className="inline-flex w-fit min-h-11 items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-muted transition-colors hover:bg-white hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Utama
-      </a>
-
       <header className="card flex items-center gap-4 p-4 sm:p-5">
         <span
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
@@ -402,7 +398,10 @@ const BlogArticle = ({ post }: { post: BlogPost }) => {
 
   return (
     <div className="min-h-screen bg-canvas">
+      <SiteHeader />
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-5 sm:py-8">
+        {/* Ini kekal: "Semua episod" ialah destinasi lain daripada Home, dan
+            bar tidak menawarkannya. */}
         <a
           href="#/blog"
           className="inline-flex w-fit min-h-11 items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-muted transition-colors hover:bg-white hover:text-ink"

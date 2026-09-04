@@ -68,7 +68,18 @@ const NavPills = ({ route }: { route: string }) => {
           aria-current={item.route === route ? 'page' : undefined}
         >
           <item.Icon size={15} strokeWidth={2} aria-hidden="true" />
-          {item.label}
+          {/* Satu span, bukan dua item flex: `gap: 6px` pada pill akan
+              menyisipkan jurang di tengah label kalau ekor itu adik-beradik
+              teksnya. CSS menggugurkan ekor ini dengan display:none di bawah
+              900 px, jadi nama boleh capai pill itu pun jadi "Pakej" di sana,
+              bukan "Pakej & Harga" — pendek, tetapi masih menamakan destinasi
+              yang betul. */}
+          <span>
+            {item.label}
+            {item.labelTail ? (
+              <span className="nav-pill-long">{item.labelTail}</span>
+            ) : null}
+          </span>
         </a>
       ))}
     </div>
@@ -211,10 +222,27 @@ const AccountSlot = () => {
             role="menu"
             className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-white shadow-[0_20px_44px_-22px_rgb(20_33_61/0.6)]"
           >
+            {/* Cip dalam bar hanya menunjukkan nama + pelan dari 900 px dan
+                tarikh tamat dari 1120 px, jadi di bawah 1120 px menu ini ialah
+                satu-satunya permukaan yang tinggal. Tanpa baris tarikh di sini,
+                setiap pengguna telefon dan tablet yang membayar kehilangan
+                tarikh aksesnya sama sekali — AccountBar lama memaparkannya pada
+                setiap lebar. Dua elemen dan bukan satu supaya tiada jalur
+                bersempadan yang kosong dirender pada mana-mana lebar. */}
             <p className="border-b border-line px-3 py-2 text-[11.5px] text-muted mid:hidden">
               <span className="block truncate font-bold text-ink">{name}</span>
               {planLabel}
+              {expiryLabel && paid ? (
+                <span className="mt-0.5 block tabular-nums">
+                  Sah sehingga {expiryLabel}
+                </span>
+              ) : null}
             </p>
+            {expiryLabel && paid ? (
+              <p className="hidden border-b border-line px-3 py-2 text-[11.5px] text-muted tabular-nums mid:block wide:hidden">
+                Sah sehingga {expiryLabel}
+              </p>
+            ) : null}
             {isAdmin(user) ? (
               <a
                 href="#/admin"
@@ -261,7 +289,11 @@ export const SiteHeader = () => {
     <header className="home-bar" data-scrolled={scrolled ? 'true' : 'false'}>
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <div className="home-bar-inner">
-          <a href="#/" className="min-w-0 no-underline">
+          {/* w-fit: tanpanya pautan ini meregang ke seluruh lajur grid dan
+              garis emas di bawah tagline — border-top pada span blok — berakhir
+              di udara, kira-kira 89 px melepasi glif terakhir. Panjang garis
+              itu patut mengukur taip, bukan viewport. */}
+          <a href="#/" className="w-fit min-w-0 no-underline">
             <span className="home-wordmark flex flex-wrap items-center gap-x-2">
               <span className="text-2xl leading-none font-extrabold tracking-[-0.02em] mid:text-[34px]">
                 <span className="text-ink">Sifu</span>
@@ -278,7 +310,11 @@ export const SiteHeader = () => {
             {/* Satu-satunya elemen yang digugurkan pada mana-mana lebar:
                 tagline ini hilang di bawah 640 kerana wordmark sudah membawa
                 jenama dan bar 56 px tiada ruang untuk dua baris. */}
-            <span className="mt-[3px] hidden border-t-2 border-near/55 pt-1 text-[10px] leading-none font-bold tracking-[0.26em] text-muted uppercase mid:block">
+            {/* w-fit dan border-BOTTOM. Sebagai span blok tanpa lebar, garis
+                emas ini mengukur lajur grid dan bukan taip di atasnya — ia
+                berakhir di udara jauh melepasi glif terakhir. Dan mockup
+                meletakkan tagline DI ATAS garis, bukan di bawahnya. */}
+            <span className="mt-[3px] hidden w-fit border-b-2 border-near/55 pb-1 text-[10px] leading-none font-bold tracking-[0.26em] text-muted uppercase mid:block">
               Align. Maintain. Perform.
             </span>
           </a>

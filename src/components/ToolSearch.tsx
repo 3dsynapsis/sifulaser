@@ -94,7 +94,7 @@ export const ToolSearch = () => {
           ref={inputRef}
           type="text"
           role="combobox"
-          aria-expanded={show}
+          aria-expanded={show && results.length > 0}
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={
@@ -119,47 +119,54 @@ export const ToolSearch = () => {
         {show ? `${results.length} hasil carian` : ''}
       </p>
 
-      {show ? (
+      {/* Keadaan tiada-padanan BUKAN listbox. Pautan yang bersarang dalam
+          listbox tidak boleh dicapai sebagai option, dan combobox yang
+          mengiklankan popup berperanan listbox dengan sifar option ialah janji
+          yang tidak ditepati. Jadi role itu — dan aria-expanded di atas —
+          hanya muncul bila ada option sebenar untuk dilayari. */}
+      {show && results.length === 0 ? (
+        <div className="search-pop">
+          <p className="px-3 py-3 text-[13px] text-muted">
+            Tiada tool yang sepadan dengan &ldquo;{query.trim()}&rdquo;.{' '}
+            <a
+              href="#/blog"
+              className="font-semibold text-screw-2 underline-offset-2 hover:underline"
+            >
+              Cuba cari dalam blog
+            </a>
+          </p>
+        </div>
+      ) : null}
+
+      {show && results.length > 0 ? (
         <div className="search-pop" id={listId} role="listbox">
-          {results.length === 0 ? (
-            <p className="px-3 py-3 text-[13px] text-muted">
-              Tiada tool yang sepadan dengan &ldquo;{query.trim()}&rdquo;.{' '}
-              <a
-                href="#/blog"
-                className="font-semibold text-screw-2 underline-offset-2 hover:underline"
-              >
-                Cuba cari dalam blog
-              </a>
-            </p>
-          ) : (
-            results.map((item, index) => (
-              <a
-                key={item.href}
-                id={`${listId}-${index}`}
-                role="option"
-                aria-selected={index === active}
-                data-active={index === active}
-                className="search-opt"
-                href={item.href}
-                onMouseEnter={() => setActive(index)}
-                onClick={() => setOpen(false)}
-              >
-                <span
-                  className="h-6 w-6 shrink-0 rounded-full"
-                  style={{ background: item.accent }}
-                  aria-hidden="true"
-                />
-                <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-bold text-ink">
-                    {item.title}
-                  </span>
-                  <span className="block truncate text-[11.5px] text-muted">
-                    {item.line}
-                  </span>
+          {results.map((item, index) => (
+            <a
+              key={item.href}
+              id={`${listId}-${index}`}
+              role="option"
+              aria-selected={index === active}
+              data-active={index === active}
+              className="search-opt"
+              href={item.href}
+              onMouseEnter={() => setActive(index)}
+              onClick={() => setOpen(false)}
+            >
+              <span
+                className="h-6 w-6 shrink-0 rounded-full"
+                style={{ background: item.accent }}
+                aria-hidden="true"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-bold text-ink">
+                  {item.title}
                 </span>
-              </a>
-            ))
-          )}
+                <span className="block truncate text-[11.5px] text-muted">
+                  {item.line}
+                </span>
+              </span>
+            </a>
+          ))}
         </div>
       ) : null}
     </div>

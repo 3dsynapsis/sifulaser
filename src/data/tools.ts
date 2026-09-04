@@ -302,6 +302,13 @@ export const toolsInGroup = (id: GroupId): ToolEntry[] =>
 /** Empat destinasi bar nav. Semuanya laluan sedia ada — tiada kerja penghalaan. */
 export interface NavItem {
   label: string
+  /**
+   * Ekor label yang digugurkan pada telefon (span .nav-pill-long). Empat pill
+   * berjumlah lebih lebar daripada trek 343 px pada 375 px, jadi tanpa ini
+   * destinasi keempat duduk di luar skrin sehingga diskrol. Yang digugurkan
+   * hanya panjang label — destinasi kekal empat.
+   */
+  labelTail?: string
   href: string
   Icon: LucideIcon
   /** Nama laluan yang dikembalikan useHashRoute bila pill ini aktif. */
@@ -311,13 +318,23 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { label: 'Home', href: '#/', Icon: House, route: 'home' },
   { label: 'Blog', href: '#/blog', Icon: Newspaper, route: 'blog' },
-  { label: 'Pakej & Harga', href: '#/pakej', Icon: Tag, route: 'pakej' },
+  {
+    label: 'Pakej',
+    labelTail: ' & Harga',
+    href: '#/pakej',
+    Icon: Tag,
+    route: 'pakej',
+  },
   { label: 'About', href: '#/about', Icon: UserRound, route: 'about' },
 ]
 
 /**
- * Sasaran carian: 14 tile ditambah 4 destinasi nav = 18.
- * Lapan belas item tidak memerlukan kebergantungan padanan kabur.
+ * Sasaran carian: 14 tile ditambah destinasi nav yang BUKAN sudah menjadi
+ * tile = 16. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
+ * memasukkan pill navnya juga memberi dua baris serupa yang menuju ke tempat
+ * yang sama — dan dua adik-beradik React dengan key yang sama, kerana
+ * ToolSearch mengunci pada href. Dua daripada enam slot hasil dibazirkan
+ * untuk mengulang satu destinasi, dengan label yang lebih buruk.
  */
 export interface SearchTarget {
   title: string
@@ -349,6 +366,8 @@ interface RankedTarget extends SearchTarget {
   keywordFold: string
 }
 
+const TOOL_HREFS = new Set(TOOLS.map((tool) => tool.href))
+
 const TARGETS: RankedTarget[] = [
   ...TOOLS.map((tool) => ({
     title: tool.title,
@@ -361,15 +380,22 @@ const TARGETS: RankedTarget[] = [
     titleFold: fold(tool.title),
     keywordFold: fold(tool.keywords.join(' ')),
   })),
-  ...NAV.filter((item) => item.route !== 'home').map((item) => ({
-    title: item.label,
-    line: 'Halaman laman',
-    href: item.href,
-    accent: 'var(--color-screw-2)',
-    haystack: fold(`${item.label} halaman laman`),
-    titleFold: fold(item.label),
-    keywordFold: '',
-  })),
+  ...NAV.filter(
+    (item) => item.route !== 'home' && !TOOL_HREFS.has(item.href),
+  ).map((item) => {
+    // Nama penuh, bukan `label` sahaja: `label` ialah versi pendek telefon
+    // ("Pakej"), dan carian untuk "harga" mesti tetap menjumpainya.
+    const full = `${item.label}${item.labelTail ?? ''}`
+    return {
+      title: full,
+      line: 'Halaman laman',
+      href: item.href,
+      accent: 'var(--color-screw-2)',
+      haystack: fold(`${full} halaman laman`),
+      titleFold: fold(full),
+      keywordFold: '',
+    }
+  }),
   {
     title: 'Home',
     line: 'Halaman laman',

@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Award,
   Crosshair,
   ExternalLink,
@@ -17,18 +16,16 @@ import {
   WHATSAPP_NUMBER_DISPLAY,
   whatsappUrlFor,
 } from '../data/shop'
+import { SiteHeader } from '../components/SiteHeader'
 
 export const AboutPage = () => (
   <div className="min-h-screen bg-canvas">
+    {/* Bar yang sama seperti halaman utama. Empat pill nav menjanjikan empat
+        destinasi; tanpa bar di sini janji itu bertahan tepat satu klik, dan
+        dari About tiada jalan ke Blog tanpa balik ke halaman utama dahulu.
+        Pautan "Utama" lama digugurkan — Home kini pill dalam bar itu. */}
+    <SiteHeader />
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-5 sm:py-8">
-      <a
-        href="#/"
-        className="inline-flex w-fit min-h-11 items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-muted transition-colors hover:bg-white hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Utama
-      </a>
-
       <header className="card flex flex-col items-center gap-3 p-6 text-center">
         <span className="flex h-24 w-24 items-center justify-center rounded-full bg-[#f4effd]">
           <UserRound className="h-12 w-12 text-[#7c3aed]" aria-hidden="true" />

@@ -22,18 +22,42 @@
   --color-aligned: #20a04a;
   --color-near: #e39a18;
 
-  /* Empat kumpulan halaman utama.
-     wash/soft/line setiap kumpulan dibina pada kecerahan yang sama untuk setiap
-     langkah (wash ~L*97, soft ~L*93, line ~L*88), supaya grid empat panel
-     terbaca sebagai satu permukaan berlabel empat warna dan bukan empat panel
-     dengan empat kekuatan berbeza. Wash amber dituruankan sedikit daripada
-     #fef7ee kerana warna panas kelihatan lebih cerah pada luminans yang sama.
+  /* Dua titik putus tambahan yang dipakai halaman utama sahaja.
+     Dalam rem, bukan px, DAN itu bukan gaya sahaja. Tailwind menyusun blok
+     media mengikut nilai, tetapi ia hanya boleh membandingkan nilai yang
+     sama unitnya — campur px dengan rem dan ia meletakkan semua px DAHULU.
+     Semasa nombor ini 900px/1120px, `mid:text-[44px]` disiarkan sebelum
+     `sm:text-[34px]`, jadi sm menang pada 1280 px dan tajuk hero dirender
+     34 px sepanjang masa. 56.25rem = 900 px, 70rem = 1120 px pada 16 px. */
+  --breakpoint-mid: 56.25rem;
+  --breakpoint-wide: 70rem;
+}
 
-     `ink` untuk teks sahaja: 6.59 / 5.94 / 6.48 / 7.06 di atas putih — satu
-     jalur sempit, jadi tiada tajuk kumpulan menjerit lebih kuat daripada yang
-     lain. `accent` untuk isian sahaja, sentiasa di bawah glif putih: 4.50 /
-     3.67 / 4.38 / 5.70. Sebab itu amber di sini #cf6710 dan bukan #e07514 lama
-     (3.08:1, gagal 3:1 WCAG 1.4.11), dan hijau #1d8a4e dan bukan #20a04a. */
+/* Empat kumpulan halaman utama.
+
+   DALAM :root, BUKAN @theme, dan itu bukan pilihan gaya. Tailwind hanya
+   menyiarkan token @theme yang ia NAMPAK dieja penuh dalam sumber yang
+   diimbasnya. Kelima-lima nama ini dibina dengan template literal dalam
+   src/data/tools.ts (`var(--color-g${n}-wash)`), jadi rentetan penuh tidak
+   pernah wujud dalam mana-mana fail — dan 16 daripada 20 token ini
+   disingkirkan senyap daripada bundle. Panel keluar tanpa latar, well tile
+   putih atas putih, tajuk kumpulan hitam. Empat token `accent` terselamat
+   hanya kerana ACCENT_BY_GROUP mengejanya penuh. :root ialah CSS biasa —
+   ia dilalukan bulat-bulat dan tidak boleh disingkirkan. Jangan pindahkan
+   blok ini balik ke dalam @theme.
+
+   wash/soft/line setiap kumpulan dibina pada kecerahan yang sama untuk setiap
+   langkah (wash ~L*97, soft ~L*93, line ~L*88), supaya grid empat panel
+   terbaca sebagai satu permukaan berlabel empat warna dan bukan empat panel
+   dengan empat kekuatan berbeza. Wash amber diturunkan sedikit daripada
+   #fef7ee kerana warna panas kelihatan lebih cerah pada luminans yang sama.
+
+   `ink` untuk teks sahaja: 6.59 / 5.94 / 6.48 / 7.06 di atas putih — satu
+   jalur sempit, jadi tiada tajuk kumpulan menjerit lebih kuat daripada yang
+   lain. `accent` untuk isian sahaja, sentiasa di bawah glif putih: 4.50 /
+   3.67 / 4.38 / 5.70. Sebab itu amber di sini #cf6710 dan bukan #e07514 lama
+   (3.08:1, gagal 3:1 WCAG 1.4.11), dan hijau #1d8a4e dan bukan #20a04a. */
+:root {
   --color-g1-wash: #f0f6fe;
   --color-g1-soft: #e3eefb;
   --color-g1-line: #cfe2f7;
@@ -54,10 +78,6 @@
   --color-g4-line: #ddd0f7;
   --color-g4-accent: #7c3aed;
   --color-g4-ink: #6d34c8;
-
-  /* Dua titik putus tambahan yang dipakai halaman utama sahaja. */
-  --breakpoint-mid: 900px;
-  --breakpoint-wide: 1120px;
 }
 
 @layer base {
@@ -238,7 +258,13 @@
    kelima belas ke kumpulan mana-mana dan nombor ini kena diterbitkan semula,
    bukan dianjak sikit — kalau tidak ia akan hanyut jadi 1fr 1fr pada perubahan
    pertama dan tile akan senyap-senyap jadi dua saiz berbeza lagi. Itulah yang
-   dielakkan di sini: kesemua 14 tile berkongsi satu lebar. */
+   dielakkan di sini: kesemua 14 tile berkongsi satu lebar.
+
+   Dua lajur panel bermula pada 70rem (1120 px) dan bukan lebih rendah, kerana
+   di bawahnya matematik fr yang sama memakan tile itu sendiri: pada 1120 px
+   t = 129.6, pada 1024 px t = 115.7, pada 960 px t = 104.3 dan hampir setiap
+   keterangan dua baris dipotong senyap oleh line-clamp. Well itu dibina untuk
+   ~120 px; 1120 px ialah lebar terakhir yang masih memberikannya. */
 .home-row {
   display: grid;
   gap: 24px;
@@ -274,10 +300,16 @@
   }
 }
 
+/* min-height itu ialah dua baris subtajuk (13 + 6 + 2 x 18.85 = 56.7). Tanpanya
+   "Belajar & Sumber" — yang subtajuknya membalut dua baris — menolak lajur
+   tilenya 18.7 px lebih rendah daripada "Generator Pantas" di sebelahnya, dan
+   satu baris kad terbaca berjuntai sebelah. Satu baris subtajuk bukan andaian
+   yang selamat pada mana-mana lebar. */
 .home-panel-head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  min-height: 57px;
   margin-bottom: 16px;
 }
 .home-panel-chip {
@@ -327,8 +359,12 @@
   text-transform: uppercase;
   color: var(--g-ink);
 }
+/* Warna sebenar, bukan opacity pada --g-ink. Kiraan ini membawa maklumat
+   (berapa alat dalam kumpulan) dan pada 11 px ia perlukan 4.5:1; opacity 0.55
+   memberi 3.63:1 di atas kanvas dan lebih teruk lagi 2.46:1 di atas wash
+   kumpulan, iaitu latar sebenarnya. --color-muted memberi 5.06:1 di atas wash. */
 .home-panel-count {
-  opacity: 0.55;
+  color: var(--color-muted);
 }
 a.home-panel-aside {
   transition: background-color 160ms ease-out;
@@ -357,7 +393,7 @@ a.home-panel-aside svg {
   flex-direction: column;
   gap: 10px;
   position: relative;
-  min-height: 224px;
+  min-height: 240px;
   padding: 10px 10px 12px;
   border-radius: 14px;
   background: #fff;
@@ -417,14 +453,23 @@ a.home-panel-aside svg {
   color: var(--color-ink);
   text-wrap: balance;
 }
+/* Tiga baris, bukan dua. Pada 1280 px tile ialah 140.6 px lebar dan lajur
+   keterangan hanya 120 px — "Latih alignment cermin, langkah demi langkah."
+   (44 aksara, tepat pada had yang ditulis untuk medan ini) perlukan tiga baris
+   dan dipotong elipsis pada dua. Had 44 aksara itulah yang salah, bukan ayat
+   bos; jadi yang dilonggarkan ialah clamp. */
 .tile-desc {
-  min-height: 31px;
+  min-height: 47px;
   font-size: 11.5px;
-  font-weight: 450;
+  /* 400, bukan 450. index.html memuatkan Plus Jakarta Sans sebagai lima
+     contoh diskret (400/500/600/700/800), tiada paksi berubah — jadi CSS
+     memadankan 450 ke atas kepada 500 dan baris sokongan ini keluar sama
+     berat dengan teks badan. 450 ialah nombor yang tidak membuat apa-apa. */
+  font-weight: 400;
   line-height: 1.35;
   color: var(--color-muted);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -444,16 +489,14 @@ a.home-panel-aside svg {
     transform 180ms cubic-bezier(0.2, 0.7, 0.3, 1),
     filter 180ms ease-out;
 }
-/* Batang anak panah lucide duduk sedikit ke kiri daripada pusat optik kotaknya. */
-.tile-arrow svg {
-  transform: translateX(0.5px);
-}
-
 /* Hover hanya untuk tetikus sebenar. Pada skrin sentuh ia melekat selepas tap. */
 @media (hover: hover) and (pointer: fine) {
   .tile:hover {
     transform: translateY(-2px);
-    border-color: var(--g-line);
+    /* Sandaran itu bukan hiasan. Kalau --g-line tidak terisi, `border-color`
+       jatuh ke currentColor — sempadan melompat dari 7% dakwat ke 100% dan
+       hover terbaca sebagai kerosakan render, bukan sebagai hover. */
+    border-color: var(--g-line, rgb(20 33 61 / 0.14));
     box-shadow:
       0 2px 4px rgb(20 33 61 / 0.05),
       0 14px 28px -18px rgb(20 33 61 / 0.45);
@@ -718,19 +761,37 @@ a.home-panel-aside svg {
 }
 
 /* ==========================================================================
-   900–1119 px — struktur sama, tile mengecil melalui matematik fr.
-   Itulah sebab well ialah aspect-ratio 3/2 dan bukan ketinggian tetap.
+   Di bawah 70rem (1120 px) — panel bertindan satu lajur.
+
+   Sintaks julat (width < 70rem), bukan (max-width: 1119px): ia pelengkap tepat
+   kepada `min-width: 70rem` Tailwind, jadi blok tulisan tangan di sini dan
+   varian `wide:` tidak boleh terpisah pada saiz fon akar yang bukan 16 px.
+   Sebab yang sama untuk 56.25rem dan 40rem di bawah.
    ========================================================================== */
-@media (max-width: 1119px) {
+@media (width < 70rem) {
   .home-authslot {
     width: 210px;
+  }
+  .home-row--a,
+  .home-row--b {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Empat lajur untuk SETIAP panel, termasuk yang berisi tiga alat — jadi
+     kumpulan tiga meninggalkan satu petak kosong di hujung dulangnya. Itu
+     disengajakan. Nisbah 508/668 di atas menyamakan lebar tile dengan
+     mengecilkan panel; sebaik panel jadi selebar penuh, nisbah itu berhenti
+     terpakai dan kumpulan tiga tiba-tiba mendapat kad 36% lebih gemuk
+     daripada kumpulan empat betul-betul di bawahnya (diukur: 230.9 px lawan
+     170.2 px pada 820 px). Petak kosong lebih jujur daripada dua saiz kad. */
+  .tile-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 /* ==========================================================================
-   640–899 px — panel bertindan, hero satu lajur.
+   Di bawah 56.25rem (900 px) — hero satu lajur, pill nav mengecut.
    ========================================================================== */
-@media (max-width: 899px) {
+@media (width < 56.25rem) {
   /* Pill nav kekal di dalam bar di sini, tetapi wordmark penuh, empat pill dan
      slot akaun berlebar tetap tidak muat serentak — ia bertindih. Yang
      digugurkan ialah bahagian hiasan: byline, tagline dan teks cip akaun.
@@ -754,6 +815,31 @@ a.home-panel-aside svg {
     flex-wrap: nowrap;
     white-space: nowrap;
   }
+  /* Palung sehingga selebar pillnya sahaja, tidak lebih. Lajur tengah di sini
+     ialah minmax(0,1fr) supaya ia boleh mengecut; kesan sampingannya ialah
+     palung itu MENGEMBANG untuk mengisi lajur bila ada ruang lebih, dan pada
+     820 px itu meninggalkan 75 px kelabu kosong di sebelah kanan "About".
+     Jurang 10 px pula memisahkan pudar skrol daripada butang log masuk —
+     tanpanya pudar itu terbaca sebagai butang menutup pill, bukan sebagai
+     petunjuk bahawa baris itu berterusan. */
+  .nav-trough {
+    width: max-content;
+    max-width: 100%;
+    margin-right: 10px;
+  }
+  /* " & Harga" digugurkan dan padding sisi turun dari 14 ke 11 px sebaik bar
+     mula picit. Kedua-duanya untuk satu sebab yang boleh diukur: pada 660 px
+     palung itu 342 px dan empat pill penuh 415 px, jadi "About" duduk di luar
+     skrin sehingga diskrol. Dipendekkan, empat pill jadi lebih kurang 339 px
+     dan keempat-empatnya kelihatan. Destinasi tidak berubah — hanya panjang
+     label. Di atas 900 px ada ruang untuk nama penuh, jadi ia dikekalkan. */
+  .nav-pill-long {
+    display: none;
+  }
+  .nav-pill {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
   .nav-scroll {
     overflow-x: auto;
     scrollbar-width: none;
@@ -773,10 +859,6 @@ a.home-panel-aside svg {
     display: none;
   }
 
-  .home-row--a,
-  .home-row--b {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .home-hero {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;
@@ -792,7 +874,7 @@ a.home-panel-aside svg {
 /* ==========================================================================
    375–639 px
    ========================================================================== */
-@media (max-width: 639px) {
+@media (width < 40rem) {
   .home-bar-inner {
     height: 56px;
     grid-template-columns: 1fr auto;
@@ -801,8 +883,14 @@ a.home-panel-aside svg {
   .home-authslot {
     width: auto;
   }
-  /* Pill nav keluar dari bar ke barisnya sendiri. Keempat-empatnya muat pada
-     343 px; skrol itu insurans. */
+  /* Pill nav keluar dari bar ke barisnya sendiri. Komen di sini dulu berkata
+     keempat-empat pill muat pada 343 px dan skrol itu insurans. Ia tidak
+     benar: dengan label penuh, empat pill ialah 415 px pada trek 343 px, dan
+     "About" duduk 72 px di luar skrin sampai diskrol. Label pendek dan padding
+     11 px dalam blok 56.25rem di atas menutup sebahagian besar jurang itu;
+     baki yang tinggal diukur semula setiap kali label nav berubah, bukan
+     diandaikan. Pudar 16 px di bawah ialah petunjuk bahawa baris itu
+     berterusan. */
   .nav-scroll {
     overflow-x: auto;
     scroll-snap-type: x proximity;

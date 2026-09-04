@@ -12,10 +12,18 @@ import { toolsInGroup, type ToolGroup } from '../data/tools'
 export const ToolGroupPanel = ({
   group,
   paid,
+  loading,
   delayMs,
 }: {
   group: ToolGroup
   paid: boolean
+  /**
+   * useAuth bermula dengan paid:false dan kekal begitu sehingga pendengar auth
+   * DAN snapshot Firestore mendarat. Tanpa bendera ini, pengguna berbayar
+   * melihat dua mangga muncul lalu hilang pada setiap muat — betul-betul di
+   * bawah jalur naik taraf yang sudah dijaga daripada kelipan yang sama.
+   */
+  loading: boolean
   delayMs: number
 }) => {
   const tools = toolsInGroup(group.id)
@@ -58,7 +66,7 @@ export const ToolGroupPanel = ({
           <ToolTile
             key={tool.href}
             tool={tool}
-            locked={Boolean(tool.premium) && !paid}
+            locked={Boolean(tool.premium) && !paid && !loading}
           />
         ))}
       </div>

@@ -36,6 +36,19 @@ const FOOTER_NOTES = [
   { Icon: Wrench, title: 'Tools Praktikal', sub: 'Terus boleh guna' },
 ]
 
+/**
+ * Kumpulan dipasangkan dua-dua, bukan diindeks GROUPS[0..3] dengan tangan.
+ * noUncheckedIndexedAccess tidak dihidupkan dalam tsconfig, jadi GROUPS[4]
+ * menaip bersih dan membuang pada masa larian — dan kumpulan kelima yang
+ * ditambah ke tools.ts akan lulus `npm run typecheck` lalu hilang senyap
+ * daripada halaman ini. Di sini panjang halaman mengikut data.
+ */
+const GROUP_ROWS = GROUPS.reduce<(typeof GROUPS)[]>((rows, group, index) => {
+  if (index % 2 === 0) rows.push([group])
+  else rows[rows.length - 1].push(group)
+  return rows
+}, [])
+
 export const HomePage = () => {
   const { configured, loading, paid } = useAuth()
   const showHero = !(HERO_COMPACT_WHEN_PAID && paid)
@@ -75,11 +88,15 @@ export const HomePage = () => {
               <p className="mt-2 hidden text-[12px] leading-[1.4] font-medium text-muted sm:block">
                 Tekan <kbd className="font-bold">/</kbd> untuk fokus carian
               </p>
-              {/* Pada telefon panel kanan hilang, jadi baris tulisan tangan
-                  berpindah ke sini supaya ia tidak hilang sekali. */}
-              <p className="hand mt-5 text-[17px] text-screw-2 sm:hidden">
+              {/* Panel kanan hilang di bawah 900 px, jadi baris tulisan tangan
+                  berpindah ke sini supaya ia tidak hilang sekali. mid:hidden dan
+                  bukan sm:hidden — pada sm (640) salinan ini hilang sedangkan
+                  panel kanan belum kembali, jadi baris itu lenyap sepenuhnya
+                  antara 640 dan 899 px. Warna dan lebar garis sama dengan
+                  salinan desktop: satu baris suara jenama, satu rupa. */}
+              <p className="hand mid:hidden mt-5 text-[17px] text-ink">
                 Precision hari ini, hasil terbaik esok.
-                <span className="mt-1 block h-[3px] w-28 rounded-full bg-near/70" />
+                <span className="mt-1 block h-[3px] w-32 rounded-full bg-near/80" />
               </p>
             </div>
 
@@ -87,8 +104,13 @@ export const HomePage = () => {
                 tidak wujud dalam repo ini dan tiada stok dicari sebagai ganti.
                 Ini penggantinya; foto sebenar nanti hanyalah satu baris tukar. */}
             <div className="home-hero-right">
+              {/* Dipusatkan menegak. Bulatan 460 px dalam panel 266 px MESTI
+                  terpotong atas dan bawah — tiada susunan yang membiarkannya
+                  berdarah pada satu tepi sahaja — tetapi terpotong sama rata
+                  terbaca sebagai bleed yang disengajakan, bukan sebagai krop
+                  yang tersasar. Ini pengganti; foto sebenar masih satu baris. */}
               <Crosshair
-                className="absolute -right-16 -bottom-20 h-[460px] w-[460px] text-screw-2/10"
+                className="absolute top-1/2 -right-16 h-[460px] w-[460px] -translate-y-1/2 text-screw-2/10"
                 strokeWidth={1}
                 aria-hidden="true"
               />
@@ -103,14 +125,22 @@ export const HomePage = () => {
         {/* Dua baris, bukan satu grid 2x2: baris kedua menterbalikkan nisbah
             lajur supaya dua kumpulan bergambar duduk pada satu pepenjuru. */}
         <div className="flex flex-col gap-6">
-          <div className="home-row home-row--a">
-            <ToolGroupPanel group={GROUPS[0]} paid={paid} delayMs={0} />
-            <ToolGroupPanel group={GROUPS[1]} paid={paid} delayMs={60} />
-          </div>
-          <div className="home-row home-row--b">
-            <ToolGroupPanel group={GROUPS[2]} paid={paid} delayMs={120} />
-            <ToolGroupPanel group={GROUPS[3]} paid={paid} delayMs={180} />
-          </div>
+          {GROUP_ROWS.map((row, rowIndex) => (
+            <div
+              key={row[0].id}
+              className={`home-row ${rowIndex % 2 === 0 ? 'home-row--a' : 'home-row--b'}`}
+            >
+              {row.map((group, colIndex) => (
+                <ToolGroupPanel
+                  key={group.id}
+                  group={group}
+                  paid={paid}
+                  loading={loading}
+                  delayMs={(rowIndex * 2 + colIndex) * 60}
+                />
+              ))}
+            </div>
+          ))}
         </div>
 
         <footer className="home-foot">
