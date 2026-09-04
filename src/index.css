@@ -731,6 +731,48 @@ a.home-panel-aside svg {
    640–899 px — panel bertindan, hero satu lajur.
    ========================================================================== */
 @media (max-width: 899px) {
+  /* Pill nav kekal di dalam bar di sini, tetapi wordmark penuh, empat pill dan
+     slot akaun berlebar tetap tidak muat serentak — ia bertindih. Yang
+     digugurkan ialah bahagian hiasan: byline, tagline dan teks cip akaun.
+     Nama produk dan empat destinasi itu kekal. */
+  .home-bar-inner {
+    gap: 10px;
+    /* Lajur tengah yang boleh mengecut, bukan `auto`: pada 640-700 px empat
+       pill itu lebih lebar daripada ruang yang tinggal, dan lajur `auto`
+       enggan mengecut di bawah lebar kandungannya — jadi ia menolak wordmark
+       dan bertindih. Di sini ia mengecut dan baris pill boleh diskrol. */
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .home-bar-inner > nav {
+    min-width: 0;
+  }
+  .home-authslot {
+    width: auto;
+  }
+  /* Wordmark tidak sekali-kali membelah dua baris dalam bar 68 px. */
+  .home-wordmark {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  .nav-scroll {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 16px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 16px),
+      transparent 100%
+    );
+  }
+  .nav-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
   .home-row--a,
   .home-row--b {
     grid-template-columns: minmax(0, 1fr);
@@ -770,8 +812,12 @@ a.home-panel-aside svg {
   .nav-scroll::-webkit-scrollbar {
     display: none;
   }
+  /* 31 px tinggi pada tetikus sudah memadai; pada ibu jari ia tidak. */
   .nav-pill {
     scroll-snap-align: start;
+    min-height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
   }
   .home-hero {
     border-radius: 20px;

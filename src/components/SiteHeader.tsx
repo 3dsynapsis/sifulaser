@@ -113,7 +113,7 @@ const AccountSlot = () => {
     return (
       <div className="home-authslot gap-2">
         <span className="h-9 w-9 animate-pulse rounded-full bg-line" />
-        <span className="hidden sm:block">
+        <span className="hidden mid:block">
           <span className="mb-1 block h-3 w-14 animate-pulse rounded bg-line" />
           <span className="block h-3 w-22 animate-pulse rounded bg-line" />
         </span>
@@ -127,7 +127,7 @@ const AccountSlot = () => {
         <button
           type="button"
           onClick={() => void signIn()}
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-screw-2 px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#1a67b6]"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-screw-2 px-3.5 text-[13px] font-semibold whitespace-nowrap text-white transition-colors hover:bg-[#1a67b6]"
         >
           <LogIn className="h-4 w-4" aria-hidden="true" />
           <span className="hidden wide:inline">Log masuk dengan Google</span>
@@ -183,7 +183,7 @@ const AccountSlot = () => {
               <UserRound className="h-4 w-4 text-screw-2" aria-hidden="true" />
             </span>
           )}
-          <span className="hidden min-w-0 sm:block">
+          <span className="hidden min-w-0 mid:block">
             <span className="block truncate text-[13px] leading-tight font-bold text-ink">
               {name}
             </span>
@@ -200,7 +200,7 @@ const AccountSlot = () => {
             ) : null}
           </span>
           <ChevronDown
-            className="hidden h-4 w-4 shrink-0 text-muted sm:block"
+            className="hidden h-4 w-4 shrink-0 text-muted mid:block"
             aria-hidden="true"
           />
           <span className="sr-only">Menu akaun</span>
@@ -211,7 +211,7 @@ const AccountSlot = () => {
             role="menu"
             className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-white shadow-[0_20px_44px_-22px_rgb(20_33_61/0.6)]"
           >
-            <p className="border-b border-line px-3 py-2 text-[11.5px] text-muted sm:hidden">
+            <p className="border-b border-line px-3 py-2 text-[11.5px] text-muted mid:hidden">
               <span className="block truncate font-bold text-ink">{name}</span>
               {planLabel}
             </p>
@@ -262,8 +262,8 @@ export const SiteHeader = () => {
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <div className="home-bar-inner">
           <a href="#/" className="min-w-0 no-underline">
-            <span className="flex flex-wrap items-center gap-x-2">
-              <span className="text-2xl leading-none font-extrabold tracking-[-0.02em] sm:text-[34px]">
+            <span className="home-wordmark flex flex-wrap items-center gap-x-2">
+              <span className="text-2xl leading-none font-extrabold tracking-[-0.02em] mid:text-[34px]">
                 <span className="text-ink">Sifu</span>
                 <span className="text-screw-2 italic">Laser</span>
               </span>
@@ -271,14 +271,14 @@ export const SiteHeader = () => {
                 className="h-[18px] w-[18px] shrink-0 text-near"
                 aria-hidden="true"
               />
-              <span className="hidden text-[10.5px] leading-none font-semibold whitespace-nowrap text-muted sm:inline">
+              <span className="hidden text-[10.5px] leading-none font-semibold whitespace-nowrap text-muted mid:inline">
                 by Mahligai Seni
               </span>
             </span>
             {/* Satu-satunya elemen yang digugurkan pada mana-mana lebar:
                 tagline ini hilang di bawah 640 kerana wordmark sudah membawa
                 jenama dan bar 56 px tiada ruang untuk dua baris. */}
-            <span className="mt-[3px] hidden border-t-2 border-near/55 pt-1 text-[10px] leading-none font-bold tracking-[0.26em] text-muted uppercase sm:block">
+            <span className="mt-[3px] hidden border-t-2 border-near/55 pt-1 text-[10px] leading-none font-bold tracking-[0.26em] text-muted uppercase mid:block">
               Align. Maintain. Perform.
             </span>
           </a>
