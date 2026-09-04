@@ -1,311 +1,164 @@
 import {
   ArrowRight,
-  Box,
-  CakeSlice,
-  ClipboardCheck,
+  BookOpen,
   Crosshair,
-  Lightbulb,
-  KeyRound,
-  Luggage,
-  Newspaper,
-  PenLine,
-  Puzzle,
-  QrCode,
-  RectangleHorizontal,
-  Scaling,
-  LockKeyhole,
-  Sparkles,
-  Stethoscope,
-  Tag,
-  TrendingUp,
-  UserRound,
+  Crown,
+  ShoppingCart,
+  Users,
+  Wrench,
 } from 'lucide-react'
-import type { CSSProperties, ComponentType } from 'react'
-import { AccountBar } from '../components/AccountBar'
+import { SiteHeader } from '../components/SiteHeader'
+import { ToolGroupPanel } from '../components/ToolGroupPanel'
+import { ToolSearch } from '../components/ToolSearch'
+import { GROUPS } from '../data/tools'
+import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { useAuth } from '../lib/auth'
 
-interface HomeCard {
-  number: number
-  title: string
-  description: string
-  href: string
-  color: string
-  softBg: string
-  border: string
-  /** true jika kad ini kandungan berbayar sepenuhnya. */
-  premium?: boolean
-  Icon: ComponentType<{ className?: string; style?: CSSProperties }>
-}
+/**
+ * Halaman utama — direktori empat belas alat dalam empat kumpulan.
+ *
+ * Lima belas destinasi masih boleh dicapai dari sini. Empat belas ialah tile;
+ * yang kelima belas, "Pakej & Harga", ialah pill nav dan butang CTA biru di
+ * jalur kaki. Senarai itu sendiri tinggal di src/data/tools.ts.
+ */
 
-const CARDS: HomeCard[] = [
-  {
-    number: 1,
-    title: 'Simulator Alignment',
-    description: 'Belajar dan praktik alignment cermin untuk Mesin Laser Cut.',
-    href: '#/simulator',
-    color: '#1f78d1',
-    softBg: '#eef5fd',
-    border: '#cfe0f5',
-    Icon: Crosshair,
-  },
-  {
-    number: 2,
-    title: 'Maintenance',
-    description:
-      'Senarai semak weekly & yearly untuk memastikan mesin sentiasa optimum.',
-    href: '#/maintenance',
-    color: '#20a04a',
-    softBg: '#edf9f1',
-    border: '#c9ecd6',
-    premium: true,
-    Icon: ClipboardCheck,
-  },
-  {
-    number: 3,
-    title: 'Troubleshooting',
-    description:
-      'Carta SOP untuk kesan punca bila mesin laser tak berfungsi.',
-    href: '#/troubleshoot',
-    color: '#c8393c',
-    softBg: '#fdecec',
-    border: '#f4cfd0',
-    premium: true,
-    Icon: Stethoscope,
-  },
-  {
-    number: 4,
-    title: 'Pakej & Harga',
-    description:
-      'Akses Penuh dari RM200, atau kelas bersemuka bersama sifu. Lihat perbandingan pakej.',
-    href: '#/pakej',
-    color: '#e07514',
-    softBg: '#fdf3e8',
-    border: '#f6ddc0',
-    Icon: Tag,
-  },
-  {
-    number: 5,
-    title: 'Box Maker',
-    description:
-      'Reka kotak finger joint ikut saiz anda, terus dapat fail SVG siap potong.',
-    href: '#/boxmaker',
-    color: '#3f8f52',
-    softBg: '#f0f7ee',
-    border: '#cfe6d2',
-    Icon: Box,
-  },
-  {
-    number: 6,
-    title: 'Puzzle Generator',
-    description:
-      'Jana garisan potong jigsaw ikut saiz papan anda, terus dapat fail SVG.',
-    href: '#/puzzle',
-    color: '#0d7c8f',
-    softBg: '#eaf6f8',
-    border: '#c9e6ec',
-    Icon: Puzzle,
-  },
-  {
-    number: 7,
-    title: 'Text Engraver',
-    description:
-      'Teks satu garisan untuk ukiran laju. Dapat fail SVG atau PDF ikut saiz mm.',
-    href: '#/text',
-    color: '#c2610f',
-    softBg: '#fdf1e7',
-    border: '#f6d9bd',
-    Icon: PenLine,
-  },
-  {
-    number: 8,
-    title: 'Stand Nama',
-    description:
-      'Papan tanda nama meja: plate berukir atau huruf potong, siap dengan tapak.',
-    href: '#/stand',
-    color: '#2f5db0',
-    softBg: '#eef2fb',
-    border: '#cfdcf3',
-    Icon: RectangleHorizontal,
-  },
-  {
-    number: 9,
-    title: 'QR Generator',
-    description:
-      'Tukar link jadi kod QR untuk laser. Saiz mm sebenar, ada bingkai keychain.',
-    href: '#/qr',
-    color: '#2f7d4f',
-    softBg: '#eef7f1',
-    border: '#cfe6d8',
-    Icon: QrCode,
-  },
-  {
-    number: 10,
-    title: 'Template Adjuster',
-    description:
-      'Fail SVG dari internet tak padan material anda? Ubah saiz dan tebalnya.',
-    href: '#/adjust',
-    color: '#b3384a',
-    softBg: '#fdf0f2',
-    border: '#f6d3d9',
-    Icon: Scaling,
-  },
-  {
-    number: 11,
-    title: 'Cake Topper',
-    description:
-      'Nama untuk atas kek, satu keping dengan pancang. Untuk akrilik tuang.',
-    href: '#/topper',
-    color: '#b8386b',
-    softBg: '#fdeff5',
-    border: '#f7d3e2',
-    Icon: CakeSlice,
-  },
-  {
-    number: 12,
-    title: 'Keychain Generator',
-    description:
-      'Nama jadi kekunci satu keping, siap lubang ring. Untuk akrilik atau kayu.',
-    href: '#/keychain',
-    color: '#c2610f',
-    softBg: '#fff1e6',
-    border: '#fadcc2',
-    Icon: KeyRound,
-  },
-  {
-    number: 13,
-    title: 'Tag Generator',
-    description:
-      'Tag beg dengan slot tali. Muka depan untuk nama, belakang untuk alamat.',
-    href: '#/tag',
-    color: '#2f5db0',
-    softBg: '#eef4fd',
-    border: '#d3e0f6',
-    Icon: Luggage,
-  },
-  {
-    number: 14,
-    title: 'Blog',
-    description:
-      'Episod Laser — nota Sifu Hisham dari kerja harian, sedia untuk disalin.',
-    href: '#/blog',
-    color: '#0f766e',
-    softBg: '#e9f6f4',
-    border: '#c4e5e0',
-    Icon: Newspaper,
-  },
-  {
-    number: 15,
-    title: 'About Me & Kedai Laser',
-    description:
-      'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
-    href: '#/about',
-    color: '#7c3aed',
-    softBg: '#f4effd',
-    border: '#e2d5f8',
-    Icon: UserRound,
-  },
+/**
+ * Operator berbayar yang sudah log masuk telah membaca hero ini lima puluh
+ * kali; melipatnya untuk mereka membeli lebih kurang 230 px alat di atas garis
+ * lipat. Tidak dihantar — bos meminta mockup itu. Tukar ke true HANYA selepas
+ * dia berkata begitu.
+ */
+const HERO_COMPACT_WHEN_PAID = false
+
+const FOOTER_NOTES = [
+  { Icon: BookOpen, title: 'Panduan Lengkap', sub: 'Dari asas hingga mahir' },
+  { Icon: Users, title: 'Komuniti & Sokongan', sub: 'Bersama pengguna lain' },
+  { Icon: Wrench, title: 'Tools Praktikal', sub: 'Terus boleh guna' },
 ]
 
 export const HomePage = () => {
-  const { paid } = useAuth()
+  const { configured, loading, paid } = useAuth()
+  const showHero = !(HERO_COMPACT_WHEN_PAID && paid)
 
   return (
-  <div className="min-h-screen bg-gradient-to-b from-[#eef4fc] via-canvas to-canvas">
-    <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-6 sm:py-10">
-      {/* Hero */}
-      <header className="px-1 pt-2">
-        <p className="flex flex-wrap items-end gap-x-2">
-          <span className="text-5xl font-extrabold tracking-tight sm:text-6xl">
-            <span className="text-ink">Sifu</span>
-            <span className="italic text-screw-2">Laser</span>
-          </span>
-          <Sparkles className="mb-2 h-7 w-7 shrink-0 text-near" aria-hidden="true" />
-          <span className="mb-2 whitespace-nowrap text-[11px] font-semibold text-muted">
-            by Mahligai Seni
-          </span>
-        </p>
-        <p className="mt-2 border-t-2 border-near/60 pt-2 text-sm font-semibold tracking-[0.25em] text-muted">
-          ALIGN. MAINTAIN. PERFORM.
-        </p>
-      </header>
+    <div className="min-h-screen bg-canvas">
+      <SiteHeader />
 
-      {/* Kad selamat datang */}
-      <section className="card flex items-center gap-4 p-4 sm:p-5">
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#eef5fd]">
-          <Crosshair className="h-7 w-7 text-screw-2" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <h1 className="text-lg font-bold text-ink sm:text-xl">Selamat datang!</h1>
-          <p className="text-sm text-muted">
-            Sedia untuk alignment yang tepat dan mesin yang terbaik.
-          </p>
-        </div>
-      </section>
-
-      {/* Akaun & status akses */}
-      <AccountBar />
-
-      {/* Kad menu */}
-      <nav className="grid grid-cols-2 gap-3 sm:gap-4" aria-label="Menu utama">
-        {CARDS.map(({ number, title, description, href, color, softBg, border, premium, Icon }) => (
+      <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-4 pt-6 pb-10 sm:px-6">
+        {/* Jalur naik taraf. Ini satu-satunya laluan jualan laman ini, jadi ia
+            kekal kelihatan di sini dan tidak ditanam ke dalam menu cip akaun. */}
+        {configured && !loading && !paid ? (
           <a
-            key={href}
-            href={href}
-            className="card group relative flex flex-col items-center gap-3 p-4 pt-5 text-center transition-transform hover:-translate-y-0.5"
-            style={{ borderColor: border }}
+            href="#/bayar"
+            className="flex min-h-10 items-center justify-between gap-3 rounded-xl border border-near/45 bg-[#fffaf0] px-4 py-2 text-[13px] leading-tight font-semibold text-ink no-underline transition-colors hover:bg-[#fff6e4]"
           >
-            <span
-              className="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm"
-              style={{ backgroundColor: color }}
-              aria-hidden="true"
-            >
-              {number}
+            <span className="flex items-center gap-2">
+              <Crown className="h-4 w-4 shrink-0 text-near" aria-hidden="true" />
+              Naik taraf ke Akses Penuh — {PRICE_LABEL} / {ACCESS_PERIOD_LABEL}
             </span>
-            {premium && !paid ? (
-              <span
-                className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-canvas text-muted"
-                title="Perlukan Akses Penuh"
-              >
-                <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="sr-only">Perlukan Akses Penuh</span>
-              </span>
-            ) : null}
-            <span
-              className="mt-2 flex h-24 w-24 items-center justify-center rounded-full"
-              style={{ backgroundColor: softBg }}
-              aria-hidden="true"
-            >
-              <Icon className="h-12 w-12" style={{ color }} />
-            </span>
-            <span className="text-base font-bold text-ink sm:text-lg">{title}</span>
-            <span className="text-xs text-muted sm:text-sm">{description}</span>
-            <span
-              className="mt-auto flex h-9 w-9 items-center justify-center rounded-full text-white transition-transform group-hover:translate-x-0.5"
-              style={{ backgroundColor: color }}
-              aria-hidden="true"
-            >
-              <ArrowRight className="h-5 w-5" />
-            </span>
+            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
           </a>
-        ))}
-      </nav>
+        ) : null}
 
-      {/* Petikan penutup */}
-      <section className="flex items-center gap-3 rounded-2xl border border-[#cfe0f5] bg-[#eef5fd] p-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-screw-2/10">
-          <Lightbulb className="h-6 w-6 text-screw-2" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-screw-2">
-            Precision hari ini, hasil terbaik esok.
-          </p>
-          <p className="text-xs text-muted sm:text-sm">
+        {showHero ? (
+          <section className="home-hero">
+            <div className="home-hero-left">
+              <h1 className="mid:text-[44px] text-[28px] leading-[1.05] font-extrabold tracking-[-0.03em] text-ink sm:text-[34px]">
+                Selamat datang!
+              </h1>
+              <p className="mt-3 max-w-[46ch] text-[15px] leading-[1.5] font-medium text-pretty text-muted sm:text-base">
+                Sedia untuk alignment yang tepat dan mesin yang terbaik.
+              </p>
+              <div className="mt-5 max-w-[460px]">
+                <ToolSearch />
+              </div>
+              <p className="mt-2 hidden text-[12px] leading-[1.4] font-medium text-muted sm:block">
+                Tekan <kbd className="font-bold">/</kbd> untuk fokus carian
+              </p>
+              {/* Pada telefon panel kanan hilang, jadi baris tulisan tangan
+                  berpindah ke sini supaya ia tidak hilang sekali. */}
+              <p className="hand mt-5 text-[17px] text-screw-2 sm:hidden">
+                Precision hari ini, hasil terbaik esok.
+                <span className="mt-1 block h-[3px] w-28 rounded-full bg-near/70" />
+              </p>
+            </div>
+
+            {/* Mockup menunjukkan foto kepala laser mengukir kayu. Foto itu
+                tidak wujud dalam repo ini dan tiada stok dicari sebagai ganti.
+                Ini penggantinya; foto sebenar nanti hanyalah satu baris tukar. */}
+            <div className="home-hero-right">
+              <Crosshair
+                className="absolute -right-16 -bottom-20 h-[460px] w-[460px] text-screw-2/10"
+                strokeWidth={1}
+                aria-hidden="true"
+              />
+              <p className="hand absolute right-8 bottom-8 max-w-[15ch] text-right text-[22px] leading-[1.2] text-ink">
+                Precision hari ini, hasil terbaik esok.
+                <span className="mt-1 ml-auto block h-[3px] w-32 rounded-full bg-near/80" />
+              </p>
+            </div>
+          </section>
+        ) : null}
+
+        {/* Dua baris, bukan satu grid 2x2: baris kedua menterbalikkan nisbah
+            lajur supaya dua kumpulan bergambar duduk pada satu pepenjuru. */}
+        <div className="flex flex-col gap-6">
+          <div className="home-row home-row--a">
+            <ToolGroupPanel group={GROUPS[0]} paid={paid} delayMs={0} />
+            <ToolGroupPanel group={GROUPS[1]} paid={paid} delayMs={60} />
+          </div>
+          <div className="home-row home-row--b">
+            <ToolGroupPanel group={GROUPS[2]} paid={paid} delayMs={120} />
+            <ToolGroupPanel group={GROUPS[3]} paid={paid} delayMs={180} />
+          </div>
+        </div>
+
+        <footer className="home-foot">
+          {/* CTA didahulukan dalam susunan DOM pada telefon melalui order-*:
+              di hujung skrol yang panjang, itulah yang patut berada di atas
+              blok ini. */}
+          <a href="#/pakej" className="home-cta order-1 sm:order-3">
+            <ShoppingCart className="h-6 w-6 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] leading-tight font-bold">
+                Lihat Pakej & Harga
+              </span>
+              <span className="block text-[12px] leading-tight font-medium text-white/85">
+                Pilih pakej yang sesuai untuk anda
+              </span>
+            </span>
+            <ArrowRight
+              className="home-cta-arrow h-5 w-5 shrink-0"
+              aria-hidden="true"
+            />
+          </a>
+
+          <p className="hand order-2 max-w-[22ch] text-[17px] leading-[1.25] text-ink sm:order-1">
             Jaga alignment, mesin akan jaga hasil anda.
           </p>
-        </div>
-        <TrendingUp className="h-6 w-6 shrink-0 text-screw-2/70" aria-hidden="true" />
-      </section>
+
+          {/* Tiga item ini teks statik, bukan pautan: tiada destinasi wujud
+              untuknya. Bukan-pautan yang bergaya seperti pautan lebih teruk
+              daripada ayat penenang yang mengaku dirinya begitu. */}
+          <div className="home-foot-items order-3 sm:order-2">
+            {FOOTER_NOTES.map(({ Icon, title, sub }) => (
+              <div key={title} className="flex items-center gap-2.5">
+                <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-canvas">
+                  <Icon className="h-4 w-4 text-screw-2" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] leading-tight font-bold text-ink">
+                    {title}
+                  </span>
+                  <span className="block text-[11.5px] leading-tight font-medium text-muted">
+                    {sub}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </footer>
+      </main>
     </div>
-  </div>
   )
 }

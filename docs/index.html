@@ -9,8 +9,23 @@
       content="SifuLaser by Mahligai Seni - simulator alignment cermin mesin laser cut, panduan maintenance, setup WiFi dan setting chiller."
     />
     <title>SifuLaser — Simulator Alignment Mesin Laser</title>
-    <script type="module" crossorigin src="/assets/index-DlnX9jXt.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CPQNdLjs.css">
+    <!--
+      Dua keluarga sahaja: Plus Jakarta Sans untuk semuanya, Caveat untuk dua
+      baris tulisan tangan di halaman utama. Penonton laman ini guna data mudah
+      alih Malaysia — jangan tambah keluarga ketiga.
+
+      Dimuatkan melalui <link> dan bukan dihoskan sendiri kerana vite.config.ts
+      menetapkan publicDir: false: apa-apa dalam docs/fonts/ akan 404 di bawah
+      `npm run dev` dan kita akan menyahpepijat perkara yang salah.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600&display=swap"
+    />
+    <script type="module" crossorigin src="/assets/index-DHlMc-IG.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-eDr_LaID.css">
   </head>
   <body>
     <div id="root"></div>
