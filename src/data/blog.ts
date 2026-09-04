@@ -5,7 +5,13 @@
 // Untuk tambah episod baharu: tambah satu entri di HUJUNG array POSTS.
 
 import type { CSSProperties, ComponentType } from 'react'
-import { CakeSlice, LayoutGrid, RectangleHorizontal } from 'lucide-react'
+import {
+  CakeSlice,
+  Gift,
+  LayoutGrid,
+  Luggage,
+  RectangleHorizontal,
+} from 'lucide-react'
 
 export interface BlogPost {
   /** Nombor episod — identiti paling kuat siaran ini. */
@@ -119,6 +125,52 @@ export const BLOG_POSTS: BlogPost[] = [
       'Semua export SVG dan PDF. Layer dah diasingkan, masuk LightBurn terus jadi layer.',
       'Ada juga butang SEND WHATSAPP. Fail dan spec kerja terus masuk WhatsApp, hantar pada staf atau pada client.',
       'Alhamdulillah. Client tanya petang, saya reply petang juga. Tak payah tunggu balik ofis.',
+    ],
+  },
+  {
+    episode: 84,
+    slug: '84',
+    title: 'Luggage Tag. Client Tak Ada Design, Tak Ada Saiz.',
+    tool: 'Tag Generator',
+    link: { label: 'sifulaser.com/#/tag', href: '#/tag' },
+    color: '#b45309',
+    softBg: '#fdf3e3',
+    border: '#f2ddb8',
+    Icon: Luggage,
+    points: [
+      'Client WhatsApp - nak buat luggage tag. 50 biji untuk rombongan.',
+      'Saya tanya nak design macam mana. Dia jawab "you designkan lah".',
+      'Saya tanya saiz pula. Dia jawab "yang biasa tu".',
+      'Yang biasa tu berapa? Tak ada standard. Jadi saya yang kena teka.',
+      'Teka punya teka, lukis, hantar. Dia kata kecil sangat. Lukis semula. Petang tu habis.',
+      'Sebab tu saya buat TAG GENERATOR.',
+      'Ada 5 design siap - Travel, Beg Sekolah, Tag Staf, Tag Haiwan dan Save The Date. Saiz dah dikunci. Bukan template kosong, design penuh.',
+      'Klik satu, tukar nama, habis. Depan nama, belakang nombor telefon.',
+      'Satu je yang selalu pecah pada luggage tag - lubang tali. Alat ni ukur sendiri jarak lubang ke tepi, dan bagitahu kalau terlalu rapat sebelum anda potong.',
+      'Alhamdulillah. Client tak ada design, tak ada saiz - sekarang bukan masalah saya lagi.',
+    ],
+  },
+  {
+    episode: 85,
+    slug: '85',
+    title: 'Nak Buat Kotak Hadiah, Tapi Tak Ada Idea.',
+    tool: 'Box Maker',
+    link: { label: 'sifulaser.com/#/boxmaker', href: '#/boxmaker' },
+    color: '#6d28d9',
+    softBg: '#f3eefd',
+    border: '#ded0f7',
+    Icon: Gift,
+    points: [
+      'Order masuk - nak kotak untuk hadiah. Door gift majlis, 100 biji.',
+      'Duduk depan komputer. Masalah pertama bukan mesin. Masalah pertama - nak buat kotak macam mana?',
+      'Buka Google. Buka Pinterest. Tengok punya tengok, sejam hilang. Yang cantik tu gambar je, tak boleh potong.',
+      'Sedangkan kotak hadiah ni sebenarnya satu bentuk sahaja. Tutup kena boleh tanggal. Angkat, letak tepi, barang nampak elok. Macam kotak kasut.',
+      'Tapi tutup cabut tu kotak kedua. Dia kena lebih besar sikit untuk sarung masuk. Lebih berapa? Ketat setengah milimeter je, tutup tak masuk langsung - bahan hangus, potong baru.',
+      'Sebab tu saya tambah LIFT-OFF LID dalam BOX MAKER.',
+      'Pilih gaya tu, taip saiz kotak. Tutup dia kira sendiri. Tebal papan dan kerf semua dah diambil kira.',
+      'Ada slider CLEARANCE, mula 0.4mm. Bahan yang kembang, buka sikit. Ada takuk ibu jari, senang nak cangkuk angkat.',
+      'Satu je kena ingat - tutup ni duduk di LUAR dinding, jadi kotak siap lebih besar sedikit dari saiz yang anda taip. Alat ni papar saiz sebenar tu.',
+      'Alhamdulillah. Tak payah cari idea lagi. Bentuk kotak hadiah tu memang dah ada dalam alat.',
     ],
   },
 ]
