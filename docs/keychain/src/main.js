@@ -4,6 +4,7 @@ import { state, load, update, getResult, undo, redo, material } from './store.js
 import { loadFace } from './geom/text.js';
 import { MIN_NECK } from './geom/keychain.js';
 import { View, burnFor } from './view.js';
+import { View3D } from './view3d.js';
 import {
   renderInspector, renderBackdrop, renderActions, renderWarnings,
   fillExportDialog, fillHelpDialog, fillSaveDialog, fillFilesDialog,
@@ -16,6 +17,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   stage: $('#stage'),
   preview: $('#stagePreview'),
+  stage3d: $('#stage3d'),
   inspector: $('#inspector'),
   backdrop: $('#backdropPick'),
   warnings: $('#warnings'),
@@ -25,6 +27,7 @@ const els = {
   name: $('#projectName'),
   undo: $('#undoBtn'),
   redo: $('#redoBtn'),
+  v3d: $('#v3d'),
   vPiece: $('#vPiece'),
   vFlat: $('#vFlat'),
   saveBtn: $('#saveBtn'),
@@ -39,6 +42,9 @@ load();
 els.name.value = state.name;
 
 const view = new View(els.preview);
+// Made on first use in drawPreview: a WebGL context is not free, and
+// somebody who lands on the cut file and exports never needs one.
+let view3d = null;
 
 const ctx = {
   faces: [],
@@ -74,7 +80,30 @@ function drawPreview() {
   // engraving has to be worked out against that neutral instead, and the
   // neutral is whichever backdrop is showing.
   const clear = m.id === 'acrylic-clear';
+  const d0 = r.derived;
   const board = clear ? (state.backdrop === 'dark' ? '#7c828c' : '#e6e9ef') : m.color;
+  const is3d = state.view === '3d';
+  els.stage3d.hidden = !is3d;
+  els.preview.hidden = is3d;
+  if (is3d) {
+    if (!view3d) {
+      // Made on first use. A WebGL context is not free, and somebody who lands
+      // on the cut file and exports never needs one.
+      view3d = new View3D(els.stage3d);
+    }
+    view3d.build(r, {
+      color: clear ? null : m.color,
+      burn: burnFor(board),
+      thickness: m.t,
+      dark: state.backdrop === 'dark',
+      ring: d0.holeAt
+        ? {
+          x: d0.holeAt[0], y: d0.holeAt[1], holeR: d0.holeR,
+          r: Math.max(3.5, d0.holeR * 2.2), end: state.params.holeEnd,
+        }
+        : null,
+    });
+  }
   view.render(r, {
     mode: state.view === 'flat' ? 'flat' : 'piece',
     color: clear ? null : m.color,
@@ -107,7 +136,8 @@ function refresh() {
     refresh();
   });
   renderActions({ undoBtn: els.undo, redoBtn: els.redo });
-  els.vPiece.setAttribute('aria-selected', String(state.view !== 'flat'));
+  els.v3d.setAttribute('aria-selected', String(state.view === '3d'));
+  els.vPiece.setAttribute('aria-selected', String(state.view === 'piece'));
   els.vFlat.setAttribute('aria-selected', String(state.view === 'flat'));
 }
 
@@ -159,6 +189,7 @@ const setView = (v) => {
   update((s) => { s.view = v; }, { history: false });
   refresh();
 };
+els.v3d.addEventListener('click', () => setView('3d'));
 els.vPiece.addEventListener('click', () => setView('piece'));
 els.vFlat.addEventListener('click', () => setView('flat'));
 

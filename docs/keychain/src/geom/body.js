@@ -91,12 +91,22 @@ export function sizeTerms(id, ink, o) {
   const h = Math.max(1e-6, ink.h);
   switch (id) {
     case 'circle':
-      // The disc has to reach across the diagonal of the room the lettering
-      // needs. hypot(w + extra, h) is bounded above by hypot(w, h) + extra, and
-      // the bound is used rather than the exact figure so the relation stays a
-      // straight line and inverts in one step. It costs a fraction of a
-      // millimetre of sheet on a disc, which is the cheapest thing here.
-      return [{ a: Math.hypot(w, h), b: pad * 2 + extra }];
+      // Two straight-line bounds, and the solver takes whichever binds: the
+      // disc circumscribes the lettering plus its margin, and separately keeps
+      // the ring's room clear of the lettering on the hole's own axis.
+      //
+      // It used to be one bound with `extra` added to the diagonal, and the
+      // lettering shoved off-centre to match. That pays for the ring twice. A
+      // disc sized on its diagonal already reaches well past the ring band on
+      // every side - measured on the stock 45 mm disc, the name sat 3.2 mm low
+      // and still cleared the hole by 11 mm - so the shove bought nothing and
+      // cost the look. Bars and tags below are NOT like this: there the hole is
+      // on the same axis the lettering runs along, and the offset is the only
+      // thing keeping the two apart.
+      return [
+        { a: Math.hypot(w, h), b: pad * 2 },
+        { a: onX ? w : h, b: o.room * 2 },
+      ];
     case 'oval':
       // An ellipse holds a W x H box when rx = W/sqrt(2) and ry = H/sqrt(2),
       // taking the box's corners as the tight points - so the margin is added
@@ -138,18 +148,23 @@ export function plateRing(id, ink, o) {
   const H = h + (onX ? 0 : extra);
   const lead = (o.end === 'left' || o.end === 'bottom') ? extra : 0;
   const trail = (o.end === 'right' || o.end === 'top') ? extra : 0;
-  const off = (lead - trail) / 2;
+  // A disc is centred on its lettering; every other plate offsets it to make
+  // room for the ring. See the circle case in sizeTerms for why the disc does
+  // not need to, and why the others do.
+  const off = id === 'circle' ? 0 : (lead - trail) / 2;
   const shift = [
     -(ink.x0 + ink.x1) / 2 + (onX ? off : 0),
     -(ink.y0 + ink.y1) / 2 + (onX ? 0 : off),
   ];
 
   if (id === 'circle') {
-    // Across the diagonal of the enlarged box. hypot(W, H) <= hypot(w, h) +
-    // extra, and the bound is what sizeTerms inverted, so the same bound is
-    // built here - otherwise the piece would come out a shade under the length
-    // that was asked for.
-    const r = (Math.hypot(w, h) + extra) / 2 + pad;
+    // The same two bounds sizeTerms inverted, in the same order. If these ever
+    // stop matching, the piece quietly comes out a size other than the one that
+    // was asked for - which is the tool's one promise.
+    const r = Math.max(
+      Math.hypot(w, h) / 2 + pad,
+      (onX ? w : h) / 2 + o.room,
+    );
     return { ring: ellipse(0, 0, r, r, 96), shift };
   }
 

@@ -22,7 +22,8 @@
              and what somebody is actually deciding about. A selected tab
              sitting at the end of the strip reads as though something else was
              the starting point and this one was picked. -->
-        <button class="vt" id="vPiece" role="tab" aria-selected="true">Piece</button>
+        <button class="vt" id="v3d" role="tab" aria-selected="true">3D</button>
+        <button class="vt" id="vPiece" role="tab" aria-selected="false">Piece</button>
         <button class="vt" id="vFlat" role="tab" aria-selected="false">Cut file</button>
       </div>
     </div>
@@ -40,6 +41,7 @@
 
   <main class="layout">
     <section class="stage" id="stage">
+      <div id="stage3d" class="stage-pane"></div>
       <div id="stagePreview" class="stage-pane"></div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Preview backdrop"></div>
       <div class="warnings" id="warnings" hidden></div>

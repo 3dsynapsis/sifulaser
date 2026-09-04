@@ -52,7 +52,7 @@ function initialState() {
   return {
     params: { ...DEFAULTS, thickness: m.t, kerf: m.kerf },
     material: m.id,
-    view: 'piece',       // piece | flat
+    view: '3d',          // 3d | piece | flat
     backdrop: 'light',
     speed: 15,           // mm/s, for the cut-time estimate only
     name: 'Untitled keychain',

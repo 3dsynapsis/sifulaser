@@ -46,10 +46,12 @@ export const DEFAULTS = {
   corner: 3,              // mm, corner radius on the bar
 
   plateText: 'engrave',   // plate bodies: engrave | cut
+  nameMark: 'fill',       // silhouette only: fill | line | none - the letters,
+                          // marked on the shape they were welded into
   border: 'none',         // none | line - an engraved line inside the edge
   borderInset: 2,         // mm from the edge to that line
 
-  holeD: 4,               // mm, the finished hole
+  holeD: 2.5,             // mm, the finished hole
   holeEnd: 'left',        // left | right | top | bottom
   holeInset: 4.5,         // mm from the edge of the piece to the hole's centre
   holeTab: true,          // silhouette only: grow a lug so the hole has a wall
@@ -86,6 +88,15 @@ export const HOLE_ENDS = [
   ['bottom', 'Bottom'],
 ];
 
+// What to do with the letters on a cut-out name. They are already the shape
+// of the piece; this decides whether you can still READ them once the offset
+// has welded the gaps between them shut.
+export const NAME_MARKS = [
+  ['fill', 'Filled'],
+  ['line', 'Outline'],
+  ['none', 'Nothing'],
+];
+
 export const PLATE_TEXT = [
   ['engrave', 'Engraved'],
   ['cut', 'Cut through'],
@@ -108,7 +119,7 @@ export const PRESETS = [
       + 'across, ring on the left.',
     params: {
       text: 'Aisyah', face: 'poppins', body: 'silhouette', length: 62,
-      outline: 1.6, holeEnd: 'left', holeD: 4, holeInset: 4.5,
+      outline: 1.6, holeEnd: 'left', holeD: 2.5, holeInset: 4.5,
     },
   },
   {
@@ -119,7 +130,7 @@ export const PRESETS = [
       + 'reads as a blob.',
     params: {
       text: 'Nadia', face: 'lobster', body: 'silhouette', length: 70,
-      outline: 0.8, holeEnd: 'left', holeD: 4, holeInset: 5.5,
+      outline: 0.8, holeEnd: 'left', holeD: 2.5, holeInset: 5.5,
     },
   },
   {
@@ -130,7 +141,7 @@ export const PRESETS = [
     params: {
       text: 'Muhammad Danish', face: 'bebas-neue', body: 'tag',
       plateText: 'engrave', border: 'line', borderInset: 2.2,
-      length: 76, outline: 5, holeEnd: 'left', holeD: 4.5, holeInset: 6,
+      length: 76, outline: 5, holeEnd: 'left', holeD: 2.5, holeInset: 6,
       corner: 3,
     },
   },
@@ -141,7 +152,7 @@ export const PRESETS = [
       + 'Short names only - a long one makes the disc enormous.',
     params: {
       text: 'Aiman', face: 'bebas-neue', body: 'circle', plateText: 'engrave',
-      length: 45, outline: 5, holeEnd: 'top', holeD: 4, holeInset: 5,
+      length: 45, outline: 5, holeEnd: 'top', holeD: 2.5, holeInset: 5,
     },
   },
   {
@@ -152,7 +163,7 @@ export const PRESETS = [
     params: {
       text: 'Nur Aisyah\n012-345 6789', face: 'poppins', body: 'rounded',
       plateText: 'engrave', border: 'none', length: 70, outline: 4.5,
-      lineHeight: 150, holeEnd: 'left', holeD: 4, holeInset: 5.5, corner: 3,
+      lineHeight: 150, holeEnd: 'left', holeD: 2.5, holeInset: 5.5, corner: 3,
     },
   },
   {
@@ -163,7 +174,7 @@ export const PRESETS = [
     params: {
       text: 'RAHMAN\n+60 12 345 6789', face: 'blue-highway', body: 'rounded',
       plateText: 'engrave', border: 'line', borderInset: 2.5,
-      length: 90, outline: 6, lineHeight: 160, holeEnd: 'top', holeD: 5,
+      length: 90, outline: 6, lineHeight: 160, holeEnd: 'top', holeD: 2.5,
       holeInset: 6.5, corner: 4,
     },
   },
@@ -616,12 +627,42 @@ function buildSilhouette(c) {
   // itself at every stem narrower than twice the inset and comes out as a knot
   // of loops. The border belongs on the plain bodies, where the edge is a
   // shape this tool drew and can offset cleanly.
+
+  // The letters, marked back onto the shape they were welded into.
+  //
+  // Welding is what makes the piece one object, and it is also what destroys
+  // the reading: at any offset worth cutting, the gaps between letters close
+  // and the name comes off the bed as a blob with a name-shaped edge. The cut
+  // is the OUTSIDE of the grown letters; these marks are the letters
+  // themselves, at the size they were actually drawn, so the join between one
+  // letter and the next reappears without changing the piece at all.
+  //
+  // Kept out of the weld deliberately - `glyphs` is what went in, not what
+  // came out - so the lug that holeTab grows round the ring never gets an
+  // outline drawn round it.
+  const mark = p.nameMark == null ? DEFAULTS.nameMark : p.nameMark;
+  const engrave = [];
+  const engraveFill = [];
+  if (mark !== 'none') {
+    if (outlineFace && mark === 'fill') {
+      // A real typeface has area, so the machine scans it solid. Same layer
+      // and same closing rule the plate bodies use.
+      for (const g of glyphs) for (const r of g) engraveFill.push([...r, r[0], r[1]]);
+    } else if (outlineFace) {
+      for (const g of glyphs) for (const r of g) engrave.push([...r, r[0], r[1]]);
+    } else {
+      // A single-line face is a skeleton with no area to fill, so 'fill' and
+      // 'line' are the same thing here rather than one of them doing nothing.
+      for (const st of strokes) engrave.push(st);
+    }
+  }
+
   return {
     outers: res.outers,
     holes: [...res.holes, holeRing],
     loose: [],
-    engrave: [],
-    engraveFill: [],
+    engrave,
+    engraveFill,
     holeAt,
     holeRing,
     holeR,

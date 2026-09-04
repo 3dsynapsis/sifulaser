@@ -543,3 +543,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .layer-key { flex-wrap: wrap; gap: 6px 14px; }
   #filesDlg .design-list { max-height: 40vh; }
 }
+
+
+/* Two panes in the one stage, one shown at a time. The 3D canvas keeps its
+   size while hidden rather than being torn down and rebuilt on every tab
+   press: WebGL context creation is the slow part, and a tab that takes half
+   a second to come back reads as a tool that is thinking. */
+.stage-pane[hidden] { display: none !important; }
+#stage3d { position: absolute; inset: 0; }
+#stage3d canvas { display: block; width: 100%; height: 100%; }

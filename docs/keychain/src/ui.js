@@ -8,7 +8,7 @@ import {
 } from './store.js';
 import { layout, faceLoaded, faceFailed, loadFace, isOutline } from './geom/text.js';
 import {
-  PRESETS, matchesPreset, MIN_NECK, MIN_WALL, HOLE_ENDS, PLATE_TEXT,
+  PRESETS, matchesPreset, MIN_NECK, MIN_WALL, HOLE_ENDS, PLATE_TEXT, NAME_MARKS,
 } from './geom/keychain.js';
 import { BODIES, bodyOf, isPlate } from './geom/body.js';
 import { LAYERS } from './export.js';
@@ -328,6 +328,9 @@ const dialogFiller = (build) => function fill(dlg, ctx) {
 export const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
 export const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
 
+// The four widths that sell. Anything else is the slider underneath them.
+const LENGTHS = [40, 50, 60, 70];
+
 export function renderInspector(root, ctx) {
   if (sliderDragging) return;
   const active = document.activeElement;
@@ -359,6 +362,35 @@ export function renderInspector(root, ctx) {
 
   root.append(group('Start from', true, ...presetPicker(ctx)));
 
+  // ---- size: the promise ---------------------------------------------------
+  // Above the name on purpose. The length is what somebody is actually buying -
+  // a 6 cm thing - and everything below solves itself to fit it, so it is the
+  // first decision rather than a slider found later.
+  root.append(group('Size', true,
+    h('div', { class: 'seg' }, LENGTHS.map((mm) => h('button', {
+      type: 'button',
+      // Pressed when the current length IS this one, however it got there - so
+      // picking a Start from preset lights the button that matches it, and the
+      // row never disagrees with the slider under it.
+      'aria-pressed': String(Math.abs(p.length - mm) < 0.01),
+      onclick: () => { setParam('length', mm); ctx.refresh(); },
+    }, `${mm} mm`))),
+    numberRow('Length across (mm)', p.length, {
+      min: 20, max: 200, step: 1,
+      onInput: (v) => { setParam('length', v); ctx.refresh(); },
+    }),
+    stat('Finished piece', `${rnd(d.width, 1)} x ${rnd(d.height, 1)} mm`),
+    stat('Capital height', `${rnd(d.capMM, 1)} mm`),
+    h('p', { class: 'hint' },
+      'The length is the finished piece, edge to edge, and the lettering is '
+      + 'solved to fit it - not the other way round. Somebody ordering a '
+      + 'keychain is buying a 6 cm thing; what cap height that works out to is '
+      + 'the tool’s problem. The four buttons are the sizes that sell; the '
+      + 'slider is there for when a customer asks for something between them.'),
+    h('p', { class: 'hint' },
+      'A Start from preset carries its own length, so picking one after a size '
+      + 'replaces it - the preset is a whole design, not just the words.')));
+
   root.append(group('Name', true,
     area,
     h('div', { class: 'field' },
@@ -378,19 +410,6 @@ export function renderInspector(root, ctx) {
           + 'or it is a separate piece of sheet. Under 100% they overlap, which '
           + 'is usually the only way to make two lines work.')));
 
-  // ---- size: the promise ---------------------------------------------------
-  root.append(group('Size', true,
-    numberRow('Length across (mm)', p.length, {
-      min: 20, max: 200, step: 1,
-      onInput: (v) => { setParam('length', v); ctx.refresh(); },
-    }),
-    stat('Finished piece', `${rnd(d.width, 1)} x ${rnd(d.height, 1)} mm`),
-    stat('Capital height', `${rnd(d.capMM, 1)} mm`),
-    h('p', { class: 'hint' },
-      'The length is the finished piece, edge to edge, and the lettering is '
-      + 'solved to fit it - not the other way round. Somebody ordering a '
-      + 'keychain is buying a 6 cm thing; what cap height that works out to is '
-      + 'the tool’s problem. Around 55 to 75 mm is what fits a pocket.')));
 
   // ---- shape ---------------------------------------------------------------
   root.append(group('Shape', true,
@@ -405,6 +424,31 @@ export function renderInspector(root, ctx) {
       ? h('div', { class: 'field' },
         h('label', {}, 'The name is'),
         seg(PLATE_TEXT, p.plateText, (id) => { setParam('plateText', id); ctx.refresh(); }))
+      : null,
+    !plate
+      ? h('div', { class: 'field' },
+        h('label', {}, 'Mark the letters'),
+        seg(NAME_MARKS, p.nameMark, (id) => { setParam('nameMark', id); ctx.refresh(); }))
+      : null,
+    !plate
+      ? h('p', { class: 'hint' },
+        p.nameMark === 'none'
+          ? 'One cut and nothing else. At a small offset the letters still read '
+            + 'on their own; run the offset up and they will not, because welding '
+            + 'is what closes the gaps between them.'
+          : 'The offset welds the letters together - that is what makes the name '
+            + 'one object instead of six loose pieces - and the same weld closes '
+            + 'the gaps between them, so a heavy offset comes off the bed as a '
+            + 'blob with a name-shaped edge. This puts the letters back on as a '
+            + `mark, at the size they were drawn, without changing the piece. `
+            + (p.nameMark === 'fill'
+              ? 'Filled is what you see here: the machine scans each letter '
+                + 'solid, which reads from across a room and takes far longer to '
+                + 'burn than the cut does. Outline traces them instead - much '
+                + 'quicker, and enough to separate one letter from the next.'
+              : 'Outline traces each letter, which is quick and enough to '
+                + 'separate one from the next. Filled scans them solid: darker '
+                + 'and readable further off, but much longer on the machine.'))
       : null,
     plate && p.plateText === 'cut'
       ? h('p', { class: 'hint' },
@@ -531,9 +575,12 @@ export function renderInspector(root, ctx) {
             + 'letter is at that end, and how much is left round it depends '
             + `entirely on the letter. ${MIN_WALL} mm is the least it wants.`)),
     h('p', { class: 'hint' },
-      'A 4 mm hole takes the usual 20 mm split ring. Go to 5 mm for a heavier '
-      + 'ring or a lanyard clip, and remember the hole comes out to size: it is '
-      + 'cut a beam-width under so the finished hole is the number you typed.')));
+      '2.5 mm suits a thin split ring or a jump ring, and is what this tool '
+      + 'now starts on. A standard 20 mm split ring needs about 4 mm, and a '
+      + 'lanyard clip about 5 - so if you are threading the ring that comes in '
+      + 'a bag of a hundred, put this back up. The hole comes out to size '
+      + 'either way: it is cut a beam-width under, so the finished hole is the '
+      + 'number you typed.')));
 
   // ---- material ------------------------------------------------------------
   const mat = material();
