@@ -805,16 +805,41 @@ function drawerRows(p, ctx) {
         d.tingkat,
         (id) => { setParam('tingkat', id); clampDecor(); ctx.refresh(); })),
     h('p', { class: 'hint' },
+      // How many drawers a level holds is the columns' business, so this says
+      // the height and leaves the count to the Columns hint below - two rows
+      // that both claim to know the drawer count will disagree the moment one
+      // of them is edited.
       (d.tingkat === 1
-        ? `One level, ${rnd(d.cellH, 1)} mm of clear height, one drawer in it. `
+        ? `One level, ${rnd(d.cellH, 1)} mm of clear height. `
         : `Two equal levels of ${rnd(d.cellH, 1)} mm clear height inside `
-          + `${rnd(d.intH, 1)} mm, one drawer each. `)
+          + `${rnd(d.intH, 1)} mm. `)
       // The decor clamp lets an object hang off an edge on purpose, so halving a
       // panel really can park artwork clear of it. Say that, rather than
       // promising a nudge that keeps it on the part - it does not.
       + 'Changing the level count halves or doubles the height of every drawer '
       + 'part, so check any artwork on a drawer front afterwards: it keeps its '
       + 'position, which on a shorter part can put it off the edge.'),
+    h('div', { class: 'field' },
+      h('label', {}, 'Columns'),
+      segmented([{ id: 1, label: '1 lajur' }, { id: 2, label: '2 lajur' }],
+        d.lajur,
+        (id) => { setParam('lajur', id); clampDecor(); ctx.refresh(); })),
+    h('p', { class: 'hint' },
+      (d.lajur === 1
+        ? `One column, ${rnd(d.cellL, 1)} mm of clear width. `
+        : `Two equal columns of ${rnd(d.cellL, 1)} mm clear width, divided by `
+          + 'an upright per level that is tenoned into the boards above and '
+          + 'below it. ')
+      + `${d.drawers} drawer${d.drawers === 1 ? '' : 's'} in all, numbered along `
+      + 'the front from the bottom left.'),
+    dr && dr.rack > 1.3
+      ? h('p', { class: 'warn' },
+        `These drawers are ${rnd(dr.rack, 2)} times as wide as they are deep. `
+        + 'Past about 1.3 a drawer goes in visibly crooked when you push one '
+        + 'side of it, however much running gap you give it - that is the '
+        + 'proportion, not the clearance. Two lajur halves the width and '
+        + 'fixes it.')
+      : null,
     h('button', {
       class: 'ghost', type: 'button',
       disabled: isStock,
@@ -833,6 +858,10 @@ function drawerRows(p, ctx) {
       + 'almari. The button sets a cabinet-shaped 200 × 150 × 260 mm; nothing '
       + 'else on this page changes a dimension behind your back.'),
   ];
+
+  // Asked for two columns and got one: the control will have snapped back on
+  // its own, and a control that moves without saying why reads as a bug.
+  if (d.lajurWhy) rows.push(h('p', { class: 'warn' }, d.lajurWhy));
 
   if (!dr) {
     rows.push(h('p', { class: 'warn' }, d.drawerWhy));

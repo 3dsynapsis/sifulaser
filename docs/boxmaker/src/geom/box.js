@@ -60,7 +60,8 @@ export const DEFAULTS = {
   lidNotch: true,       // lift-off lid: thumb notch in the front of the skirt
 
   // ---- Almari Laci (drawer cabinet) -------------------------------------
-  tingkat: 2,        // levels: 1 or 2 only, equal size, one drawer each
+  tingkat: 2,        // levels: 1 or 2 only, equal size
+  lajur: 1,          // columns: 1 or 2 only, equal width, one drawer each
   drawerSide: 0.4,   // running gap on EACH side of a drawer, mm (total is 2x)
   drawerTop: 0.8,    // headroom above the drawer. It rests on the board below,
                      // so ALL of the vertical allowance is above it: a gap
@@ -81,8 +82,14 @@ export const PANEL_ORDER = [
   // and the decor writer indexes it without a guard - an id missing here is a
   // TypeError the first time anyone puts artwork on that drawer front.
   'cabTop', 'shelf',
+  // Drawers are numbered along the front, left to right then bottom to top,
+  // NOT by level. With one lajur that is the same thing - d1 low, d2 high -
+  // so a design saved before columns existed still finds its artwork.
   'd1Front', 'd1Back', 'd1Left', 'd1Right', 'd1Base',
   'd2Front', 'd2Back', 'd2Left', 'd2Right', 'd2Base',
+  'd3Front', 'd3Back', 'd3Left', 'd3Right', 'd3Base',
+  'd4Front', 'd4Back', 'd4Left', 'd4Right', 'd4Base',
+  'up1', 'up2',
 ];
 
 export const PANEL_LABELS = {
@@ -100,6 +107,11 @@ export const PANEL_LABELS = {
   d1Right: 'D1 right', d1Base: 'D1 base',
   d2Front: 'D2 front', d2Back: 'D2 back', d2Left: 'D2 left',
   d2Right: 'D2 right', d2Base: 'D2 base',
+  d3Front: 'D3 front', d3Back: 'D3 back', d3Left: 'D3 left',
+  d3Right: 'D3 right', d3Base: 'D3 base',
+  d4Front: 'D4 front', d4Back: 'D4 back', d4Left: 'D4 left',
+  d4Right: 'D4 right', d4Base: 'D4 base',
+  up1: 'Upright 1', up2: 'Upright 2',
 };
 
 /**
@@ -313,6 +325,7 @@ export function buildBox(input = {}) {
   // Declared up here rather than with the rest of the level maths because the
   // floor cap below needs to know how many boards are going to be stacked.
   const tingkat = p.tingkat === 1 ? 1 : 2;
+  const lajur = p.lajur === 2 ? 2 : 1;
   const floorRaw = p.floorOffset == null ? t : Math.max(0, p.floorOffset);
   // The cabinet stacks tingkat + 1 horizontal boards where every other style
   // stacks one, so a floor dragged near the top does not merely make a shallow
@@ -925,6 +938,13 @@ export function buildBox(input = {}) {
   let almariInfo = null;
   if (almari) {
     const hSpan = W - t;                              // open front to the back
+    // Columns divide the SAME interior the levels divide, by the same
+    // arithmetic: n cells and n-1 uprights share the clear width.
+    const intL = L - 2 * t;
+    const cellL = (intL - (lajur - 1) * t) / lajur;
+    /** World x of the left face of column j's opening, j = 0 leftmost. */
+    const colX = (j) => t + j * (cellL + t);
+    const upX = colX(1) - t;      // left face of the upright, when there is one
     // featureLayout degrades to a single feature spanning the middle half of a
     // short edge. Capping the module at a fifth of the span always resolves the
     // count to at least two, which is the difference between a joint and a peg.
@@ -938,6 +958,23 @@ export function buildBox(input = {}) {
     // The wall body starts a board in from each end, so a tenon laid out over the
     // full length can begin inside the corner band. Filter once, share the list.
     const topX = keep(xFeats, t + 0.5, L - t - 0.5);
+
+    // Tenon run for an upright, along the cabinet's depth. A ninth of the span
+    // rather than the usual fifth, because with two levels this run has to SPLIT:
+    // the upright below the shelf and the upright above it both tenon into the
+    // same board at the same x, and a tenon is a full board thick, so the lower
+    // one fills the slot completely and the upper one has nowhere to go. They
+    // take alternate features instead, which needs at least four to divide.
+    const um = Math.max(3, Math.min(m, hSpan / 9));
+    const uFeats = keep(featureLayout(hSpan, um), 0.5, hSpan - 0.5);
+    const uEven = uFeats.filter((_, i) => i % 2 === 0);
+    const uOdd = uFeats.filter((_, i) => i % 2 === 1);
+    // One upright per level, so a level's drawers are divided by a part that is
+    // captured between the two boards it sits between - no half-lap, no threading
+    // a full-height panel through a shelf that is already tenoned into three walls.
+    const uprightsOK = lajur === 2
+      && uFeats.length >= (tingkat === 2 ? 4 : 2)
+      && cellL >= Math.max(20, 8 * t);
 
     // ---- back wall: tabs on both vertical corners, notches along the top ----
     {
@@ -1023,24 +1060,74 @@ export function buildBox(input = {}) {
         ...edgeRun([x0, y1], [x0, 0], flipFeatures(yhFeats, y1), t, o),
       ]);
     };
+    // A board's mortises for the upright below or above it. Board local (u, v)
+    // IS box (x, y), so these are box coordinates with no mapping.
+    const upMortises = () => (uprightsOK
+      ? uFeats.map((f) => shrinkRect(upX, f.s, t, f.e - f.s, fit))
+      : []);
     const addBoard = (id, z) => panels.push(normalisePanel({
-      id, label: PANEL_LABELS[id], outline: board(), holes: [],
+      id, label: PANEL_LABELS[id], outline: board(), holes: upMortises(),
       frame: { origin: [0, 0, z], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
     }));
     // Material fills from the outward face inwards, and all three N are +z
     // because each board is a surface something rests on.
+    // Every board carries the same full mortise set. The shelf is the one that
+    // receives from both sides, and its slots are filled by the lower upright's
+    // even tenons and the upper upright's odd ones between them - so no slot is
+    // left open, which is why the union and not one half is cut into all three.
     addBoard('bottom', floorZ + t);
     if (tingkat === 2) addBoard('shelf', shelfZ + t);
     addBoard('cabTop', H);
+
+    // ---- the uprights ------------------------------------------------------
+    // A tenon is exactly one board deep, so it finishes FLUSH with the far face
+    // of the board it passes through rather than standing proud of it. That
+    // matters more here than anywhere else in the file: a tenon left standing on
+    // the shelf is a stop in the path of the drawer that runs on it.
+    if (uprightsOK) {
+      const upright = (botFeats, topFeats) => dedupe([
+        ...edgeRun([0, 0], [hSpan, 0], botFeats, t),
+        ...edgeRun([hSpan, 0], [hSpan, cellH], [], 0),   // free at the back
+        ...edgeRun([hSpan, cellH], [0, cellH], forWalk(topFeats, hSpan, 0), t),
+        ...edgeRun([0, cellH], [0, 0], [], 0),           // free at the open front
+      ]);
+      for (let i = 0; i < tingkat; i++) {
+        // Alternate features only where two uprights share a board. Where an
+        // upright meets the floor or the top it has the run to itself.
+        const bot = (tingkat === 2 && i === 1) ? uOdd : uFeats;
+        const top = (tingkat === 2 && i === 0) ? uEven : uFeats;
+        panels.push(normalisePanel({
+          id: `up${i + 1}`,
+          label: PANEL_LABELS[`up${i + 1}`],
+          outline: upright(bot, top),
+          holes: [],
+          frame: {
+            origin: [upX + t, 0, lz(i)],
+            U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0],
+          },
+        }));
+      }
+    }
 
     // ---- the drawers --------------------------------------------------------
     const cs = Math.max(0, p.drawerSide);
     const ct = Math.max(0, p.drawerTop);
     const ci = Math.max(0, p.drawerInset);
-    const dL = L - 2 * t - 2 * cs;    // outer width  (X)
+    // A cabinet that cannot carry an upright falls back to one wide drawer per
+    // level rather than emitting two drawers with nothing between them.
+    const cols = uprightsOK ? lajur : 1;
+    const openL = cols === 1 ? intL : cellL;
+    const dL = openL - 2 * cs;        // outer width  (X)
     const dD = W - t - ci;            // outer depth  (Y)
     const dH = cellH - ct;            // outer height (Z)
-    const ox = t + cs;                // world x of the drawer's left outer face
+    /** World x of the left outer face of the drawer in column j. */
+    const oxOf = (j) => (cols === 1 ? t : colX(j)) + cs;
+    const lajurWhy = lajur === 2 && !uprightsOK
+      ? 'This cabinet is too narrow to split: two columns would leave '
+        + `${Math.round(cellL * 10) / 10} mm of opening each, and an upright `
+        + `needs at least ${Math.max(20, 8 * t)} mm either side of it. Cutting `
+        + 'one drawer per level instead.'
+      : null;
     // The base sits a board up, so the drawer runs on four thin wall edges rather
     // than on a whole panel - lower friction, and a loaded base cannot drag.
     const dFloorZ = t;
@@ -1054,6 +1141,7 @@ export function buildBox(input = {}) {
         ? 'The cabinet is too narrow for a drawer: the opening leaves '
           + `${Math.round(dL * 10) / 10} mm across, and a jointed drawer needs `
           + `at least ${Math.max(20, 8 * t)} mm.`
+          + (cols === 2 ? ' Try one lajur, or a wider cabinet.' : '')
         : dD < Math.max(20, 6 * t)
           ? 'The cabinet is too shallow for a drawer: it leaves '
             + `${Math.round(dD * 10) / 10} mm front to back, and a jointed `
@@ -1140,25 +1228,31 @@ export function buildBox(input = {}) {
       // drawer given one would float up through the cabinet top.
       const slide = [0, -pull, 0];
 
+      // Numbered along the front, left to right then bottom to top. With one
+      // column that is d1 low and d2 high, exactly the numbering that shipped
+      // before columns existed, so saved artwork still lands on its own drawer.
       for (let i = 0; i < tingkat; i++) {
-        const n = i + 1;
-        const z = lz(i);
-        const add = (suffix, outline, holes, frame) => panels.push(normalisePanel({
-          id: `d${n}${suffix}`, label: PANEL_LABELS[`d${n}${suffix}`],
-          outline, holes, slide, frame,
-        }));
-        add('Front', dWallX(true), wallXHoles(),
-          { origin: [ox, ci, z], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
-        add('Back', dWallX(false), wallXHoles(),
-          { origin: [ox + dL, ci + dD, z], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] });
-        add('Left', dWallY(), wallYHoles(),
-          { origin: [ox, ci + dD, z], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] });
-        add('Right', dWallY(), wallYHoles(),
-          { origin: [ox + dL, ci, z], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] });
-        // z + dFloorZ + t: the base's outward face, with material filling down to
-        // z + t, so it sits one board above the surface the drawer runs on.
-        add('Base', dBase(), [],
-          { origin: [ox, ci, z + 2 * t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+        for (let j = 0; j < cols; j++) {
+          const n = i * cols + j + 1;
+          const z = lz(i);
+          const ox = oxOf(j);
+          const add = (suffix, outline, holes, frame) => panels.push(normalisePanel({
+            id: `d${n}${suffix}`, label: PANEL_LABELS[`d${n}${suffix}`],
+            outline, holes, slide, frame,
+          }));
+          add('Front', dWallX(true), wallXHoles(),
+            { origin: [ox, ci, z], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
+          add('Back', dWallX(false), wallXHoles(),
+            { origin: [ox + dL, ci + dD, z], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] });
+          add('Left', dWallY(), wallYHoles(),
+            { origin: [ox, ci + dD, z], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] });
+          add('Right', dWallY(), wallYHoles(),
+            { origin: [ox + dL, ci, z], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] });
+          // z + dFloorZ + t: the base's outward face, with material filling down to
+          // z + t, so it sits one board above the surface the drawer runs on.
+          add('Base', dBase(), [],
+            { origin: [ox, ci, z + 2 * t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+        }
       }
 
       drawerInfo = {
@@ -1176,9 +1270,11 @@ export function buildBox(input = {}) {
     }
 
     almariInfo = {
-      tingkat, cellH, intH, botTop, topZ,
+      tingkat, lajur: cols, cellH, cellL: openL, intH, botTop, topZ,
+      lajurWhy,
+      drawers: drawerInfo ? tingkat * cols : 0,
       shelfZ: tingkat === 2 ? shelfZ : null,
-      interior: { l: L - 2 * t, w: W - t, h: intH },
+      interior: { l: intL, w: W - t, h: intH },
       // The screw joint's fingers stand proud at the BACK on this style, because
       // the side walls' u axis runs front to back here.
       outerW: W + ear,
