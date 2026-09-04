@@ -224,7 +224,11 @@ export const material = () => MATERIALS.find((m) => m.id === state.material)
 export function clampDecor() {
   const b = getBox();
   // Turning dividers or the lid off can delete the panel that was being edited.
-  if (!b.panels.some((p) => p.id === state.face)) state.face = 'front';
+  // Repair to the first panel this box actually has, not to 'front': the drawer
+  // cabinet has no front panel at all, so 'front' would leave the face still
+  // invalid - reads fall back to panels[0] while every inspector write goes to
+  // decor['front'], and the user's decoration lands where they cannot see it.
+  if (!b.panels.some((p) => p.id === state.face)) state.face = b.panels[0].id;
   for (const p of b.panels) {
     for (const o of state.decor[p.id] || []) {
       o.x = Math.min(Math.max(o.x, -o.w), p.size.w);

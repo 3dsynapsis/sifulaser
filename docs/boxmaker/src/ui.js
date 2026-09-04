@@ -111,6 +111,8 @@ function boxThumb(style, base) {
     edge: shade(base, -0.62),
   };
 
+  if (style === 'almari') return almariThumb(c);
+
   // top rim diamond, its inner opening, and the floor sitting below it
   const T = [48, 26]; const R = [80, 40]; const F = [48, 54]; const L = [16, 40];
   const H = 16;
@@ -188,6 +190,80 @@ function boxThumb(style, base) {
   </g>
   ${leafFront}
   ${liftOff}
+</svg>`;
+}
+
+/**
+ * The drawer cabinet, in the same isometric and the same palette as the other
+ * four cards. Two things have to read at 46 px: the top is CLOSED (a solid
+ * diamond, where every other card shows the evenodd rim donut of an opening),
+ * and the cabinet opens at the FRONT (one drawer sitting inset, one pulled out
+ * past the face it came from). The body is taller than the other cards' because
+ * an almari is a tall thing and the proportion is half the recognition.
+ */
+function almariThumb(c) {
+  const T = [48, 16]; const R = [80, 30]; const F = [48, 44]; const L = [16, 30];
+  const H = 26;                       // bottom lands at y = 70
+  const Rb = shift(R, 0, H); const Fb = shift(F, 0, H); const Lb = shift(L, 0, H);
+
+  // Mortise ticks on the side wall, so the card keeps the finger-joint
+  // signature that every other card has.
+  const dashR = (u, drop) => {
+    const p = [F[0] + (R[0] - F[0]) * u, F[1] + (R[1] - F[1]) * u + drop];
+    return P([p, shift(p, 5.5, -2.4), shift(p, 5.5, 0), shift(p, 0, 2.4)]);
+  };
+
+  // The cabinet face, parameterised: u across the front, v down it. Everything
+  // on the front - shelf, drawers, notches - is placed through this, so it all
+  // sits on the same slope without a transform.
+  const pt = (u, v) => [
+    L[0] + (F[0] - L[0]) * u,
+    L[1] + (F[1] - L[1]) * u + v,
+  ];
+  const deg = Math.atan2(F[1] - L[1], F[0] - L[0]) * 180 / Math.PI;
+  const quad = (a, b, cc, d, fill) => `<polygon points="${P([a, b, cc, d])}" fill="${fill}"/>`;
+  /** A drawer front spanning v0..v1, moved by d. */
+  const face = (v0, v1, d = [0, 0]) => [
+    shift(pt(0.07, v0), d[0], d[1]), shift(pt(0.93, v0), d[0], d[1]),
+    shift(pt(0.93, v1), d[0], d[1]), shift(pt(0.07, v1), d[0], d[1]),
+  ];
+  /** The thumb notch, on the top edge of a drawer front. */
+  const notch = (f) => {
+    const mx = (f[0][0] + f[1][0]) / 2;
+    const my = (f[0][1] + f[1][1]) / 2;
+    return `<path d="M-3.4 0a3.4 3.4 0 0 0 6.8 0Z" fill="${c.edge}" opacity=".45" `
+      + `transform="translate(${mx} ${my}) rotate(${deg})"/>`;
+  };
+  const drawn = (f) => `<polygon points="${P(f)}" fill="${c.rim}"/>`
+    + `<polygon points="${P(f)}" fill="none" stroke="${c.edge}" stroke-width=".9" `
+    + 'stroke-linejoin="round"/>' + notch(f);
+
+  const upper = face(2, 11.5);
+  const lower = face(14.5, 24);
+  // Straight out of the cabinet, which in this projection is down and to the
+  // left: the same direction the front face's normal points, scaled to about a
+  // quarter of the drawer's depth. Anything steeper reads as the drawer falling
+  // out rather than sliding.
+  const pull = [-7.5, 3.3];
+  const out = lower.map((q) => shift(q, pull[0], pull[1]));
+
+  return `<svg viewBox="0 0 96 74" aria-hidden="true">
+  <polygon points="${P([L, F, Fb, Lb])}" fill="${c.left}"/>
+  <polygon points="${P([F, R, Rb, Fb])}" fill="${c.right}"/>
+  <polygon points="${P([T, R, F, L])}" fill="${c.lid}"/>
+  <g fill="${c.edge}" opacity=".5">
+    <polygon points="${dashR(0.24, 6)}"/><polygon points="${dashR(0.6, 6)}"/>
+  </g>
+  <path d="M${P([pt(0, 13), pt(1, 13)])}" fill="none" stroke="${c.edge}" stroke-width=".9" opacity=".55"/>
+  ${drawn(upper)}
+  ${quad(lower[0], lower[1], lower[2], lower[3], c.inner)}
+  <g fill="none" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round" opacity=".8">
+    <path d="M${P([L, F, Fb, Lb])}Z"/><path d="M${P([F, R, Rb, Fb])}Z"/>
+    <path d="M${P([T, R, F, L])}Z"/>
+  </g>
+  ${quad(lower[1], lower[2], out[2], out[1], c.right)}
+  ${quad(out[0], out[1], lower[1], lower[0], c.innerB)}
+  ${drawn(out)}
 </svg>`;
 }
 
@@ -308,6 +384,12 @@ const STYLES = [
     hint: 'A second tray inverted over the first - it comes off completely, '
       + 'the way a shoe box does',
   },
+  {
+    id: 'almari',
+    label: 'Almari Laci',
+    hint: 'Drawer cabinet - one or two equal levels, one drawer each, closed '
+      + 'top and back, opens at the front. Try about 200 x 150 x 260 mm.',
+  },
 ];
 
 const DIVIDERS = [
@@ -363,8 +445,17 @@ const faceButton = ({ view, label, pressed, title, onclick, badge }) =>
       badge ? h('span', { class: 'badge' }, String(badge)) : null),
     h('span', { class: 'face-label' }, label));
 
+/**
+ * Which run of tabs a panel belongs to, so sixteen of them read as 6 + 5 + 5
+ * rather than as one undifferentiated strip.
+ */
+const tabGroup = (id) => (/^d(\d+)/.exec(id)?.[1] ?? 'carcass');
+
 /** 3D mode shows camera presets; 2D mode shows the panel tabs. */
 export function renderFaces(root, { onFace, onCamera, camera }) {
+  // The strip scrolls now, and renderBar() rebuilds it from every refresh - so
+  // without this it would snap back to the first tab on every single click.
+  const at = root.scrollLeft;
   root.replaceChildren();
   if (state.view === '3d') {
     for (const [id, label] of CAMERAS) {
@@ -378,9 +469,14 @@ export function renderFaces(root, { onFace, onCamera, camera }) {
       }));
       if (id === 'persp') root.append(h('span', { class: 'face-sep' }));
     }
+    root.scrollLeft = at;
     return;
   }
+  let run = null;
   for (const panel of getBox().panels) {
+    const g = tabGroup(panel.id);
+    if (run !== null && g !== run) root.append(h('span', { class: 'face-sep' }));
+    run = g;
     root.append(faceButton({
       view: panel.id,
       label: panel.label,
@@ -390,6 +486,10 @@ export function renderFaces(root, { onFace, onCamera, camera }) {
       onclick: () => onFace(panel.id),
     }));
   }
+  root.scrollLeft = at;
+  // block:'nearest' or the whole page scrolls to bring the strip into view.
+  root.querySelector('[aria-pressed="true"]')
+    ?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
 // ------------------------------------------------------------- inspector
@@ -463,9 +563,13 @@ function overallInspector(root, ctx) {
       },
       h('span', { class: 'art', html: boxThumb(id, mat.color) }),
       label))),
-    ...(p.style === 'shoebox' ? liftOffRows(p, ctx) : [])));
+    ...(p.style === 'shoebox' ? liftOffRows(p, ctx)
+      : p.style === 'almari' ? drawerRows(p, ctx) : [])));
 
-  root.append(group('Divider', true,
+  // Dividers and drawers want the same interior, and the pair cannot be
+  // assembled - the geometry already refuses it, so the control should not be
+  // sitting there offering.
+  if (p.style !== 'almari') root.append(group('Divider', true,
     h('div', { class: 'cards' }, DIVIDERS.map(({ id, label, hint }) =>
       h('button', {
         class: 'card', type: 'button',
@@ -489,7 +593,9 @@ function overallInspector(root, ctx) {
     dimRow('Length', 'length', ctx),
     dimRow('Width', 'width', ctx),
     dimRow('Height', 'height', ctx),
-    h('p', { class: 'hint' }, 'Outer dimensions, including the lid.')));
+    h('p', { class: 'hint' }, p.style === 'almari'
+      ? 'Outer dimensions: across the front, front to back, and floor to the top.'
+      : 'Outer dimensions, including the lid.')));
 
   const matSel = h('select', {
     onchange: (e) => {
@@ -512,9 +618,14 @@ function overallInspector(root, ctx) {
     h('div', { class: 'row' },
       h('span', { class: 'swatch', style: `background:${mat.color}` }),
       h('span', { class: 'muted' }, `${mat.name} · ${p.thickness} mm board`)),
+    // Thickness removes panels as surely as the style cards do - a millimetre
+    // step can gate every drawer off, or every divider - so it repairs the face
+    // the same way. Without this the face points at a panel that no longer
+    // exists: the 2D view silently draws panels[0] while every edit still writes
+    // to the vanished face's decor list, and dragging appears to do nothing.
     numberRow('Board thickness (mm)', p.thickness, {
       min: 0.5, max: 12, step: 0.1,
-      onInput: (v) => { setParam('thickness', v); ctx.refresh(); },
+      onInput: (v) => { setParam('thickness', v); clampDecor(); ctx.refresh(); },
     }),
     numberRow('Kerf compensation (mm)', p.kerf, {
       min: 0, max: 0.6, step: 0.01,
@@ -548,7 +659,11 @@ function overallInspector(root, ctx) {
         : p.joint === 'screw'
           ? h('p', { class: 'hint' },
             `${d.screwCount} x ${SCREW.name} screws, ${d.screwZs.length} on each `
-            + 'of the four corners. The finger joints hold the box square by '
+            + (d.screwCorners === 2
+              ? 'of the two back corners - the cabinet is open at the front, so '
+                + 'the back is the only jointed pair. '
+              : 'of the four corners. ')
+            + 'The finger joints hold the box square by '
             + 'themselves, so you press it together first and then drive the '
             + 'screws one-handed. No glue, and it comes apart again.')
           : h('p', { class: 'hint' },
@@ -558,6 +673,16 @@ function overallInspector(root, ctx) {
         min: 1, max: 4, step: 1,
         onInput: (v) => { setParam('screwsPerEdge', Math.round(v)); ctx.refresh(); },
       })
+      : null,
+    p.joint === 'screw' && d.screwShort
+      ? h('p', { class: 'warn' },
+        // The same clamp box.js applies, or the sentence quotes a number the
+        // geometry never saw.
+        `Only ${d.screwZs.length} of the `
+        + `${Math.max(1, Math.min(4, Math.round(p.screwsPerEdge ?? 2)))} screws `
+        + 'you asked for fit: the finger joint owns most of the edge, and a '
+        + 'pocket may not sit in a mortise. Larger fingers, or a taller box, '
+        + 'leaves room for the rest.')
       : null,
     p.joint === 'screw' && d.screwEar > 0
       ? h('p', { class: 'hint' },
@@ -643,6 +768,160 @@ function liftOffRows(p, ctx) {
   ];
 }
 
+/** The cabinet everybody actually pictures when they say almari laci. */
+const ALMARI_SIZE = { length: 200, width: 150, height: 260 };
+
+/**
+ * Controls for the drawer cabinet. Every single one of these changes how the
+ * thing FITS, so the rule from liftOffRows applies with more force here, not
+ * less: each hint says in millimetres what the control just did. A drawer that
+ * is 0.4 mm tight does not go in at all, and there is nothing to do about it
+ * afterwards but cut another one - so a percentage of a dimension nobody has
+ * measured is not a number anyone can check against the part on their bench.
+ */
+function drawerRows(p, ctx) {
+  const d = getBox().derived.almari;
+  if (!d) return [];
+  const dr = d.drawer;
+  const seg = (label, key, on) => h('div', { class: 'field' },
+    h('label', {}, label),
+    h('div', { class: 'seg' }, [[true, 'On'], [false, 'Off']].map(([v, text]) =>
+      h('button', {
+        type: 'button', 'aria-pressed': String(on === v),
+        onclick: () => { setParam(key, v); ctx.refresh(); },
+      }, text))));
+
+  const isStock = p.length === ALMARI_SIZE.length && p.width === ALMARI_SIZE.width
+    && p.height === ALMARI_SIZE.height;
+
+  const rows = [
+    h('div', { class: 'field' },
+      h('label', {}, 'Levels'),
+      // Exactly two legal states, so a segment rather than a slider or a number
+      // box: the level arithmetic would happily accept 3 and the panel ids
+      // would not. clampDecor before the refresh, the way the style cards do -
+      // setParam alone leaves the face pointing at a panel that just vanished.
+      segmented([{ id: 1, label: '1 tingkat' }, { id: 2, label: '2 tingkat' }],
+        d.tingkat,
+        (id) => { setParam('tingkat', id); clampDecor(); ctx.refresh(); })),
+    h('p', { class: 'hint' },
+      (d.tingkat === 1
+        ? `One level, ${rnd(d.cellH, 1)} mm of clear height, one drawer in it. `
+        : `Two equal levels of ${rnd(d.cellH, 1)} mm clear height inside `
+          + `${rnd(d.intH, 1)} mm, one drawer each. `)
+      // The decor clamp lets an object hang off an edge on purpose, so halving a
+      // panel really can park artwork clear of it. Say that, rather than
+      // promising a nudge that keeps it on the part - it does not.
+      + 'Changing the level count halves or doubles the height of every drawer '
+      + 'part, so check any artwork on a drawer front afterwards: it keeps its '
+      + 'position, which on a shorter part can put it off the edge.'),
+    h('button', {
+      class: 'ghost', type: 'button',
+      disabled: isStock,
+      // The only control here that touches a number the user typed, which is why
+      // it is a button they press rather than something that happens to them.
+      onclick: () => {
+        update((s) => { Object.assign(s.params, ALMARI_SIZE); }, { geometry: true });
+        clampDecor();
+        ctx.refresh();
+      },
+    }, isStock ? 'Saiz almari biasa ✓' : 'Saiz almari biasa · 200 × 150 × 260 mm'),
+    h('p', { class: 'hint' },
+      `This one is ${p.length} × ${p.width} × ${p.height} mm. The app's default `
+      + 'box is a small shallow tray, and a tray split into levels gives drawers '
+      + 'a couple of centimetres deep - correct, but not what anyone means by an '
+      + 'almari. The button sets a cabinet-shaped 200 × 150 × 260 mm; nothing '
+      + 'else on this page changes a dimension behind your back.'),
+  ];
+
+  if (!dr) {
+    rows.push(h('p', { class: 'warn' }, d.drawerWhy));
+    return rows;
+  }
+
+  rows.push(
+    numberRow('Drawer side gap (mm)', p.drawerSide ?? 0.4, {
+      min: 0, max: 2, step: 0.05,
+      onInput: (v) => { setParam('drawerSide', v); ctx.refresh(); },
+    }),
+    h('p', { class: 'hint' },
+      `Each side clears by ${rnd(dr.side, 2)} mm, so the drawer finishes `
+      + `${rnd(dr.outer.l, 1)} mm wide in a ${rnd(d.interior.l, 1)} mm opening. `
+      + 'This is a real running gap - kerf is already compensated on both parts. '
+      + `It survives board ${rnd(dr.side, 2)} mm over nominal and no more. The `
+      + 'opening itself does not move: it is the back wall\'s cut width, so it '
+      + 'measures the same whatever the sheet turns out to be. The drawer is what '
+      + 'grows - its front butts the side walls, so each wall stands proud by the '
+      + 'whole error, once per side.'),
+    dr.side < 0.005
+      ? h('p', { class: 'warn' },
+        'A zero running gap is a press fit: the drawer is cut exactly as wide as '
+        + 'its opening and will not slide. Give it something.')
+      : null,
+    numberRow('Drawer top gap (mm)', p.drawerTop ?? 0.8, {
+      min: 0, max: 3, step: 0.05,
+      onInput: (v) => { setParam('drawerTop', v); ctx.refresh(); },
+    }),
+    h('p', { class: 'hint' },
+      'The drawer rests on the board below it, so all of this is headroom: '
+      + `${rnd(dr.top, 2)} mm above, nothing underneath. A gap underneath would `
+      + 'be a step it falls off when pulled and has to climb going back in.'
+      + (dr.thumbR > 0
+        ? ` With the notch that gives ${rnd(dr.fingerGap, 1)} mm of finger room.`
+        : '')),
+    dr.top < 0.005
+      ? h('p', { class: 'warn' },
+        'A zero top gap fills the level exactly: the drawer binds on the board '
+        + 'above it. Give it something.')
+      : null,
+    dr.top > dr.outer.w / 100
+      ? h('p', { class: 'warn' },
+        `More than about ${rnd(dr.outer.w / 100, 2)} mm on a drawer this deep and `
+        + 'a loaded one tips nose-down as it comes out, then catches on the '
+        + 'board edge going back.')
+      : null,
+    numberRow('Drawer inset (mm)', p.drawerInset ?? 2, {
+      min: 0.5, max: 8, step: 0.5,
+      onInput: (v) => { setParam('drawerInset', v); ctx.refresh(); },
+    }),
+    h('p', { class: 'hint' },
+      'The drawer stops on its back against the cabinet\'s back wall, so the '
+      + `${rnd(dr.inset, 1)} mm you see at the front is the same `
+      + `${rnd(dr.inset, 1)} mm behind it - one number doing two jobs. About one `
+      + `board thickness (${p.thickness} mm here) reads as a deliberate shadow `
+      + 'line; much less and it reads as a flush fit that failed.'),
+    seg('Thumb notch', 'drawerNotch', (p.drawerNotch ?? true) !== false),
+    // thumbR is 0 for two quite different reasons - the notch is switched off,
+    // or it was too small to be worth cutting - and blaming the cabinet's size
+    // for a switch the user just flicked sends them off resizing a cabinet that
+    // was never the problem. Read the parameter first, the derived value second.
+    h('p', { class: 'hint' }, (p.drawerNotch ?? true) === false
+      ? 'Notch off. Each drawer opens by the edge of its front. Switch it back on '
+        + 'for a dip you can hook a finger into.'
+      : dr.thumbR > 0
+        ? `${/^8/.test(rnd(dr.thumbR, 1)) ? 'An' : 'A'} ${rnd(dr.thumbR, 1)} mm `
+          + 'dip in the top edge of each drawer front. It is not only a handle: '
+          + 'pulling from the middle is what keeps the drawer square in its '
+          + 'opening.'
+        : 'No notch here. On a drawer front this short it would run into the '
+          + 'drawer\'s own base mortises, so nothing under about 2.5 mm of radius '
+          + 'is cut. A taller level gives it room.'),
+    dr.rack > 1.3
+      ? h('p', { class: 'warn' },
+        `This drawer is ${rnd(dr.rack, 2)} times as wide as it is deep. Past `
+        + 'about 1.3 it sits visibly crooked whatever the clearance is - that is '
+        + 'geometry, not a number you can tune. A deeper cabinet is the fix.')
+      : null,
+    h('p', { class: 'hint' },
+      `Each drawer holds ${rnd(dr.inner.l, 1)} × ${rnd(dr.inner.w, 1)} × `
+      + `${rnd(dr.inner.h, 1)} mm inside. Plywood forgives being a tenth tight `
+      + 'and burnishes free in twenty pulls. Acrylic does not - it stick-slips '
+      + 'and crazes at the corner - so open the side and top gaps by about half '
+      + 'again on acrylic, and measure the sheet rather than trusting the label.'),
+  );
+  return rows;
+}
+
 function dimRow(label, key, ctx) {
   const p = state.params;
   const maxima = { length: 900, width: 900, height: 600 };
@@ -679,6 +958,16 @@ function summaryRows() {
         h('span', {}, 'Overall size'),
         h('b', {}, `${rnd(box.derived.lid.outerL, 1)} x ${rnd(box.derived.lid.outerW, 1)} `
           + `x ${rnd(box.params.height, 1)} mm`))
+      : null,
+    // The one measurement somebody deciding what will fit in this cabinet
+    // actually needs, and the only place in the UI that reports it. The outside
+    // size tells you where it will stand, not what will go in it.
+    box.derived.almari?.drawer
+      ? h('div', { class: 'stat' },
+        h('span', {}, 'Drawer inside'),
+        h('b', {}, `${rnd(box.derived.almari.drawer.inner.l, 1)} x `
+          + `${rnd(box.derived.almari.drawer.inner.w, 1)} x `
+          + `${rnd(box.derived.almari.drawer.inner.h, 1)} mm`))
       : null,
     box.derived.screwCount
       ? h('div', { class: 'stat' },
@@ -957,11 +1246,23 @@ export function fillExportDialog(dlg, box) {
   // A lift-off lid rides outside the walls, so the box that comes off the bed is
   // wider than the Length and Width that were typed in. This line is the last
   // thing anyone reads before cutting, so it names the size they will measure.
+  // The drawer cabinet finishes at exactly the size that was typed - its top is
+  // captured between the walls rather than sitting on them - with one honest
+  // exception: the screw joint's fingers stand proud at the back.
+  const a = box.derived.almari;
   const outer = box.derived.lid
     ? `${rnd(box.derived.lid.outerL, 1)} × ${rnd(box.derived.lid.outerW, 1)} × ${box.params.height} mm overall`
-    : `${box.params.length} × ${box.params.width} × ${box.params.height} mm`;
+    : a && a.outerW > box.params.width
+      ? `${box.params.length} × ${rnd(a.outerW, 1)} × ${box.params.height} mm overall `
+        + '(the screw fingers stand proud at the back)'
+      : `${box.params.length} × ${box.params.width} × ${box.params.height} mm`;
+  // Outside tells you where it will stand; inside tells you what will go in it.
+  const inside = a?.drawer
+    ? ` · drawer inside ${rnd(a.drawer.inner.l, 1)} × ${rnd(a.drawer.inner.w, 1)}`
+      + ` × ${rnd(a.drawer.inner.h, 1)} mm`
+    : '';
   dlg.querySelector('#exportSummary').textContent =
-    `${box.panels.length} panels · ${outer} · ${box.params.thickness} mm board`;
+    `${box.panels.length} panels · ${outer} · ${box.params.thickness} mm board${inside}`;
   // Placed images cannot go into the PDF. A PDF image is an XObject with its own
   // encoding, and a PNG cannot be carried across as it stands. Saying so is the
   // whole point: artwork that silently fails to appear is worse than artwork
@@ -976,24 +1277,103 @@ export function fillExportDialog(dlg, box) {
       : '');
 }
 
+/**
+ * The assembly list, filtered by style rather than concatenated.
+ *
+ * `only` names the styles a step belongs to; `skip` names the ones it does not;
+ * neither means every style. The list already carried style-specific advice
+ * ("lidded and double") that every box owner had to read past, and a drawer
+ * cabinet is assembled in a genuinely different order - it has no front wall to
+ * start from - so filtering is what keeps the list eight lines instead of
+ * twelve, six of which do not apply.
+ */
 const STEPS = [
-  ['Clean the parts', 'Wipe the soot off every edge or the joints will feel tight for the wrong reason.'],
-  ['Lay them out', 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.'],
-  ['Floor into the front wall', 'The slitted tenons push through the mortises. They should click, not fight.'],
-  ['Add a side wall', 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.'],
-  ['Screw joints: nuts in first', 'Drop an M3 nut into each pocket before you '
-    + 'close that corner up. Once the box is together you cannot reach them. They '
-    + 'stay put on their own - the pocket is cut to the nut, not to a gap.'],
-  ['Dividers before the far walls', 'Stand the long divider in the front wall '
-    + 'mortises, drop the crossing one onto it, then bring the side walls in over '
-    + 'their tenons. Once the box is closed they cannot go in.'],
-  ['Lid pins first (lidded and double)', 'Slot each lid or leaf pin into the hole in the side wall boss before you close the second side. The double style has two of them per side.'],
-  ['Close it up', 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.'],
+  { t: 'Clean the parts', d: 'Wipe the soot off every edge or the joints will feel tight for the wrong reason.' },
+  {
+    t: 'Lay them out',
+    d: 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.',
+    skip: ['almari'],
+  },
+  {
+    t: 'Lay them out',
+    d: 'The back, the two sides, and three horizontal boards that are the same '
+      + 'part cut three times - bottom, shelf and top are interchangeable, and '
+      + 'only the etched label tells them apart. Then five parts per drawer.',
+    only: ['almari'],
+  },
+  {
+    t: 'Floor into the front wall',
+    d: 'The slitted tenons push through the mortises. They should click, not fight.',
+    skip: ['almari'],
+  },
+  {
+    t: 'Add a side wall',
+    d: 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.',
+    skip: ['almari'],
+  },
+  {
+    t: 'Bottom into a side wall',
+    d: 'There is no front wall to start from, so start with a board. Its tenons '
+      + 'push through the mortises in the side wall, and the front edges of all '
+      + 'three boards finish flush with the cabinet face.',
+    only: ['almari'],
+  },
+  {
+    t: 'Shelf before the second side',
+    d: 'The shelf is trapped by closed mortises in both sides and in the back. '
+      + 'Once the second side is on it cannot go in.',
+    only: ['almari'],
+    when: (p) => p.tingkat !== 1,   // a one-level cabinet has no shelf to fit
+  },
+  {
+    t: 'Screw joints: nuts in first',
+    d: 'Drop an M3 nut into each pocket before you close that corner up. Once '
+      + 'the box is together you cannot reach them. They stay put on their own - '
+      + 'the pocket is cut to the nut, not to a gap.',
+  },
+  {
+    t: 'Dividers before the far walls',
+    d: 'Stand the long divider in the front wall mortises, drop the crossing one '
+      + 'onto it, then bring the side walls in over their tenons. Once the box is '
+      + 'closed they cannot go in.',
+    skip: ['almari'],
+  },
+  {
+    t: 'Lid pins first',
+    d: 'Slot each lid or leaf pin into the hole in the side wall boss before you '
+      + 'close the second side. The double style has two of them per side.',
+    only: ['lidded', 'double'],
+  },
+  {
+    t: 'Close it up',
+    d: 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.',
+    skip: ['almari'],
+  },
+  {
+    t: 'Top drops in last',
+    d: 'Its tenons sit in open notches cut down from the top edges of the sides '
+      + 'and the back, so it drops in from above once everything else is square. '
+      + 'Nothing traps it - glue is what holds it down.',
+    only: ['almari'],
+  },
+  {
+    t: 'Each drawer is its own little box',
+    d: 'Five parts, the same joints as the carcass. The base tenons finish flush '
+      + 'on the drawer face, so small rectangles of end grain show there - that '
+      + 'is the joint, not a mistake. Build them square or they will bind, and '
+      + 'the drawer rests straight on the board below it with no gap underneath.',
+    only: ['almari'],
+  },
 ];
 
+const stepsFor = (p) => STEPS.filter((s) => (!s.only || s.only.includes(p.style))
+  && !(s.skip || []).includes(p.style)
+  && (!s.when || s.when(p)));
+
 export function fillAssembleDialog(dlg) {
-  dlg.querySelector('#assembleSteps').replaceChildren(...STEPS.map(([t, d]) =>
-    h('li', {}, t, h('br'), h('span', {}, d))));
+  dlg.querySelector('#assembleSteps').replaceChildren(
+    ...stepsFor(state.params).map(({ t, d }) =>
+      h('li', {}, t, h('br'), h('span', {}, d))));
 }
 
 export { rnd };

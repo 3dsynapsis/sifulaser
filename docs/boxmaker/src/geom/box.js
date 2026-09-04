@@ -38,7 +38,7 @@ import {
 } from './path.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -58,12 +58,31 @@ export const DEFAULTS = {
   lidSlack: 0.4,        // lift-off lid: gap between its inner face and the box
   lidDrop: 35,          // lift-off lid: % of the wall height its skirt covers
   lidNotch: true,       // lift-off lid: thumb notch in the front of the skirt
+
+  // ---- Almari Laci (drawer cabinet) -------------------------------------
+  tingkat: 2,        // levels: 1 or 2 only, equal size, one drawer each
+  drawerSide: 0.4,   // running gap on EACH side of a drawer, mm (total is 2x)
+  drawerTop: 0.8,    // headroom above the drawer. It rests on the board below,
+                     // so ALL of the vertical allowance is above it: a gap
+                     // underneath would be a step, not a clearance.
+  drawerInset: 2,    // how far the drawer front finishes inside the cabinet
+                     // face. The drawer stops on its BACK against the back
+                     // wall, so the reveal you see and the gap behind it are
+                     // the same number by construction.
+  drawerNotch: true, // thumb notch in the top edge of each drawer front
 };
 
 export const PANEL_ORDER = [
   'front', 'back', 'left', 'right', 'bottom', 'divLength', 'divWidth',
   'top', 'leafFront', 'leafBack',
   'lidTop', 'lidFront', 'lidBack', 'lidLeft', 'lidRight',
+  // Almari Laci. 'back', 'left', 'right' and 'bottom' are reused as they are.
+  // This list is the only source of state.decor's keys (store.js emptyDecor),
+  // and the decor writer indexes it without a guard - an id missing here is a
+  // TypeError the first time anyone puts artwork on that drawer front.
+  'cabTop', 'shelf',
+  'd1Front', 'd1Back', 'd1Left', 'd1Right', 'd1Base',
+  'd2Front', 'd2Back', 'd2Left', 'd2Right', 'd2Base',
 ];
 
 export const PANEL_LABELS = {
@@ -72,6 +91,15 @@ export const PANEL_LABELS = {
   divLength: 'Divider (across)', divWidth: 'Divider (along)',
   lidTop: 'Lid top', lidFront: 'Lid front', lidBack: 'Lid back',
   lidLeft: 'Lid left', lidRight: 'Lid right',
+  // 'cabTop' rather than reusing 'top', whose label already reads 'Lid'. A new
+  // id keeps every label single-sourced here instead of one style writing a
+  // literal string at push time. Keep them short: the etched panel label is
+  // centred with no width clamp, and 'D1 base' has to fit a small drawer floor.
+  cabTop: 'Top', shelf: 'Shelf',
+  d1Front: 'D1 front', d1Back: 'D1 back', d1Left: 'D1 left',
+  d1Right: 'D1 right', d1Base: 'D1 base',
+  d2Front: 'D2 front', d2Back: 'D2 back', d2Left: 'D2 left',
+  d2Right: 'D2 right', d2Base: 'D2 base',
 };
 
 /**
@@ -274,9 +302,27 @@ export function buildBox(input = {}) {
   // A lid that lifts clean off, so the walls stop a board short and the lid's own
   // top makes up the height - the same bookkeeping as the hinged styles.
   const shoebox = p.style === 'shoebox';
+  // A drawer cabinet: open at the front, closed everywhere else. Its top board is
+  // CAPTURED between the side walls exactly as the floor is rather than sitting
+  // on them, so it does NOT join hasLid - the walls run the full height and the
+  // finished cabinet really is length x width x height.
+  const almari = p.style === 'almari';
   const hasLid = lidded || double || shoebox;
   const wallH = hasLid ? H - t : H;
-  const floorZ = p.floorOffset == null ? t : Math.max(0, p.floorOffset);
+  // Exactly two legal states, so the level arithmetic and the panel ids agree.
+  // Declared up here rather than with the rest of the level maths because the
+  // floor cap below needs to know how many boards are going to be stacked.
+  const tingkat = p.tingkat === 1 ? 1 : 2;
+  const floorRaw = p.floorOffset == null ? t : Math.max(0, p.floorOffset);
+  // The cabinet stacks tingkat + 1 horizontal boards where every other style
+  // stacks one, so a floor dragged near the top does not merely make a shallow
+  // box here - it drives the shelf and the top board through each other, and
+  // three boards cut for the same band is scrap with nothing to say so. Cap the
+  // floor so each board keeps its own thickness. This is the almari's own limit;
+  // the other styles keep the tolerance for an absurd floor that they already had.
+  const floorZ = almari
+    ? Math.min(floorRaw, Math.max(0, H - (tingkat + 1) * t))
+    : floorRaw;
   const m = Math.max(3, p.fingerSize);
   const fit = p.fit;
 
@@ -323,7 +369,9 @@ export function buildBox(input = {}) {
   const divFrac = Math.min(1, Math.max(0.2, (p.dividerHeight ?? 60) / 100));
   const divH = (wallH - divBase) * divFrac;
   const divCross = divCount === 4;
-  const divOK = divCount > 0
+  // Dividers and drawers want the same interior, and the combination cannot be
+  // assembled - the drawer would have to pass through the divider.
+  const divOK = !almari && divCount > 0
     && divH > Math.max(6, t * 3)
     && Math.min(L, W) > 8 * t;
   // A divider only stands square if it is pinned in more than one place, so its
@@ -335,6 +383,23 @@ export function buildBox(input = {}) {
   /** Mortises for one divider, centred on `u` in a wall's local frame. */
   const divMortises = (u) =>
     divFeats.map((f) => shrinkRect(u - t / 2, divBase + f.s, t, f.e - f.s, fit));
+
+  // ---- almari levels ------------------------------------------------------
+  // Hoisted above the screw block on purpose: screwHeights() has to know where
+  // the shelf and the top board's notches sit before it picks a pocket height.
+  // (`tingkat` itself is declared with floorZ, which is capped against it.)
+  const botTop = floorZ + t;                              // top face of the floor
+  const topZ = H - t;                                     // underside of the top
+  const intH = topZ - botTop;                             // total clear interior
+  const cellH = (intH - (tingkat - 1) * t) / tingkat;     // one level
+  const shelfZ = botTop + cellH;                          // underside of the shelf
+  /** Running surface of level i, i = 0 lowest. */
+  const lz = (i) => botTop + i * (cellH + t);
+  // Where a horizontal board is received by a CLOSED mortise. The top board is
+  // not in this list: it is caught in open notches cut down from the top edges.
+  const bandZs = almari
+    ? (tingkat === 2 ? [floorZ, shelfZ] : [floorZ])
+    : [];
 
   // ---- screw joint --------------------------------------------------------
   // Front and back carry the nut pockets, cut into their vertical edges; the
@@ -349,7 +414,10 @@ export function buildBox(input = {}) {
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
   // be wide enough for both plus some material between them.
-  const screwRoom = Math.min(L, W) - 2 * t > 2 * screwReachAhead + 6;
+  // The cabinet has no front wall, so only the back carries pockets and L is the
+  // dimension that has to be wide enough for them - not the smaller of the two.
+  const screwSpan = almari ? L : Math.min(L, W);
+  const screwRoom = screwSpan - 2 * t > 2 * screwReachAhead + 6;
   // The screw sits on the mid-plane of the wall it threads into, which is only
   // t/2 from the edge of the wall it passes through - on 3 mm board that is
   // 1.5 mm, and a 3.2 mm hole there breaks straight out of the edge. So the side
@@ -373,8 +441,16 @@ export function buildBox(input = {}) {
     const need = pocketW + 3;
     // Free runs on the vertical edge: between the finger tabs, and clear of the
     // band where the floor's own mortises already are.
-    const blocked = [...vFeats.map((f) => [f.s, f.e]),
-      [floorZ - 1, floorZ + t + 1]].sort((a, b) => a[0] - b[0]);
+    // Every mortise band has to be in here. A pocket driven through one is cut
+    // silently - nothing downstream looks at what the pocket lands on.
+    const blocked = [
+      ...vFeats.map((f) => [f.s, f.e]),
+      [floorZ - 1, floorZ + t + 1],
+      ...(almari ? [
+        ...(tingkat === 2 ? [[shelfZ - 1, shelfZ + t + 1]] : []),
+        [H - t - 1, H],                       // the top board's notch band
+      ] : []),
+    ].sort((a, b) => a[0] - b[0]);
     const free = [];
     let at = 0;
     for (const [bs, be] of blocked) {
@@ -404,6 +480,21 @@ export function buildBox(input = {}) {
     ? [...feats, ...tslotFeats(from, flip)].sort((a, b) => a.s - b.s)
     : feats);
 
+  // ---- shared feature-list helpers ----------------------------------------
+  // The receiving notch shrinks by `fit`, the same interference the floor
+  // mortises are cut with.
+  const snug = (fs) => fs.map((f) => ({ s: f.s + fit / 2, e: f.e - fit / 2 }));
+  /** Re-express absolute-axis features for a walk from a to b along that axis. */
+  const forWalk = (fs, a, b) => (b > a
+    ? fs.map((f) => ({ s: f.s - a, e: f.e - a }))
+    : fs.map((f) => ({ s: a - f.e, e: a - f.s })).reverse());
+  /**
+   * Keep only the features that fall wholly inside [a, b]. A feature straddling
+   * the end of an edge produces a partial profile and a broken ring, so the SAME
+   * filtered list must drive both the tenon and the mortise that receives it.
+   */
+  const keep = (fs, a, b) => fs.filter((f) => f.s > a && f.e < b);
+
   let lidInfo = null;
 
   const panels = [];
@@ -426,17 +517,23 @@ export function buildBox(input = {}) {
     return { outline: dedupe(pts), holes };
   };
 
-  for (const id of ['front', 'back']) {
-    const g = buildWall();
-    panels.push(normalisePanel({
-      id,
-      label: PANEL_LABELS[id],
-      outline: g.outline,
-      holes: g.holes,
-      frame: id === 'front'
-        ? { origin: [0, 0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] }
-        : { origin: [L, W, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] },
-    }));
+  // The almari builds its own carcass below: it has no front wall at all, and its
+  // side walls and boards carry a different set of joints. Rather than fork the
+  // corner-joint maths in here with a mode flag, this style writes its own small
+  // local builders, the way the lift-off lid already does.
+  if (!almari) {
+    for (const id of ['front', 'back']) {
+      const g = buildWall();
+      panels.push(normalisePanel({
+        id,
+        label: PANEL_LABELS[id],
+        outline: g.outline,
+        holes: g.holes,
+        frame: id === 'front'
+          ? { origin: [0, 0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] }
+          : { origin: [L, W, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] },
+      }));
+    }
   }
 
   // ---- left / right -------------------------------------------------------
@@ -496,14 +593,14 @@ export function buildBox(input = {}) {
     return { outline: dedupe(pts), holes };
   };
 
-  {
+  if (!almari) {
     const g = buildSide((y) => W - y);
     panels.push(normalisePanel({
       id: 'left', label: PANEL_LABELS.left, outline: g.outline, holes: g.holes,
       frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
   }
-  {
+  if (!almari) {
     const g = buildSide((y) => y);
     panels.push(normalisePanel({
       id: 'right', label: PANEL_LABELS.right, outline: g.outline, holes: g.holes,
@@ -512,7 +609,7 @@ export function buildBox(input = {}) {
   }
 
   // ---- bottom -------------------------------------------------------------
-  {
+  if (!almari) {
     const x0 = t;
     const x1 = L - t;
     const y0 = t;
@@ -735,14 +832,6 @@ export function buildBox(input = {}) {
     // and therefore symmetric, so one list serves a wall and the wall facing it.
     const tabX = featureLayout(inL, m).map((f) => ({ s: t + f.s, e: t + f.e }));
     const tabY = featureLayout(inW, m).map((f) => ({ s: t + f.s, e: t + f.e }));
-    // The receiving notch shrinks by `fit`, the same interference the floor
-    // mortises are cut with.
-    const snug = (fs) => fs.map((f) => ({ s: f.s + fit / 2, e: f.e - fit / 2 }));
-    /** Re-express absolute-axis features for a walk from a to b along that axis. */
-    const forWalk = (fs, a, b) => (b > a
-      ? fs.map((f) => ({ s: f.s - a, e: f.e - a }))
-      : fs.map((f) => ({ s: a - f.e, e: a - f.s })).reverse());
-
     // The thumb notch, so there is something to hook a finger under. It is capped
     // against the drop as well as the length: on a shallow lid a notch sized off
     // the length alone would cut straight through into the top.
@@ -817,6 +906,288 @@ export function buildBox(input = {}) {
     };
   }
 
+  // ---- almari laci: drawer cabinet ----------------------------------------
+  // Nothing is rotated and nothing is renamed. X is across the front, Y runs
+  // front to back with the open face at y = 0, Z is floor to the top surface.
+  //
+  // The joints are the box's own, rearranged: the back wall carries the vertical
+  // tabs and the side walls the matching notches, so there is one jointed corner
+  // pair instead of four. All three horizontal boards - floor, shelf and top -
+  // are the same part, tenoned through the sides and the back. The floor and the
+  // shelf land in closed mortises; the top lands in open notches cut down from
+  // the walls' top edges, because its own edge IS the top edge and a closed
+  // mortise there would break out. So the top drops in from above, last.
+  //
+  // The drawer clearances are running gaps and are their own parameters. `fit` is
+  // the opposite sign - it shrinks receiving slots for an interference - so
+  // wiring a drawer gap to it would tighten the drawer as the user loosened the
+  // joints.
+  let almariInfo = null;
+  if (almari) {
+    const hSpan = W - t;                              // open front to the back
+    // featureLayout degrades to a single feature spanning the middle half of a
+    // short edge. Capping the module at a fifth of the span always resolves the
+    // count to at least two, which is the difference between a joint and a peg.
+    const hm = Math.max(3, Math.min(m, hSpan / 5));
+    const yhFeats = featureLayout(hSpan, hm);         // absolute in box Y, from 0
+    // yhFeats is symmetric about (W - t)/2, NOT about W/2, so unlike every other
+    // run in this file it does not map onto itself under the left/right mirror.
+    // The two side walls genuinely need different lists, and both look entirely
+    // plausible on the cut sheet if you get it wrong.
+    const yhLeft = flipFeatures(yhFeats, W);          // the same run in left-wall u
+    // The wall body starts a board in from each end, so a tenon laid out over the
+    // full length can begin inside the corner band. Filter once, share the list.
+    const topX = keep(xFeats, t + 0.5, L - t - 0.5);
+
+    // ---- back wall: tabs on both vertical corners, notches along the top ----
+    {
+      const x0 = t;
+      const x1 = L - t;
+      const outline = dedupe([
+        ...edgeRun([x0, 0], [x1, 0], [], 0),
+        ...edgeRun([x1, 0], [x1, H], withSlots(vFeats, 0, false), t),
+        ...edgeRun([x1, H], [x0, H], forWalk(snug(topX), x1, x0), -t),
+        ...edgeRun([x0, H], [x0, 0],
+          withSlots(flipFeatures(vFeats, H), H, true), t),
+      ]);
+      // Panel u = L - x, and topX is symmetric about L/2, so one list serves both
+      // the outline and the mortises.
+      const holes = [];
+      for (const z of bandZs) {
+        holes.push(...topX.map((f) => shrinkRect(f.s, z, f.e - f.s, t, fit)));
+      }
+      panels.push(normalisePanel({
+        id: 'back', label: PANEL_LABELS.back, outline, holes,
+        frame: { origin: [L, W, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] },
+      }));
+    }
+
+    // ---- side walls: front edge free, back corner notched ------------------
+    {
+      // Left panel u = W - y: the open front is at u = W, the back at u = 0.
+      const outline = dedupe([
+        ...edgeRun([-ear, 0], [W, 0], [], 0),
+        ...edgeRun([W, 0], [W, H], [], 0),                       // free front edge
+        ...edgeRun([W, H], [-ear, H], forWalk(snug(yhLeft), W, -ear), -t),
+        ...edgeRun([-ear, H], [-ear, 0], flipFeatures(vFeats, H), -(t + ear)),
+      ]);
+      const holes = [];
+      for (const z of bandZs) {
+        holes.push(...yhLeft.map((f) => shrinkRect(f.s, z, f.e - f.s, t, fit)));
+      }
+      // One clearance hole per screw, not two: there is no front wall to bolt to.
+      for (const z of screwZs) {
+        holes.push(ellipse(t / 2, z, SCREW.clear / 2, SCREW.clear / 2, 32));
+      }
+      panels.push(normalisePanel({
+        id: 'left', label: PANEL_LABELS.left, outline, holes,
+        frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
+      }));
+    }
+    {
+      // Right panel u = y: the open front is at u = 0, the back at u = W.
+      const outline = dedupe([
+        ...edgeRun([0, 0], [W + ear, 0], [], 0),
+        ...edgeRun([W + ear, 0], [W + ear, H], vFeats, -(t + ear)),
+        ...edgeRun([W + ear, H], [0, H], forWalk(snug(yhFeats), W + ear, 0), -t),
+        ...edgeRun([0, H], [0, 0], [], 0),                       // free front edge
+      ]);
+      const holes = [];
+      for (const z of bandZs) {
+        holes.push(...yhFeats.map((f) => shrinkRect(f.s, z, f.e - f.s, t, fit)));
+      }
+      for (const z of screwZs) {
+        holes.push(ellipse(W - t / 2, z, SCREW.clear / 2, SCREW.clear / 2, 32));
+      }
+      panels.push(normalisePanel({
+        id: 'right', label: PANEL_LABELS.right, outline, holes,
+        frame: { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+      }));
+    }
+
+    // ---- the three horizontal boards ---------------------------------------
+    // Floor, shelf and top are byte-identical parts; only the frame's z differs.
+    // Nothing on the part tells them apart except the etched label, which is
+    // worth saying out loud in the assembly steps rather than differentiating
+    // three boards that do not need to differ.
+    const board = () => {
+      const x0 = t;
+      const x1 = L - t;
+      const y1 = W - t;
+      const o = { slits };
+      return dedupe([
+        ...edgeRun([x0, 0], [x1, 0], [], 0),                     // flush at y = 0
+        ...edgeRun([x1, 0], [x1, y1], yhFeats, t, o),
+        ...edgeRun([x1, y1], [x0, y1],
+          shiftFeatures(flipFeatures(topX, L), t), t, o),
+        ...edgeRun([x0, y1], [x0, 0], flipFeatures(yhFeats, y1), t, o),
+      ]);
+    };
+    const addBoard = (id, z) => panels.push(normalisePanel({
+      id, label: PANEL_LABELS[id], outline: board(), holes: [],
+      frame: { origin: [0, 0, z], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+    // Material fills from the outward face inwards, and all three N are +z
+    // because each board is a surface something rests on.
+    addBoard('bottom', floorZ + t);
+    if (tingkat === 2) addBoard('shelf', shelfZ + t);
+    addBoard('cabTop', H);
+
+    // ---- the drawers --------------------------------------------------------
+    const cs = Math.max(0, p.drawerSide);
+    const ct = Math.max(0, p.drawerTop);
+    const ci = Math.max(0, p.drawerInset);
+    const dL = L - 2 * t - 2 * cs;    // outer width  (X)
+    const dD = W - t - ci;            // outer depth  (Y)
+    const dH = cellH - ct;            // outer height (Z)
+    const ox = t + cs;                // world x of the drawer's left outer face
+    // The base sits a board up, so the drawer runs on four thin wall edges rather
+    // than on a whole panel - lower friction, and a loaded base cannot drag.
+    const dFloorZ = t;
+    // Quiet degradation, the same shape as divOK: a cabinet too small to hold a
+    // jointed drawer emits none rather than emitting scrap.
+    const drawersOK = dL >= Math.max(20, 8 * t)
+      && dD >= Math.max(20, 6 * t)
+      && dH >= Math.max(10, 4 * t);
+    const drawerWhy = drawersOK ? null
+      : dL < Math.max(20, 8 * t)
+        ? 'The cabinet is too narrow for a drawer: the opening leaves '
+          + `${Math.round(dL * 10) / 10} mm across, and a jointed drawer needs `
+          + `at least ${Math.max(20, 8 * t)} mm.`
+        : dD < Math.max(20, 6 * t)
+          ? 'The cabinet is too shallow for a drawer: it leaves '
+            + `${Math.round(dD * 10) / 10} mm front to back, and a jointed `
+            + `drawer needs at least ${Math.max(20, 6 * t)} mm.`
+          : 'Each level is too short for a drawer: it leaves '
+            + `${Math.round(dH * 10) / 10} mm of headroom, and a jointed drawer `
+            + `needs at least ${Math.max(10, 4 * t)} mm. Try one tingkat, a `
+            + 'taller cabinet, or thinner board.';
+
+    let drawerInfo = null;
+    if (drawersOK) {
+      // Same cap as the carcass's own short runs: a drawer wall is short enough
+      // that the wall module would often give one feature, which is a peg.
+      const dm = (edge) => Math.max(2, Math.min(m, edge / 5));
+      const dvFeats = featureLayout(dH, dm(dH));   // corner joints, vertical
+      const dxFeats = featureLayout(dL, dm(dL));   // base tenons along X
+      const dyFeats = featureLayout(dD, dm(dD));   // base tenons along Y
+      const dtX = keep(dxFeats, t + 0.5, dL - t - 0.5);
+      const dtY = keep(dyFeats, t + 0.5, dD - t - 0.5);
+
+      // The thumb notch, capped against the drawer front's OWN material rather
+      // than against the cabinet - the same three-cap structure the lift-off
+      // lid's notch uses, with the right denominators. Big enough to hook a
+      // finger into is the point of it; neatness loses to that here.
+      const thumbR = Math.min(
+        Math.max(6, Math.min(dL * 0.09, 14)),   // comfort band
+        dH - 2 * t - 1.5,                       // clear of its own base mortises
+        // Reserves 30% of the walk to each corner tab. Measured, this is a
+        // MARGIN and not a severing guard: on the shortest cabinet that still
+        // gets a notch, dropping this cap leaves 2.6 mm of meat rather than
+        // none. It buys a corner that looks deliberate instead of nibbled.
+        (dL - 2 * t) * 0.2,
+      );
+      const thumb = (p.drawerNotch ?? true) !== false && thumbR >= 2.5;
+
+      /** Front or back wall of a drawer. Only the front carries the notch. */
+      const dWallX = (withThumb) => {
+        const x0 = t;
+        const x1 = dL - t;
+        // The top edge is walked from x1 back to x0, so the walk's midpoint is
+        // (dL - 2t)/2. Writing dL/2 here shifts the notch off centre by t.
+        const dip = withThumb && thumb
+          ? [{ s: (dL - 2 * t) / 2 - thumbR, e: (dL - 2 * t) / 2 + thumbR }]
+          : [];
+        return dedupe([
+          ...edgeRun([x0, 0], [x1, 0], [], 0),
+          ...edgeRun([x1, 0], [x1, dH], dvFeats, t),
+          ...edgeRun([x1, dH], [x0, dH], dip, -thumbR, { arc: true }),
+          ...edgeRun([x0, dH], [x0, 0], flipFeatures(dvFeats, dH), t),
+        ]);
+      };
+      /** Side wall of a drawer. dtY is symmetric, so one outline serves both. */
+      const dWallY = () => dedupe([
+        ...edgeRun([0, 0], [dD, 0], [], 0),
+        ...edgeRun([dD, 0], [dD, dH], dvFeats, -t),
+        ...edgeRun([dD, dH], [0, dH], [], 0),
+        ...edgeRun([0, dH], [0, 0], flipFeatures(dvFeats, dH), -t),
+      ]);
+      /** Drawer base: the main box's floor walk, with L -> dL and W -> dD. */
+      const dBase = () => {
+        const x0 = t;
+        const x1 = dL - t;
+        const y0 = t;
+        const y1 = dD - t;
+        const o = { slits };
+        return dedupe([
+          ...edgeRun([x0, y0], [x1, y0], shiftFeatures(dtX, x0), t, o),
+          ...edgeRun([x1, y0], [x1, y1], shiftFeatures(dtY, y0), t, o),
+          ...edgeRun([x1, y1], [x0, y1],
+            shiftFeatures(flipFeatures(dtX, dL), x0), t, o),
+          ...edgeRun([x0, y1], [x0, y0],
+            shiftFeatures(flipFeatures(dtY, dD), y0), t, o),
+        ]);
+      };
+      const wallXHoles = () =>
+        dtX.map((f) => shrinkRect(f.s, dFloorZ, f.e - f.s, t, fit));
+      const wallYHoles = () =>
+        dtY.map((f) => shrinkRect(f.s, dFloorZ, f.e - f.s, t, fit));
+
+      // How far a drawer comes out in the preview. Enough to read as open, never
+      // so far that it leaves the board it runs on.
+      const pull = Math.min(dD - t, Math.max(12, dD * 0.6));
+      // A separate 3-vector, not `lift`: lift is a scalar meaning box Z, so a
+      // drawer given one would float up through the cabinet top.
+      const slide = [0, -pull, 0];
+
+      for (let i = 0; i < tingkat; i++) {
+        const n = i + 1;
+        const z = lz(i);
+        const add = (suffix, outline, holes, frame) => panels.push(normalisePanel({
+          id: `d${n}${suffix}`, label: PANEL_LABELS[`d${n}${suffix}`],
+          outline, holes, slide, frame,
+        }));
+        add('Front', dWallX(true), wallXHoles(),
+          { origin: [ox, ci, z], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
+        add('Back', dWallX(false), wallXHoles(),
+          { origin: [ox + dL, ci + dD, z], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] });
+        add('Left', dWallY(), wallYHoles(),
+          { origin: [ox, ci + dD, z], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] });
+        add('Right', dWallY(), wallYHoles(),
+          { origin: [ox + dL, ci, z], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] });
+        // z + dFloorZ + t: the base's outward face, with material filling down to
+        // z + t, so it sits one board above the surface the drawer runs on.
+        add('Base', dBase(), [],
+          { origin: [ox, ci, z + 2 * t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+      }
+
+      drawerInfo = {
+        outer: { l: dL, w: dD, h: dH },
+        inner: { l: dL - 2 * t, w: dD - 2 * t, h: dH - 2 * t },
+        side: cs, top: ct, inset: ci, bottom: 0,
+        thumbR: thumb ? thumbR : 0,
+        fingerGap: (thumb ? thumbR : 0) + ct,
+        pull,
+        // Past about 1.3 the drawer sits visibly crooked whatever the clearance.
+        // That is geometry, not a number anyone can tune.
+        rack: dL / dD,
+        dvFeats, dtX, dtY,
+      };
+    }
+
+    almariInfo = {
+      tingkat, cellH, intH, botTop, topZ,
+      shelfZ: tingkat === 2 ? shelfZ : null,
+      interior: { l: L - 2 * t, w: W - t, h: intH },
+      // The screw joint's fingers stand proud at the BACK on this style, because
+      // the side walls' u axis runs front to back here.
+      outerW: W + ear,
+      yhFeats,
+      drawer: drawerInfo,
+      drawerWhy,
+    };
+  }
+
   // ---- kerf compensation --------------------------------------------------
   const k = Math.max(0, p.kerf) / 2;
   for (const pan of panels) {
@@ -836,12 +1207,24 @@ export function buildBox(input = {}) {
       lid: lidInfo,
       vFeats, xFeats, yFeats,
       divCount: divOK ? divCount : 0, divBase, divH, divFeats,
-      // 4 vertical corners, this many screws on each
+      // This many screws on each jointed vertical corner. The cabinet has one
+      // jointed corner PAIR - the back - where every other style has four
+      // corners, so counting four here would tell the user to buy twice the
+      // screws they need.
       screwZs,
-      screwCount: screwZs.length * 4,
+      // How many corners actually get screwed. The Joints hint is the only place
+      // the UI says where the hardware goes, so it reads this rather than saying
+      // "four" beside a count that already knows better.
+      screwCorners: almari ? 2 : 4,
+      screwCount: screwZs.length * (almari ? 2 : 4),
       screwLength: screwLength(t),
       screwEar: ear,
       screwTooSmall: wantScrew && !screwRoom,
+      // Screws were possible but the finger joint left room for fewer than were
+      // asked for. Not the same thing as screwTooSmall, which means none at all.
+      screwShort: wantScrew && screwRoom
+        && screwZs.length < Math.max(1, Math.min(4, Math.round(p.screwsPerEdge ?? 2))),
+      almari: almariInfo,
     },
     panels,
   };

@@ -211,12 +211,31 @@ button { font-family: inherit; }
   display: flex; align-items: stretch; gap: 0; padding: 6px;
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; box-shadow: var(--shadow);
+  /* A drawer cabinet has sixteen faces. This strip is centred with left:50% and
+     no width, so it is shrink-to-fit - and shrink-to-fit cannot resolve below
+     min-content, which means overflow-x alone does nothing. It overflows both
+     sides of the stage, and the half that lands to the LEFT cannot be scrolled
+     to at all: those tabs become unreachable. The max-width is what gives it a
+     width small enough to scroll inside.
+     width:max-content is not decoration. Shrink-to-fit measures the space from
+     `left` to the right edge, which at left:50% is only HALF the stage - so
+     without it a strip that would fit perfectly well when centred scrolls
+     anyway. The phone rule below sets width back to auto, because there `left`
+     and `right` are both given and the width must follow them. */
+  width: max-content;
+  max-width: calc(100% - 32px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
 }
 .face {
   border: 0; background: transparent; border-radius: 9px;
   font: 500 11px/1.2 inherit; padding: 5px 7px 6px; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 52px;
   transition: background .12s ease;
+  /* Inside the scroll container above, flexible tabs would be squeezed to
+     min-width instead of scrolling. Mirrors the phone rule. */
+  flex: none;
 }
 .face-ico {
   position: relative;
@@ -511,6 +530,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
      rather than pushing the page sideways. */
   .faces {
     left: 8px; right: 8px; transform: none;
+    /* width back to auto: left and right both given, so the width follows them.
+       Leaving the base rule's max-content here would make the strip 700-odd px
+       wide inside a 375 px phone and drag the page sideways. */
+    width: auto;
     max-width: none; justify-content: flex-start;
     overflow-x: auto; border-radius: 10px;
   }

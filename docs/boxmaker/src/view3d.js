@@ -8,6 +8,9 @@ import { boardCanvas, TILE_MM } from './texture.js';
 import { bbox } from './geom/path.js';
 
 const DEG = Math.PI / 180;
+// Shared target for a shut drawer. Allocated once: the animate loop runs every
+// frame and Vector3.lerp needs something to aim at.
+const SLIDE_SHUT = new THREE.Vector3();
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const svg = (name, attrs = {}) => {
@@ -171,6 +174,12 @@ export class View3D {
       const target = this.lidOpen ? dist : 0;
       node.position.z += (target - node.position.z) * 0.18;
     }
+    // A drawer does not swing and does not rise: it comes straight out toward
+    // you. `slide` is its own 3-vector rather than a reuse of `lift`, which is a
+    // scalar meaning box Z - a drawer given one would float up through the top.
+    for (const { node, to } of this.slideGroups || []) {
+      node.position.lerp(this.lidOpen ? to : SLIDE_SHUT, 0.18);
+    }
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -254,6 +263,7 @@ export class View3D {
     this.meshes = [];
     this.lidGroups = [];
     this.liftGroups = [];
+    this.slideGroups = [];
 
     const t = box.params.thickness;
     const color = new THREE.Color(opts.color || '#d8b483');
@@ -353,6 +363,19 @@ export class View3D {
         riser.add(group);
         this.liftGroups.push({ node: riser, dist: panel.lift });
         this.root.add(riser);
+        this.meshes.push(mesh);
+        continue;
+      }
+
+      // All five panels of one drawer carry the identical vector, so the drawer
+      // moves as a unit with no grouping - the same trick the lift-off lid uses.
+      if (panel.slide) {
+        const slider = new THREE.Group();
+        slider.add(group);
+        this.slideGroups.push({
+          node: slider, to: new THREE.Vector3(...panel.slide),
+        });
+        this.root.add(slider);
         this.meshes.push(mesh);
         continue;
       }

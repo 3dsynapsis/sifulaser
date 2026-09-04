@@ -13,7 +13,7 @@ import { exportPdf } from './exportPdf.js';
 import {
   renderFaces, renderInspector, openPopover, shapeMenu, emojiMenu, imageMenu,
   fillExportDialog, fillAssembleDialog, renderBackdrop,
-  fillSaveDialog, fillFilesDialog, saveQuietly, openDesignById,
+  fillSaveDialog, fillFilesDialog, saveQuietly, openDesignById, rnd,
 } from './ui.js';
 import {
   readAsDataUrl, readAsText, svgTextToRings, glyphToDataUrl, imageSize,
@@ -46,6 +46,10 @@ const els = {
 };
 
 load();
+// A saved design comes back with whatever face was last being edited, and the
+// initial state's 'front' does not exist in every style - the drawer cabinet has
+// no front panel at all. Repair it once, here, before anything reads it.
+clampDecor();
 els.name.value = state.name;
 
 const view3d = new View3D(els.stage3d, { onPickFace: (id) => openFace(id) });
@@ -73,6 +77,17 @@ const ctx = {
   deleteSelected: () => deleteSelected(),
 };
 
+/**
+ * What the button on the stage says. A drawer cabinet never opens or closes - it
+ * has no lid - so naming the motion is the difference between a control that
+ * reads as broken and one that reads as obvious.
+ */
+function lidBtnLabel() {
+  const almari = state.params.style === 'almari';
+  if (almari) return state.lidOpen ? 'Push them back in' : 'Pull the drawers out';
+  return state.lidOpen ? 'Close the box' : 'Open the box';
+}
+
 function refresh(opts = {}) {
   // Opening a saved design renames the project, and the box in the top bar has
   // to follow - but never while it is focused, or a rewrite would move the
@@ -94,7 +109,7 @@ function refresh(opts = {}) {
     update((s) => { s.backdrop = id; }, { history: false });
     refresh();
   });
-  els.lidBtn.textContent = state.lidOpen ? 'Close the box' : 'Open the box';
+  els.lidBtn.textContent = lidBtnLabel();
   els.undo.disabled = !canUndo();
   els.redo.disabled = !canRedo();
 
@@ -291,7 +306,7 @@ document.querySelectorAll('.vt').forEach((b) => {
 els.lidBtn.addEventListener('click', () => {
   update((s) => { s.lidOpen = !s.lidOpen; }, { history: false });
   view3d.setLidOpen(state.lidOpen);
-  els.lidBtn.textContent = state.lidOpen ? 'Close the box' : 'Open the box';
+  els.lidBtn.textContent = lidBtnLabel();
 });
 
 els.undo.addEventListener('click', () => { undo(); clampDecor(); refresh(); });
@@ -387,12 +402,33 @@ function boxNote(files) {
   const box = getBox();
   const p = box.params;
   const art = files.reduce((n, f) => n + f.art, 0);
+  // The size somebody will measure, which is not always the size that was typed:
+  // a lift-off lid rides outside the walls, and the drawer cabinet's screw-joint
+  // fingers stand proud at the back. This sentence has a twin in ui.js's export
+  // dialog - change one and the SVG dialog and the WhatsApp message disagree
+  // about the same box.
+  const a = box.derived.almari;
+  const size = box.derived.lid
+    ? `${rnd(box.derived.lid.outerL, 1)} x ${rnd(box.derived.lid.outerW, 1)} `
+      + `x ${p.height} mm overall`
+    : a && a.outerW > p.width
+      // "overall", not "outside": the twin in ui.js says overall, and a customer
+      // reads the two side by side.
+      ? `${p.length} x ${rnd(a.outerW, 1)} x ${p.height} mm overall `
+        + '(the screw fingers stand proud at the back)'
+      : `${p.length} x ${p.width} x ${p.height} mm outside`;
   const out = [
     `*${state.name || 'Box'}*`,
-    `${p.length} x ${p.width} x ${p.height} mm outside`,
+    size,
     `${box.panels.length} panels on ${p.thickness} mm board, kerf ${p.kerf} mm`,
     'Kerf and fit are already in the paths - cut as-is.',
   ];
+  // The one measurement a drawer cabinet needs and its outside size cannot give.
+  if (a?.drawer) {
+    const i = a.drawer.inner;
+    out.push(`Drawer inside: ${rnd(i.l, 1)} x ${rnd(i.w, 1)} x ${rnd(i.h, 1)} mm`
+      + (a.tingkat === 1 ? '.' : `, ${a.tingkat} of them.`));
+  }
   if (files.length > 1) out.push(`${files.length} sheets.`);
   // Said out loud, because it is the one thing in the box that the PDF cannot
   // carry and nobody would think to check for.

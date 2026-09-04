@@ -68,11 +68,18 @@ export class View2D {
     const ch = this.container.clientHeight || 1;
     const pad = 40;
     if (this.fitPending) {
-      const sx = (cw - pad * 2) / this.panel.size.w;
-      const sy = (ch - pad * 2) / this.panel.size.h;
-      this.zoom = Math.min(sx, sy);
+      // Switching tabs fast enough measures the container before layout, so
+      // cw can be 1 and the padding then exceeds it. An unclamped fit goes
+      // NEGATIVE there, and a negative viewBox is rejected outright: the panel
+      // renders as a thumbnail in the corner until the user finds Fit. Keep a
+      // millimetre of usable space and leave fitPending set, so the next paint
+      // - by which time the container has a real width - fits properly.
+      const usable = Math.max(1, cw - pad * 2);
+      const usableH = Math.max(1, ch - pad * 2);
+      this.zoom = Math.min(usable / this.panel.size.w, usableH / this.panel.size.h);
       this.pan = { x: this.panel.size.w / 2, y: this.panel.size.h / 2 };
-      this.fitPending = false;
+      // Only call the fit done once the measurement it was based on was real.
+      if (cw > pad * 2 && ch > pad * 2) this.fitPending = false;
     }
     const w = cw / this.zoom;
     const h = ch / this.zoom;
