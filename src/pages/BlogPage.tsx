@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Image as ImageIcon,
   MessageCircle,
   Newspaper,
 } from 'lucide-react'
@@ -78,6 +79,60 @@ const copyPlainText = async (text: string): Promise<boolean> => {
   }
 }
 
+/**
+ * Tukar apa apa gambar kepada PNG. Clipboard hanya terima PNG, sedangkan
+ * screenshot disimpan sebagai JPEG supaya fail kecil — jadi ia dilukis atas
+ * kanvas dahulu, di dalam browser, sebelum disalin.
+ */
+const asPng = (blob: Blob): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob)
+    const image = new Image()
+    image.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const ctx = canvas.getContext('2d')
+      URL.revokeObjectURL(url)
+      if (!ctx) {
+        reject(new Error('kanvas tiada konteks'))
+        return
+      }
+      ctx.drawImage(image, 0, 0)
+      canvas.toBlob(
+        (png) => (png ? resolve(png) : reject(new Error('kanvas tak jadi PNG'))),
+        'image/png',
+      )
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('gambar tak dapat dibaca'))
+    }
+    image.src = url
+  })
+
+/**
+ * Salin gambar ke clipboard. Ini kerja browser komputer — telefon selalunya
+ * tak benarkan, jadi bila gagal butang beritahu cara lain (tekan lama atau
+ * klik kanan pada gambar) dan bukan sekadar kata gagal.
+ */
+const copyImage = async (src: string): Promise<boolean> => {
+  try {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      return false
+    }
+    const response = await fetch(src)
+    if (!response.ok) return false
+    const png = await asPng(await response.blob())
+    return await settleWithin(
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]),
+      4000,
+    )
+  } catch {
+    return false
+  }
+}
+
 type CopyState = 'idle' | 'done' | 'fail'
 
 const CopyButton = ({
@@ -131,6 +186,72 @@ const CopyButton = ({
       )}
       <span aria-live="polite">{label}</span>
     </button>
+  )
+}
+
+/**
+ * Gambar alat, siap dengan butang salin.
+ *
+ * Sebabnya: bila siaran ini dihantar ke WhatsApp, teks sahaja tidak cukup —
+ * pembaca mahu nampak rupa alat itu. Sebelum ini gambar tu kena diambil
+ * sendiri: buka alat, susun design, screenshot. Sekarang ia sudah ada di sini,
+ * satu klik, terus boleh tampal.
+ */
+const ImageCard = ({ post }: { post: BlogPost }) => {
+  // Gambar ini besar (3000 px lebar), jadi menukarnya kepada PNG makan masa
+  // sesaat dua. Tanpa keadaan 'busy' butang nampak macam tak ditekan.
+  const [state, setState] = useState<CopyState | 'busy'>('idle')
+
+  useEffect(() => {
+    if (state === 'idle' || state === 'busy') return
+    const timer = setTimeout(() => setState('idle'), 3200)
+    return () => clearTimeout(timer)
+  }, [state])
+
+  const done = state === 'done'
+  const busy = state === 'busy'
+  const label =
+    state === 'done'
+      ? 'Gambar disalin!'
+      : state === 'fail'
+        ? 'Tekan lama pada gambar'
+        : busy
+          ? 'Menyalin…'
+          : 'Salin gambar'
+
+  return (
+    <section className="card flex flex-col gap-3 p-4 sm:p-5">
+      <img
+        src={post.image}
+        alt={`Paparan ${post.tool} di sifulaser.com`}
+        loading="lazy"
+        className="w-full rounded-xl border"
+        style={{ borderColor: post.border }}
+      />
+
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setState('busy')
+          setState((await copyImage(post.image)) ? 'done' : 'fail')
+        }}
+        title="Salin gambar ini untuk ditampal terus ke WhatsApp"
+        className="inline-flex min-h-11 w-full select-none items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-70"
+        style={{
+          borderColor: done ? '#c9ecd6' : 'var(--color-line)',
+          backgroundColor: done ? '#edf9f1' : 'var(--color-surface)',
+          color: done ? '#147a37' : post.color,
+        }}
+      >
+        {done ? (
+          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+        ) : (
+          <ImageIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        )}
+        <span aria-live="polite">{label}</span>
+      </button>
+    </section>
   )
 }
 
@@ -333,6 +454,9 @@ const BlogArticle = ({ post }: { post: BlogPost }) => {
 
           <CopyButton post={post} color={post.color} full />
         </header>
+
+        {/* Gambar untuk dihantar bersama teks ke WhatsApp. */}
+        <ImageCard post={post} />
 
         {/* Isi: setiap poin bernombor, nombor jadi elemen tipografi. */}
         <section className="card p-4 sm:p-5">

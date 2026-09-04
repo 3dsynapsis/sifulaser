@@ -28,6 +28,12 @@ export interface BlogPost {
   title: string
   /** Alat yang jadi topik episod ini. */
   tool: string
+  /**
+   * Screenshot alat, sedia untuk disalin terus ke WhatsApp. Diambil sekali
+   * dan disimpan dalam docs/images/blog/ — lihat scripts/README bila rupa
+   * alat berubah dan gambar perlu diambil semula.
+   */
+  image: string
   /** Pautan yang disebut dalam siaran asal. */
   link: { label: string; href: string }
   color: string
@@ -51,6 +57,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '81',
     title: 'Stand Nama. Kerja Renyah, Harga Pula Tak Seberapa!',
     tool: 'Stand Nama',
+    image: '/images/blog/81-stand.jpg',
     link: { label: 'sifulaser.com/#/stand', href: '#/stand' },
     color: '#2f5db0',
     softBg: '#eef2fb',
@@ -79,6 +86,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '82',
     title: 'Buat Cake Topper 3 Minit Siap!',
     tool: 'Cake Topper',
+    image: '/images/blog/82-topper.jpg',
     link: { label: 'sifulaser.com/#/topper', href: '#/topper' },
     color: '#b8386b',
     softBg: '#fdeff5',
@@ -112,6 +120,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '83',
     title: 'Design Tak Payah Tunggu Sampai Balik Ofis!',
     tool: 'Semua alat',
+    image: '/images/blog/83-semua-alat.jpg',
     link: { label: 'sifulaser.com', href: '#/' },
     color: '#0f766e',
     softBg: '#e9f6f4',
@@ -139,6 +148,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '84',
     title: 'Luggage Tag. Client Tak Ada Design, Tak Ada Saiz.',
     tool: 'Tag Generator',
+    image: '/images/blog/84-tag.jpg',
     link: { label: 'sifulaser.com/#/tag', href: '#/tag' },
     color: '#b45309',
     softBg: '#fdf3e3',
@@ -162,6 +172,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '85',
     title: 'Nak Buat Kotak Hadiah, Tapi Tak Ada Idea.',
     tool: 'Box Maker',
+    image: '/images/blog/85-lift-off-lid.jpg',
     link: { label: 'sifulaser.com/#/boxmaker', href: '#/boxmaker' },
     color: '#6d28d9',
     softBg: '#f3eefd',
@@ -185,6 +196,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '86',
     title: 'Nak Design Almari, Software Semua Mahal.',
     tool: 'Box Maker',
+    image: '/images/blog/86-almari-laci.jpg',
     link: { label: 'sifulaser.com/#/boxmaker', href: '#/boxmaker' },
     color: '#7c5c2b',
     softBg: '#f8f2e7',
@@ -208,6 +220,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '87',
     title: 'Fail Design Hilang Bila Client Repeat Order.',
     tool: 'Semua alat',
+    image: '/images/blog/87-save.jpg',
     link: { label: 'sifulaser.com', href: '#/' },
     color: '#1d7a5f',
     softBg: '#e9f7f2',
@@ -231,6 +244,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '88',
     title: 'Client Tak Faham Bila Kita Cerita.',
     tool: 'Semua alat',
+    image: '/images/blog/88-3d.jpg',
     link: { label: 'sifulaser.com', href: '#/' },
     color: '#2563eb',
     softBg: '#ecf2fe',
@@ -254,6 +268,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '89',
     title: 'Fail Masuk LightBurn, Semua Bercampur.',
     tool: 'Semua alat',
+    image: '/images/blog/89-layer.jpg',
     link: { label: 'sifulaser.com', href: '#/' },
     color: '#c2410c',
     softBg: '#fdf0e9',
@@ -277,6 +292,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '90',
     title: 'Biar Client Yang Design, Kita Potong Je.',
     tool: 'Semua alat',
+    image: '/images/blog/90-client-design.jpg',
     link: { label: 'sifulaser.com', href: '#/' },
     color: '#0e7490',
     softBg: '#e8f6f9',
@@ -300,6 +316,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '91',
     title: 'Design Kat Telefon, Bukan Kat Komputer.',
     tool: 'Semua alat',
+    image: '/images/blog/91-telefon.jpg',
     link: { label: 'sifulaser.com', href: '#/' },
     color: '#4338ca',
     softBg: '#eff0fe',
@@ -323,6 +340,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: '92',
     title: 'QR Dah Potong, Tapi Tak Boleh Scan.',
     tool: 'QR Code',
+    image: '/images/blog/92-qr.jpg',
     link: { label: 'sifulaser.com/#/qr', href: '#/qr' },
     color: '#334155',
     softBg: '#eef1f5',
