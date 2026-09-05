@@ -16,6 +16,7 @@ const els = {
   stage: $('#stage'),
   preview: $('#stagePreview'),
   stage3d: $('#stage3d'),
+  stage3dLoading: $('#stage3dLoading'),
   inspector: $('#inspector'),
   backdrop: $('#backdropPick'),
   warnings: $('#warnings'),
@@ -109,9 +110,22 @@ function drawPreview() {
   if (state.view === '3d' && view3dFailed) {
     update((s) => { s.view = 'flat'; }, { history: false });
   }
-  const is3d = state.view === '3d' && ensure3d() != null;
-  els.preview.hidden = is3d;
+  // "3D is not here yet" and "3D is never coming" are different states, and
+  // treating them as one is what made this tool look like it opened on the
+  // wrong tab. The module is about a megabyte, so on a cold load there is a
+  // real gap between asking for 3D and having it - and in that gap the cake
+  // view was being painted, in full, only to be replaced a second later.
+  // Somebody watching that sees the flat view appear and reasonably reports
+  // it as the tool ignoring the 3D tab.
+  //
+  // So: while it is on the wire, show neither drawing. The failure path is
+  // unchanged - view3dFailed above has already put the state back to flat by
+  // the time we get here, so `want3d` is false and the cake view returns.
+  const want3d = state.view === '3d' && !view3dFailed;
+  const is3d = want3d && ensure3d() != null;
+  els.preview.hidden = want3d;
   els.stage3d.hidden = !is3d;
+  els.stage3dLoading.hidden = !(want3d && !is3d);
 
   const m = material();
   if (is3d) {
@@ -121,7 +135,7 @@ function drawPreview() {
       backdrop: state.backdrop,
     });
     view3d.resize();
-  } else {
+  } else if (!want3d) {
     view.render(r, {
       mode: state.view === 'flat' ? 'flat' : 'cake',
       // Clear acrylic has no colour to paint flat, so the cake view keeps its

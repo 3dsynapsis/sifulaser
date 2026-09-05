@@ -179,6 +179,19 @@ button { font-family: inherit; }
 }
 .stage-pane { position: absolute; inset: 0; }
 .stage-pane[hidden] { display: none; }
+/* The wait for three.js, which is about a megabyte. Deliberately quiet: it is
+   about half a second of nothing much, and a spinner would make half a second
+   feel like a fault.
+
+   No fade. A keyframe animation on an element that starts out hidden does not
+   reliably run when it is unhidden - the first attempt here left the hint at
+   opacity 0 for its whole life, which is worse than having no hint at all. A
+   flat opacity cannot fail that way. */
+.stage-loading {
+  display: grid; place-items: center;
+  font-size: 13px; color: var(--muted);
+  letter-spacing: .01em; opacity: .85;
+}
 #stage2d { background: var(--bg); }
 #stage3d canvas { display: block; }
 

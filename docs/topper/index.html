@@ -43,6 +43,12 @@
     <section class="stage" id="stage">
       <div id="stagePreview" class="stage-pane"></div>
       <div id="stage3d" class="stage-pane" hidden></div>
+      <!-- Shown only in the gap between asking for 3D and the module
+           arriving. Before this existed the flat cake view was painted in
+           that gap, which read as the tool opening on the wrong tab. -->
+      <div id="stage3dLoading" class="stage-pane stage-loading" hidden>
+        <span>Menyediakan paparan 3D&#8230;</span>
+      </div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Preview backdrop"></div>
       <div class="warnings" id="warnings" hidden></div>
       <div class="stage-hint" id="stageHint"></div>
