@@ -7,7 +7,7 @@ import { toolsInGroup, type ToolGroup } from '../data/tools'
  * Satu dulung berlabel. Panel itu rata dan tanpa bayang dengan sengaja: ia
  * ialah LATAR, dan tile ialah satu-satunya RAJAH yang terangkat pada halaman.
  * Kalau panel juga terangkat, mata terpaksa memilih antara lapan permukaan
- * dan bukan empat belas destinasi.
+ * dan bukan lima belas destinasi.
  */
 export const ToolGroupPanel = ({
   group,

@@ -4,10 +4,12 @@ import { Search } from 'lucide-react'
 import { searchTools } from '../data/tools'
 
 /**
- * Carian direktori: 18 sasaran (14 tile + 4 destinasi nav), padanan substring
- * lipat-huruf, maksimum enam baris.
+ * Carian direktori: 17 sasaran (15 tile + Pakej & Harga + Home), padanan
+ * substring lipat-huruf, maksimum enam baris. Nombor itu dikira dari
+ * src/data/tools.ts dan bukan dihafal: Blog dan About ialah tile, jadi pill
+ * navnya digugurkan supaya tiada dua baris menuju ke tempat yang sama.
  *
- * Grid di bawah TIDAK pernah disusun semula. Meredupkan atau menapis empat
+ * Grid di bawah TIDAK pernah disusun semula. Meredupkan atau menapis lima
  * belas tile yang semuanya sudah kelihatan lebih lambat daripada membaca
  * senarai ini, dan pada 375 px senarai ini ialah keseluruhan jawapannya.
  */

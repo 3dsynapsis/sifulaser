@@ -42,6 +42,15 @@
           <button class="primary" id="openBtn2">Open an SVG</button>
           <button class="ghost" id="sampleBtn2">Load a sample</button>
         </div>
+        <!-- The sibling tool. To a stranger these two look the same, so each
+             one says which job is the other's. "/#/converter" and not
+             "#/converter": this page is served from /adjust/ inside an iframe,
+             and a bare hash would send the top window to /adjust/#/converter,
+             which is this tool again. -->
+        <p class="sibling-note">Not resizing anything - just need the file in a
+           different format? SVG, DXF and PDF are
+           <a href="/#/converter" target="_top" rel="noopener">Converter File</a>'s
+           job. It changes the container and leaves the drawing alone.</p>
       </div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Preview backdrop"></div>
       <div class="warnings" id="warnings" hidden></div>

@@ -15,10 +15,10 @@ import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { useAuth } from '../lib/auth'
 
 /**
- * Halaman utama — direktori empat belas alat dalam empat kumpulan.
+ * Halaman utama — direktori lima belas alat dalam empat kumpulan.
  *
- * Lima belas destinasi masih boleh dicapai dari sini. Empat belas ialah tile;
- * yang kelima belas, "Pakej & Harga", ialah pill nav dan butang CTA biru di
+ * Enam belas destinasi masih boleh dicapai dari sini. Lima belas ialah tile;
+ * yang keenam belas, "Pakej & Harga", ialah pill nav dan butang CTA biru di
  * jalur kaki. Senarai itu sendiri tinggal di src/data/tools.ts.
  */
 

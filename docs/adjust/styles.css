@@ -533,3 +533,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .ghost.wide { flex: 1; padding: 0 12px; }
 .warn-box.danger { border-color: var(--danger); color: var(--danger); }
+
+/* The pointer to Converter File. Quieter than the empty state's own copy: it is
+   a signpost for somebody who opened the wrong tool, not a second pitch. */
+.sibling-note {
+  margin: 4px 0 0;
+  max-width: 40ch;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  pointer-events: auto;
+}
+.sibling-note a { color: var(--accent); font-weight: 600; }

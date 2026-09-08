@@ -1,8 +1,13 @@
 # Gambar tile untuk halaman utama
 
-Lapan gambar, satu bagi setiap alat yang menghasilkan sesuatu. Enam alat lain
-(Simulator, Maintenance, Troubleshooting, Template Adjuster, Blog, About) tidak
-menghasilkan apa-apa untuk digambarkan dan memakai ikon lucide, bukan gambar.
+Lapan gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
+(Simulator, Maintenance, Troubleshooting, Template Adjuster, Converter File,
+Blog, About) tidak menghasilkan apa-apa untuk digambarkan dan memakai ikon
+lucide, bukan gambar.
+
+Converter File tiada gambar atas sebab yang sama seperti Template Adjuster: ia
+menukar bekas fail dan tidak menghasilkan bentuk sendiri, jadi apa-apa gambar
+untuknya sebenarnya gambar lukisan orang lain.
 
 Semuanya dilukis pada nisbah 96 x 64 (3:2) di atas latar lutsinar, supaya warna
 well tile menembusi dan kelapan-lapannya terbaca sebagai satu set.

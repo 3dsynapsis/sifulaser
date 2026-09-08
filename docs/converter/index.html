@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Converter File - tukar format fail vektor tanpa mengubah lukisan</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⇄</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⇄</span>
+      <h1 class="app-title">Converter File</h1>
+      <span id="status" class="status"></span>
+    </div>
+    <div class="actions">
+      <button class="ghost" id="openBtn" hidden>Tukar Fail</button>
+    </div>
+  </header>
+
+  <!-- The one line that stops this tool being mistaken for its sibling. Static
+       markup on purpose: it must be on screen before any file is loaded, and it
+       must not be able to disappear in a re-render. -->
+  <p class="differ">
+    <strong>Converter File tukar FORMAT sahaja.</strong>
+    Saiz, bentuk dan kedudukan lukisan kekal sama.
+    Nak ubah saiz atau tebal garisan? Itu kerja
+    <!-- "/#/adjust" and not "#/adjust": this page is served from
+         /converter/ inside an iframe, so a bare hash would send the top
+         window to /converter/#/adjust - which is this tool again. -->
+    <a href="/#/adjust" target="_top" rel="noopener">Template Adjuster →</a>
+  </p>
+
+  <p class="banner" id="banner" hidden></p>
+
+  <main class="layout" id="work" hidden>
+    <section class="col">
+      <div class="pane" id="paneLeft"></div>
+      <div class="col-body" id="leftPanel"></div>
+    </section>
+
+    <div class="arrow" aria-hidden="true">→</div>
+
+    <section class="col">
+      <div id="askBox" hidden></div>
+      <div class="pane" id="paneRight"></div>
+      <div class="col-body" id="rightPanel"></div>
+    </section>
+  </main>
+
+  <section class="empty-state" id="emptyState">
+    <h2>Tukar format fail vektor</h2>
+    <p>Lepaskan fail <strong>SVG</strong> atau <strong>DXF</strong> di sini, atau buka satu.
+       Keluarnya SVG, PDF atau DXF - lukisan yang sama, bekas yang lain.</p>
+    <div class="empty-actions">
+      <button class="primary" id="openBtn2">Buka Fail</button>
+    </div>
+    <p class="fineprint">Kami tidak baca PDF atau <code>.ai</code>. Sebabnya ada di README -
+       ringkasnya, membacanya dengan betul ambil masa berminggu dan hasilnya tetap tidak boleh dipercayai.</p>
+  </section>
+
+  <div class="drop-veil" id="dropVeil" hidden>Lepaskan fail SVG atau DXF</div>
+</div>
+
+<input type="file" id="fileInput" accept=".svg,.dxf,image/svg+xml" hidden>
+
+<script type="module" src="src/main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Sign in before download. Served from the site, so it is absent when a
+     tool is run on its own during development - and absent means export
+     works, which is the right way for a funnel to fail. -->
+<script type="module" src="/shared/export-gate.js"></script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import { TextEngraverPage } from './pages/TextEngraverPage'
 import { StandPage } from './pages/StandPage'
 import { QrPage } from './pages/QrPage'
 import { AdjustPage } from './pages/AdjustPage'
+import { ConverterPage } from './pages/ConverterPage'
 import { TopperPage } from './pages/TopperPage'
 import { KeychainPage } from './pages/KeychainPage'
 import { TagPage } from './pages/TagPage'
@@ -103,6 +104,8 @@ const Root = () => {
       return <QrPage />
     case 'adjust':
       return <AdjustPage />
+    case 'converter':
+      return <ConverterPage />
     case 'topper':
       return <TopperPage />
     case 'keychain':

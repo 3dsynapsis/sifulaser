@@ -249,16 +249,30 @@
    -------------------------------------------------------------------------- */
 
 /* ---- baris panel ----
-   Nisbah 508/668 diterbitkan, bukan diagak. Pada bekas 1200 px dengan jurang
-   panel 24: W3 + W4 = 1176. Padding panel 20+20, jurang tile 12, lebar tile t
-   memberi W3 = 3t + 64 dan W4 = 4t + 76, jadi 7t + 140 = 1176 -> t = 148.0,
-   W3 = 508, W4 = 668.
+   Nombor di sini diterbitkan semula apabila Converter File menjadikan
+   "Belajar" empat tile. Kumpulan kini 3/4/4/4.
 
-   AWAS: nisbah ini betul HANYA selagi kumpulan memegang 3/4/4/3. Tambah alat
-   kelima belas ke kumpulan mana-mana dan nombor ini kena diterbitkan semula,
-   bukan dianjak sikit — kalau tidak ia akan hanyut jadi 1fr 1fr pada perubahan
-   pertama dan tile akan senyap-senyap jadi dua saiz berbeza lagi. Itulah yang
-   dielakkan di sini: kesemua 14 tile berkongsi satu lebar.
+   Baris A (mesin 3 + design 4) tidak berubah: pada bekas 1200 px dengan
+   jurang panel 24, W3 + W4 = 1176. Padding panel 20+20, jurang tile 12, lebar
+   tile t memberi W3 = 3t + 64 dan W4 = 4t + 76, jadi 7t + 140 = 1176 ->
+   t = 148.0, W3 = 508, W4 = 668.
+
+   Baris B (generator 4 + belajar 4) kini dua panel empat tile: 2(4t + 76) =
+   1176 -> t = 128.0 dan kedua-dua panel 588 px, iaitu 1fr 1fr tepat.
+
+   Jadi tuntutan lama — kesemua tile satu lebar — sudah TIDAK boleh dipegang,
+   dan ia dibuang dan bukan diperkecilkan. Baris lapan tile memerlukan
+   8t + 152 = 1336 px pada t = 148; 1176 px tidak memberinya pada mana-mana
+   padding atau jurang, termasuk sifar. Yang menggantikannya ialah tuntutan
+   yang masih benar dan masih boleh diterbitkan: SATU LEBAR SETIAP BARIS —
+   baris A 148 px, baris B 128 px — dengan setiap tepi panel dan setiap baris
+   tile kekal segaris. Beza 20 px antara dua baris yang berjauhan menegak dan
+   berlainan warna kurang ketara daripada tepi panel yang tidak segaris, iaitu
+   harga pilihan yang satu lagi (lajur tetap 448/588 pada baris A, membuang
+   140 px ke dalam jurangnya).
+
+   AWAS: sama seperti dahulu — tambah alat keenam belas dan matematik ini kena
+   diterbitkan semula sekali lagi, bukan dianjak sikit.
 
    Dua lajur panel bermula pada 70rem (1120 px) dan bukan lebih rendah, kerana
    di bawahnya matematik fr yang sama memakan tile itu sendiri: pada 1120 px
@@ -273,16 +287,16 @@
   grid-template-columns: minmax(0, 508fr) minmax(0, 668fr);
 }
 .home-row--b {
-  /* Baris kedua diterbalikkan: dua kumpulan bergambar pada satu pepenjuru,
-     dua kumpulan berikon pada pepenjuru satu lagi. Blok itu terbaca teranyam
-     dan bukan bertabur. */
-  grid-template-columns: minmax(0, 668fr) minmax(0, 508fr);
+  /* Dua panel empat tile, jadi 1fr 1fr — lihat penerbitan di atas. Penerbalikan
+     bergambar/berikon yang dahulu dipegang oleh nisbah 668/508 kini dipegang
+     oleh susunan kumpulan itu sendiri. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 /* ---- panel ----
    Tiada bayang di sini dengan sengaja. Panel ialah LATAR yang rata dan tile
    ialah satu-satunya RAJAH yang terangkat pada halaman ini, jadi mata jatuh
-   pada empat belas benda yang boleh diklik dan bukan pada lapan permukaan yang
+   pada lima belas benda yang boleh diklik dan bukan pada lapan permukaan yang
    bersaing. Panel berlagak seperti dulang berlabel. */
 .home-panel {
   border-radius: 20px;
@@ -951,9 +965,15 @@ a.home-panel-aside svg {
     gap: 16px;
   }
   /* Lebar tile di sini = (343 - 28 - 10) / 2 = 152.5 px, dalam 1.2 px daripada
-     148 px desktop. Jadi saiz taip, well, anak panah, clamp DAN aset gambar
-     adalah sama byte-untuk-byte dengan desktop: satu aset, satu nisbah,
-     semua viewport. Itulah sebab nombor desktop diterbitkan dan bukan dipilih. */
+     148 px tile baris A di desktop. Jadi saiz taip, well, anak panah, clamp DAN
+     aset gambar adalah sama byte-untuk-byte dengan baris A: satu aset, satu
+     nisbah, semua viewport.
+
+     Tuntutan itu kini mengenai BARIS A sahaja. Sejak Converter File, baris B
+     ialah 128 px di desktop, jadi ia 24.5 px daripada telefon dan bukan 1.2.
+     Aset yang sama masih berkhidmat (kesemuanya vektor atau webp yang diskala),
+     tetapi ayat "sama byte-untuk-byte" tidak lagi benar untuk baris itu, dan
+     dipersempit di sini dan bukan dibiarkan. */
   .tile-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;

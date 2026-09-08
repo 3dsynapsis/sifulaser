@@ -3,8 +3,8 @@ import type { ToolEntry } from '../data/tools'
 
 /**
  * Satu tile alat. Dua varian yang berbeza HANYA pada apa yang mengisi well:
- * gambar hasil alat, atau glif lucide untuk enam benda yang tidak menghasilkan
- * apa-apa untuk digambarkan.
+ * gambar hasil alat, atau glif lucide untuk tujuh benda yang tidak
+ * menghasilkan apa-apa untuk digambarkan.
  *
  * Komponen ini tidak memiliki sebarang warna. Panel di atasnya menetapkan
  * --g-accent / --g-soft / --g-line dan semuanya diwarisi, jadi satu tile

@@ -6,13 +6,14 @@
 // laluan yang ditulis tangan — salinan itu boleh diterbitkan dari sini
 // kemudian.
 //
-// LIMA BELAS destinasi hari ini, EMPAT BELAS tile. Yang keluar dari grid ialah
+// ENAM BELAS destinasi hari ini, LIMA BELAS tile. Yang keluar dari grid ialah
 // "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di jalur
 // kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi pada satu
 // halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama kedai
 // Shopee di dalamnya). Tiada apa-apa yang hilang.
 
 import {
+  ArrowRightLeft,
   Boxes,
   Box,
   BookOpen,
@@ -213,6 +214,21 @@ export const TOOLS: ToolEntry[] = [
     Icon: Scaling,
   },
   {
+    // Duduk sebelah Template Adjuster dengan sengaja. Kepada orang luar dua
+    // alat ini nampak sama, jadi yang paling menolong ialah melihatnya
+    // bersebelahan: Adjuster MENGUBAH lukisan (saiz, tebal garisan), Converter
+    // File hanya menukar BEKASNYA.
+    title: 'Converter File',
+    shortDescription: 'Tukar SVG dan DXF ke SVG, PDF atau DXF.',
+    description:
+      'Tukar format fail vektor tanpa mengubah saiz, bentuk atau kedudukan lukisan.',
+    href: '#/converter',
+    group: 'belajar',
+    variant: 'icon',
+    keywords: ['svg', 'dxf', 'pdf', 'tukar', 'format', 'convert', 'autocad', 'lightburn', 'fail'],
+    Icon: ArrowRightLeft,
+  },
+  {
     title: 'Blog',
     shortDescription: 'Episod Laser, nota kerja Sifu Hisham.',
     description:
@@ -329,8 +345,8 @@ export const NAV: NavItem[] = [
 ]
 
 /**
- * Sasaran carian: 14 tile ditambah destinasi nav yang BUKAN sudah menjadi
- * tile = 16. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
+ * Sasaran carian: 15 tile ditambah destinasi nav yang BUKAN sudah menjadi
+ * tile = 17. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
  * memasukkan pill navnya juga memberi dua baris serupa yang menuju ke tempat
  * yang sama — dan dua adik-beradik React dengan key yang sama, kerana
  * ToolSearch mengunci pada href. Dua daripada enam slot hasil dibazirkan
