@@ -46,7 +46,7 @@ export interface BlogPost {
 
 /** Penutup yang sama untuk setiap episod. */
 export const SIGN_OFF = [
-  'Cuba dan bagitahu saya kalau ada apa apa masalah.',
+  'Jangan lupa save/screenshot tips Laser ini.',
   'Sifu Hisham',
   '(sifulaser.com)',
 ]
