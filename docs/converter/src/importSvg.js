@@ -21,6 +21,10 @@ import { warnBag, makeDoc, makePath } from './doc.js';
 
 const SHAPE_SEL = 'path, rect, circle, ellipse, line, polyline, polygon';
 
+// Containers whose children are definitions or stencils rather than drawing:
+// a <clipPath>'s circle shapes the clip, it is not a circle in the artwork.
+const HIDDEN_SEL = 'defs, symbol, clipPath, mask, marker, pattern';
+
 /** Every shape as a "d" string, so one code path reads all seven of them. */
 function shapeToD(el) {
   const n = (name, dflt = 0) => {
@@ -132,12 +136,28 @@ export function importSvg(text, { name = '', bytes = 0 } = {}) {
 
     const rootCtm = svg.getScreenCTM();
     for (const el of svg.querySelectorAll(SHAPE_SEL)) {
+      // Asked structurally, not by measurement.
+      //
+      // The plan was to let getScreenCTM() answer this: it is documented to
+      // return null for an element that is not rendered, which is exactly the
+      // <defs>/<symbol> case. Chrome hands back a real matrix instead, so a
+      // <rect> sitting in <defs> and a <circle> inside a <clipPath> both walked
+      // straight into the output at their definition coordinates - two shapes
+      // in the converted file that are nowhere in the drawing. Caught by
+      // loading an SVG with both and looking at the preview.
+      //
+      // A <clipPath>'s circle is not artwork, it is a stencil; a <defs> shape
+      // is a template waiting for a <use>. Neither is drawn, and asking the
+      // document what an element IS beats asking the renderer where it landed.
+      if (el.closest && el.closest(HIDDEN_SEL)) {
+        warn.add('svgUse');
+        continue;
+      }
       const ctm = el.getScreenCTM ? el.getScreenCTM() : null;
-      // getScreenCTM() returns null for anything not rendered, which is exactly
-      // the <defs>/<symbol> case. The Adjuster uses the point untransformed
-      // when this happens, which silently drops the shape at its definition
-      // position instead of where it is used. Skipping and counting is the
-      // honest version: the shape is not in the output, and we say so.
+      // Still kept as a second net: a browser that does return null here, or a
+      // shape hidden some other way, is skipped and counted rather than placed
+      // untransformed - which is what the Adjuster does, and it puts the shape
+      // at its definition position without a word.
       if (!ctm || !rootCtm) {
         warn.add('svgUse');
         continue;
