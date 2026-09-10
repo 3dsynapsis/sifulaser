@@ -6,7 +6,7 @@
 // laluan yang ditulis tangan — salinan itu boleh diterbitkan dari sini
 // kemudian.
 //
-// ENAM BELAS destinasi hari ini, LIMA BELAS tile. Yang keluar dari grid ialah
+// TUJUH BELAS destinasi hari ini, ENAM BELAS tile. Yang keluar dari grid ialah
 // "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di jalur
 // kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi pada satu
 // halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama kedai
@@ -17,6 +17,7 @@ import {
   Boxes,
   Box,
   BookOpen,
+  BookOpenText,
   CakeSlice,
   ClipboardCheck,
   Crosshair,
@@ -148,6 +149,35 @@ export const TOOLS: ToolEntry[] = [
     art: '/images/tools/stand.webp',
     keywords: ['papan nama', 'meja', 'signage', 'plate', 'nameplate', 'tapak'],
     Icon: RectangleHorizontal,
+  },
+  {
+    // Kumpulan 'design' dan bukan 'generator'. Generator Pantas ialah empat
+    // benda satu keping rata tanpa sendi; rehal ialah lima keping yang
+    // dicantum, dengan mortis dan tenon yang dikira dari tebal papan dan sudut
+    // baca. Tempatnya di sebelah Box Maker dan Stand Nama.
+    title: 'Rehal Generator',
+    shortDescription: 'Rehal Al-Quran, corak dan nama terukir.',
+    description:
+      'Rehal Al-Quran boleh lipat — corak geometri dan nama terukir di tengahnya.',
+    href: '#/rehal',
+    group: 'design',
+    variant: 'art',
+    // SVG dijana oleh `node tools/thumb.mjs` alat itu sendiri daripada geometri
+    // sebenar, jadi ia tidak boleh jadi basi seperti tiga foto 3D di atas.
+    art: '/images/tools/rehal.svg',
+    keywords: [
+      'quran',
+      'al-quran',
+      'rehal',
+      'kitab',
+      'baca',
+      'islamik',
+      'geometri',
+      'corak',
+      'nama',
+      'kayu',
+    ],
+    Icon: BookOpenText,
   },
 
   // ---- 3. GENERATOR PANTAS ----
@@ -345,8 +375,8 @@ export const NAV: NavItem[] = [
 ]
 
 /**
- * Sasaran carian: 15 tile ditambah destinasi nav yang BUKAN sudah menjadi
- * tile = 17. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
+ * Sasaran carian: 16 tile ditambah destinasi nav yang BUKAN sudah menjadi
+ * tile = 18. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
  * memasukkan pill navnya juga memberi dua baris serupa yang menuju ke tempat
  * yang sama — dan dua adik-beradik React dengan key yang sama, kerana
  * ToolSearch mengunci pada href. Dua daripada enam slot hasil dibazirkan

@@ -1,6 +1,6 @@
 # Gambar tile untuk halaman utama
 
-Lapan gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
+Sembilan gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
 (Simulator, Maintenance, Troubleshooting, Template Adjuster, Converter File,
 Blog, About) tidak menghasilkan apa-apa untuk digambarkan dan memakai ikon
 lucide, bukan gambar.
@@ -10,9 +10,9 @@ menukar bekas fail dan tidak menghasilkan bentuk sendiri, jadi apa-apa gambar
 untuknya sebenarnya gambar lukisan orang lain.
 
 Semuanya dilukis pada nisbah 96 x 64 (3:2) di atas latar lutsinar, supaya warna
-well tile menembusi dan kelapan-lapannya terbaca sebagai satu set.
+well tile menembusi dan kesembilan-sembilannya terbaca sebagai satu set.
 
-## Lima yang dijana - tidak boleh jadi basi
+## Enam yang dijana - tidak boleh jadi basi
 
 | Fail | Dijana oleh |
 |---|---|
@@ -21,14 +21,20 @@ well tile menembusi dan kelapan-lapannya terbaca sebagai satu set.
 | `qr.svg` | `16_QR Generator/tools/thumb.mjs` |
 | `topper.svg` | `18_Cake Topper/tools/thumb.mjs` |
 | `keychain.svg` | `21_Keychain Generator/tools/thumb.mjs` |
+| `rehal.svg` | `25_Rehal Generator/tools/thumb.mjs` |
 
 Setiap satu memanggil `build*()` alat itu sendiri dan menulis semula gambar
 daripada geometri sebenar. Jalankan semula bila-bila masa:
 
     node tools/thumb.mjs "<...>/7_SifuLaser/docs/images/tools/<nama>.svg"
 
-Kalau alat berubah, gambar berubah sekali. Itulah sebabnya lima ini dijana dan
+Kalau alat berubah, gambar berubah sekali. Itulah sebabnya enam ini dijana dan
 bukan difoto.
+
+Rehal ikut jalan yang dijana walaupun produknya pemasangan lima keping, sebab
+yang menjadikannya boleh dikenali pada 128 px ialah corak dan nama di panel
+belakang, bukan sudut lipatannya. Pandangan tiga suku sebuah baji yang bersandar
+hanyalah baji, dengan coraknya terhimpit hilang.
 
 ## Tiga yang difoto - BOLEH jadi basi, dan tiada apa-apa akan memberitahu
 

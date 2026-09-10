@@ -15,8 +15,12 @@
 //
 // It hooks the click rather than the tools. Every tool happens to open its
 // export dialog from a button with the same id, so one listener in the capture
-// phase - before any tool's own handler runs - covers all seven without a line
-// changing in any of them. If this file ever fails to load, the listener is
+// phase - before any tool's own handler runs - covers every one of them without
+// a line changing in any of them, and a new tool joins by carrying that id and
+// nothing else. (This sentence used to say "all seven"; the number was already
+// wrong at ten, so it has been replaced with the property that does not rot.
+// The set is whatever `grep -l 'id="exportBtn"' docs/*/index.html` returns.)
+// If this file ever fails to load, the listener is
 // simply not installed and export works as it always did. Failing open is the
 // right way round for something that is not a security control.
 

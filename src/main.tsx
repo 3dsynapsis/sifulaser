@@ -11,6 +11,7 @@ import { AdjustPage } from './pages/AdjustPage'
 import { ConverterPage } from './pages/ConverterPage'
 import { TopperPage } from './pages/TopperPage'
 import { KeychainPage } from './pages/KeychainPage'
+import { RehalPage } from './pages/RehalPage'
 import { TagPage } from './pages/TagPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
@@ -110,6 +111,8 @@ const Root = () => {
       return <TopperPage />
     case 'keychain':
       return <KeychainPage />
+    case 'rehal':
+      return <RehalPage />
     case 'tag':
       return <TagPage />
     case 'maintenance':

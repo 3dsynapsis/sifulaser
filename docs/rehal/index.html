@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rehal Generator - rehal Al-Quran untuk laser</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#128214;</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9737;</span>
+      <input id="projectName" class="name-input" value="Rehal tanpa nama" spellcheck="false" aria-label="Nama projek">
+      <span id="status" class="status">Disimpan</span>
+    </div>
+
+    <div class="midbar">
+      <div class="viewtoggle" role="tablist" aria-label="Paparan">
+        <!-- 3D first and selected, because the thing being decided about is a
+             folded stand at a reading angle, not a sheet of cut lines. -->
+        <button class="vt" id="v3d" role="tab" aria-selected="true">3D</button>
+        <button class="vt" id="vFlat" role="tab" aria-selected="false">Rata</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <span class="muted" id="sizeReadout"></span>
+      <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">&#8630;</button>
+      <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">&#8631;</button>
+      <button class="icon-btn" id="helpBtn" title="Kenapa rehal ini tidak terbalik">?</button>
+      <button class="soft" id="saveBtn">Simpan</button>
+      <button class="ghost quiet" id="filesBtn">Reka bentuk saya</button>
+      <!-- id="exportBtn" is the tool's entire obligation to /shared/export-gate.js,
+           which matches target.closest('#exportBtn') on a capture-phase listener. -->
+      <button class="primary" id="exportBtn">Export</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage" id="stage">
+      <div id="stage3d" class="stage-pane"></div>
+      <div id="stagePreview" class="stage-pane"></div>
+      <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Latar belakang"></div>
+      <div class="warnings" id="warnings" hidden></div>
+      <div class="stage-hint" id="stageHint"></div>
+    </section>
+
+    <aside class="inspector" id="inspector"></aside>
+  </main>
+</div>
+
+<dialog id="saveDlg" class="dlg"></dialog>
+<dialog id="filesDlg" class="dlg"></dialog>
+<dialog id="exportDlg" class="dlg"></dialog>
+<dialog id="helpDlg" class="dlg"></dialog>
+
+<script type="module" src="src/main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Sign in before download. Served from the site, so it is absent when a
+     tool is run on its own during development - and absent means export
+     works, which is the right way for a funnel to fail.
+
+     Both of these tags live HERE, in the tool's own source, not only in
+     7_SifuLaser/docs/rehal/. Vendoring is `cp index.html`, so a tag added only
+     to docs/ is silently erased the next time the tool is updated. -->
+<script type="module" src="/shared/export-gate.js"></script>
+</body>
+</html>
