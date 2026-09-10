@@ -145,7 +145,14 @@ export function toSvg(doc, opts = {}) {
   const seenSlug = new Map();
   for (const { li, paths: group } of byLayer.values()) {
     const layer = (doc.layers && doc.layers[li]) || { name: String(li), colour: '#000000' };
-    const stroke = usableColour(group[0].stroke) || layer.colour || '#000000';
+    // A shape that arrived FILLED AND UNSTROKED must not gain an outline. On a
+    // laser that outline is not decoration, it is a cut line nobody drew: the
+    // shape gets cut out of the sheet instead of engraved into it, and the part
+    // falls on the floor. So the layer colour is a fallback only for a path that
+    // has no fill either - a line whose own colour we simply do not know.
+    const inkStroke = usableColour(group[0].stroke);
+    const inkFill = usableColour(group[0].fill);
+    const stroke = inkStroke || (inkFill ? null : (layer.colour || '#000000'));
     const base = String(layer.name).replace(/[^A-Za-z0-9_-]+/g, '-') || 'layer';
     const n = (seenSlug.get(base) || 0) + 1;
     seenSlug.set(base, n);
@@ -154,11 +161,14 @@ export function toSvg(doc, opts = {}) {
     // drawing is 557 entities and 0.6 MB of path data, and both previews put it
     // in the DOM at once.
     const dd = group.map(d).join(' ');
-    const fill = usableColour(group[0].fill);
+    // stroke-width is only meaningful when there IS a stroke; writing one
+    // alongside stroke="none" is noise that some readers act on anyway.
+    const strokeAttrs = stroke
+      ? `stroke="${stroke}" stroke-width="${fmt(o.strokeWidth)}" `
+        + 'stroke-linecap="round" stroke-linejoin="round"'
+      : 'stroke="none"';
     out.push(`<g id="layer-${slug}" data-layer="${esc(layer.name)}" `
-      + `fill="${fill || 'none'}" stroke="${stroke}" `
-      + `stroke-width="${fmt(o.strokeWidth)}" stroke-linecap="round" `
-      + `stroke-linejoin="round"><path d="${dd}"/></g>`);
+      + `fill="${inkFill || 'none'}" ${strokeAttrs}><path d="${dd}"/></g>`);
   }
   out.push('</svg>');
   return out.join('\n');
@@ -189,9 +199,12 @@ export function toPdf(doc, opts = {}) {
   for (const p of doc.paths) {
     if (!p.segs.length) continue;
     const layer = (doc.layers && doc.layers[p.layer]) || null;
-    const stroke = usableColour(p.stroke) || (layer && layer.colour) || '#000000';
+    // Same rule as the SVG writer above: a filled, unstroked shape keeps no
+    // outline, because an invented outline is an invented cut.
     const fill = usableColour(p.fill);
-    if (stroke !== curStroke) {
+    const inkStroke = usableColour(p.stroke);
+    const stroke = inkStroke || (fill ? null : ((layer && layer.colour) || '#000000'));
+    if (stroke && stroke !== curStroke) {
       ops.push(`${rgbOps(stroke)} RG`);
       curStroke = stroke;
     }
@@ -209,8 +222,10 @@ export function toPdf(doc, opts = {}) {
       }
     }
     if (p.closed) ops.push('h');
-    // B fills and strokes in one go; S is stroke only.
-    ops.push(fill ? 'B' : 'S');
+    // B fills AND strokes, S strokes only, f fills only. A filled shape that
+    // carried no stroke of its own has to take f - B would paint the same
+    // phantom outline the SVG writer used to.
+    ops.push(stroke ? (fill ? 'B' : 'S') : 'f');
   }
   const stream = ops.join('\n');
 

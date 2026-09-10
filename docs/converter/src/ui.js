@@ -210,6 +210,11 @@ export function targetWarnings() {
     out.push(mk('strokeWidth', 1));
   }
   if (state.params.target === 'pdf') out.push(mk('pdfNoLayers', 1));
+  // Every target rewrites line weight, not just DXF. Saying it only on the DXF
+  // button left the other two quietly doing the same thing.
+  if (state.params.target === 'svg' || state.params.target === 'pdf') {
+    out.push(mk('strokeHairline', 1));
+  }
   return out;
 }
 

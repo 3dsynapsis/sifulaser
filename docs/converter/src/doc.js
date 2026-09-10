@@ -177,6 +177,11 @@ export const WARN = {
   dxfZ: { tier: 1, text: () => 'Lukisan ini ada koordinat Z. Semua diratakan ke Z = 0.' },
   dxfPoint: { tier: 1, text: (n) => `${n} entiti POINT diabaikan.` },
   strokeWidth: { tier: 2, text: () => 'Tebal garisan tidak dibawa - DXF keluar tanpa lineweight.' },
+  // The SVG and PDF writers put every line out at one hairline width. That is
+  // what a laser wants, but it is NOT 'format only' - it is a real change to
+  // the file, and the tool says so rather than letting the user find out on
+  // the bed.
+  strokeHairline: { tier: 2, text: () => 'Semua garisan keluar 0.1 mm (hairline). Tebal garisan asal tidak dibawa.' },
   dashes: { tier: 2, text: () => 'Garisan putus-putus jadi garisan penuh.' },
   gradient: { tier: 2, text: () => 'Gradien jadi warna pertamanya.' },
   opacity: { tier: 2, text: () => 'Kelegapan (opacity) tidak dibawa.' },
