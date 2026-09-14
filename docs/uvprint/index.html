@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalkulator UV Print - harga anggaran cetakan UV atas akrilik jernih</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#x1F5A8;</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">&#x25A3;</span>
+      <h1 class="app-title">Kalkulator UV Print</h1>
+      <span id="status" class="status" role="status"></span>
+    </div>
+    <div class="actions"></div>
+  </header>
+
+  <!-- What this tool is, before any file is chosen. Static markup on purpose:
+       it must be on screen first and must not vanish in a re-render. -->
+  <p class="differ">
+    <strong>Harga cetakan UV atas akrilik jernih.</strong>
+    Garisan potong ialah bentuk luar - semua di dalamnya dicetak UV.
+    Fail anda dikira dalam pelayar ini sahaja dan tidak dimuat naik ke mana-mana.
+  </p>
+
+  <section class="empty-state" id="emptyState">
+    <h2>Kira harga UV print anda</h2>
+    <p>Pilih fail <strong>PDF</strong> atau <strong>AI</strong>, atau lepaskan fail di sini.</p>
+    <div class="empty-actions">
+      <button class="primary big" id="pickBtn" type="button">Pilih Fail PDF / AI</button>
+    </div>
+    <ul class="rate-card" aria-label="Kadar harga">
+      <li><span>Akrilik Jernih 2mm</span><strong>RM20.00</strong></li>
+      <li><span>Akrilik Jernih 3mm</span><strong>RM22.00</strong></li>
+      <li><span>Akrilik Jernih 5mm</span><strong>RM30.00</strong></li>
+    </ul>
+    <p class="fineprint">Harga sekaki persegi, termasuk cetakan UV dan akrilik. Harga minimum RM20.
+      Saiz maksimum sekeping 90 x 60 cm.</p>
+    <p class="fineprint">Tip: tandakan garisan potong dengan warna spot <code>CutContour</code>.
+      Fail <code>.ai</code> mesti disimpan dengan pilihan <code>Create PDF Compatible File</code>.</p>
+  </section>
+
+  <main class="layout" id="work" hidden>
+    <section class="col">
+      <div class="pane" id="pane"></div>
+      <div class="col-body" id="fileInfo"></div>
+    </section>
+
+    <section class="col">
+      <div class="col-body" id="controls" hidden>
+        <h3 class="block-title" id="matLabel">Akrilik Jernih - harga sekaki persegi</h3>
+        <div class="target-row" id="materialRow" role="group" aria-labelledby="matLabel"></div>
+        <label class="block-title" for="qty">Kuantiti (set)</label>
+        <div class="stepper">
+          <button class="ghost step" id="qtyMinus" type="button" aria-label="Kurang satu">-</button>
+          <input id="qty" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" value="1">
+          <button class="ghost step" id="qtyPlus" type="button" aria-label="Tambah satu">+</button>
+        </div>
+      </div>
+      <div class="col-body" id="quoteBox" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <div class="drop-veil" id="dropVeil" hidden>Lepaskan fail PDF atau AI</div>
+</div>
+
+<!-- accept lists MIME types as well as extensions: without them the iOS picker
+     greys out .ai files. The file type is decided by its bytes anyway. -->
+<input type="file" id="fileInput" accept=".pdf,.ai,application/pdf,application/postscript,application/illustrator" hidden>
+
+<script type="module" src="src/main.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Sign in before download. Served from the site, so it is absent when a
+     tool is run on its own during development - and absent means export
+     works, which is the right way for a funnel to fail. This tool has no
+     download and therefore no #exportBtn: the WhatsApp quote link (#waBtn)
+     must never be behind sign-in, and tools/test-ui.js checks that. -->
+<script type="module" src="/shared/export-gate.js"></script>
+</body>
+</html>

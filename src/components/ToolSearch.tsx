@@ -4,12 +4,12 @@ import { Search } from 'lucide-react'
 import { searchTools } from '../data/tools'
 
 /**
- * Carian direktori: 17 sasaran (15 tile + Pakej & Harga + Home), padanan
+ * Carian direktori: 19 sasaran (17 tile + Pakej & Harga + Home), padanan
  * substring lipat-huruf, maksimum enam baris. Nombor itu dikira dari
  * src/data/tools.ts dan bukan dihafal: Blog dan About ialah tile, jadi pill
  * navnya digugurkan supaya tiada dua baris menuju ke tempat yang sama.
  *
- * Grid di bawah TIDAK pernah disusun semula. Meredupkan atau menapis lima
+ * Grid di bawah TIDAK pernah disusun semula. Meredupkan atau menapis tujuh
  * belas tile yang semuanya sudah kelihatan lebih lambat daripada membaca
  * senarai ini, dan pada 375 px senarai ini ialah keseluruhan jawapannya.
  */
@@ -31,7 +31,7 @@ export const ToolSearch = () => {
       if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey)
         return
       // Jangan rampas '/' bila orang sedang menaip, atau bila fokus ada di
-      // dalam iframe mana-mana alat — sembilan halaman alat semuanya iframe
+      // dalam iframe mana-mana alat — dua belas halaman alat semuanya iframe
       // same-origin dan menaip '/' di sana perkara biasa.
       const el = document.activeElement
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)

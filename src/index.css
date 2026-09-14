@@ -249,11 +249,12 @@
    -------------------------------------------------------------------------- */
 
 /* ---- baris panel ----
-   Nombor di sini diterbitkan semula apabila Rehal Generator menjadikan
-   "Design" lima tile. Kumpulan kini 3/5/4/4.
+   Nombor di sini diterbitkan semula apabila UV Print Calculator menjadikan
+   "Belajar & Sumber" lima tile. Kumpulan kini 3/5/4/5. (Terbitan sebelumnya
+   ialah untuk Rehal Generator, 3/5/4/4.)
 
-   Kaedahnya tidak berubah, tetapi DUA NOMBOR dalam terbitan lama memang salah
-   dan dibetulkan di sini dan bukan diwarisi. `main` ialah max-w-[1200px] DENGAN
+   Kaedahnya tidak berubah sejak Rehal. Ketika Rehal masuk, DUA NOMBOR dalam
+   terbitan sebelumnya didapati salah dan dibetulkan, bukan diwarisi. `main` ialah max-w-[1200px] DENGAN
    px-6 di dalamnya, jadi kotak kandungannya 1152 px dan bukan 1200 (diukur).
    Dan panel ada `border: 1px`, jadi chromenya 42 px dan bukan 40. Terbitan lama
    memakai 1200 dan 40, lalu mengumumkan t = 148 untuk susunan yang sebenarnya
@@ -265,37 +266,49 @@
 
    Baris A (mesin 3 + design 5): 8t + 156 = 1128 -> t = 121.5,
    W3 = 430.5, W5 = 697.5.
-   Baris B (generator 4 + belajar 4): 8t + 156 = 1128 -> t = 121.5,
-   kedua-duanya 564 px, iaitu 1fr 1fr tepat.
+   Baris B (generator 4 + belajar 5): 9t + 168 = 1128 -> t = 106.667,
+   W4 = 504.667, W5 = 623.333 (ditulis 1514fr / 1870fr, iaitu 3x, supaya
+   nisbahnya tepat).
 
-   Kedua-dua baris kini berjumlah lapan tile, jadi kedua-duanya menyelesaikan
-   persamaan yang SAMA dan tuntutan lama yang terpaksa dibuang ketika Converter
-   File masuk — KESEMUA TILE SATU LEBAR — kembali benar: 121.5 px di
-   keempat-empat panel, dengan setiap tepi panel dan setiap baris tile segaris.
-   Ia kembali secara kebetulan aritmetik dan bukan kerana dipujuk; alat ketujuh
-   belas akan memecahkannya semula.
+   Tuntutan KESEMUA TILE SATU LEBAR, yang kembali benar ketika Rehal masuk,
+   PECAH SEMULA — betul-betul seperti yang komen ini ramalkan untuk alat
+   ketujuh belas. Tujuh belas tile tidak boleh dibahagi kepada dua baris lapan,
+   jadi satu baris MESTI sembilan. Dalam setiap baris tile masih satu lebar dan
+   tepi panel masih segaris, tetapi baris A 121.5 px dan baris B 106.7 px.
+   Diukur di pelayar pada 1440 px: baris A 121.58-121.64 px, baris B
+   106.74-106.78 px, panel B 504.66 dan 623.33 px.
+
+   Kenapa baris B dan bukan A: alat baharu itu kalkulator yang MEMBACA fail
+   pelanggan, jirannya Template Adjuster dan Converter File dalam "Belajar &
+   Sumber" (lihat src/data/tools.ts). Menambahnya ke "Mesin" untuk menyimpan
+   baris B pada lapan hanya memindahkan tile sembilan ke baris A, dengan
+   kumpulan yang salah.
 
    AWAS: sama seperti dahulu — tambah alat lagi satu dan matematik ini kena
-   diterbitkan semula sekali lagi, bukan dianjak sikit.
+   diterbitkan semula sekali lagi, bukan dianjak sikit. Alat kelapan belas
+   boleh menjadikan kedua-dua baris sembilan tile dan tuntutan satu lebar
+   kembali benar pada t = 106.667; kumpulan enam tile pula memerlukan peraturan
+   titik putus baharu di bawah (hanya 3 dan 5 yang ada).
 
    Dua lajur panel bermula pada 70rem dan bukan lebih rendah, kerana di
    bawahnya matematik fr yang sama memakan tile itu sendiri. Kotak kandungan
    ialah min(1200, D) - 48 di mana D ialah lebar DOKUMEN (viewport tolak bar
    skrol; 15 px dalam Chrome desktop, 0 pada telefon), jadi baris lapan tile
-   memberi t = (min(1200, D) - 228) / 8.
+   memberi t = (min(1200, D) - 228) / 8 dan baris sembilan tile
+   t = (min(1200, D) - 240) / 9. (Nisbah fr hanya tepat pada kandungan 1152;
+   di bawahnya dua panel sebaris berbeza kurang daripada 0.35 px.)
 
    Itu satu kemunduran yang sebenar dan ia ditulis di sini dan bukan
-   disembunyikan. Well dibina untuk ~120 px, dan t >= 120 kini bermula pada
-   D = 1188 dan bukan lagi pada titik putus. Diukur di pelayar pada viewport
-   1120 px (D = 1105): tile 109.5 px, iaitu 10.5 px di bawah sasaran. Sebelum
-   Rehal, baris A tujuh tile memberi 127.0 px di situ. Jalur D = 1120-1188 px
-   ialah yang hilang.
+   disembunyikan. Well dibina untuk ~120 px. Baris A mencapai 120 px hanya dari
+   D = 1188; baris B TIDAK PERNAH mencapainya — maksimumnya 106.7 px pada
+   lebar penuh, 13.3 px di bawah sasaran. Diukur di pelayar pada viewport
+   1120 px (D = 1105): baris A 109.5-109.8 px, baris B 96.1-96.2 px.
 
    Titik putus itu SENGAJA tidak dinaikkan. `--breakpoint-wide: 70rem` ialah
    varian `wide:` Tailwind dan ia dipakai oleh label butang log masuk dan cip
    akaun dalam SiteHeader, yang tiada kena-mengena dengan lebar tile;
-   menggesernya untuk membaiki 10.5 px pada satu jalur sempit akan menukar dua
-   perkara lain yang tidak diminta. */
+   menggesernya untuk membaiki beberapa px pada satu jalur sempit akan menukar
+   dua perkara lain yang tidak diminta. */
 .home-row {
   display: grid;
   gap: 24px;
@@ -304,16 +317,15 @@
   grid-template-columns: minmax(0, 430.5fr) minmax(0, 697.5fr);
 }
 .home-row--b {
-  /* Dua panel empat tile, jadi 1fr 1fr — lihat penerbitan di atas. Penerbalikan
-     bergambar/berikon yang dahulu dipegang oleh nisbah 668/508 kini dipegang
-     oleh susunan kumpulan itu sendiri. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* W4 : W5 = 504.667 : 623.333, ditulis sebagai 3x kedua-duanya supaya nisbah
+     itu tepat dan bukan dibundarkan — lihat penerbitan di atas. */
+  grid-template-columns: minmax(0, 1514fr) minmax(0, 1870fr);
 }
 
 /* ---- panel ----
    Tiada bayang di sini dengan sengaja. Panel ialah LATAR yang rata dan tile
    ialah satu-satunya RAJAH yang terangkat pada halaman ini, jadi mata jatuh
-   pada enam belas benda yang boleh diklik dan bukan pada lapan permukaan yang
+   pada tujuh belas benda yang boleh diklik dan bukan pada lapan permukaan yang
    bersaing. Panel berlagak seperti dulang berlabel. */
 .home-panel {
   border-radius: 20px;
@@ -809,7 +821,7 @@ a.home-panel-aside svg {
   }
   /* Empat lajur untuk SETIAP panel, termasuk yang berisi tiga alat — jadi
      kumpulan tiga meninggalkan satu petak kosong di hujung dulangnya. Itu
-     disengajakan. Nisbah 508/668 di atas menyamakan lebar tile dengan
+     disengajakan. Nisbah fr .home-row di atas menyamakan lebar tile dengan
      mengecilkan panel; sebaik panel jadi selebar penuh, nisbah itu berhenti
      terpakai dan kumpulan tiga tiba-tiba mendapat kad 36% lebih gemuk
      daripada kumpulan empat betul-betul di bawahnya (diukur: 230.9 px lawan
@@ -1015,10 +1027,11 @@ a.home-panel-aside svg {
      1.2 px daripada 148 px tile baris A di desktop, dan tuntutannya ialah
      satu aset dan satu nisbah untuk semua viewport, sama byte-untuk-byte.
 
-     Tuntutan itu sudah TIDAK benar untuk mana-mana baris. Kedua-dua baris kini
-     121.5 px — lihat terbitan di baris 262-275 fail ini — jadi telefon kini
-     lebih kurang 31 px daripada kedua-duanya dan bukan 1.2 px daripada salah
-     satu. Aset yang sama masih berkhidmat (kesemuanya vektor atau webp yang
+     Tuntutan itu sudah TIDAK benar untuk mana-mana baris. Baris A kini
+     121.5 px dan baris B 106.7 px — lihat terbitan "baris panel" di kepala
+     bahagian halaman utama fail ini — jadi telefon kini lebih kurang 30 px dan
+     45 px daripada kedua-duanya, bukan 1.2 px daripada salah satu. Aset yang
+     sama masih berkhidmat (kesemuanya vektor atau webp yang
      diskala) dan tiada apa-apa yang perlu diambil semula; yang dibuang
      hanyalah ayat yang tidak lagi benar.
 
@@ -1027,15 +1040,17 @@ a.home-panel-aside svg {
      telefon. 128 px memang benar untuk baris B SEBELUM Rehal Generator masuk;
      perenggan ini ditulis semula ketika itu tetapi nombornya tidak dikira
      semula — iaitu betul-betul kesilapan yang komen di kepala fail ini kata ia
-     sedang membetulkan. Diukur dalam pelayar: pada 1440 kesemua 16 tile
-     121.5 px (sebaran 0.06 px); pada 375 tile telefon 151.5 px. */
+     sedang membetulkan. Diukur semula dalam pelayar ketika UV Print
+     Calculator masuk: pada 1440 baris A 121.58-121.64 px dan baris B
+     106.74-106.78 px; pada 375 tile telefon 151.8 px untuk kesemua 17. */
   .tile-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
   /* Tile ganjil merentang penuh dan bertukar melintang — tiada tile separuh
      lebar duduk di sebelah ruang kosong. Grid dua lajur, jadi ini berlaku pada
-     setiap kumpulan berbilangan GANJIL: tiga (mesin) dan lima (design). */
+     setiap kumpulan berbilangan GANJIL: tiga (mesin) dan lima (design dan
+     belajar). */
   .tile-row[data-tile-count='3'] > .tile:nth-child(3),
   .tile-row[data-tile-count='5'] > .tile:nth-child(5) {
     grid-column: 1 / -1;

@@ -17,7 +17,7 @@ import { NAV } from '../data/tools'
  *
  * Dirender pada HomePage SAHAJA dalam pusingan ini, tetapi ditulis berdiri
  * sendiri supaya ia boleh diterima pakai ke seluruh laman kemudian tanpa
- * ditulis semula. Sembilan halaman alat kini mempunyai pengepala sendiri, dan
+ * ditulis semula. Dua belas halaman alat kini mempunyai pengepala sendiri, dan
  * AppHeader hanya untuk simulator.
  *
  * Tiada loceng notifikasi di sini dengan sengaja: tiada medan, tiada koleksi

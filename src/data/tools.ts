@@ -6,7 +6,7 @@
 // laluan yang ditulis tangan — salinan itu boleh diterbitkan dari sini
 // kemudian.
 //
-// TUJUH BELAS destinasi hari ini, ENAM BELAS tile. Yang keluar dari grid ialah
+// LAPAN BELAS destinasi hari ini, TUJUH BELAS tile. Yang keluar dari grid ialah
 // "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di jalur
 // kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi pada satu
 // halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama kedai
@@ -26,6 +26,7 @@ import {
   Luggage,
   Newspaper,
   PenLine,
+  Printer,
   Puzzle,
   QrCode,
   RectangleHorizontal,
@@ -259,6 +260,37 @@ export const TOOLS: ToolEntry[] = [
     Icon: ArrowRightLeft,
   },
   {
+    // Kumpulan 'belajar' dan bukan 'design' atau 'generator'. Dua kumpulan itu
+    // MENGHASILKAN fail untuk dipotong; kalkulator ini tidak menghasilkan
+    // apa-apa — ia MEMBACA fail pelanggan, sama seperti Template Adjuster dan
+    // Converter File di atasnya, dan hujungnya ialah sebut harga WhatsApp ke
+    // kedai, jiran semula jadi "About Me & Kedai Laser". Tempatnya di sebelah
+    // dua alat baca-fail itu.
+    title: 'UV Print Calculator',
+    shortDescription: 'Harga UV print akrilik terus dari fail anda.',
+    description:
+      'Upload PDF atau AI dan terus nampak harga cetakan UV atas akrilik jernih, kemudian hantar sebut harga ke WhatsApp.',
+    href: '#/uvprint',
+    group: 'belajar',
+    variant: 'art',
+    // SVG dijana oleh `node scripts/thumb-uvprint.mjs` daripada kod vendored
+    // dan satu fixture sebenar: garisan potong, artwork dan harga semuanya
+    // keluar dari alat itu sendiri, jadi ia tidak boleh jadi basi.
+    art: '/images/tools/uvprint.svg',
+    keywords: [
+      'uv print',
+      'akrilik',
+      'acrylic',
+      'harga',
+      'sebut harga',
+      'quotation',
+      'cetak',
+      'pdf',
+      'kalkulator',
+    ],
+    Icon: Printer,
+  },
+  {
     title: 'Blog',
     shortDescription: 'Episod Laser, nota kerja Sifu Hisham.',
     description:
@@ -375,8 +407,8 @@ export const NAV: NavItem[] = [
 ]
 
 /**
- * Sasaran carian: 16 tile ditambah destinasi nav yang BUKAN sudah menjadi
- * tile = 18. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
+ * Sasaran carian: 17 tile ditambah destinasi nav yang BUKAN sudah menjadi
+ * tile = 19. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
  * memasukkan pill navnya juga memberi dua baris serupa yang menuju ke tempat
  * yang sama — dan dua adik-beradik React dengan key yang sama, kerana
  * ToolSearch mengunci pada href. Dua daripada enam slot hasil dibazirkan

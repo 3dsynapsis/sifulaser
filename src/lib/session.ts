@@ -1,6 +1,6 @@
 // A small note the tools can read.
 //
-// The seven tools under /topper, /boxmaker and the rest are plain ES modules
+// The twelve tools under /topper, /boxmaker and the rest are plain ES modules
 // with no build step and no dependencies at all - that is deliberate, and
 // shipping the Firebase SDK into each of them would be a poor trade. They do
 // share this origin, though, so the app leaves a note here and they read it.
