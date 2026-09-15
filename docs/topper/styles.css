@@ -374,6 +374,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .layer-key { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
 .layer-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
 .note { font-size: 12px; color: var(--accent); margin: 0; }
+.stl-note { font-size: 12px; margin: 0; }
+.stl-warn { margin: 0; padding-left: 18px; font-size: 12px; color: var(--warn, #b45309); display: grid; gap: 4px; }
 .steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
 .steps li { color: var(--text); }
 .steps li span { color: var(--muted); }

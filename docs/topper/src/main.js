@@ -1,6 +1,8 @@
 // Wiring: store -> preview + inspector, and the toolbar actions.
 
-import { state, load, update, getResult, undo, redo, material } from './store.js';
+import {
+  state, load, update, getResult, getPrintResult, undo, redo, material,
+} from './store.js';
 import { loadFace } from './geom/text.js';
 import { View } from './view.js';
 import {
@@ -9,6 +11,7 @@ import {
   saveQuietly, openDesignById, rnd,
 } from './ui.js';
 import { toSvg, toPdf } from './export.js';
+import { toStl } from './stl.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -253,6 +256,10 @@ $('#helpBtn').addEventListener('click', () => {
 });
 
 $('#exportBtn').addEventListener('click', () => {
+  // Start fetching three.js for the STL now, while the dialog is being read,
+  // so the download is not left waiting on 1.3 MB after the click. Usually it
+  // is already here, because the 3D view is the default.
+  loadThree().catch(() => {});
   fillExportDialog(els.exportDlg);
   els.exportDlg.showModal();
 });
@@ -271,6 +278,7 @@ els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
   if (v === 'svg') download('svg');
   else if (v === 'pdf') download('pdf');
+  else if (v === 'stl') void downloadStl();
   else if (v === 'whatsapp') sendWhatsApp();
 });
 
@@ -288,7 +296,7 @@ els.exportDlg.addEventListener('close', () => {
 els.exportDlg.addEventListener('click', (event) => {
   const button = event.target.closest && event.target.closest('button');
   if (!button) return;
-  if (!['svg', 'pdf', 'whatsapp'].includes(button.value)) return;
+  if (!['svg', 'pdf', 'stl', 'whatsapp'].includes(button.value)) return;
   void saveQuietly();
 });
 
@@ -311,13 +319,42 @@ function buildFile(kind) {
   const opts = { title, sheetWidth: 900 };
   const body = kind === 'pdf' ? toPdf(r.panels, opts) : toSvg(r.panels, opts);
   const type = kind === 'pdf' ? 'application/pdf' : 'image/svg+xml';
-  // The name is usually the last line, which is what somebody wants the file
-  // called - not "Happy".
-  const lines = String(r.params.text || title).split(/\r?\n/).filter((l) => l.trim());
-  const base = (lines[lines.length - 1] || title).trim()
-    .replace(/[^\w-]+/g, '-').toLowerCase() || 'topper';
+  return { blob: new Blob([body], { type }), name: `${fileBase(r, title)}-topper.${kind}`, type };
+}
 
-  return { blob: new Blob([body], { type }), name: `${base}-topper.${kind}`, type };
+// The name is usually the last line, which is what somebody wants the file
+// called - not "Happy".
+function fileBase(r, title) {
+  const lines = String(r.params.text || title).split(/\r?\n/).filter((l) => l.trim());
+  return (lines[lines.length - 1] || title).trim()
+    .replace(/[^\w-]+/g, '-').toLowerCase() || 'topper';
+}
+
+let threePromise = null;
+function loadThree() {
+  if (!threePromise) {
+    threePromise = import('../vendor/three.module.js');
+    // A failed fetch must not be remembered, or one dropped connection breaks
+    // the STL button until the page is reloaded.
+    threePromise.catch(() => { threePromise = null; });
+  }
+  return threePromise;
+}
+
+async function downloadStl() {
+  const r = getPrintResult();
+  if (!r.panels.length) return;
+  let THREE;
+  try {
+    THREE = await loadThree();
+  } catch {
+    els.status.textContent = 'Could not load the 3D library for the STL - check the connection and try again.';
+    return;
+  }
+  const title = state.name || 'topper';
+  const body = toStl(THREE, r.panels, { title });
+  const type = 'model/stl';
+  saveFile({ blob: new Blob([body], { type }), name: `${fileBase(r, title)}-topper.stl`, type });
 }
 
 function saveFile(file) {

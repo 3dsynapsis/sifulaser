@@ -228,7 +228,7 @@ export const TOOLS: ToolEntry[] = [
     group: 'generator',
     variant: 'art',
     art: '/images/tools/topper.svg',
-    keywords: ['kek', 'cake', 'birthday', 'akrilik', 'pancang', 'harijadi'],
+    keywords: ['kek', 'cake', 'birthday', 'akrilik', 'pancang', 'harijadi', 'stl', 'cetak 3d', '3d print'],
     Icon: CakeSlice,
   },
 

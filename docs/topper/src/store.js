@@ -2,6 +2,7 @@
 
 import { DEFAULTS, buildTopper, presetParams } from './geom/topper.js';
 import { faceLoaded } from './geom/text.js';
+import { stlParams } from './stl.js';
 
 const STORAGE_KEY = 'cake-topper.project.v1';
 
@@ -115,6 +116,18 @@ export function getResult() {
   cache.face = face;
   cacheKey = key;
   return cache;
+}
+
+/**
+ * The design as it comes off a 3D printer rather than the laser: the same
+ * parameters with no kerf. See stl.js for why. Not cached - it is built on the
+ * click that downloads it and when the export dialog opens, nowhere else.
+ */
+export function getPrintResult() {
+  const face = faceLoaded(state.params.face);
+  const r = buildTopper({ ...stlParams(state.params), faceData: face });
+  r.face = face;
+  return r;
 }
 
 export function invalidate() { cacheKey = ''; }

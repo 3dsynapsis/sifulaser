@@ -2,7 +2,7 @@
 // Control idioms follow the Box Maker so the six tools feel like one family.
 
 import {
-  state, update, setParam, getResult, canUndo, canRedo, reset, CM,
+  state, update, setParam, getResult, getPrintResult, canUndo, canRedo, reset, CM,
   MATERIALS, material, setMaterial, setBoardNumber, applyPreset, applyDesign,
 } from './store.js';
 import { layout, faceLoaded, faceFailed, loadFace, isOutline } from './geom/text.js';
@@ -11,6 +11,7 @@ import {
   CAKE_SIZES, cakeSizeOf, cakeSizeFor,
 } from './geom/topper.js';
 import { LAYERS } from './export.js';
+import { STL_THICKNESS, stlWarnings } from './stl.js';
 import { BORDERS, borderOf, fitWidth } from './geom/border.js';
 import * as gallery from './designs.js';
 
@@ -583,12 +584,27 @@ export function fillExportDialog(dlg) {
       style: `background:${LAYERS.cut.color};border:1px solid var(--line-strong)`,
     }), LAYERS.cut.label));
   dlg.querySelector('#exportNote').textContent =
-    'Everything is cut - there is nothing to engrave on a topper. Both files '
+    'Everything is cut - there is nothing to engrave on a topper. The SVG and PDF '
     + 'carry real millimetres, so they import at size. Cast acrylic, and peel '
     + 'the masking off before the first wash.';
   const empty = !r.panels.length;
   dlg.querySelector('#dlSvg').disabled = empty;
   dlg.querySelector('#dlPdf').disabled = empty;
+  dlg.querySelector('#dlStl').disabled = empty;
+
+  // The STL is its own build - no kerf - so its size and its warnings come from
+  // that build, not from the laser one above.
+  const printed = empty ? null : getPrintResult();
+  const pd = printed && printed.derived;
+  dlg.querySelector('#stlNote').textContent = pd
+    ? `STL for a 3D printer: ${rnd(pd.width, 1)} x ${rnd(pd.height, 1)} mm, `
+      + `${STL_THICKNESS} mm thick, lying flat with the name facing up. Drawn from `
+      + 'the finished shape, so no kerf is added.'
+    : '';
+  const warn = printed ? stlWarnings(printed) : [];
+  const list = dlg.querySelector('#stlWarn');
+  list.replaceChildren(...warn.map((w) => h('li', {}, w)));
+  list.hidden = !warn.length;
 }
 
 export function fillHelpDialog(dlg) {
