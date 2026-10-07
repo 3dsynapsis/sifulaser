@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { HomePage } from './pages/HomePage'
 import { BoxMakerPage } from './pages/BoxMakerPage'
+import { TrayPage } from './pages/TrayPage'
 import { PuzzlePage } from './pages/PuzzlePage'
 import { TextEngraverPage } from './pages/TextEngraverPage'
 import { StandPage } from './pages/StandPage'
@@ -96,6 +97,8 @@ const Root = () => {
       return <App />
     case 'boxmaker':
       return <BoxMakerPage />
+    case 'tray':
+      return <TrayPage />
     case 'puzzle':
       return <PuzzlePage />
     case 'text':

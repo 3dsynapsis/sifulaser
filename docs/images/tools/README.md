@@ -1,6 +1,6 @@
 # Gambar tile untuk halaman utama
 
-Sepuluh gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
+Sebelas gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
 (Simulator, Maintenance, Troubleshooting, Template Adjuster, Converter File,
 Blog, About) tidak menghasilkan apa-apa untuk digambarkan dan memakai ikon
 lucide, bukan gambar.
@@ -15,9 +15,9 @@ ialah apa yang kalkulator itu sendiri tunjukkan untuk satu fixture sebenar,
 bukan lukisan pelanggan yang direka-reka.
 
 Semuanya dilukis pada nisbah 96 x 64 (3:2) di atas latar lutsinar, supaya warna
-well tile menembusi dan kesepuluh-sepuluhnya terbaca sebagai satu set.
+well tile menembusi dan kesebelas-belasnya terbaca sebagai satu set.
 
-## Tujuh yang dijana - tidak boleh jadi basi
+## Lapan yang dijana - tidak boleh jadi basi
 
 | Fail | Dijana oleh |
 |---|---|
@@ -28,6 +28,7 @@ well tile menembusi dan kesepuluh-sepuluhnya terbaca sebagai satu set.
 | `keychain.svg` | `21_Keychain Generator/tools/thumb.mjs` |
 | `rehal.svg` | `25_Rehal Generator/tools/thumb.mjs` |
 | `uvprint.svg` | `7_SifuLaser/scripts/thumb-uvprint.mjs` |
+| `tray.svg` | `7_SifuLaser/scripts/thumb-tray.mjs` |
 
 Setiap satu memanggil `build*()` alat itu sendiri dan menulis semula gambar
 daripada geometri sebenar. Jalankan semula bila-bila masa:
@@ -37,8 +38,16 @@ daripada geometri sebenar. Jalankan semula bila-bila masa:
 Kalau alat berubah, gambar berubah sekali. Itulah sebabnya tujuh ini dijana dan
 bukan difoto.
 
-`uvprint.svg` ialah satu-satunya yang penjananya tinggal dalam repo ini dan
-bukan dalam folder alat. Ia mengimport salinan VENDORED di `docs/uvprint/src`
+`tray.svg` dijana oleh `scripts/thumb-tray.mjs` daripada `buildTray()` dalam
+`docs/tray/src/geom/tray.js` - sumber alat itu memang tinggal dalam repo ini,
+jadi tiada apa-apa untuk divendor. Pandangan atas dulang dengan petak tak
+seragam: dinding, pembahagi dan petak pada kedudukan yang geometri sebenar
+berikan. Jalankan semula selepas apa-apa perubahan pada geometri:
+
+    node scripts/thumb-tray.mjs
+
+`uvprint.svg` ialah satu-satunya yang penjananya tinggal dalam repo ini
+sementara ALATNYA tinggal di luar. Ia mengimport salinan VENDORED di `docs/uvprint/src`
 (`analyseFile()` dan `quote()`), membaca fixture `a-cutcontour-objstm.pdf` dari
 `26_UV Print Calculator/tools/fixtures/`, dan melukis artwork kelabu, garisan
 potong merah dan jumlah harga 10 set akrilik 3 mm - jadi gambar itu dibuat oleh

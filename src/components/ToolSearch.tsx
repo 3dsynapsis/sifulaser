@@ -4,7 +4,7 @@ import { Search } from 'lucide-react'
 import { searchTools } from '../data/tools'
 
 /**
- * Carian direktori: 19 sasaran (17 tile + Pakej & Harga + Home), padanan
+ * Carian direktori: 20 sasaran (18 tile + Pakej & Harga + Home), padanan
  * substring lipat-huruf, maksimum enam baris. Nombor itu dikira dari
  * src/data/tools.ts dan bukan dihafal: Blog dan About ialah tile, jadi pill
  * navnya digugurkan supaya tiada dua baris menuju ke tempat yang sama.

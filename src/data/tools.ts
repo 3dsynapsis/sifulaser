@@ -6,11 +6,16 @@
 // laluan yang ditulis tangan — salinan itu boleh diterbitkan dari sini
 // kemudian.
 //
-// LAPAN BELAS destinasi hari ini, TUJUH BELAS tile. Yang keluar dari grid ialah
-// "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di jalur
-// kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi pada satu
-// halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama kedai
-// Shopee di dalamnya). Tiada apa-apa yang hilang.
+// SEMBILAN BELAS destinasi hari ini, LAPAN BELAS tile. Yang keluar dari grid
+// ialah "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di
+// jalur kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi
+// pada satu halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama
+// kedai Shopee di dalamnya). Tiada apa-apa yang hilang.
+//
+// Tile kelapan belas ialah Tray Organizer, dalam "Buat Design" - jadi kumpulan
+// itu kini ENAM tile dan baris A halaman utama ialah 3 + 6 = 9, sama seperti
+// baris B. Matematik lebar panel dalam src/index.css diterbitkan semula untuk
+// itu; lihat komen .home-row di sana sebelum menambah tile lagi.
 
 import {
   ArrowRightLeft,
@@ -23,6 +28,7 @@ import {
   Crosshair,
   House,
   KeyRound,
+  LayoutGrid,
   Luggage,
   Newspaper,
   PenLine,
@@ -113,6 +119,40 @@ export const TOOLS: ToolEntry[] = [
     art: '/images/tools/boxmaker.webp',
     keywords: ['kotak', 'almari', 'laci', 'finger joint', 'box', 'bekas'],
     Icon: Box,
+  },
+  {
+    // Bersebelahan Box Maker dengan sengaja: kedua-duanya bekas finger joint,
+    // tetapi Box Maker ialah kotak (bertutup, pembahagi 0/2/4 di tengah) dan
+    // ini dulang TERBUKA yang petaknya bebas - bilangan dan saiz setiap satu.
+    // Orang yang mencari "laci" atau "bekas" patut nampak kedua-duanya sekali
+    // dan memilih dengan mata.
+    title: 'Tray Organizer',
+    shortDescription: 'Dulang laci berpetak, saiz petak bebas.',
+    description:
+      'Reka dulang organizer berpetak untuk laci atau meja - belah petak, seret pembahagi, terus dapat fail SVG dengan half-lap siap.',
+    href: '#/tray',
+    group: 'design',
+    variant: 'art',
+    // SVG dijana oleh `node scripts/thumb-tray.mjs` daripada buildTray() sebenar
+    // dalam docs/tray/src: pandangan atas dulang dengan petak tak seragam.
+    // Tidak boleh jadi basi seperti tiga foto 3D.
+    art: '/images/tools/tray.svg',
+    keywords: [
+      'dulang',
+      'tray',
+      'organizer',
+      'laci',
+      'petak',
+      'pembahagi',
+      'divider',
+      'bento',
+      'susun',
+      'meja',
+      'alat tulis',
+      'stationery',
+      'bekas',
+    ],
+    Icon: LayoutGrid,
   },
   {
     title: 'Puzzle Generator',
@@ -407,8 +447,8 @@ export const NAV: NavItem[] = [
 ]
 
 /**
- * Sasaran carian: 17 tile ditambah destinasi nav yang BUKAN sudah menjadi
- * tile = 19. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
+ * Sasaran carian: 18 tile ditambah destinasi nav yang BUKAN sudah menjadi
+ * tile = 20. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
  * memasukkan pill navnya juga memberi dua baris serupa yang menuju ke tempat
  * yang sama — dan dua adik-beradik React dengan key yang sama, kerana
  * ToolSearch mengunci pada href. Dua daripada enam slot hasil dibazirkan

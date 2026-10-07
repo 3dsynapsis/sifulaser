@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -4 252 168" width="96" height="64">
+<title>Tray Organizer - dulang berpetak, saiz petak bebas</title>
+<rect x="1.5" y="2" width="240" height="160" rx="3" fill="rgba(0,0,0,0.10)"/>
+<path fill="#b9a27f" fill-rule="evenodd" d="M0 0H240V160H0Z M4 4V156H236V4Z"/>
+<rect x="4" y="103.143" width="107.13" height="52.857" fill="#fbfaf7"/>
+<rect x="115.13" y="103.143" width="48.696" height="52.857" fill="#fbfaf7"/>
+<rect x="167.826" y="103.143" width="68.174" height="52.857" fill="#fbfaf7"/>
+<rect x="4" y="4" width="107.13" height="95.143" fill="#fbfaf7"/>
+<rect x="115.13" y="4" width="48.696" height="95.143" fill="#fbfaf7"/>
+<rect x="167.826" y="4" width="68.174" height="95.143" fill="#fbfaf7"/>
+<rect x="111.13" y="4" width="4" height="152" fill="#b9a27f"/>
+<rect x="163.826" y="4" width="4" height="152" fill="#b9a27f"/>
+<rect x="4" y="99.143" width="232" height="4" fill="#b9a27f"/>
+</svg>
