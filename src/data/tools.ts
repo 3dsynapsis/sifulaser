@@ -127,9 +127,9 @@ export const TOOLS: ToolEntry[] = [
     // Orang yang mencari "laci" atau "bekas" patut nampak kedua-duanya sekali
     // dan memilih dengan mata.
     title: 'Tray Organizer',
-    shortDescription: 'Dulang laci berpetak, saiz petak bebas.',
+    shortDescription: 'Dulang berpetak, untuk laser atau 3D print.',
     description:
-      'Reka dulang organizer berpetak untuk laci atau meja - belah petak, seret pembahagi, terus dapat fail SVG dengan half-lap siap.',
+      'Reka dulang organizer berpetak untuk laci atau meja - belah petak, seret pembahagi, dapat SVG half-lap untuk laser atau STL satu jasad untuk 3D printer.',
     href: '#/tray',
     group: 'design',
     variant: 'art',
@@ -151,6 +151,11 @@ export const TOOLS: ToolEntry[] = [
       'alat tulis',
       'stationery',
       'bekas',
+      'stl',
+      'cetak 3d',
+      '3d print',
+      'printer',
+      'pla',
     ],
     Icon: LayoutGrid,
   },

@@ -294,6 +294,18 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 .g-remove:hover circle { stroke: var(--danger); }
 .g-remove:hover path { stroke: var(--danger); }
 
+/* ---- suis mod ---- */
+.mode-box { margin: 0 0 12px; display: grid; gap: 6px; }
+.seg.mode button { padding: 11px 6px; font-size: 13px; }
+.swatch { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(0, 0, 0, .18); flex: none; }
+.group[hidden], .check[hidden], .layer-key[hidden], .primary[hidden] { display: none; }
+
+/* ---- pelan (mod cetak) ---- */
+.plan-wall { fill: var(--wall); }
+.plan-cell { fill: var(--cell); }
+.plan-foot { stroke: var(--accent); }
+.plan-size { fill: var(--muted); font-family: inherit; font-weight: 600; }
+
 .grid-toolbar { display: flex; gap: 8px; }
 .grid-toolbar .ghost { flex: 1; }
 

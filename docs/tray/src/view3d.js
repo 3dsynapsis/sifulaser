@@ -203,6 +203,25 @@ export class View3D {
 
     this.disposeBuild();
 
+    // Jasad cetak 3D: satu mesh terus daripada segitiga yang STL akan bawa -
+    // bukan dibina semula di sini, jadi apa yang kelihatan ialah apa yang
+    // dicetak. Tanpa indeks, jadi computeVertexNormals memberi muka rata
+    // (plastik yang dicetak memang rata, bukan licin).
+    if (tray.mesh) {
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(tray.mesh.slice(), 3));
+      geom.computeVertexNormals();
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(opts.color || '#f1f1ee'), roughness: 0.55, metalness: 0.03,
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.root.add(mesh);
+      this.finish(tray);
+      return;
+    }
+
     const t = tray.params.thickness;
     const color = new THREE.Color(opts.color || '#d8b483');
     // Tepi potong ialah apa yang sebenarnya nampak pada dulang siap: hangus
@@ -235,7 +254,11 @@ export class View3D {
       group.add(mesh);
       this.root.add(group);
     }
+    this.finish(tray);
+  }
 
+  /** Dimensi, kedudukan dan kamera - sama untuk panel dan jasad. */
+  finish(tray) {
     this.setupDims(tray);
 
     const L = tray.params.length;

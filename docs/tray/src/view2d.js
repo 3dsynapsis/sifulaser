@@ -86,4 +86,63 @@ export class View2D {
       this.wrap.append(card);
     });
   }
+
+  /**
+   * Mod cetak: tiada fail rata untuk dilukis, jadi tab ini menjadi PELAN -
+   * pandangan atas jasad daripada gelang yang sama yang mesh dibina
+   * daripadanya (dinding luar berfillet, setiap petak berfillet, kaki boleh
+   * susun sebagai garis putus-putus), dengan saiz setiap petak.
+   */
+  renderPlan(tray) {
+    this.wrap.replaceChildren();
+    if (!tray || !tray.rings) return;
+    const { params: p, derived: d, rings } = tray;
+    const { length: L, width: W } = p;
+    const pad = Math.max(L, W) * 0.04;
+    const svg = el('svg', {
+      class: 'sheet plan',
+      viewBox: `${-pad} ${-pad} ${L + pad * 2} ${W + pad * 2}`,
+      preserveAspectRatio: 'xMidYMid meet',
+    });
+    const Y = (y) => W - y;
+    const ringD = (pts) => {
+      let s = `M${n3(pts[0][0])} ${n3(Y(pts[0][1]))}`;
+      for (let i = 1; i < pts.length; i++) s += `L${n3(pts[i][0])} ${n3(Y(pts[i][1]))}`;
+      return `${s}Z`;
+    };
+    // Dinding = luar tolak semua petak, satu laluan evenodd.
+    svg.append(el('path', {
+      class: 'plan-wall', 'fill-rule': 'evenodd',
+      d: [rings.O, ...rings.cells].map(ringD).join(' '),
+    }));
+    for (const c of rings.cells) svg.append(el('path', { class: 'plan-cell', d: ringD(c) }));
+    if (rings.F) {
+      const sw = Math.max(L, W) / 600;
+      svg.append(el('path', { class: 'plan-foot', d: ringD(rings.F), fill: 'none', 'stroke-width': sw, 'stroke-dasharray': `${sw * 6} ${sw * 4}` }));
+    }
+    for (const c of d.cells) {
+      const label = `${n3(Math.round(c.w * 10) / 10)} x ${n3(Math.round(c.h * 10) / 10)}`;
+      const fs = Math.min(Math.min(c.w, c.h) * 0.22, (c.w * 0.88) / (label.length * 0.58));
+      if (fs < Math.max(L, W) / 90) continue;
+      const t = el('text', {
+        class: 'plan-size', x: c.x + c.w / 2, y: Y(c.y + c.h / 2), 'font-size': fs,
+        'text-anchor': 'middle', 'dominant-baseline': 'central',
+      });
+      t.textContent = label;
+      svg.append(t);
+    }
+
+    const cap = document.createElement('div');
+    cap.className = 'sheet-cap';
+    cap.textContent = `Pelan ${L} x ${W} x ${p.height} mm - dinding ${p.wallT} mm, lantai ${p.floorT} mm, fillet ${n3(Math.round(d.r * 10) / 10)} mm`
+      + (d.stack ? ` - kaki boleh susun ${d.footH} mm (garis putus)` : '')
+      + (d.flatTop ? '' : ` - pembahagi ${n3(Math.round(d.divH * 10) / 10)} mm`);
+
+    const card = document.createElement('div');
+    card.className = 'sheet-card';
+    card.append(svg, cap);
+    this.wrap.append(card);
+  }
 }
+
+const n3 = (v) => Math.round(v * 1000) / 1000;

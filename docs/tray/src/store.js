@@ -1,6 +1,24 @@
 // Satu sumber kebenaran. Semua yang lain melanggan dan melukis semula.
 
 import { buildTray, DEFAULTS } from './geom/tray.js';
+import { buildTray3D, PRINT_DEFAULTS } from './geom/tray3d.js';
+// three.js untuk triangulator jasad cetak. Pandangan 3D memuatnya juga, jadi
+// ini salinan yang sama dan bukan muat turun kedua.
+import * as THREE from '../vendor/three.module.js';
+
+/** Warna filamen untuk pratonton sahaja; STL tidak membawa warna. */
+export const FILAMENTS = [
+  { id: 'pla-putih', name: 'PLA Putih', color: '#f1f1ee' },
+  { id: 'pla-hitam', name: 'PLA Hitam', color: '#2c2c2e' },
+  { id: 'pla-kelabu', name: 'PLA Kelabu', color: '#8f9296' },
+  { id: 'pla-merah', name: 'PLA Merah', color: '#c9282d' },
+  { id: 'pla-biru', name: 'PLA Biru', color: '#2a62c7' },
+  { id: 'pla-hijau', name: 'PLA Hijau', color: '#2f8a4e' },
+  { id: 'pla-oren', name: 'PLA Oren', color: '#e8761e' },
+  { id: 'pla-kuning', name: 'PLA Kuning', color: '#e6c21f' },
+  { id: 'pla-kayu', name: 'PLA Kayu', color: '#b98b5a' },
+  { id: 'petg-jernih', name: 'PETG Jernih', color: '#cfe3e8' },
+];
 
 // `char`: alur CO2 meninggalkan tepi hitam hangus pada kayu, MDF dan kad.
 // Akrilik keluar dengan tepi bersih berkilat.
@@ -28,12 +46,17 @@ function initialState() {
   return {
     params: {
       ...DEFAULTS,
+      ...PRINT_DEFAULTS,
+      // 'laser' (panel + SVG) atau 'cetak' (jasad + STL). Susun atur petak
+      // dikongsi; yang bertukar ialah apa yang dibina daripadanya.
+      mode: 'laser',
       thickness: m.t,
       kerf: m.kerf,
       cols: DEFAULTS.cols.slice(),
       rows: DEFAULTS.rows.slice(),
     },
     material: DEFAULT_MATERIAL,
+    filament: 'pla-putih',
     view: '3d',
     sheet: '600x400',
     backdrop: 'light',
@@ -61,15 +84,32 @@ export function subscribe(fn) {
 
 export function getTray() {
   if (dirty || !tray) {
-    tray = buildTray(state.params);
+    tray = state.params.mode === 'cetak'
+      ? buildTray3D(state.params, THREE)
+      : buildTray(state.params);
     dirty = false;
     clampSelection();
   }
   return tray;
 }
 
+export const isPrint = () => state.params.mode === 'cetak';
+
+export function setMode(mode) {
+  const m = mode === 'cetak' ? 'cetak' : 'laser';
+  if (state.params.mode === m) return;
+  update((s) => { s.params.mode = m; }, { geometry: true });
+}
+
 export const material = () => MATERIALS.find((m) => m.id === state.material)
   || MATERIALS.find((m) => m.id === DEFAULT_MATERIAL);
+
+export const filament = () => FILAMENTS.find((f) => f.id === state.filament) || FILAMENTS[0];
+
+export function setFilament(id) {
+  if (!FILAMENTS.some((f) => f.id === id)) return;
+  update((s) => { s.filament = id; }, { history: false });
+}
 
 function snapshot() {
   return JSON.stringify({ params: state.params, name: state.name, material: state.material });
@@ -162,6 +202,7 @@ function persist() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         params: state.params,
         material: state.material,
+        filament: state.filament,
         sheet: state.sheet,
         backdrop: state.backdrop,
         showLabels: state.showLabels,
@@ -182,6 +223,11 @@ export function load() {
     for (const k of Object.keys(DEFAULTS)) {
       if (state.params[k] === undefined) state.params[k] = DEFAULTS[k];
     }
+    for (const k of Object.keys(PRINT_DEFAULTS)) {
+      if (state.params[k] === undefined) state.params[k] = PRINT_DEFAULTS[k];
+    }
+    if (state.params.mode !== 'cetak') state.params.mode = 'laser';
+    if (FILAMENTS.some((f) => f.id === data.filament)) state.filament = data.filament;
     if (!Array.isArray(state.params.cols)) state.params.cols = DEFAULTS.cols.slice();
     if (!Array.isArray(state.params.rows)) state.params.rows = DEFAULTS.rows.slice();
     state.material = MATERIALS.some((m) => m.id === data.material) ? data.material : state.material;

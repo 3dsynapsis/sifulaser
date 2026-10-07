@@ -51,30 +51,31 @@
 
 <dialog id="exportDlg" class="dlg">
   <form method="dialog" class="dlg-body">
-    <h2>Export untuk laser</h2>
+    <h2 id="exportTitle">Export untuk laser</h2>
     <p class="muted" id="exportSummary"></p>
-    <div class="field">
+    <div class="field" id="sheetField">
       <label for="sheetSel">Kepingan</label>
       <select id="sheetSel"></select>
     </div>
-    <label class="check"><input type="checkbox" id="labelsChk" checked> Ukir nama panel (lapisan kelabu, padam sebelum potong kalau tak mahu)</label>
-    <div class="layer-key">
+    <label class="check" id="labelsField"><input type="checkbox" id="labelsChk" checked> Ukir nama panel (lapisan kelabu, padam sebelum potong kalau tak mahu)</label>
+    <div class="layer-key" id="layerKey">
       <span><i style="background:#e5484d"></i>Potong</span>
       <span><i style="background:#9aa0a6"></i>Label</span>
     </div>
     <p class="note" id="exportNote"></p>
     <div class="dlg-actions">
       <button value="cancel" class="ghost">Batal</button>
-      <button value="svg" class="primary">Muat turun SVG</button>
+      <button value="svg" class="primary" id="dlSvg">Muat turun SVG</button>
+      <button value="stl" class="primary" id="dlStl" hidden>Muat turun STL</button>
     </div>
   </form>
 </dialog>
 
 <dialog id="helpDlg" class="dlg">
   <form method="dialog" class="dlg-body">
-    <h2>Cara pasang</h2>
+    <h2 id="helpTitle">Cara pasang</h2>
     <ol class="steps" id="assembleSteps"></ol>
-    <p class="muted">Tenon direka dengan interference fit 0.05 mm - ketuk perlahan dengan tukul getah; jangan paksa. Kalau terlalu ketat, kerf mesin anda lebih kecil daripada yang ditetapkan: ukur dan tukar dalam Bahan &rarr; Bahan sendiri.</p>
+    <p class="muted" id="helpFoot"></p>
     <div class="dlg-actions"><button value="ok" class="primary">Faham</button></div>
   </form>
 </dialog>

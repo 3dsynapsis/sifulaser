@@ -5,12 +5,19 @@
 // daripada medan yang sedang ditaip - menaip "15" akan jadi "1", fokus hilang,
 // "5" jatuh ke tempat lain. Senarai saiz lajur/baris sahaja dibina semula,
 // dan hanya bila bilangannya berubah.
+//
+// Dua mod, satu inspector. Suis "Laser cut | Cetak 3D" di atas sekali; Saiz
+// luar dan Petak dikongsi, selebihnya ialah dua set kumpulan yang disorok
+// bersilih ganti. Set laser: Bahan (papan + kerf), jenis pembahagi, takuk
+// jari. Set cetak: dinding & lantai & fillet, boleh susun, printer & filamen.
 
 import {
   state, getTray, setParam, setMaterial, material, MATERIALS,
   beginGesture, endGesture, splitCell, canSplit, removeDivider, moveDivider,
   setCellMm, selectCell, MAX_PER_AXIS,
+  isPrint, setMode, FILAMENTS, filament, setFilament,
 } from './store.js';
+import { PRINTERS } from './geom/tray3d.js';
 import { GridEditor } from './grid.js';
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -61,8 +68,8 @@ function numField(label, { get, set, min, max, step = 1, unit = 'mm', hint } = {
   };
 }
 
-function seg(options, get, set) {
-  const wrap = h('div', { class: 'seg', role: 'group' });
+function seg(options, get, set, cls = '') {
+  const wrap = h('div', { class: `seg ${cls}`.trim(), role: 'group' });
   const btns = options.map(([value, label]) => {
     const b = h('button', { type: 'button', text: label, onclick: () => set(value) });
     wrap.append(b);
@@ -85,6 +92,12 @@ export function createInspector(root) {
   const syncs = [];
   const reg = (f) => { syncs.push(f); return f.el; };
 
+  // ---- mod -------------------------------------------------------------------
+  const modeSeg = seg([['laser', 'Laser cut'], ['cetak', 'Cetak 3D']],
+    () => state.params.mode, (v) => setMode(v), 'mode');
+  const modeHint = h('p', { class: 'hint' });
+  const modeBox = h('div', { class: 'mode-box' }, reg(modeSeg), modeHint);
+
   // ---- saiz ----------------------------------------------------------------
   const sizeStat = h('p', { class: 'hint' });
   const sizeGroup = group('Saiz luar', true,
@@ -93,7 +106,7 @@ export function createInspector(root) {
     reg(numField('Tinggi (Z)', { get: () => state.params.height, set: (v) => setParam('height', v), min: 12, max: 300 })),
     sizeStat);
 
-  // ---- bahan ---------------------------------------------------------------
+  // ---- bahan (laser) -------------------------------------------------------
   const matSel = h('select', { onchange: () => setMaterial(matSel.value) });
   for (const m of MATERIALS) {
     matSel.append(h('option', { value: m.id, text: m.id === 'custom' ? m.name : `${m.name} ${m.t} mm` }));
@@ -107,6 +120,47 @@ export function createInspector(root) {
   const matGroup = group('Bahan', true,
     h('div', { class: 'field' }, h('label', { text: 'Papan' }), h('div', { class: 'row' }, matSel)),
     customBox);
+
+  // ---- dinding & lantai (cetak) --------------------------------------------
+  const wallGroup = group('Dinding & lantai', true,
+    reg(numField('Tebal dinding & pembahagi', {
+      get: () => state.params.wallT, set: (v) => setParam('wallT', v), min: 0.8, max: 6, step: 0.2,
+      hint: 'Gandaan lebar garisan nozzle: 1.2 / 1.6 / 2.0 mm untuk nozzle 0.4 mm. 1.6 = 4 perimeter, tegar.',
+    })),
+    reg(numField('Tebal lantai', {
+      get: () => state.params.floorT, set: (v) => setParam('floorT', v), min: 0.6, max: 6, step: 0.2,
+    })),
+    reg(numField('Fillet bucu dalam', {
+      get: () => state.params.fillet, set: (v) => setParam('fillet', v), min: 0, max: 20, step: 0.5,
+      hint: 'Bucu petak dibulatkan - lebih kuat dan senang dibersihkan. Bucu luar ikut, supaya dinding sama tebal di selekoh. 0 = tajam.',
+    })));
+
+  // ---- boleh susun (cetak) -------------------------------------------------
+  const stackChk = h('input', { type: 'checkbox', onchange: () => setParam('stack', stackChk.checked) });
+  const stackField = reg(numField('Kelonggaran kaki', {
+    get: () => state.params.stackClear, set: (v) => setParam('stackClear', v), min: 0, max: 2, step: 0.05,
+    hint: 'Kaki di bawah dulang masuk ke bukaan dulang di bawahnya. 0.3 mm gelongsor selesa pada kebanyakan printer; 0.15 ketat.',
+  }));
+  const stackHint = h('p', { class: 'hint', text: 'Pembahagi dihadkan di bawah paras kaki supaya dulang atas duduk atas rim, bukan atas pembahagi.' });
+  const stackGroup = group('Boleh susun', false,
+    h('label', { class: 'check' }, stackChk, ' Tambah kaki terbenam supaya dulang boleh disusun'),
+    stackField, stackHint);
+
+  // ---- printer & filamen (cetak) -------------------------------------------
+  const printerSel = h('select', { onchange: () => setParam('printer', printerSel.value) });
+  for (const q of PRINTERS) printerSel.append(h('option', { value: q.id, text: `${q.name} (${q.x} x ${q.y} x ${q.z})` }));
+  const bedBox = h('div', { class: 'custom-mat' },
+    h('div', { class: 'row' },
+      reg(numField('Katil X', { get: () => state.params.bedX ?? 220, set: (v) => setParam('bedX', v), min: 50, max: 1000 })),
+      reg(numField('Katil Y', { get: () => state.params.bedY ?? 220, set: (v) => setParam('bedY', v), min: 50, max: 1000 })),
+      reg(numField('Tinggi Z', { get: () => state.params.bedZ ?? 220, set: (v) => setParam('bedZ', v), min: 20, max: 1000 }))));
+  const bedStat = h('p', { class: 'hint' });
+  const filSel = h('select', { onchange: () => setFilament(filSel.value) });
+  for (const f of FILAMENTS) filSel.append(h('option', { value: f.id, text: f.name }));
+  const filSwatch = h('span', { class: 'swatch' });
+  const printerGroup = group('Printer & filamen', true,
+    h('div', { class: 'field' }, h('label', { text: 'Printer' }), h('div', { class: 'row' }, printerSel), bedBox, bedStat),
+    h('div', { class: 'field' }, h('label', { text: 'Filamen (warna pratonton sahaja)' }), h('div', { class: 'row' }, filSwatch, filSel)));
 
   // ---- petak ---------------------------------------------------------------
   const gridMount = h('div', { class: 'grid-editor' });
@@ -162,24 +216,27 @@ export function createInspector(root) {
   const styleSeg = seg([['tetap', 'Tetap (tenon)'], ['alih', 'Boleh alih (slot)']],
     () => state.params.dividerStyle, (v) => setParam('dividerStyle', v));
   const styleHint = h('p', { class: 'hint' });
+  const styleField = h('div', { class: 'field' }, h('label', { text: 'Jenis' }), reg(styleSeg), styleHint);
   const heightRange = h('input', { type: 'range', min: 20, max: 100, step: 5 });
   heightRange.addEventListener('pointerdown', beginGesture);
   heightRange.addEventListener('pointerup', endGesture);
   heightRange.addEventListener('input', () => setParam('dividerHeight', parseFloat(heightRange.value), { history: false }));
   const heightOut = h('span', { class: 'unit' });
+  const heightHint = h('p', { class: 'hint' });
   const slackField = reg(numField('Kelonggaran slot', {
     get: () => state.params.slotSlack, set: (v) => setParam('slotSlack', v), min: 0, max: 1, step: 0.05,
     hint: 'Slot dinding = tebal papan + nilai ini. 0.2 mm gelongsor selesa; 0 ketat.',
   }));
   const divGroup = group('Pembahagi', true,
-    h('div', { class: 'field' }, h('label', { text: 'Jenis' }), reg(styleSeg), styleHint),
+    styleField,
     h('div', { class: 'field' },
       h('label', { text: 'Tinggi pembahagi' }),
       h('div', { class: 'row' }, heightRange, heightOut),
-      h('div', { class: 'tick-labels' }, h('span', { text: 'Rendah' }), h('span', { text: 'Separas rim' }))),
+      h('div', { class: 'tick-labels' }, h('span', { text: 'Rendah' }), h('span', { text: 'Separas rim' })),
+      heightHint),
     slackField);
 
-  // ---- takuk jari ----------------------------------------------------------
+  // ---- takuk jari (laser) --------------------------------------------------
   const pullSeg = seg([['none', 'Tiada'], ['depan', 'Depan'], ['depanBelakang', 'Depan & belakang']],
     () => state.params.fingerPull, (v) => setParam('fingerPull', v));
   const pullHint = h('p', { class: 'hint', text: 'Lekuk di tengah tepi atas dinding untuk mengangkat dulang dari laci.' });
@@ -192,7 +249,11 @@ export function createInspector(root) {
 
   root.append(
     h('h2', { class: 'insp-title', text: 'TETAPAN DULANG' }),
-    sizeGroup, gridGroup, divGroup, pullGroup, matGroup, sumGroup,
+    modeBox,
+    sizeGroup, gridGroup, divGroup,
+    wallGroup, stackGroup, printerGroup,
+    pullGroup, matGroup,
+    sumGroup,
   );
 
   const stat = (k, v) => h('div', { class: 'stat' }, h('span', { text: k }), h('b', { text: v }));
@@ -201,7 +262,21 @@ export function createInspector(root) {
     render() {
       const tray = getTray();
       const { params: p, derived: d } = tray;
+      const print = isPrint();
       for (const f of syncs) f.sync();
+
+      modeHint.textContent = print
+        ? 'Satu jasad pepejal untuk 3D printer - output STL. Susun atur petak sama seperti mod laser.'
+        : 'Panel finger joint untuk laser - output SVG. Tukar ke Cetak 3D untuk STL dengan susun atur yang sama.';
+
+      // Kumpulan mengikut mod.
+      matGroup.hidden = print;
+      pullGroup.hidden = print;
+      styleField.hidden = print;
+      slackField.hidden = print || !d.alih;
+      wallGroup.hidden = !print;
+      stackGroup.hidden = !print;
+      printerGroup.hidden = !print;
 
       sizeStat.textContent = `Ruang dalam ${r1(d.innerL)} x ${r1(d.innerW)} mm, dalam ${r1(d.intH)} mm.`;
 
@@ -213,29 +288,58 @@ export function createInspector(root) {
       syncList('y', d.rowD);
       splitX.disabled = !canSplit('x', state.selected.i);
       splitY.disabled = !canSplit('y', state.selected.j);
-      const maxed = d.colW.length >= MAX_PER_AXIS || d.rowD.length >= MAX_PER_AXIS;
       splitX.title = splitX.disabled
         ? (d.colW.length >= MAX_PER_AXIS ? 'Had 12 pembahagi setiap arah' : 'Petak terpilih terlalu kecil untuk dibelah')
         : 'Belah petak terpilih kiri-kanan';
       splitY.title = splitY.disabled
         ? (d.rowD.length >= MAX_PER_AXIS ? 'Had 12 pembahagi setiap arah' : 'Petak terpilih terlalu kecil untuk dibelah')
         : 'Belah petak terpilih depan-belakang';
-      void maxed;
+      gridHint.textContent = print
+        ? `Klik petak, tekan + untuk belah. Seret pembahagi untuk ubah saiz. Pembahagi setebal dinding (${r1(p.wallT)} mm).`
+        : 'Klik petak, tekan + untuk belah. Seret pembahagi untuk ubah saiz. Tekan x untuk buang.';
 
       heightRange.value = String(p.dividerHeight);
       heightOut.textContent = `${Math.round(p.dividerHeight)}% (${r1(d.divH)} mm)`;
-      slackField.hidden = !d.alih;
+      heightHint.textContent = print && d.dividerClamped
+        ? `Dihadkan pada ${r1(d.divH)} mm kerana kaki boleh susun perlukan ruang di atasnya.`
+        : '';
       styleHint.textContent = d.alih
         ? 'Pembahagi gelongsor masuk slot dari atas; boleh tanggal dan susun semula. Slot kekal nampak pada rim.'
         : 'Hujung pembahagi bertenon tembus dinding dan dilekat. Paling kukuh; tidak boleh tanggal.';
 
-      summary.replaceChildren(
-        stat('Panel', `${d.panelCount}`),
-        stat('Petak', `${d.cellCount}`),
-        stat('Pembahagi', `${d.dividers.x.length + d.dividers.y.length}`),
-        stat('Papan', `${material().name} ${r1(p.thickness)} mm`),
-        stat('Kerf', `${p.kerf} mm`),
-      );
+      if (print) {
+        stackChk.checked = Boolean(p.stack);
+        stackField.hidden = !p.stack;
+        stackHint.hidden = !p.stack;
+        printerSel.value = p.printer;
+        bedBox.hidden = p.printer !== 'custom';
+        bedStat.textContent = d.fitsBed && d.fitsZ
+          ? `Muat atas katil ${d.bed.x} x ${d.bed.y} mm.`
+          : `TIDAK muat: katil ${d.bed.x} x ${d.bed.y} x ${d.bed.z} mm. Kecilkan dulang, atau cetak dalam dua bahagian.`;
+        bedStat.classList.toggle('warn', !(d.fitsBed && d.fitsZ));
+        filSel.value = state.filament;
+        filSwatch.style.background = filament().color;
+      }
+
+      summary.replaceChildren();
+      if (print) {
+        summary.append(
+          stat('Isi padu', `${d.volumeCm3.toFixed(1)} cm³`),
+          stat('Anggaran filamen', `~${Math.round(d.gramsPLA)} g PLA`),
+          stat('Petak', `${d.cellCount}`),
+          stat('Dinding / lantai', `${r1(p.wallT)} / ${r1(p.floorT)} mm`),
+          stat('Fillet dalam', `${r1(d.r)} mm`),
+          stat('Segitiga STL', `${d.triangles.toLocaleString('ms-MY')}`),
+        );
+      } else {
+        summary.append(
+          stat('Panel', `${d.panelCount}`),
+          stat('Petak', `${d.cellCount}`),
+          stat('Pembahagi', `${d.dividers.x.length + d.dividers.y.length}`),
+          stat('Papan', `${material().name} ${r1(p.thickness)} mm`),
+          stat('Kerf', `${p.kerf} mm`),
+        );
+      }
       const warnText = warningsText(d);
       if (warnText) summary.append(h('p', { class: 'warn', text: warnText }));
     },
@@ -250,5 +354,6 @@ export function warningsText(d) {
   if (d.warnings.includes('baris')) out.push('Ada baris lebih kecil daripada had minimum - pembahagi tidak dijana. Besarkan dulang atau buang satu baris.');
   if (d.warnings.includes('tinggi')) out.push('Pembahagi terlalu rendah untuk bertenon - naikkan tinggi pembahagi atau dulang.');
   if (d.warnings.includes('takuk')) out.push('Takuk jari digugurkan pada dinding yang pembahaginya jatuh tepat di tengah. Alihkan pembahagi, rendahkannya, atau matikan takuk.');
+  if (d.warnings.includes('katil')) out.push('Dulang lebih besar daripada katil printer yang dipilih.');
   return out.join(' ');
 }

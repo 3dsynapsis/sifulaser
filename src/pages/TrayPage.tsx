@@ -34,7 +34,7 @@ export const TrayPage = () => (
               Tray Organizer
             </h1>
             <p className="truncate text-xs text-muted sm:text-sm">
-              Dulang berpetak untuk laci atau meja — belah petak, seret pembahagi, dapat SVG
+              Dulang berpetak untuk laci atau meja — SVG untuk laser, STL untuk 3D printer
             </p>
           </div>
         </div>

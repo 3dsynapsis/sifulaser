@@ -1,7 +1,14 @@
 # Tray Organizer
 
-Aplikasi statik untuk mereka dulang organizer laser cut berpetak - petak tak
-seragam, pembahagi di sebarang kedudukan, half-lap pada setiap persilangan.
+Aplikasi statik untuk mereka dulang organizer berpetak - petak tak seragam,
+pembahagi di sebarang kedudukan - dalam DUA mod atas satu susun atur:
+
+- **Laser cut**: panel finger joint, half-lap pada setiap persilangan, output
+  SVG berlapisan (`src/geom/tray.js`).
+- **Cetak 3D**: satu jasad pepejal manifold dengan dinding senipis perimeter
+  nozzle, fillet, lantai, pilihan kaki boleh susun, output STL binari
+  (`src/geom/tray3d.js`). Digabungkan ke dalam alat yang sama dan bukan tile
+  baharu, mengikut preseden Cake Topper yang ada butang STL di sebelah SVG.
 Ia **bukan** sebahagian daripada build Vite - fail di sini dihidangkan terus
 oleh GitHub Pages di `sifulaser.com/tray/`, dan halaman React `#/tray`
 memuatkannya dalam iframe.
@@ -23,15 +30,23 @@ tidak terpakai - tetapi dua tag itu masih WAJIB ada dalam `index.html`.
 ## Ujian
 
 ```bash
-node scripts/test-tray.mjs
+node scripts/test-tray.mjs      # laser
+node scripts/test-tray3d.mjs    # cetak 3D
 ```
 
-~9,600 semakan ke atas `src/geom/tray.js`: bilangan panel, setiap gelang
+Laser, ~9,600 semakan ke atas `src/geom/tray.js`: bilangan panel, setiap gelang
 ringkas (tiada silangan sendiri), mortis menerima tenon dalam ruang dunia
 (termasuk dinding belakang dan kiri yang u-nya terbalik), half-lap pada setiap
 persilangan separuh tinggi, slot 'alih' selebar t + slack, kerf, dan input
-teruk yang tidak pernah campak. Jalankan sebelum setiap commit yang menyentuh
-geometri.
+teruk yang tidak pernah campak.
+
+Cetak 3D, ~530 semakan ke atas `src/geom/tray3d.js`: mesh MANIFOLD (setiap
+tepi dikongsi tepat dua segitiga arah bertentangan - itulah yang Bambu Studio
+dan Orca semak), isi padu mesh = isi padu analitik, bbox tepat, tiada segitiga
+merosot, STL binari 84 + 50n bait dengan normal unit - untuk fillet 0 dan bukan
+0, pembahagi rendah dan separas rim, kaki boleh susun, grid 1x1 hingga 12x12.
+
+Jalankan kedua-duanya sebelum setiap commit yang menyentuh geometri.
 
 ## Gambar tile
 
@@ -47,7 +62,9 @@ boleh hanyut daripada alat.
 ## Kandungan
 
 - `index.html`, `styles.css` - rangka aplikasi
-- `src/geom/tray.js` - geometri: dinding, lantai, pembahagi, half-lap, slot, kerf
+- `src/geom/tray.js` - geometri laser: dinding, lantai, pembahagi, half-lap, slot, kerf
+- `src/geom/tray3d.js` - geometri cetak: satu cangkerang manifold (rangka pembahagi
+  pada paras sendiri, fillet, kaki boleh susun), isi padu, katil printer, penulis STL
 - `src/geom/path.js`, `label.js`, `hershey-sans.js` - dikongsi dengan Box Maker (salinan)
 - `src/store.js` - keadaan, undo, simpan ke localStorage, operasi grid (belah/buang/seret)
 - `src/grid.js` - editor grid pandangan atas, boleh seret dan sentuh
