@@ -1,8 +1,9 @@
 // Penjana jasad untuk Tray Organizer versi CETAK 3D - satu cangkerang pepejal,
-// bukan panel. Susun atur petak (lajur, baris, kedudukan pembahagi) dikongsi
-// dengan versi laser melalui gridSizes() yang sama; yang berbeza ialah apa yang
-// dibina daripadanya: dinding boleh senipis 3 perimeter nozzle, bucu berfillet,
-// lantai pepejal, pilihan kaki boleh susun, dan output STL.
+// bukan panel. Susun atur ialah POKOK BELAHAN (geom/layout.js): setiap petak
+// boleh dibelah sendiri, jadi satu petak panjang untuk sudu boleh duduk di
+// sebelah 2x2. Tanpa pokok, grid mod laser (cols x rows) ditukar menjadi
+// pokok. Dinding boleh senipis 3 perimeter nozzle, bucu berfillet, lantai
+// pepejal, pilihan kaki boleh susun, dan output STL.
 //
 // SATU CANGKERANG MANIFOLD. Bambu Studio dan Orca menanda lencana amaran pada
 // mesh yang ada tepi tidak dikongsi tepat dua segitiga, dan PrusaSlicer boleh
@@ -11,31 +12,36 @@
 // poligon yang berkongsi BUCU YANG SAMA di setiap tepi bersama:
 //
 //   * O  - garis luar dulang (segi empat berfillet rO = fillet + dinding)
-//   * I  - muka dalam dinding luar. Bucunya termasuk SETIAP titik tangen petak
-//          sempadan, supaya tepi bawahnya pada paras Hd sepadan tepat dengan
-//          tepi atas dinding poket di bawahnya dan tepi tampalan hujung
-//          pembahagi di sebelahnya. Bucu I berkongsi lengkung dengan petak
-//          penjuru, jadi tiada tampalan sifar-lebar di penjuru.
-//   * C_k - setiap petak, segi empat berfillet r (SATU r untuk semua petak,
-//          supaya tepi lurus dua petak bersebelahan sejajar tepat)
+//   * I  - muka dalam dinding luar. Bucunya termasuk setiap titik tangen dan
+//          setiap bucu segi empat petak sempadan, supaya tepi bawahnya pada
+//          paras Hd sepadan tepat dengan tepi atas dinding poket, hujung
+//          jalur pembahagi dan serpih fillet di sebelahnya. Lengkung penjuru
+//          I ialah lengkung petak penjuru sendiri.
+//   * C_k - setiap petak, segi empat berfillet r (SATU r untuk semua petak)
 //   * F  - kaki boleh susun, I dikecilkan sebanyak kelonggaran
 //
-// Muka: tapak (F atau O, normal ke bawah) - dinding kaki - cincin anak tangga
-// (O - F, ke bawah) - dinding luar O - cincin atas (O - I) pada H - muka dalam I
-// dari Hd ke H - RANGKA pembahagi pada Hd - dinding poket setiap petak dari
-// lantai ke Hd - lantai poket. Rangka pada Hd ialah bahagian yang rumit: ia
-// dipecahkan kepada jalur antara dua petak bersebelahan, tampalan persilangan
-// yang disempadani EMPAT lengkung fillet (dilalui terbalik, kerana tampalan di
-// luar setiap petak), dan tampalan hujung pembahagi di dinding (dua lengkung +
-// satu tepi I). Bila Hd = H, cincin atas dan rangka sepalan dan berkongsi tepi
-// I - masih manifold, satu laluan kod sahaja.
+// Muka: tapak (F atau O, ke bawah) - dinding kaki - cincin anak tangga (O - F,
+// ke bawah) - dinding luar O - cincin atas (O - I) pada H - muka dalam I dari
+// Hd ke H - RANGKA pembahagi pada Hd - dinding poket setiap petak dari lantai
+// ke Hd - lantai poket. Bila Hd = H, cincin atas dan rangka sepalan dan
+// berkongsi tepi I - masih manifold, satu laluan kod sahaja.
 //
-// three.js hanya dipinjam untuk triangulatornya (ShapeUtils.triangulateShape,
-// earcut di dalamnya - tiada titik Steiner ditambah, jadi bucu kekal milik
-// gelang). Ia dihantar masuk, bukan diimport, supaya ujian node boleh beri
-// terus dan halaman boleh kongsi salinan yang pandangan 3D sudah muat.
+// TIADA earcut pada muka yang berlubang atau yang bucunya kolinear. Rangka
+// ialah jalur pembahagi (dizip antara dua sisi panjang) + serpih fillet
+// (kipas); cincin ialah jalur sisi (dizip) + sektor penjuru (kuad antara dua
+// lengkung sepusat). Earcut menyambung lubang dengan sinar mendatar dan
+// gagal pada grid fillet-0 di mana berpuluh bucu berkongsi y yang sama; ia
+// juga memilih kipas yang nipis dalam float64 dan merosot dalam float32.
+// Semua koordinat susun atur dibundarkan ke grid 1e-6 mm supaya titik tangen
+// dan bucu segi empat terletak tepat pada garis yang sama, bit demi bit.
+//
+// three.js hanya dipinjam untuk earcut pada muka CEMBUNG tanpa lubang
+// (tapak, lantai poket). Ia dihantar masuk, bukan diimport, supaya ujian
+// node boleh beri terus dan halaman boleh kongsi salinan yang pandangan 3D
+// sudah muat.
 
-import { DEFAULTS as LASER_DEFAULTS, gridSizes, cleanFractions } from './tray.js';
+import { DEFAULTS as LASER_DEFAULTS, cleanFractions } from './tray.js';
+import { cleanTree, gridToTree, layoutRegions } from './layout.js';
 
 export const PRINT_DEFAULTS = {
   wallT: 1.6,          // dinding luar DAN pembahagi; 4 perimeter nozzle 0.4
@@ -116,6 +122,65 @@ function rrect(x0, y0, x1, y1, r) {
 
 const rev = (a) => a.slice().reverse();
 
+const R6 = (v) => Math.round(v * 1e6) / 1e6;
+
+/**
+ * Triangulasi satu jalur pembahagi: segi empat paksi-sejajar yang dua sisi
+ * PANJANGNYA membawa banyak bucu kolinear (bucu dan titik tangen petak
+ * bersebelahan, hujung pembahagi lain yang berhenti padanya).
+ *
+ * "Zip" antara dua sisi panjang itu: setiap segitiga ialah dua titik
+ * berturutan pada satu sisi dan satu titik pada sisi bertentangan. Kedua-dua
+ * sisi selari dan terpisah sejauh tebal pembahagi, jadi setiap segitiga ada
+ * luas, setiap bucu digunakan, dan tiada tepi yang menyusuri sisi melintasi
+ * bucu lain - dua perkara yang klip-telinga dan earcut tidak dapat jamin pada
+ * input sedegenerat ini.
+ *
+ * Hujung pendek tidak pernah membawa bucu dalaman (ia berakhir pada dinding
+ * atau pada sisi pembahagi lain, antara dua bucu petak); campak kalau ada,
+ * supaya ujian menangkapnya dan bukan STL.
+ */
+function stripTriangles(s, pool) {
+  const vertical = s.axis === 'x';
+  // Koordinat tempatan: `al` sepanjang jalur, `ac` merentasnya.
+  const al = (q) => (vertical ? q[1] : q[0]);
+  const ac = (q) => (vertical ? q[0] : q[1]);
+  const P = (along, across) => (vertical ? [across, along] : [along, across]);
+  const side = (across) => {
+    const m = new Map();
+    for (const q of pool) if (ac(q) === across && al(q) >= s.from && al(q) <= s.to) m.set(`${q[0]},${q[1]}`, q);
+    for (const q of [P(s.from, across), P(s.to, across)]) if (!m.has(`${q[0]},${q[1]}`)) m.set(`${q[0]},${q[1]}`, q);
+    return [...m.values()].sort((a, b) => al(a) - al(b));
+  };
+  for (const q of pool) {
+    const end = al(q) === s.from || al(q) === s.to;
+    if (end && ac(q) > s.lo && ac(q) < s.hi) throw new Error('stripTriangles: bucu pada hujung pendek');
+  }
+  return zipChains(side(s.lo), side(s.hi), al);
+}
+
+/**
+ * Zip dua rantai bucu pada dua garis selari, kedua-dua disusun mengikut
+ * `al` (kedudukan sepanjang garis). Setiap segitiga: dua bucu berturutan
+ * pada satu rantai + satu bucu pada rantai lain - jadi tiada yang merosot,
+ * dan setiap tepi rantai muncul tepat sekali.
+ */
+function zipChains(A, B, al) {
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < A.length - 1 || j < B.length - 1) {
+    if (j === B.length - 1 || (i < A.length - 1 && al(A[i + 1]) <= al(B[j + 1]))) {
+      out.push([A[i], A[i + 1], B[j]]);
+      i++;
+    } else {
+      out.push([A[i], B[j + 1], B[j]]);
+      j++;
+    }
+  }
+  return out;
+}
+
 /** Bina setiap segitiga untuk parameter yang diberi. `THREE` wajib. */
 export function buildTray3D(input = {}, THREE) {
   if (!THREE || !THREE.ShapeUtils) throw new Error('buildTray3D perlukan three.js (ShapeUtils)');
@@ -130,35 +195,30 @@ export function buildTray3D(input = {}, THREE) {
   const clear = Math.min(2, Math.max(0, Number(p.stackClear) || 0));
   const footH = stack ? Math.min(Math.max(1, Number(p.footH) || 3), (H - floorT) * 0.5) : 0;
 
-  // ---- grid (dikongsi dengan versi laser) ---------------------------------
+  // ---- susun atur: pokok belahan ------------------------------------------
+  // `layout` ialah pokok "belah petak sendiri" (geom/layout.js). Tanpanya,
+  // grid mod laser (cols x rows) ditukar menjadi pokok, jadi reka bentuk lama
+  // dan dulang yang baru bertukar mod tetap kelihatan sama.
   const innerL = L - 2 * wallT;
   const innerW = W - 2 * wallT;
-  const colsG = gridSizes(p.cols, innerL, wallT, minCell);
-  const rowsG = gridSizes(p.rows, innerW, wallT, minCell);
-  const colW = colsG.sizes;
-  const rowD = rowsG.sizes;
-  const nC = colW.length;
-  const nR = rowD.length;
-  const xDiv = [];
-  const yDiv = [];
-  const cells = [];
-  {
-    let y = wallT;
-    for (let j = 0; j < nR; j++) {
-      let x = wallT;
-      for (let i = 0; i < nC; i++) {
-        cells.push({ i, j, x, y, w: colW[i], h: rowD[j] });
-        if (j === 0 && i < nC - 1) xDiv.push(x + colW[i] + wallT / 2);
-        x += colW[i] + wallT;
-      }
-      if (j < nR - 1) yDiv.push(y + rowD[j] + wallT / 2);
-      y += rowD[j] + wallT;
-    }
-  }
-  const gridOK = colsG.ok && rowsG.ok;
+  const tree = p.layout ? cleanTree(p.layout) : gridToTree(p.cols, p.rows);
+  let lay = layoutRegions(tree, wallT, wallT, L - wallT, W - wallT, wallT, minCell);
+  const gridOK = lay.ok;
   const warnings = [];
-  if (!colsG.ok) warnings.push('lajur');
-  if (!rowsG.ok) warnings.push('baris');
+  // Petak terlalu kecil (dulang dikecilkan selepas dibelah): jasad dibina
+  // tanpa pembahagi, dan pokok tetap disimpan - besarkan dulang semula dan
+  // semua petak kembali.
+  if (!gridOK) {
+    warnings.push('petak');
+    lay = layoutRegions({}, wallT, wallT, L - wallT, W - wallT, wallT, 0);
+  }
+  // Grid 1e-6 mm untuk SEMUA koordinat susun atur. Lengkung fillet sudah
+  // dibundarkan ke grid ini; tanpa ini, titik tangen sesebuah petak dan bucu
+  // segi empatnya boleh berbeza 1e-14 pada garis yang sepatutnya sama, dan
+  // jalur pembahagi tidak akan berkongsi bucu dengan tepat.
+  const cells = lay.cells.map((c) => ({ ...c, x: R6(c.x), y: R6(c.y), x1: R6(c.x1), y1: R6(c.y1) }))
+    .map((c) => ({ ...c, w: c.x1 - c.x, h: c.y1 - c.y }));
+  const segs = lay.segs.map((s) => ({ ...s, pos: R6(s.pos), lo: R6(s.lo), hi: R6(s.hi), from: R6(s.from), to: R6(s.to) }));
 
   // ---- paras ----------------------------------------------------------------
   const intH = H - floorT;
@@ -172,7 +232,7 @@ export function buildTray3D(input = {}, THREE) {
     Hd = Math.max(floorT + 1, H - footH - 0.3);
     dividerClamped = true;
   }
-  const hasDiv = nC + nR > 2;
+  const hasDiv = cells.length > 1;
   // Tanpa pembahagi langsung, "tinggi pembahagi" tiada makna: bukaan ialah
   // satu petak dari lantai ke rim.
   if (!hasDiv) Hd = H;
@@ -188,27 +248,46 @@ export function buildTray3D(input = {}, THREE) {
 
   // ---- gelang ---------------------------------------------------------------
   const O = rrect(0, 0, L, W, rO);
-  const C = cells.map((c) => rrect(c.x, c.y, c.x + c.w, c.y + c.h, r));
-  const cellAt = (i, j) => C[j * nC + i];
+  // Koordinat petak sempadan SAMA bit demi bit dengan dinding dalam (lihat
+  // layoutRegions), jadi ujian "menyentuh dinding" boleh guna ===.
+  const X0 = R6(wallT), Y0 = R6(wallT), X1 = R6(L - wallT), Y1 = R6(W - wallT);
+  const C = cells.map((c) => rrect(c.x, c.y, c.x1, c.y1, r));
 
   // I: muka dalam dinding luar, dibina daripada petak sempadan supaya setiap
-  // titik tangen dan setiap lengkung penjuru ialah bucu yang SAMA.
+  // titik tangen dan setiap lengkung penjuru ialah bucu yang SAMA. Untuk
+  // setiap dinding: petak yang menyentuhnya, disusun sepanjang dinding itu,
+  // dan dua hujung tepi lurus masing-masing. Antara dua petak berturutan, I
+  // melintasi hujung satu pembahagi.
   let I;
+  let Icorners;
   {
+    const on = (pred, key, desc) => C.filter(pred).sort((a, b) => (desc ? b[key] - a[key] : a[key] - b[key]));
+    const bottom = on((c) => c.y0 === Y0, 'x0', false);
+    const right = on((c) => c.x1 === X1, 'y0', false);
+    const top = on((c) => c.y1 === Y1, 'x0', true);
+    const left = on((c) => c.x0 === X0, 'y0', true);
+    const last = (a) => a[a.length - 1];
+    // Antara dua petak berturutan I melintasi hujung pembahagi. Bucu segi
+    // empat kedua-dua petak dimasukkan sebagai bucu I juga: jalur pembahagi
+    // berakhir tepat di situ, dan serpihan fillet di sebelahnya bermula di
+    // situ, jadi tepi bawah muka dalam dinding mesti dipecahkan di titik yang
+    // sama. Dengan fillet 0 bucu itu ialah titik tangen dan dedupe membuangnya.
     const pts = [];
-    pts.push(...cellAt(0, 0).BL);
-    for (let i = 0; i < nC; i++) { const c = cellAt(i, 0); pts.push(c.BL[c.BL.length - 1], c.BR[0]); }
-    pts.push(...cellAt(nC - 1, 0).BR);
-    for (let j = 0; j < nR; j++) { const c = cellAt(nC - 1, j); pts.push(c.BR[c.BR.length - 1], c.TR[0]); }
-    pts.push(...cellAt(nC - 1, nR - 1).TR);
-    for (let i = nC - 1; i >= 0; i--) { const c = cellAt(i, nR - 1); pts.push(c.TR[c.TR.length - 1], c.TL[0]); }
-    pts.push(...cellAt(0, nR - 1).TL);
-    for (let j = nR - 1; j >= 0; j--) { const c = cellAt(0, j); pts.push(c.TL[c.TL.length - 1], c.BL[0]); }
+    pts.push(...bottom[0].BL);
+    bottom.forEach((c, i) => { if (i) pts.push([bottom[i - 1].x1, Y0], [c.x0, Y0]); pts.push(last(c.BL), c.BR[0]); });
+    pts.push(...last(bottom).BR);
+    right.forEach((c, i) => { if (i) pts.push([X1, right[i - 1].y1], [X1, c.y0]); pts.push(last(c.BR), c.TR[0]); });
+    pts.push(...last(right).TR);
+    top.forEach((c, i) => { if (i) pts.push([top[i - 1].x0, Y1], [c.x1, Y1]); pts.push(last(c.TR), c.TL[0]); });
+    pts.push(...last(top).TL);
+    left.forEach((c, i) => { if (i) pts.push([X0, left[i - 1].y0], [X0, c.y1]); pts.push(last(c.TL), c.BL[0]); });
     I = dedupe(pts);
+    Icorners = { BL: bottom[0].BL, BR: last(bottom).BR, TR: last(right).TR, TL: last(top).TL };
   }
-  const F = stack
-    ? rrect(wallT + clear, wallT + clear, L - wallT - clear, W - wallT - clear, Math.max(0, r - clear)).pts
+  const Frr = stack
+    ? rrect(wallT + clear, wallT + clear, L - wallT - clear, W - wallT - clear, Math.max(0, r - clear))
     : null;
+  const F = Frr ? Frr.pts : null;
 
   // ---- pengeluar segitiga -----------------------------------------------------
   const tris = [];
@@ -238,6 +317,58 @@ export function buildTray3D(input = {}, THREE) {
     }
   };
 
+  /** Satu segitiga mendatar pada z, normal ke atas (up) atau ke bawah. */
+  const flat3 = (a, b, c, z, up = true) => {
+    const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const A = [a[0], a[1], z], B = [b[0], b[1], z], Cc = [c[0], c[1], z];
+    if ((cross > 0) === up) emit(A, B, Cc); else emit(A, Cc, B);
+  };
+
+  /**
+   * Cincin mendatar antara segi empat berfillet luar `Or` dan gelang dalam
+   * `inner` (dengan lengkung penjuru BL/BR/TR/TL dan bucu sisi sebanyak mana
+   * pun) - bahagian atas dinding, dan anak tangga di atas kaki boleh susun.
+   *
+   * BUKAN earcut. Cincin ini dipecahkan kepada empat jalur lurus (sisi luar
+   * dua bucu, sisi dalam sebanyak mana pun; dizip seperti jalur pembahagi)
+   * dan empat sektor penjuru antara lengkung luar dan lengkung dalam yang
+   * SEPUSAT (rO = fillet + dinding), dijalin kuad demi kuad. Dalam kedua-dua
+   * bentuk setiap segitiga merentasi tebal dinding, jadi tiada yang nipis.
+   * Earcut di sini pernah memilih kipas dari satu titik lengkung luar yang
+   * kebetulan 0.00005 mm dari garis dinding dalam - sah dalam float64,
+   * kolinear dalam float32, iaitu segitiga merosot dalam STL.
+   */
+  const ringFace = (Or, inner, z, up) => {
+    const lastOf = (a) => a[a.length - 1];
+    const ip = inner.pts;
+    const ib = { x0: Math.min(...ip.map((q) => q[0])), x1: Math.max(...ip.map((q) => q[0])),
+      y0: Math.min(...ip.map((q) => q[1])), y1: Math.max(...ip.map((q) => q[1])) };
+    const byX = (a, b) => a[0] - b[0];
+    const byY = (a, b) => a[1] - b[1];
+    const bands = [
+      [[lastOf(Or.BL), Or.BR[0]], ip.filter((q) => q[1] === ib.y0).sort(byX), (q) => q[0]],
+      [[lastOf(Or.BR), Or.TR[0]], ip.filter((q) => q[0] === ib.x1).sort(byY), (q) => q[1]],
+      [[Or.TL[0], lastOf(Or.TR)], ip.filter((q) => q[1] === ib.y1).sort(byX), (q) => q[0]],
+      [[Or.BL[0], lastOf(Or.TL)], ip.filter((q) => q[0] === ib.x0).sort(byY), (q) => q[1]],
+    ];
+    for (const [A, B, al] of bands) {
+      for (const [a, b, c] of zipChains(dedupe(A), B, al)) flat3(a, b, c, z, up);
+    }
+    for (const key of ['BL', 'BR', 'TR', 'TL']) {
+      const oa = Or[key];
+      const ia = inner[key];
+      if (oa.length === 1) continue;            // fillet 0: penjuru ialah hujung jalur
+      if (ia.length === 1) {                    // lengkung luar ke satu bucu dalam: kipas
+        for (let i = 0; i < oa.length - 1; i++) flat3(ia[0], oa[i], oa[i + 1], z, up);
+        continue;
+      }
+      for (let i = 0; i < oa.length - 1; i++) {
+        flat3(ia[i], oa[i], oa[i + 1], z, up);
+        flat3(ia[i], oa[i + 1], ia[i + 1], z, up);
+      }
+    }
+  };
+
   /**
    * Dinding menegak sepanjang gelang CCW dari z0 ke z1. Untuk gelang LUAR
    * jasad, normal menghala keluar dengan berjalan ke hadapan; untuk gelang
@@ -260,7 +391,7 @@ export function buildTray3D(input = {}, THREE) {
   if (stack) {
     cap(F, [], 0, false);
     side(F, 0, footH, false);
-    cap(O.pts, [F], footH, false);
+    ringFace(O, Frr, footH, false);
     side(O.pts, footH, H, false);
   } else {
     cap(O.pts, [], 0, false);
@@ -268,47 +399,48 @@ export function buildTray3D(input = {}, THREE) {
   }
 
   // ---- atas: cincin, muka dalam, rangka pembahagi ---------------------------------
-  cap(O.pts, [I], H, true);
+  ringFace(O, { pts: I, ...Icorners }, H, true);
   side(I, Hd, H, true);
 
-  // Rangka pada Hd. Jalur antara jiran: tepi lurus dua petak sebaris sejajar
-  // tepat kerana r sama, jadi jalur ialah satu segi empat yang tepinya ialah
-  // tepi gelang kedua-dua petak itu.
-  for (let j = 0; j < nR; j++) {
-    for (let i = 0; i < nC - 1; i++) {
-      const A = cellAt(i, j), B = cellAt(i + 1, j);
-      cap([[A.x1, A.y0 + A.r], [B.x0, B.y0 + B.r], [B.x0, B.y1 - B.r], [A.x1, A.y1 - A.r]], [], Hd, true);
+  // Rangka pembahagi pada Hd = (dalam I) tolak (semua petak), diuraikan
+  // mengikut struktur pokok dan BUKAN diberi kepada earcut sebagai satu
+  // poligon besar berlubang. (Earcut menyambung lubang dengan sinar
+  // mendatar; pada grid fillet-0 berpuluh bucu berkongsi y yang sama dan ia
+  // menghasilkan tepi yang melintasi bucu lain - tepi terbuka dalam STL.)
+  //
+  //   * jalur  - setiap pembahagi ialah satu segi empat [lo, hi] x [from, to].
+  //              Sisi-sisinya membawa setiap bucu yang terletak di atasnya
+  //              (bucu dan titik tangen petak bersebelahan, hujung pembahagi
+  //              lain yang berhenti padanya). Cembung, jadi klip-telinga pada
+  //              bucu yang betul-betul cembung tidak boleh gagal.
+  //   * serpih - setiap bucu petak berfillet yang tidak berada di penjuru
+  //              dulang: kawasan antara lengkung dan bucu segi empat petak.
+  //              Kipas dari bucu segi empat itu.
+  //
+  // Setiap jalur berakhir pada dinding atau pada sisi jalur lain, dan setiap
+  // titik sempadan datang daripada set titik yang sama, jadi kepingan
+  // bersebelahan berkongsi setiap tepi dengan tepat.
+  {
+    const K = (pt) => `${pt[0]},${pt[1]}`;
+    const cand = new Map();
+    const addPt = (pt) => { if (!cand.has(K(pt))) cand.set(K(pt), pt); };
+    for (const c of C) {
+      for (const pt of [[c.x0, c.y0], [c.x1, c.y0], [c.x1, c.y1], [c.x0, c.y1]]) addPt(pt);
+      for (const arcPts of [c.BL, c.BR, c.TR, c.TL]) { addPt(arcPts[0]); addPt(arcPts[arcPts.length - 1]); }
     }
-  }
-  for (let j = 0; j < nR - 1; j++) {
-    for (let i = 0; i < nC; i++) {
-      const A = cellAt(i, j), B = cellAt(i, j + 1);
-      cap([[A.x0 + A.r, A.y1], [A.x1 - A.r, A.y1], [B.x1 - B.r, B.y0], [B.x0 + B.r, B.y0]], [], Hd, true);
+    const pool = [...cand.values()];
+    for (const s of segs) {
+      for (const [a, b, c] of stripTriangles(s, pool)) flat3(a, b, c, Hd);
     }
-  }
-  // Tampalan persilangan: empat lengkung, setiap satu terbalik (tampalan di
-  // luar setiap petak), mengikut giliran CCW di sekeliling nod: bawah-kiri,
-  // bawah-kanan, atas-kanan, atas-kiri.
-  for (let j = 0; j < nR - 1; j++) {
-    for (let i = 0; i < nC - 1; i++) {
-      const A = cellAt(i, j), B = cellAt(i + 1, j), Cc = cellAt(i + 1, j + 1), D = cellAt(i, j + 1);
-      cap(dedupe([...rev(A.TR), ...rev(B.TL), ...rev(Cc.BL), ...rev(D.BR)]), [], Hd, true);
+    if (r > 1e-9) {
+      const isTrayCorner = (pt) => (pt[0] === X0 || pt[0] === X1) && (pt[1] === Y0 || pt[1] === Y1);
+      for (const c of C) {
+        for (const [corner, arcPts] of [[[c.x0, c.y0], c.BL], [[c.x1, c.y0], c.BR], [[c.x1, c.y1], c.TR], [[c.x0, c.y1], c.TL]]) {
+          if (isTrayCorner(corner)) continue;
+          for (let i = 0; i < arcPts.length - 1; i++) flat3(corner, arcPts[i], arcPts[i + 1], Hd);
+        }
+      }
     }
-  }
-  // Tampalan hujung pembahagi di dinding: dua lengkung terbalik dan satu tepi I.
-  // Dengan r = 0 ia merosot kepada segmen dan cap() melangkaunya - tepi I itu
-  // kemudian terus bersempadan dengan hujung jalur, yang memang sepadan.
-  for (let i = 0; i < nC - 1; i++) {
-    const A = cellAt(i, 0), B = cellAt(i + 1, 0);               // dinding depan
-    cap(dedupe([...rev(A.BR), ...rev(B.BL)]), [], Hd, true);
-    const A2 = cellAt(i, nR - 1), B2 = cellAt(i + 1, nR - 1);   // dinding belakang
-    cap(dedupe([...rev(B2.TL), ...rev(A2.TR)]), [], Hd, true);
-  }
-  for (let j = 0; j < nR - 1; j++) {
-    const A = cellAt(0, j), B = cellAt(0, j + 1);               // dinding kiri
-    cap(dedupe([...rev(B.BL), ...rev(A.TL)]), [], Hd, true);
-    const A2 = cellAt(nC - 1, j), B2 = cellAt(nC - 1, j + 1);   // dinding kanan
-    cap(dedupe([...rev(A2.TR), ...rev(B2.BR)]), [], Hd, true);
   }
 
   // ---- poket ----------------------------------------------------------------
@@ -352,10 +484,13 @@ export function buildTray3D(input = {}, THREE) {
     derived: {
       wallH: H, floorZ: 0, divBase: floorT, intH, divH: Hd - floorT, Hd, flatTop,
       divOK: hasDiv && gridOK, alih: false,
-      innerL, innerW, colW, rowD, xDiv, yDiv, cells, gridOK,
+      innerL, innerW, cells, segs, gridOK,
+      // Pokok yang dibina (bersih) dan saiz mm setiap nod - store perlukannya
+      // untuk belah / buang / seret tanpa mengira semula.
+      tree, layout: lay,
       dividers: {
-        x: xDiv.map((x, i) => ({ id: `divX${i + 1}`, x })),
-        y: yDiv.map((y, j) => ({ id: `divY${j + 1}`, y })),
+        x: segs.filter((s) => s.axis === 'x').map((s, i) => ({ id: `divX${i + 1}`, x: s.pos })),
+        y: segs.filter((s) => s.axis === 'y').map((s, j) => ({ id: `divY${j + 1}`, y: s.pos })),
       },
       r, rO, stack, footH, clear,
       volumeMm3: volume, volumeCm3, gramsPLA,

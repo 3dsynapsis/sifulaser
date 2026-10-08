@@ -16,6 +16,8 @@ import {
   beginGesture, endGesture, splitCell, canSplit, removeDivider, moveDivider,
   setCellMm, selectCell, MAX_PER_AXIS,
   isPrint, setMode, FILAMENTS, filament, setFilament,
+  selectPrintCell, canSplitPrint, splitPrint, removePrintSeg, movePrintSeg,
+  setPrintCellMm, useLaserGrid, hasCustomLayout, MAX_PRINT_CELLS,
 } from './store.js';
 import { PRINTERS } from './geom/tray3d.js';
 import { GridEditor } from './grid.js';
@@ -163,27 +165,58 @@ export function createInspector(root) {
     h('div', { class: 'field' }, h('label', { text: 'Filamen (warna pratonton sahaja)' }), h('div', { class: 'row' }, filSwatch, filSel)));
 
   // ---- petak ---------------------------------------------------------------
+  // Mod laser: grid - "+ Lajur" menambah satu lajur merentang seluruh dulang.
+  // Mod cetak: pokok - "+ Lajur" membelah petak terpilih SAHAJA, jadi satu
+  // petak panjang boleh duduk di sebelah petak-petak kecil.
   const gridMount = h('div', { class: 'grid-editor' });
   const splitX = h('button', { type: 'button', class: 'ghost', text: '+ Lajur', title: 'Belah petak terpilih kiri-kanan',
-    onclick: () => splitCell('x', state.selected.i) });
+    onclick: () => (isPrint() ? splitPrint('x') : splitCell('x', state.selected.i)) });
   const splitY = h('button', { type: 'button', class: 'ghost', text: '+ Baris', title: 'Belah petak terpilih depan-belakang',
-    onclick: () => splitCell('y', state.selected.j) });
+    onclick: () => (isPrint() ? splitPrint('y') : splitCell('y', state.selected.j)) });
   const gridHint = h('p', { class: 'hint', text: 'Klik petak, tekan + untuk belah. Seret pembahagi untuk ubah saiz. Tekan x untuk buang.' });
   const colList = h('div', { class: 'mm-list' });
   const rowList = h('div', { class: 'mm-list' });
+  const colField = h('div', { class: 'field' }, h('label', { text: 'Lebar lajur (kiri ke kanan)' }), colList);
+  const rowField = h('div', { class: 'field' }, h('label', { text: 'Dalam baris (depan ke belakang)' }), rowList);
+
+  // Mod cetak: saiz petak terpilih, boleh ditaip. Jiran di sebelahnya yang
+  // menyerap beza; petak yang merentang seluruh dulang mengubah saiz luar.
+  const cellInput = (axis) => {
+    const input = h('input', { type: 'number', min: 3, step: 0.5, inputmode: 'decimal', 'aria-label': axis === 'x' ? 'Lebar petak terpilih' : 'Dalam petak terpilih' });
+    input.addEventListener('focus', beginGesture);
+    input.addEventListener('blur', endGesture);
+    input.addEventListener('change', () => {
+      const mm = parseFloat(input.value);
+      if (Number.isFinite(mm)) setPrintCellMm(axis, mm);
+    });
+    return input;
+  };
+  const selW = cellInput('x');
+  const selH = cellInput('y');
+  const resetLayout = h('button', { type: 'button', class: 'link', text: 'Guna semula grid mod laser', onclick: () => useLaserGrid() });
+  const selField = h('div', { class: 'field sel-cell' },
+    h('label', { text: 'Petak terpilih (lebar x dalam)' }),
+    h('div', { class: 'row' },
+      h('div', { class: 'num' }, selW, h('span', { class: 'unit', text: 'x' })),
+      h('div', { class: 'num' }, selH, h('span', { class: 'unit', text: 'mm' }))),
+    resetLayout);
+
   const gridGroup = group('Petak', true,
     gridMount,
     h('div', { class: 'grid-toolbar' }, splitX, splitY),
     gridHint,
-    h('div', { class: 'field' }, h('label', { text: 'Lebar lajur (kiri ke kanan)' }), colList),
-    h('div', { class: 'field' }, h('label', { text: 'Dalam baris (depan ke belakang)' }), rowList));
+    colField, rowField, selField);
 
   const grid = new GridEditor(gridMount, {
-    onSelect: (i, j) => selectCell(i, j),
+    onSelect: (cell) => (isPrint() ? selectPrintCell(cell.path) : selectCell(cell.i, cell.j)),
     onDragStart: () => beginGesture(),
-    onDrag: (axis, k, pos) => moveDivider(axis, k, pos, { history: false }),
+    // Laser mengukur kedudukan dari muka dalam dinding pertama; pokok cetak
+    // menerima koordinat mutlak dulang.
+    onDrag: (seg, pos) => (isPrint()
+      ? movePrintSeg(seg.path, seg.k, pos, { history: false })
+      : moveDivider(seg.axis, seg.k, pos - state.params.thickness, { history: false })),
     onDragEnd: () => endGesture(),
-    onRemove: (axis, k) => removeDivider(axis, k),
+    onRemove: (seg) => (isPrint() ? removePrintSeg(seg.path, seg.k) : removeDivider(seg.axis, seg.k)),
   });
 
   // Senarai saiz mm: dibina semula hanya bila bilangan berubah.
@@ -266,8 +299,8 @@ export function createInspector(root) {
       for (const f of syncs) f.sync();
 
       modeHint.textContent = print
-        ? 'Satu jasad pepejal untuk 3D printer - output STL. Susun atur petak sama seperti mod laser.'
-        : 'Panel finger joint untuk laser - output SVG. Tukar ke Cetak 3D untuk STL dengan susun atur yang sama.';
+        ? 'Satu jasad pepejal untuk 3D printer - output STL. Setiap petak boleh dibelah sendiri, jadi satu petak panjang boleh duduk di sebelah petak kecil.'
+        : 'Panel finger joint untuk laser - output SVG, petak dalam grid. Tukar ke Cetak 3D untuk STL dan petak yang boleh dibelah sendiri.';
 
       // Kumpulan mengikut mod.
       matGroup.hidden = print;
@@ -283,20 +316,40 @@ export function createInspector(root) {
       matSel.value = state.material;
       customBox.hidden = state.material !== 'custom';
 
-      grid.render(tray, state.selected);
-      syncList('x', d.colW);
-      syncList('y', d.rowD);
-      splitX.disabled = !canSplit('x', state.selected.i);
-      splitY.disabled = !canSplit('y', state.selected.j);
-      splitX.title = splitX.disabled
-        ? (d.colW.length >= MAX_PER_AXIS ? 'Had 12 pembahagi setiap arah' : 'Petak terpilih terlalu kecil untuk dibelah')
-        : 'Belah petak terpilih kiri-kanan';
-      splitY.title = splitY.disabled
-        ? (d.rowD.length >= MAX_PER_AXIS ? 'Had 12 pembahagi setiap arah' : 'Petak terpilih terlalu kecil untuk dibelah')
-        : 'Belah petak terpilih depan-belakang';
-      gridHint.textContent = print
-        ? `Klik petak, tekan + untuk belah. Seret pembahagi untuk ubah saiz. Pembahagi setebal dinding (${r1(p.wallT)} mm).`
-        : 'Klik petak, tekan + untuk belah. Seret pembahagi untuk ubah saiz. Tekan x untuk buang.';
+      colField.hidden = print;
+      rowField.hidden = print;
+      selField.hidden = !print;
+      if (print) {
+        grid.render(tray, state.selectedPath);
+        splitX.disabled = !canSplitPrint('x');
+        splitY.disabled = !canSplitPrint('y');
+        const full = d.cellCount >= MAX_PRINT_CELLS;
+        const why = full ? `Had ${MAX_PRINT_CELLS} petak` : 'Petak terpilih terlalu kecil untuk dibelah';
+        splitX.title = splitX.disabled ? why : 'Belah petak terpilih SAHAJA kiri-kanan';
+        splitY.title = splitY.disabled ? why : 'Belah petak terpilih SAHAJA depan-belakang';
+        const cell = d.cells.find((c) => c.path.length === state.selectedPath.length && c.path.every((v, i) => v === state.selectedPath[i]));
+        if (cell) {
+          if (document.activeElement !== selW) selW.value = String(r1(cell.w));
+          if (document.activeElement !== selH) selH.value = String(r1(cell.h));
+        }
+        selW.disabled = selH.disabled = !d.gridOK;
+        resetLayout.hidden = !hasCustomLayout();
+        gridHint.textContent = 'Klik satu petak, tekan + untuk belah petak ITU sahaja - contohnya satu petak panjang untuk sudu, '
+          + `kemudian belah petak sebelahnya jadi 2x2. Seret pembahagi untuk ubah saiz; x untuk buang. Pembahagi setebal dinding (${r1(p.wallT)} mm).`;
+      } else {
+        grid.render(tray, state.selected);
+        syncList('x', d.colW);
+        syncList('y', d.rowD);
+        splitX.disabled = !canSplit('x', state.selected.i);
+        splitY.disabled = !canSplit('y', state.selected.j);
+        splitX.title = splitX.disabled
+          ? (d.colW.length >= MAX_PER_AXIS ? 'Had 12 pembahagi setiap arah' : 'Petak terpilih terlalu kecil untuk dibelah')
+          : 'Belah petak terpilih kiri-kanan';
+        splitY.title = splitY.disabled
+          ? (d.rowD.length >= MAX_PER_AXIS ? 'Had 12 pembahagi setiap arah' : 'Petak terpilih terlalu kecil untuk dibelah')
+          : 'Belah petak terpilih depan-belakang';
+        gridHint.textContent = 'Klik petak, tekan + untuk belah. Seret pembahagi untuk ubah saiz. Tekan x untuk buang.';
+      }
 
       heightRange.value = String(p.dividerHeight);
       heightOut.textContent = `${Math.round(p.dividerHeight)}% (${r1(d.divH)} mm)`;
@@ -355,5 +408,6 @@ export function warningsText(d) {
   if (d.warnings.includes('tinggi')) out.push('Pembahagi terlalu rendah untuk bertenon - naikkan tinggi pembahagi atau dulang.');
   if (d.warnings.includes('takuk')) out.push('Takuk jari digugurkan pada dinding yang pembahaginya jatuh tepat di tengah. Alihkan pembahagi, rendahkannya, atau matikan takuk.');
   if (d.warnings.includes('katil')) out.push('Dulang lebih besar daripada katil printer yang dipilih.');
+  if (d.warnings.includes('petak')) out.push('Ada petak lebih kecil daripada had minimum pada saiz dulang ini - pembahagi tidak dijana. Besarkan dulang semula dan susun atur anda kembali.');
   return out.join(' ');
 }

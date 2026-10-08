@@ -25,13 +25,22 @@ const r1 = (v) => Math.round(v * 10) / 10;
 
 export class GridEditor {
   /**
+   * Editor yang sama untuk kedua-dua mod. Ia hanya tahu tentang PETAK dan
+   * SEGMEN pembahagi:
+   *   * mod laser - segmen ialah pembahagi grid yang merentang seluruh dulang
+   *     (diterbitkan daripada xDiv / yDiv);
+   *   * mod cetak - segmen datang daripada pokok belahan (derived.segs) dan
+   *     boleh berhenti pada pembahagi lain: simpang T.
+   * Pengendali menerima objek petak / segmen itu sendiri; ui.js yang memilih
+   * operasi store mengikut mod.
+   *
    * @param {HTMLElement} root
    * @param {{
-   *   onSelect: (i:number, j:number) => void,
-   *   onDragStart: () => void,
-   *   onDrag: (axis:'x'|'y', k:number, posMm:number) => void,
+   *   onSelect: (cell) => void,
+   *   onDragStart: (seg) => void,
+   *   onDrag: (seg, posMm:number) => void,   // pos = koordinat MUTLAK dulang
    *   onDragEnd: () => void,
-   *   onRemove: (axis:'x'|'y', k:number) => void,
+   *   onRemove: (seg) => void,
    * }} handlers
    */
   constructor(root, handlers) {
@@ -66,6 +75,18 @@ export class GridEditor {
     return { x: p.x, y: this.W - p.y };
   }
 
+  /** Segmen pembahagi untuk dilukis, dalam satu bentuk untuk kedua-dua mod. */
+  static segments(tray) {
+    const { params: p, derived: d } = tray;
+    if (!d.divOK) return [];
+    if (d.segs) return d.segs;
+    const t = p.thickness;
+    return [
+      ...d.xDiv.map((pos, k) => ({ axis: 'x', pos, from: t, to: p.width - t, k })),
+      ...d.yDiv.map((pos, k) => ({ axis: 'y', pos, from: t, to: p.length - t, k })),
+    ];
+  }
+
   render(tray, selected) {
     this.tray = tray;
     this.selected = selected;
@@ -92,14 +113,17 @@ export class GridEditor {
       d: `M0 0H${L}V${W}H0Z M${t} ${t}V${W - t}H${L - t}V${t}Z`,
     }));
 
+    const isSel = (c) => (Array.isArray(selected)
+      ? Array.isArray(c.path) && c.path.length === selected.length && c.path.every((v, i) => v === selected[i])
+      : selected && c.i === selected.i && c.j === selected.j);
+
     // Petak.
     for (const c of d.cells) {
-      const on = selected && c.i === selected.i && c.j === selected.j;
       const rect = el('rect', {
-        class: `g-cell${on ? ' on' : ''}`,
+        class: `g-cell${isSel(c) ? ' on' : ''}`,
         x: c.x, y: Y(c.y + c.h), width: c.w, height: c.h,
       });
-      rect.addEventListener('click', () => this.h.onSelect(c.i, c.j));
+      rect.addEventListener('click', () => this.h.onSelect(c));
       this.svg.append(rect);
       // Saiz petak, dalam mm - hanya kalau petak cukup besar untuk membacanya.
       // Dihadkan oleh LEBAR teks juga, bukan tinggi petak sahaja: "47.2 x 75.5"
@@ -120,63 +144,71 @@ export class GridEditor {
       }
     }
 
-    if (!d.divOK) return;
-
-    // Pembahagi-X (menegak di skrin, memisahkan lajur).
-    d.xDiv.forEach((x, k) => {
-      this.svg.append(el('rect', {
-        class: 'g-div', x: x - t / 2, y: Y(W - t), width: t, height: W - 2 * t,
-      }));
-      const hit = el('rect', {
-        class: 'g-hit g-hit-x', x: x - hitPx / 2, y: Y(W - t), width: hitPx, height: W - 2 * t,
-      });
-      hit.addEventListener('pointerdown', (e) => this.onDown(e, 'x', k));
-      this.svg.append(hit);
-      this.removeButton(x, Y(W) - btnR * 1.6, btnR, 'x', k);
-    });
-
-    // Pembahagi-Y (melintang di skrin, memisahkan baris).
-    d.yDiv.forEach((y, k) => {
-      this.svg.append(el('rect', {
-        class: 'g-div', x: t, y: Y(y + t / 2), width: L - 2 * t, height: t,
-      }));
-      const hit = el('rect', {
-        class: 'g-hit g-hit-y', x: t, y: Y(y) - hitPx / 2, width: L - 2 * t, height: hitPx,
-      });
-      hit.addEventListener('pointerdown', (e) => this.onDown(e, 'y', k));
-      this.svg.append(hit);
-      this.removeButton(L + btnR * 1.6, Y(y), btnR, 'y', k);
-    });
+    // Pembahagi. 'x' = menegak di skrin (memisahkan kiri/kanan), 'y' =
+    // melintang. Segmen boleh berhenti di tengah dulang (mod cetak), jadi
+    // setiap satu dilukis antara from dan to-nya sendiri.
+    const segs = GridEditor.segments(tray);
+    const buttons = [];
+    for (const s of segs) {
+      const len = s.to - s.from;
+      if (s.axis === 'x') {
+        this.svg.append(el('rect', { class: 'g-div', x: s.pos - t / 2, y: Y(s.to), width: t, height: len }));
+        const hit = el('rect', { class: 'g-hit g-hit-x', x: s.pos - hitPx / 2, y: Y(s.to), width: hitPx, height: len });
+        hit.addEventListener('pointerdown', (e) => this.onDown(e, s));
+        this.svg.append(hit);
+      } else {
+        this.svg.append(el('rect', { class: 'g-div', x: s.from, y: Y(s.pos + t / 2), width: len, height: t }));
+        const hit = el('rect', { class: 'g-hit g-hit-y', x: s.from, y: Y(s.pos) - hitPx / 2, width: len, height: hitPx });
+        hit.addEventListener('pointerdown', (e) => this.onDown(e, s));
+        this.svg.append(hit);
+      }
+      buttons.push(s);
+    }
+    // Butang buang dilukis selepas SEMUA kawasan seret, supaya ia sentiasa di
+    // atas. Hujung yang menyentuh dinding: di luar dinding (macam dahulu).
+    // Segmen yang berhenti pada pembahagi di kedua-dua hujung: di tengahnya.
+    for (const s of buttons) {
+      const end = s.axis === 'x' ? W - t : L - t;
+      const toWall = s.to >= end - 1e-6;
+      const fromWall = s.from <= t + 1e-6;
+      let cx;
+      let cy;
+      if (s.axis === 'x') {
+        cx = s.pos;
+        cy = toWall ? Y(W) - btnR * 1.6 : fromWall ? Y(0) + btnR * 1.6 : Y((s.from + s.to) / 2);
+      } else {
+        cy = Y(s.pos);
+        cx = toWall ? L + btnR * 1.6 : fromWall ? -btnR * 1.6 : (s.from + s.to) / 2;
+      }
+      this.removeButton(cx, cy, btnR, s);
+    }
   }
 
-  removeButton(cx, cy, r, axis, k) {
+  removeButton(cx, cy, r, seg) {
     const g = el('g', { class: 'g-remove' });
     g.append(el('circle', { cx, cy, r }));
     const a = r * 0.42;
     g.append(el('path', { d: `M${cx - a} ${cy - a}L${cx + a} ${cy + a}M${cx + a} ${cy - a}L${cx - a} ${cy + a}` }));
     const title = el('title');
-    title.textContent = 'Buang pembahagi ini';
+    title.textContent = seg.path ? 'Buang pembahagi ini (dua bahagian di sisinya jadi satu petak)' : 'Buang pembahagi ini';
     g.append(title);
-    g.addEventListener('click', (e) => { e.stopPropagation(); this.h.onRemove(axis, k); });
+    g.addEventListener('click', (e) => { e.stopPropagation(); this.h.onRemove(seg); });
     this.svg.append(g);
   }
 
-  onDown(e, axis, k) {
+  onDown(e, seg) {
     e.preventDefault();
     this.svg.setPointerCapture(e.pointerId);
-    this.drag = { axis, k, id: e.pointerId };
+    this.drag = { seg, id: e.pointerId };
     this.svg.classList.add('dragging');
-    this.h.onDragStart();
+    this.h.onDragStart(seg);
   }
 
   onMove(e) {
     if (!this.drag || e.pointerId !== this.drag.id) return;
     const p = this.trayPoint(e);
     if (!p) return;
-    const t = this.tray.params.thickness;
-    // Kedudukan garis tengah pembahagi, diukur dari muka DALAM dinding pertama.
-    const pos = (this.drag.axis === 'x' ? p.x : p.y) - t;
-    this.h.onDrag(this.drag.axis, this.drag.k, pos);
+    this.h.onDrag(this.drag.seg, this.drag.seg.axis === 'x' ? p.x : p.y);
   }
 
   onUp(e) {

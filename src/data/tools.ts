@@ -156,6 +156,8 @@ export const TOOLS: ToolEntry[] = [
       '3d print',
       'printer',
       'pla',
+      'sudu',
+      'cutlery',
     ],
     Icon: LayoutGrid,
   },

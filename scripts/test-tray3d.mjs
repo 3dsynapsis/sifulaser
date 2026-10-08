@@ -86,10 +86,12 @@ function checkTray(label, params, expect = {}) {
   check(`${label}: MANIFOLD - tiada tepi terbuka`, m.open === 0, `${m.open} tepi terbuka daripada ${m.edgeCount}`);
   check(`${label}: MANIFOLD - tiada tepi dikongsi > 2`, m.over === 0, `${m.over}`);
   check(`${label}: isi padu positif (normal keluar)`, m.vol > 0, `${m.vol}`);
-  // Mesh ialah Float32 (STL pun float32): koordinat ~200 mm membawa ralat
-  // ~1e-5 mm, yang terkumpul menjadi ~1e-6 relatif pada isi padu. Satu muka
-  // yang HILANG pula tersasar beribu mm^3 - jadi 2e-6 masih menangkapnya.
-  check(`${label}: isi padu mesh = analitik`, near(m.vol, d.volumeMm3, Math.max(0.5, d.volumeMm3 * 2e-6)),
+  // Mesh ialah Float32 kerana STL ialah float32. Pada 600 mm satu ulp float32
+  // ialah 6e-5 mm, dan isi padu daripada koordinat yang dibundarkan itu lari
+  // sehingga ~3e-6 relatif (diukur: isi padu float64 SAMA dengan analitik
+  // hingga 1e-6 mm^3, float32 lari 2.8e-6). Muka yang hilang atau terbalik
+  // ditangkap oleh semakan manifold berarah di atas, bukan oleh nombor ini.
+  check(`${label}: isi padu mesh = analitik`, near(m.vol, d.volumeMm3, Math.max(0.5, d.volumeMm3 * 6e-6)),
     `mesh ${m.vol.toFixed(4)} vs analitik ${d.volumeMm3.toFixed(4)}`);
   check(`${label}: bbox L x W x H`, near(m.bb.x1 - m.bb.x0, p.length, 1e-6) && near(m.bb.y1 - m.bb.y0, p.width, 1e-6)
     && near(m.bb.z1 - m.bb.z0, p.height, 1e-6) && near(m.bb.z0, 0, 1e-9),
@@ -105,7 +107,7 @@ function checkTray(label, params, expect = {}) {
 }
 
 // ---- kes ------------------------------------------------------------------------
-checkTray('lalai 3x2 fillet 2', {}, { cells: 6, flatTop: true, noWarn: ['katil', 'lajur'] });
+checkTray('lalai 3x2 fillet 2', {}, { cells: 6, flatTop: true, noWarn: ['katil', 'petak'] });
 checkTray('fillet 0', { fillet: 0 }, { cells: 6 });
 checkTray('fillet besar (dihadkan)', { fillet: 50 }, { cells: 6 });
 checkTray('satu petak', { cols: [1], rows: [1] }, { cells: 1, flatTop: true });
@@ -134,9 +136,49 @@ checkTray('katil muat dipusing', { length: 100, width: 250, printer: 'prusa-mk4'
 checkTray('katil custom', { printer: 'custom', bedX: 150, bedY: 150, bedZ: 100, length: 160 }, { warn: ['katil'] });
 checkTray('tinggi melebihi katil', { height: 300, printer: 'bambu-a1mini' }, { warn: ['katil'] });
 
+// ---- susun atur "belah petak sendiri" (pokok) ------------------------------------
+// Inilah sebab pokok wujud: satu petak panjang di sebelah petak kecil.
+const SUDU = { s: 'x', f: [1, 2], k: [{}, { s: 'y', f: [1, 1], k: [{}, { s: 'x', f: [1, 1], k: [{}, {}] }] }] };
+checkTray('sudu + 2x2 (simpang T)', { layout: { s: 'x', f: [1, 2], k: [{}, { s: 'y', f: [1, 1], k: [{ s: 'x', f: [1, 1], k: [{}, {}] }, { s: 'x', f: [1, 1], k: [{}, {}] }] }] } }, { cells: 5 });
+checkTray('sudu + 2x2 fillet 0', { fillet: 0, layout: { s: 'x', f: [1, 2], k: [{}, { s: 'y', f: [1, 1], k: [{ s: 'x', f: [1, 1], k: [{}, {}] }, { s: 'x', f: [1, 1], k: [{}, {}] }] }] } }, { cells: 5 });
+checkTray('sudu + 2x2 pembahagi 50%', { dividerHeight: 50, layout: { s: 'x', f: [1, 2], k: [{}, { s: 'y', f: [1, 1], k: [{ s: 'x', f: [1, 1], k: [{}, {}] }, { s: 'x', f: [1, 1], k: [{}, {}] }] }] } }, { cells: 5, flatTop: false });
+checkTray('sudu + 3x3', { length: 300, width: 200, layout: { s: 'x', f: [1, 3], k: [{}, { s: 'y', f: [1, 1, 1], k: [0, 1, 2].map(() => ({ s: 'x', f: [1, 1, 1], k: [{}, {}, {}] })) }] } }, { cells: 10 });
+checkTray('sudu + 3x3 fillet 0 50%', { fillet: 0, dividerHeight: 50, length: 300, width: 200, layout: { s: 'x', f: [1, 3], k: [{}, { s: 'y', f: [1, 1, 1], k: [0, 1, 2].map(() => ({ s: 'x', f: [1, 1, 1], k: [{}, {}, {}] })) }] } }, { cells: 10, flatTop: false });
+checkTray('bersarang 3 aras', { layout: SUDU }, { cells: 4 });
+checkTray('bersarang 3 aras boleh susun', { layout: SUDU, stack: true }, { cells: 4 });
+checkTray('petak dalaman (T dari empat arah)', {
+  length: 240, width: 240, dividerHeight: 60,
+  layout: { s: 'y', f: [1, 2, 1], k: [{}, { s: 'x', f: [1, 2, 1], k: [{}, { s: 'y', f: [1, 1], k: [{}, {}] }, {}] }, {}] },
+}, { cells: 6, flatTop: false });
+checkTray('baris atas penuh, bawah 4 lajur', { layout: { s: 'y', f: [1, 1], k: [{ s: 'x', f: [1, 1, 1, 1], k: [{}, {}, {}, {}] }, {}] } }, { cells: 5 });
+checkTray('pokok rosak dibersihkan', { layout: { s: 'z', f: 'x', k: 5 } }, { cells: 1 });
+checkTray('pokok satu anak dileburkan', { layout: { s: 'x', f: [1], k: [{ s: 'y', f: [1, 1], k: [{}, {}] }] } }, { cells: 2 });
+
+// ---- fuzz: pokok rawak ---------------------------------------------------------------
+// PRNG bertitik benih supaya kegagalan boleh diulang.
+let seed = 20261008;
+const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
+const randTree = (depth, axisHint) => {
+  if (depth <= 0 || rnd() < 0.3) return {};
+  const s = axisHint || (rnd() < 0.5 ? 'x' : 'y');
+  const n = 2 + Math.floor(rnd() * 3);
+  return { s, f: Array.from({ length: n }, () => 0.5 + rnd() * 2), k: Array.from({ length: n }, () => randTree(depth - 1, s === 'x' ? 'y' : 'x')) };
+};
+let fuzzRun = 0;
+for (let n = 0; n < 60; n++) {
+  const params = {
+    length: 120 + Math.round(rnd() * 200), width: 100 + Math.round(rnd() * 150), height: 20 + Math.round(rnd() * 40),
+    fillet: [0, 0.5, 2, 4][Math.floor(rnd() * 4)], wallT: [1.2, 1.6, 2][Math.floor(rnd() * 3)],
+    dividerHeight: [100, 70, 40][Math.floor(rnd() * 3)], stack: rnd() < 0.25, layout: randTree(3),
+  };
+  const t = checkTray(`fuzz #${n} ${JSON.stringify(params.layout).length}b`, params);
+  if (t) fuzzRun++;
+}
+check('fuzz: semua 60 dibina', fuzzRun === 60, `${fuzzRun}`);
+
 // ---- grid terlalu padat: pembahagi tak dijana, masih manifold -------------------
 {
-  const t = checkTray('grid terlalu padat', { length: 40, width: 30, cols: new Array(8).fill(1), rows: [1] }, { warn: ['lajur'] });
+  const t = checkTray('grid terlalu padat', { length: 40, width: 30, cols: new Array(8).fill(1), rows: [1] }, { warn: ['petak'] });
   if (t) check('grid padat: divOK palsu', !t.derived.divOK);
 }
 
@@ -181,7 +223,8 @@ for (const b of bad) checkTray(`input teruk ${JSON.stringify(b)}`, b);
   check('lalai: dinding 1.6', t.params.wallT === 1.6);
   check('lalai: thickness = wallT untuk grid', t.params.thickness === 1.6);
   check('lalai: minCell 8', t.params.minCell === 8);
-  check('lalai: 2 pembahagi X, 1 Y', t.derived.xDiv.length === 2 && t.derived.yDiv.length === 1);
+  // Pokok daripada grid 3x2: 2 pembahagi menegak penuh, 3 segmen melintang (satu setiap lajur).
+  check('lalai: 2 segmen X, 3 segmen Y', t.derived.dividers.x.length === 2 && t.derived.dividers.y.length === 3);
   check('lalai: berat PLA munasabah (20-200 g)', t.derived.gramsPLA > 20 && t.derived.gramsPLA < 200, `${t.derived.gramsPLA.toFixed(1)} g`);
   check('lalai: printer Bambu A1', t.derived.printerName === PRINTERS[1].name);
   // Isi padu analitik lalai, dikira sendiri: kotak - poket - (tiada bukaan atas sebab flatTop).
@@ -190,6 +233,124 @@ for (const b of bad) checkTray(`input teruk ${JSON.stringify(b)}`, b);
   const aO = Math.abs(t.rings.O.reduce((a, [x, y], i, arr) => { const [x2, y2] = arr[(i + 1) % arr.length]; return a + x * y2 - x2 * y; }, 0) / 2);
   check('lalai: formula isi padu', near(t.derived.volumeMm3, aO * H - sumCells * (H - floorT), 1e-6));
   check('lalai: luas O < L*W (fillet luar memotong bucu)', aO < L * W && aO > L * W * 0.99);
+}
+
+// ---- operasi susun atur (geom/layout.js) ----------------------------------------------
+{
+  const L = await import(pathToFileURL(path.join(TRAY, 'src', 'geom', 'layout.js')).href);
+  const t = 1.6, minCell = 8;
+  const box = [1.6, 1.6, 218.4, 158.4];
+  const info = (tree) => L.layoutRegions(tree, ...box, t, minCell);
+  const area = (tree) => {
+    const i = info(tree);
+    const cellsA = i.cells.reduce((s, c) => s + c.w * c.h, 0);
+    const segA = i.segs.reduce((s, g) => s + (g.to - g.from) * t, 0);
+    return { cellsA, segA, total: cellsA + segA, inner: (box[2] - box[0]) * (box[3] - box[1]), i };
+  };
+  const overlaps = (cells) => {
+    for (let a = 0; a < cells.length; a++) for (let b = a + 1; b < cells.length; b++) {
+      const A = cells[a], B = cells[b];
+      if (A.x < B.x1 - 1e-9 && B.x < A.x1 - 1e-9 && A.y < B.y1 - 1e-9 && B.y < A.y1 - 1e-9) return true;
+    }
+    return false;
+  };
+  const invariant = (label, tree) => {
+    const a = area(tree);
+    check(`${label}: petak + pembahagi = ruang dalam`, near(a.total, a.inner, 1e-6), `${a.total} vs ${a.inner}`);
+    check(`${label}: petak tidak bertindih`, !overlaps(a.i.cells));
+    check(`${label}: setiap petak >= had`, a.i.cells.every((c) => c.w >= minCell - 1e-6 && c.h >= minCell - 1e-6));
+    return a.i;
+  };
+
+  // gridToTree
+  const g = L.gridToTree([1, 1, 1], [1, 1]);
+  check('gridToTree 3x2: 6 petak', L.countLeaves(g) === 6);
+  check('gridToTree 1x1: daun', L.countLeaves(L.gridToTree([1], [1])) === 1 && !g.s === false);
+  invariant('grid 3x2', g);
+
+  // cleanTree melebur belahan sepaksi
+  const flat = L.cleanTree({ s: 'x', f: [1, 2], k: [{}, { s: 'x', f: [1, 1], k: [{}, {}] }] });
+  check('cleanTree: [a | (b | c)] jadi [a | b | c]', flat.k.length === 3 && near(flat.f[1], 1, 1e-9) && near(flat.f[2], 1, 1e-9));
+
+  // Belah petak: sudu dahulu - buang pembahagi melintang dalam lajur pertama.
+  let tree = g;
+  let i0 = info(tree);
+  const firstColSeg = i0.segs.find((s) => s.axis === 'y' && L.samePath(s.path, [0]));
+  check('lajur 1 ada pembahagi melintang', !!firstColSeg);
+  let r = L.removeDivider(tree, firstColSeg.path, firstColSeg.k, i0, t);
+  check('buang: berjaya', !!r);
+  tree = L.cleanTree(r.tree);
+  i0 = invariant('selepas buang (sudu)', tree);
+  check('buang: 5 petak', i0.cells.length === 5);
+  const sudu = i0.cells.find((c) => L.samePath(c.path, [0]));
+  check('buang: lajur 1 kini satu petak penuh dalam', sudu && near(sudu.h, box[3] - box[1], 1e-9));
+  check('buang: pilihan menunjuk ke petak itu', L.samePath(r.select, [0]));
+
+  // Belah petak kanan atas jadi 2 lajur: jirannya tidak bergerak.
+  const target = i0.cells.find((c) => L.samePath(c.path, [2, 1]));
+  const others = i0.cells.filter((c) => !L.samePath(c.path, [2, 1])).map((c) => JSON.stringify([c.x, c.y, c.x1, c.y1]));
+  r = L.splitLeaf(tree, [2, 1], 'x', i0, t, minCell);
+  check('belah: berjaya', !!r);
+  tree = L.cleanTree(r.tree);
+  const i1 = invariant('selepas belah', tree);
+  check('belah: 6 petak', i1.cells.length === 6);
+  const after = new Set(i1.cells.map((c) => JSON.stringify([c.x, c.y, c.x1, c.y1])));
+  check('belah: petak lain tak bergerak', others.every((o) => after.has(o)));
+  const halves = i1.cells.filter((c) => c.y === target.y && c.y1 === target.y1 && c.x >= target.x - 1e-9 && c.x1 <= target.x1 + 1e-9);
+  check('belah: dua separuh sama', halves.length === 2 && near(halves[0].w, halves[1].w, 1e-9) && near(halves[0].w * 2 + t, target.w, 1e-9));
+
+  // Belah sepaksi dengan induk: jadi adik-beradik, bukan bersarang.
+  const before = L.nodeAt(tree, []).k.length;
+  r = L.splitLeaf(tree, [0], 'x', i1, t, minCell);
+  tree = L.cleanTree(r.tree);
+  check('belah sepaksi: akar kini 4 anak', L.nodeAt(tree, []).k.length === before + 1);
+  invariant('selepas belah sepaksi', tree);
+
+  // Seret: pasangan tetap, petak lain tak bergerak, had dihormati.
+  let i2 = info(tree);
+  const seg = i2.segs.find((s) => s.axis === 'x' && s.path.length === 0 && s.k === 1);
+  const moved = L.moveDivider(tree, seg.path, seg.k, seg.pos + 15, i2, t, minCell);
+  check('seret: berjaya', !!moved);
+  const i3 = invariant('selepas seret', L.cleanTree(moved));
+  const ni2 = i2.nodes.get(''), ni3 = i3.nodes.get('');
+  check('seret: anak k membesar 15', near(ni3.sizes[1] - ni2.sizes[1], 15, 1e-6));
+  check('seret: anak k+1 mengecil 15', near(ni2.sizes[2] - ni3.sizes[2], 15, 1e-6));
+  check('seret: anak lain tak berubah', near(ni3.sizes[0], ni2.sizes[0], 1e-9) && near(ni3.sizes[3], ni2.sizes[3], 1e-9));
+  // Seret jauh melampaui: dihadkan pada minSpan subpokok.
+  const far = L.moveDivider(tree, seg.path, seg.k, 1e6, i2, t, minCell);
+  const i4 = invariant('seret melampau', L.cleanTree(far));
+  check('seret melampau: anak k+1 = minSpan', near(i4.nodes.get('').sizes[2], L.minSpan(L.nodeAt(tree, [2]), 'x', minCell, t), 1e-6));
+
+  // setCellSize: lebar petak sudu jadi 30 mm.
+  tree = L.cleanTree(far);
+  let i5 = info(tree);
+  const sp = i5.cells.find((c) => L.samePath(c.path, [0]));
+  const set = L.setCellSize(tree, sp.path, 'x', 30, i5, t, minCell);
+  const i6 = invariant('setCellSize', L.cleanTree(set.tree));
+  check('setCellSize: lebar 30', near(i6.cells.find((c) => L.samePath(c.path, [0])).w, 30, 1e-6));
+  // Petak yang merentang seluruh dulang sepanjang paksi itu -> minta ubah saiz dulang.
+  const full = L.setCellSize(tree, sp.path, 'y', 100, i5, t, minCell);
+  check('setCellSize merentang penuh: minta resize', full && full.resize === 100);
+
+  // Had: tak boleh belah petak terlalu kecil; tak boleh melebihi MAX_CELLS.
+  check('canSplit: petak 15 mm tak boleh dibelah (had 8)', !L.canSplit({}, [], 'x', L.layoutRegions({}, 0, 0, 15, 100, t, minCell), t, minCell));
+  let big = {};
+  for (let k = 0; k < 200; k++) {
+    const ib = L.layoutRegions(big, 0, 0, 2000, 2000, t, minCell);
+    const leaf = ib.cells.reduce((m, c) => (c.w * c.h > m.w * m.h ? c : m));
+    const res = L.splitLeaf(big, leaf.path, leaf.w > leaf.h ? 'x' : 'y', ib, t, minCell);
+    if (!res) break;
+    big = L.cleanTree(res.tree);
+  }
+  check(`MAX_CELLS dihormati (${L.MAX_CELLS})`, L.countLeaves(big) === L.MAX_CELLS, `${L.countLeaves(big)}`);
+  const bigT = checkTray('100 petak hasil belahan berulang', { length: 600, width: 600, height: 40, layout: big }, { cells: 100 });
+  check('100 petak: dibina', !!bigT);
+
+  // Buang hingga tinggal satu petak: pokok runtuh ke daun.
+  let shrink = L.gridToTree([1, 1], [1]);
+  const is = info(shrink);
+  const rr = L.removeDivider(shrink, is.segs[0].path, is.segs[0].k, is, t);
+  check('buang pembahagi terakhir: jadi daun', L.countLeaves(L.cleanTree(rr.tree)) === 1 && !L.cleanTree(rr.tree).s);
 }
 
 console.log(`\n${passed} lulus, ${failed} gagal`);

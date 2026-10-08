@@ -306,6 +306,16 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 .plan-foot { stroke: var(--accent); }
 .plan-size { fill: var(--muted); font-family: inherit; font-weight: 600; }
 
+/* ---- petak terpilih (mod cetak) ---- */
+.sel-cell .row { gap: 10px; }
+.sel-cell .num { flex: 1; }
+.sel-cell .num input { min-width: 0; }
+.link {
+  background: none; border: 0; padding: 0; justify-self: start;
+  color: var(--accent); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer;
+}
+.link[hidden], .field[hidden] { display: none; }
+
 .grid-toolbar { display: flex; gap: 8px; }
 .grid-toolbar .ghost { flex: 1; }
 

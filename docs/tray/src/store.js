@@ -2,6 +2,7 @@
 
 import { buildTray, DEFAULTS } from './geom/tray.js';
 import { buildTray3D, PRINT_DEFAULTS } from './geom/tray3d.js';
+import * as LAY from './geom/layout.js';
 // three.js untuk triangulator jasad cetak. Pandangan 3D memuatnya juga, jadi
 // ini salinan yang sama dan bukan muat turun kedua.
 import * as THREE from '../vendor/three.module.js';
@@ -65,6 +66,8 @@ function initialState() {
     // Petak yang dipilih dalam editor grid; butang "+ Lajur" / "+ Baris"
     // membelah petak INI, bukan petak terbesar.
     selected: { i: 0, j: 0 },
+    // Mod cetak: laluan petak yang dipilih dalam pokok belahan.
+    selectedPath: [],
   };
 }
 
@@ -352,6 +355,18 @@ export function selectCell(i, j) {
 /** Membuang pembahagi boleh menghapuskan petak yang sedang dipilih. */
 function clampSelection() {
   if (!tray) return;
+  if (tray.mode === 'cetak') {
+    const cells = tray.derived.cells;
+    const sel = Array.isArray(state.selectedPath) ? state.selectedPath : [];
+    if (cells.some((c) => LAY.samePath(c.path, sel))) return;
+    // Petak yang dipilih sudah tiada (dibelah, dicantum, pokok dileburkan):
+    // pilih petak yang berkongsi awalan laluan paling panjang dengannya.
+    const common = (a) => { let n = 0; while (n < a.length && n < sel.length && a[n] === sel[n]) n++; return n; };
+    let best = cells[0];
+    for (const c of cells) if (common(c.path) > common(best.path)) best = c;
+    state.selectedPath = best ? best.path.slice() : [];
+    return;
+  }
   const nC = tray.derived.colW.length;
   const nR = tray.derived.rowD.length;
   const sel = state.selected || { i: 0, j: 0 };
@@ -360,3 +375,91 @@ function clampSelection() {
     j: Math.max(0, Math.min(nR - 1, sel.j | 0)),
   };
 }
+
+// ---- operasi pokok belahan (mod Cetak 3D) ------------------------------------
+// Mod laser kekal dengan grid cols x rows di atas. Di sini setiap petak boleh
+// dibelah sendiri (geom/layout.js). Pokok disimpan dalam params.layout; selagi
+// ia null, pokok diterbitkan daripada grid laser - jadi dulang yang baru
+// bertukar ke mod cetak kelihatan sama, dan "Guna grid laser" hanya membuang
+// pokok itu.
+
+const roundTree = (n) => (n && n.s
+  ? { s: n.s, f: n.f.map((v) => Math.round(v * 1000) / 1000), k: n.k.map(roundTree) }
+  : {});
+
+/** Pokok, maklumat bentangan dan nombor yang operasi perlukan - atau null bila tak boleh disunting. */
+function printCtx() {
+  const tr = getTray();
+  if (tr.mode !== 'cetak' || !tr.derived.gridOK) return null;
+  return { tree: tr.derived.tree, info: tr.derived.layout, t: tr.params.wallT, minCell: tr.params.minCell };
+}
+
+function commitTree(tree, select, opts = {}) {
+  update((s) => {
+    s.params.layout = roundTree(LAY.cleanTree(tree));
+    if (select) s.selectedPath = select.slice();
+  }, { geometry: true, ...opts });
+}
+
+export function selectPrintCell(path) {
+  update((s) => { s.selectedPath = path.slice(); }, { history: false });
+}
+
+export function canSplitPrint(axis) {
+  const c = printCtx();
+  return Boolean(c) && LAY.canSplit(c.tree, state.selectedPath, axis, c.info, c.t, c.minCell);
+}
+
+/** Belah petak terpilih (SAHAJA) kepada dua sepanjang `axis`. */
+export function splitPrint(axis) {
+  const c = printCtx();
+  if (!c) return false;
+  const r = LAY.splitLeaf(c.tree, state.selectedPath, axis, c.info, c.t, c.minCell);
+  if (!r) return false;
+  commitTree(r.tree, r.select);
+  return true;
+}
+
+/** Buang satu segmen pembahagi: dua bahagian di sisinya jadi satu petak. */
+export function removePrintSeg(path, k) {
+  const c = printCtx();
+  if (!c) return false;
+  const r = LAY.removeDivider(c.tree, path, k, c.info, c.t);
+  if (!r) return false;
+  commitTree(r.tree, r.select);
+  return true;
+}
+
+/** Seret segmen pembahagi ke `pos` (koordinat mutlak dulang sepanjang paksinya). */
+export function movePrintSeg(path, k, pos, opts = {}) {
+  const c = printCtx();
+  if (!c) return false;
+  const next = LAY.moveDivider(c.tree, path, k, pos, c.info, c.t, c.minCell);
+  if (!next) return false;
+  commitTree(next, null, opts);
+  return true;
+}
+
+/** Taip lebar ('x') atau dalam ('y') petak terpilih. */
+export function setPrintCellMm(axis, mm) {
+  const c = printCtx();
+  if (!c) return false;
+  const r = LAY.setCellSize(c.tree, state.selectedPath, axis, mm, c.info, c.t, c.minCell);
+  if (!r) return false;
+  if (r.resize != null) {
+    // Petak merentang seluruh dulang sepanjang paksi ini: lebarnya ialah
+    // ruang dalam dulang, jadi yang berubah ialah saiz luar.
+    setParam(axis === 'x' ? 'length' : 'width', Math.max(c.t * 8, r.resize + 2 * c.t));
+    return true;
+  }
+  commitTree(r.tree, null);
+  return true;
+}
+
+/** Buang pokok cetak; susun atur kembali kepada grid mod laser. */
+export function useLaserGrid() {
+  update((s) => { s.params.layout = null; s.selectedPath = []; }, { geometry: true });
+}
+
+export const hasCustomLayout = () => Boolean(state.params.layout);
+export const MAX_PRINT_CELLS = LAY.MAX_CELLS;
