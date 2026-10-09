@@ -160,7 +160,7 @@ export class View2D {
       g.appendChild(im);
       return g;
     }
-    const rings = objectRings(o);
+    const rings = objectRings(o, { panel: this.panel, decor: this.objects });
     if (!rings.length) return null;
     const d = rings.map((r) => this.ringPath(r)).join(' ');
     const g = el('g', { 'data-id': o.id, class: 'obj' });
@@ -290,9 +290,15 @@ export class View2D {
   }
 
   hitTest(pt) {
-    for (let i = this.objects.length - 1; i >= 0; i--) {
-      const o = this.objects[i];
-      if (pointInPoly(pt, this.corners(o))) return o;
+    // A pattern usually spans the whole face, so it would swallow every click
+    // meant for the logo sitting in it. Smaller objects win; the pattern is
+    // picked only where nothing else is.
+    for (const wantPattern of [false, true]) {
+      for (let i = this.objects.length - 1; i >= 0; i--) {
+        const o = this.objects[i];
+        if ((o.type === 'pattern') !== wantPattern) continue;
+        if (pointInPoly(pt, this.corners(o))) return o;
+      }
     }
     return null;
   }

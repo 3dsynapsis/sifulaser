@@ -11,7 +11,7 @@ import { loadFont, preload } from './fonts.js';
 import { exportSvg, exportPanel } from './exportSvg.js';
 import { exportPdf } from './exportPdf.js';
 import {
-  renderFaces, renderInspector, openPopover, shapeMenu, emojiMenu, imageMenu,
+  renderFaces, renderInspector, openPopover, shapeMenu, patternMenu, emojiMenu, imageMenu,
   fillExportDialog, fillAssembleDialog, renderBackdrop,
   fillSaveDialog, fillFilesDialog, saveQuietly, openDesignById, rnd,
 } from './ui.js';
@@ -246,6 +246,11 @@ els.tools.addEventListener('click', async (e) => {
     openPopover(btn, shapeMenu((id) => {
       els.popover.hidden = true;
       addObject(id);
+    }), els.popover);
+  } else if (tool === 'pattern') {
+    openPopover(btn, patternMenu((id) => {
+      els.popover.hidden = true;
+      addObject('pattern', { pattern: id });
     }), els.popover);
   } else if (tool === 'emoji') {
     openPopover(btn, emojiMenu(async (glyph) => {

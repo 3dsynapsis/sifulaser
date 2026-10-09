@@ -7,6 +7,7 @@ import {
   dedupe, offsetPolygon, isCCW,
 } from './path.js';
 import { loadedFont } from '../fonts.js';
+import { patternHoles, safeRect, defaultMotif } from './pattern.js';
 
 export const PROCESSES = [
   { id: 'cut', label: 'Cut', hint: 'Through the material' },
@@ -43,6 +44,17 @@ export function makeObject(type, panel, extra = {}) {
   if (type === 'polygon') Object.assign(base, { sides: 6, w: h, h });
   if (type === 'image') Object.assign(base, { src: '', threshold: 128, invert: false, process: 'engrave-fill' });
   if (type === 'svg') Object.assign(base, { rings: [], process: 'cut' });
+  if (type === 'pattern') {
+    // A strut as wide as the board is thick is the usual floor for fretwork
+    // that survives handling; thinner bars warp, scorch through or snap.
+    const t = panel.thickness || 3;
+    const strut = Math.max(2, Math.round(t * 10) / 10);
+    const id = extra.pattern || 'rozet12';
+    const win = safeRect(panel, t + strut / 2) || { x: base.x, y: base.y, w, h };
+    Object.assign(base, {
+      ...win, pattern: id, angle: null, motif: defaultMotif(id, win.w), strut, clear: true, process: 'cut',
+    });
+  }
   return { ...base, ...extra };
 }
 
@@ -139,10 +151,19 @@ export function textRings(obj) {
   return rings;
 }
 
-/** Rings in panel coordinates, honouring x/y/w/h/rot. */
-export function objectRings(obj) {
+/**
+ * Rings in panel coordinates, honouring x/y/w/h/rot.
+ *
+ * `ctx` = { panel, decor } is optional and only patterns read it: a pattern
+ * keeps clear of the panel's joints and mortises and of the other objects on
+ * the same face, so it needs to know what is there. Without it a pattern just
+ * fills its rectangle.
+ */
+export function objectRings(obj, ctx) {
   let rings = [];
   switch (obj.type) {
+    case 'pattern':
+      return patternInfo(obj, ctx).rings;
     case 'text': {
       const raw = textRings(obj);
       if (!raw || !raw.length) return [];
@@ -184,6 +205,67 @@ export function objectRings(obj) {
     rings = rings.map((r) => rotatePts(r, cx, cy, obj.rot));
   }
   return rings;
+}
+
+// ---- patterns ------------------------------------------------------------
+
+/** What a pattern must keep clear of, for one neighbouring object. */
+function obstacleRing(o) {
+  if (o.type === 'ellipse' || o.type === 'star' || o.type === 'polygon' || o.type === 'rect') {
+    return objectRings(o)[0] || null;
+  }
+  // Text, artwork and photos: their bounding box. Clearing a tidy panel around
+  // a logo reads better than wood following every letter.
+  if (!(o.w > 0 && o.h > 0)) return null;
+  return rotatePts(rect(o.x, o.y, o.w, o.h), o.x + o.w / 2, o.y + o.h / 2, o.rot || 0);
+}
+
+const NO_PANEL = {};
+const patternCache = new WeakMap(); // panel -> Map(key -> result)
+
+/**
+ * Holes for a pattern object plus the generator's stats (hole count, holes
+ * dropped near joints, ...). Cached per panel object - the box is rebuilt on
+ * every parameter change, so a stale panel simply falls out of the WeakMap.
+ */
+export function patternInfo(obj, ctx = {}) {
+  const panel = ctx.panel || null;
+  const others = obj.clear === false ? [] : (ctx.decor || [])
+    .filter((o) => o.id !== obj.id && o.type !== 'pattern');
+  const key = JSON.stringify([
+    obj.pattern, obj.angle, obj.motif, obj.strut, obj.x, obj.y, obj.w, obj.h, obj.rot || 0,
+    others.map((o) => [o.type, o.x, o.y, o.w, o.h, o.rot, o.radius, o.points, o.inner, o.sides]),
+  ]);
+  let cache = patternCache.get(panel || NO_PANEL);
+  if (!cache) patternCache.set(panel || NO_PANEL, (cache = new Map()));
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  // Work in the pattern's own frame so its window stays a rectangle, then
+  // turn the result back: everything it avoids turns the other way first.
+  const cx = obj.x + obj.w / 2;
+  const cy = obj.y + obj.h / 2;
+  const local = (r) => rotatePts(r, cx, cy, -(obj.rot || 0));
+  const avoid = [
+    ...(panel ? panel.holesNominal || panel.holes : []),
+    ...others.map(obstacleRing).filter(Boolean),
+  ].map(local);
+  const res = patternHoles({ x: obj.x, y: obj.y, w: obj.w, h: obj.h }, {
+    pattern: obj.pattern,
+    angle: obj.angle,
+    motif: obj.motif,
+    strut: obj.strut,
+    kerf: panel ? panel.kerf || 0 : 0,
+    avoid,
+    bound: panel ? local(panel.outlineNominal || panel.outline) : null,
+  });
+  const out = {
+    rings: obj.rot ? res.rings.map((r) => rotatePts(r, cx, cy, obj.rot)) : res.rings,
+    stats: res.stats,
+  };
+  if (cache.size > 48) cache.delete(cache.keys().next().value);
+  cache.set(key, out);
+  return out;
 }
 
 /** Measured bounds of a text object at its current font size. */

@@ -98,7 +98,7 @@ function panelElements(placement, decor, opts) {
       out.images.push({ ...obj, x: obj.x + x, y: obj.y + y });
       continue;
     }
-    const r = shift(objectRings(obj));
+    const r = shift(objectRings(obj, { panel, decor }));
     if (!r.length) continue;
     out[obj.process] = out[obj.process] || [];
     out[obj.process].push(r);

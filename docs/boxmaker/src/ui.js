@@ -6,7 +6,8 @@ import {
 } from './store.js';
 import * as gallery from './designs.js';
 import { PANEL_LABELS, SCREW } from './geom/box.js';
-import { makeObject, PROCESSES, objectRings, measureText } from './geom/decor.js';
+import { makeObject, PROCESSES, objectRings, measureText, patternInfo } from './geom/decor.js';
+import { PATTERNS, patternById, patternHoles, angleRange, safeRect } from './geom/pattern.js';
 import { FONTS, loadFont } from './fonts.js';
 import { SHEETS } from './exportSvg.js';
 
@@ -974,7 +975,7 @@ function summaryRows() {
     for (const ring of [panel.outline, ...panel.holes]) cut += perimeter(ring);
     area += panel.size.w * panel.size.h;
     for (const o of decorFor(panel)) {
-      for (const r of objectRings(o)) cut += perimeter(r);
+      for (const r of objectRings(o, { panel, decor: decorFor(panel) })) cut += perimeter(r);
     }
   }
   return [
@@ -1049,6 +1050,8 @@ function objectInspector(root, obj, ctx) {
     obj.process === 'cut'
       ? h('p', { class: 'hint' }, 'Cuts become real holes in the 3D preview and in the exported outline.')
       : null));
+
+  if (obj.type === 'pattern') root.append(patternGroup(obj, set));
 
   const attrs = [];
   if (obj.type === 'text') {
@@ -1197,6 +1200,102 @@ function objectInspector(root, obj, ctx) {
       class: 'ghost', type: 'button', style: `color:var(--danger)`,
       onclick: () => ctx.deleteSelected(),
     }, 'Delete object')));
+}
+
+/**
+ * Pattern settings: which motif, how big, the contact angle that shapes the
+ * stars, and the strut - the wood left between holes, which is what decides
+ * whether the panel survives the laser and the post.
+ */
+function patternGroup(obj, set) {
+  const panel = currentPanel();
+  const t = panel.thickness || 3;
+  const info = patternInfo(obj, { panel, decor: decorFor(panel) });
+  const st = info.stats;
+  const [lo, hi] = angleRange(obj.pattern);
+  const motifMin = Math.max(10, Math.ceil(obj.strut * 6));
+  const motifMax = Math.max(motifMin + 10, Math.round(Math.max(obj.w, obj.h)));
+
+  const notes = [];
+  if (obj.strut < 1.5) {
+    notes.push(h('p', { class: 'warn' },
+      `Struts under 1.5 mm are likely to burn through or snap. Use at least ${t} mm on ${t} mm board.`));
+  } else if (obj.strut < t) {
+    notes.push(h('p', { class: 'warn' },
+      `Struts thinner than the ${t} mm board can warp or break when handled. ${t} mm or more is safer.`));
+  }
+  if (st.holes === 0) {
+    notes.push(h('p', { class: 'warn' }, 'No holes fit. Make the pattern area bigger, the motif bigger or the strut thinner.'));
+  } else if (st.holes > 800) {
+    notes.push(h('p', { class: 'hint' }, `${st.holes} holes is a long cut. A bigger motif cuts faster.`));
+  }
+
+  return group('Pattern', true,
+    h('div', { class: 'field' },
+      h('label', {}, 'Pattern'),
+      h('select', {
+        onchange: (e) => {
+          const def = patternById(e.target.value);
+          set({ pattern: def.id, angle: null });
+        },
+      }, PATTERNS.map((d) => h('option', {
+        value: d.id, ...(d.id === obj.pattern ? { selected: true } : {}),
+      }, `${d.name} (${d.note})`)))),
+    numberRow('Motif size (mm)', st.motif, {
+      min: motifMin, max: motifMax, step: 1, onInput: (v) => set({ motif: v }),
+    }),
+    numberRow('Star angle (deg)', st.angle, {
+      min: lo, max: hi, step: 0.5, onInput: (v) => set({ angle: v }),
+    }),
+    numberRow('Strut width (mm)', obj.strut, {
+      min: 0.5, max: 10, step: 0.1, onInput: (v) => set({ strut: v }),
+    }),
+    h('label', { class: 'check' },
+      h('input', {
+        type: 'checkbox', ...(obj.clear !== false ? { checked: true } : {}),
+        onchange: (e) => set({ clear: e.target.checked }),
+      }),
+      ' Keep clear of other objects on this face'),
+    h('button', {
+      class: 'ghost', type: 'button',
+      onclick: () => {
+        const win = safeRect(panel, t + obj.strut / 2);
+        if (win) set({ ...win, rot: 0 });
+      },
+    }, 'Fill face'),
+    h('p', { class: 'hint' },
+      `${st.holes} holes` +
+      (st.nearJoint ? ` · ${st.nearJoint} left out near joints or objects` : '') +
+      '. Holes stay a full strut away from each other, the joints and the edge.'),
+    ...notes);
+}
+
+/** A small live preview of one pattern, for the picker. */
+function patternThumb(def) {
+  const W = 64, H = 40;
+  const { rings } = patternHoles({ x: 0, y: 0, w: W, h: H }, {
+    pattern: def.id, strut: 1.6, motif: W / Math.max(1.3, def.across * 0.5), minHole: 0.5,
+  });
+  const d = rings.map((r) =>
+    `M${r.map(([x, y]) => `${x.toFixed(2)} ${(H - y).toFixed(2)}`).join('L')}Z`).join('');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', '48');
+  svg.setAttribute('height', '30');
+  svg.innerHTML = `<rect width="${W}" height="${H}" rx="3" fill="#d8b47e"/>` +
+    `<path d="${d}" fill="#3a2a1c"/>`;
+  return svg;
+}
+
+export function patternMenu(onPick) {
+  return h('div', {},
+    h('div', { class: 'pop-title' }, 'Pattern'),
+    h('div', { class: 'shape-list pattern-list' }, PATTERNS.map((d) =>
+      h('button', { type: 'button', onclick: () => onPick(d.id) },
+        patternThumb(d),
+        h('span', {}, d.name, h('small', {}, ` ${d.note}`))))),
+    h('p', { class: 'hint', style: 'margin:8px 4px 0' },
+      'Fills the face and cuts through. Joints, slots and other objects are kept clear.'));
 }
 
 // ------------------------------------------------------------- popovers

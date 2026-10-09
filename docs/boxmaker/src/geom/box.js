@@ -1294,6 +1294,7 @@ export function buildBox(input = {}) {
       pan.holes = pan.holes.map((h) => offsetPolygon(h, -k));
     }
     pan.thickness = t;
+    pan.kerf = 2 * k; // patterns widen their struts by this so the burn can't thin them
   }
 
   return {

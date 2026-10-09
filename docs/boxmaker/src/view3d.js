@@ -296,7 +296,7 @@ export class View3D {
       const decor = decorFor(panel) || [];
       const cutRings = decor
         .filter((o) => o.process === 'cut')
-        .flatMap((o) => objectRings(o));
+        .flatMap((o) => objectRings(o, { panel, decor }));
       const shapes = ringsToShapes([panel.outline, ...panel.holes, ...cutRings]);
 
       const geom = new THREE.ExtrudeGeometry(shapes, { depth: t, bevelEnabled: false });
@@ -311,7 +311,7 @@ export class View3D {
       const lift = 0.02;
       for (const o of decor) {
         if (o.process === 'cut') continue;
-        const rings = objectRings(o);
+        const rings = objectRings(o, { panel, decor });
         if (!rings.length) continue;
         if (o.process === 'engrave-fill') {
           const g = new THREE.ShapeGeometry(ringsToShapes(rings));

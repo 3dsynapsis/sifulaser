@@ -117,7 +117,7 @@ export const TOOLS: ToolEntry[] = [
     // `node scripts/tile-shots.mjs docs/images/tools boxmaker` selepas apa-apa
     // perubahan rupa. Lihat docs/images/tools/README.md.
     art: '/images/tools/boxmaker.webp',
-    keywords: ['kotak', 'almari', 'laci', 'finger joint', 'box', 'bekas'],
+    keywords: ['kotak', 'almari', 'laci', 'finger joint', 'box', 'bekas', 'corak', 'islamik', 'pattern', 'hamper'],
     Icon: Box,
   },
   {

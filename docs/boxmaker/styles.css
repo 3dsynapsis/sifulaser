@@ -347,6 +347,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   font: inherit; font-size: 13px; padding: 8px 9px; border-radius: 7px; cursor: pointer; text-align: left;
 }
 .shape-list button:hover { background: var(--surface-2); }
+.pattern-list { min-width: 220px; }
+.pattern-list svg { flex: 0 0 auto; border-radius: 4px; }
+.pattern-list small { color: var(--muted); font-size: 11px; }
 .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 240px; overflow-y: auto; }
 .emoji-grid button { border: 0; background: transparent; font-size: 20px; padding: 4px; border-radius: 6px; cursor: pointer; }
 .emoji-grid button:hover { background: var(--surface-2); }
@@ -513,9 +516,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .tools {
     width: auto; flex: none; flex-direction: row; align-items: center;
     border-right: 0; border-bottom: 1px solid var(--line);
-    padding: 4px 8px; gap: 4px; overflow-x: auto;
+    padding: 4px 6px; gap: 2px; overflow-x: auto;
   }
-  .tool { flex: none; min-width: 54px; padding: 7px 4px; }
+  /* Seven tools have to fit a 390 px phone without hiding Delete off the end. */
+  .tool { flex: none; min-width: 48px; padding: 7px 2px; }
   .tool-spacer { flex: 1 0 8px; }
 
   .stage {
