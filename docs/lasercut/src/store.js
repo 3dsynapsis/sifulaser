@@ -25,6 +25,8 @@ function initialState() {
     busy: '',
     error: null,     // { code } - a refusal before or instead of an analysis
     seq: 0,          // bumps per file, so a slow old read cannot land on a new file
+    job: { roles: null, scale: 1 }, // per file: each layer's job and the size factor
+    working: false,  // a layer or size change is being priced
   };
 }
 
@@ -60,6 +62,8 @@ export function startFile(file) {
     s.error = null;
     s.busy = 'Membaca fail...';
     s.params.qtyText = DEFAULT_PARAMS.qtyText;
+    s.job = { roles: null, scale: 1 };
+    s.working = false;
   });
   return seq;
 }
@@ -68,10 +72,35 @@ export function setAnalysis(seq, analysis) {
   if (seq !== state.seq) return false;
   update((s) => {
     s.analysis = analysis;
-    s.error = analysis && !analysis.ok ? { code: analysis.code } : null;
+    s.error = analysis && !analysis.ok && !analysis.layers ? { code: analysis.code } : null;
     s.busy = '';
+    s.working = false;
+    if (analysis?.roles) s.job.roles = analysis.roles;
+    if (analysis?.scale) s.job.scale = analysis.scale;
   });
   return true;
+}
+
+/** A layer's job changed; main.js prices it again. */
+export function setRole(key, role) {
+  update((s) => {
+    s.job.roles = { ...(s.job.roles || {}), [key]: role };
+    s.working = true;
+  });
+}
+
+export function setScale(scale) {
+  update((s) => {
+    s.job.scale = scale;
+    s.working = true;
+  });
+}
+
+export function resetJob() {
+  update((s) => {
+    s.job = { roles: s.analysis?.defaults || null, scale: 1 };
+    s.working = true;
+  });
 }
 
 export function setError(seq, code) {

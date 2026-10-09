@@ -71,13 +71,18 @@ export function buildPreview(read, pieces, rotate = 0, highlight = new Set(), dr
   }
   const bands = [...bandMap].map(([w, d]) => ({ w, d }));
 
+  // Faint artwork: with laser layers, only what was switched off (the work
+  // itself is drawn above); without them (the UV tests), every path.
   let art = '';
-  for (const p of read.paths) {
-    for (const s of p.subs) {
-      if (!take(s.pts)) break;
-      art += pathD(s.pts, rotate, s.closed);
+  if (draw) art = lines(draw.ignored, false);
+  else {
+    for (const p of read.paths) {
+      for (const s of p.subs) {
+        if (!take(s.pts)) break;
+        art += pathD(s.pts, rotate, s.closed);
+      }
+      if (truncated) break;
     }
-    if (truncated) break;
   }
   const out = pieces.map((pc, i) => ({
     d: pc.outlines.map((o) => pathD(o, rotate)).join(''),

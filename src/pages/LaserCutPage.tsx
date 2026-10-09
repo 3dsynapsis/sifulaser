@@ -34,7 +34,7 @@ export const LaserCutPage = () => (
               Kalkulator Laser Cut
             </h1>
             <p className="truncate text-xs text-muted sm:text-sm">
-              Anggaran harga potong dan ukir laser — terus dari fail PDF atau AI anda
+              Anggaran harga potong dan ukir laser — terus dari fail PDF, AI, DXF atau gambar anda
             </p>
           </div>
         </div>

@@ -27,14 +27,16 @@
 
   <section class="empty-state" id="emptyState">
     <h2>Kira harga laser cut anda</h2>
-    <p>Pilih fail <strong>PDF</strong> atau <strong>AI</strong>, atau lepaskan fail di sini.</p>
+    <p>Pilih fail <strong>PDF</strong>, <strong>AI</strong>, <strong>DXF</strong> atau gambar <strong>PNG / JPG</strong>, atau lepaskan fail di sini.</p>
     <div class="empty-actions">
-      <button class="primary big" id="pickBtn" type="button">Pilih Fail PDF / AI</button>
+      <button class="primary big" id="pickBtn" type="button">Pilih Fail</button>
     </div>
     <ul class="rate-card" aria-label="Bahan">
       <li><span>Plywood</span><strong>3mm, 5mm</strong></li>
-      <li><span>Akrilik</span><strong>2mm, 3mm, 5mm</strong></li>
       <li><span>MDF</span><strong>3mm, 5mm</strong></li>
+      <li><span>Akrilik Clear</span><strong>2mm, 3mm, 5mm</strong></li>
+      <li><span>Akrilik Hitam</span><strong>2mm, 3mm</strong></li>
+      <li><span>Akrilik Cermin Emas / Perak</span><strong>1.5mm</strong></li>
     </ul>
     <p class="fineprint">Harga = bahan + masa laser. Caj minimum RM10.
       Saiz maksimum sekeping 120 x 90 cm.</p>
@@ -44,6 +46,7 @@
       <li><span class="sw" style="border-color:var(--score)"></span>Garisan halus biru = <strong>garisan ukir halus</strong></li>
       <li>Tukar semua teks ke outline (Create Outlines / Convert to Curves).</li>
       <li>Fail <code>.ai</code> mesti disimpan dengan <code>Create PDF Compatible File</code>.</li>
+      <li>Warna anda lain? Tiada masalah - fungsi setiap warna boleh ditukar selepas fail dibuka.</li>
     </ul>
   </section>
 
@@ -56,7 +59,11 @@
     <section class="col">
       <div class="col-body" id="controls" hidden>
         <h3 class="block-title" id="matLabel">Bahan</h3>
-        <div class="target-row" id="materialRow" role="group" aria-labelledby="matLabel"></div>
+        <div class="mat-picker" id="materialRow" aria-labelledby="matLabel"></div>
+        <h3 class="block-title">Saiz</h3>
+        <div id="sizeBox"></div>
+        <h3 class="block-title">Layer</h3>
+        <div id="layerBox"></div>
         <label class="block-title" for="qty">Kuantiti (set)</label>
         <div class="stepper">
           <button class="ghost step" id="qtyMinus" type="button" aria-label="Kurang satu">-</button>
@@ -68,12 +75,12 @@
     </section>
   </main>
 
-  <div class="drop-veil" id="dropVeil" hidden>Lepaskan fail PDF atau AI</div>
+  <div class="drop-veil" id="dropVeil" hidden>Lepaskan fail di sini</div>
 </div>
 
 <!-- accept lists MIME types as well as extensions: without them the iOS picker
      greys out .ai files. The file type is decided by its bytes anyway. -->
-<input type="file" id="fileInput" accept=".pdf,.ai,application/pdf,application/postscript,application/illustrator" hidden>
+<input type="file" id="fileInput" accept=".pdf,.ai,.dxf,.dwg,.png,.jpg,.jpeg,.webp,application/pdf,application/postscript,application/illustrator,application/dxf,image/png,image/jpeg,image/webp" hidden>
 
 <script type="module" src="src/main.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->

@@ -15,6 +15,7 @@
 //     2000 characters, which every WhatsApp client opens.
 
 import { parseQty } from './pricing.js';
+import { ROLE_LABEL } from './layers.js';
 
 export const WA_NUMBER = '60134354118';
 export const MAX_URL = 2000;
@@ -53,7 +54,9 @@ export const waUrl = (text) => `https://wa.me/${WA_NUMBER}?text=${encodeURICompo
  * @param qtyText   the quantity box as typed
  * @param code      an error code when pricing stopped ('too-large', 'too-complex')
  */
-export function buildMessage({ fileName, material, q, qtyText, code = null }, maxGroups = Infinity) {
+export function buildMessage({
+  fileName, material, q, qtyText, code = null, sizeMm = null, scale = 1, layers = [],
+}, maxGroups = Infinity) {
   const lines = ['Salam, saya nak sebut harga laser cut.'];
   lines.push(`Fail: ${cleanFileName(fileName)}`);
   if (material) lines.push(`Bahan: ${material.label}`);
@@ -63,6 +66,13 @@ export function buildMessage({ fileName, material, q, qtyText, code = null }, ma
     const more = groups.length - shown.length;
     lines.push(`Kepingan: ${q.lines.length} (${shown.join('; ')}${more > 0 ? `; ... +${more} saiz lagi` : ''})`);
   }
+  if (sizeMm) {
+    const cm = (mm) => (Math.round(mm) / 10).toFixed(1);
+    const changed = Math.abs(scale - 1) > 1e-6 ? ` (diubah ke ${Math.round(scale * 100)}% dari fail)` : '';
+    lines.push(`Saiz keseluruhan: ${cm(sizeMm.w)} x ${cm(sizeMm.h)} cm${changed}`);
+  }
+  const work = layers.filter((L) => L.role !== 'ignore');
+  if (work.length) lines.push(`Layer: ${work.slice(0, 6).map((L) => `${L.name} ${L.kind === 'fill' ? 'isi' : L.kind === 'line' ? 'garisan' : ''} = ${ROLE_LABEL[L.role]}`.replace(/\s+=/, ' =')).join('; ')}${work.length > 6 ? '; ...' : ''}`);
   const qty = q?.state === 'priced' ? { ok: true, value: q.qty } : parseQty(qtyText);
   if (qty.ok) lines.push(`Kuantiti: ${qty.value} set`);
   if (q?.state === 'priced') {
@@ -75,6 +85,10 @@ export function buildMessage({ fileName, material, q, qtyText, code = null }, ma
     lines.push('Fail terlalu besar untuk kalkulator - mohon sebut harga');
   } else if (code === 'too-complex') {
     lines.push('Fail terlalu kompleks untuk kalkulator - mohon sebut harga');
+  } else if (code === 'dwg') {
+    lines.push('Fail DWG - mohon sebut harga');
+  } else if (code === 'image-unsupported') {
+    lines.push('Fail gambar - mohon sebut harga');
   }
   lines.push('Saya akan lampirkan fail di sini.');
   return lines.join('\n');

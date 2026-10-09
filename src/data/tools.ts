@@ -531,7 +531,7 @@ const TARGETS: RankedTarget[] = [
     href: '#/lasercut',
     accent: ACCENT_BY_GROUP.belajar,
     haystack: fold(
-      'kalkulator laser cut harga potong ukir sebut harga quotation plywood akrilik acrylic mdf pdf ai',
+      'kalkulator laser cut harga potong ukir sebut harga quotation plywood akrilik acrylic mdf cermin mirror pdf ai dxf png gambar',
     ),
     titleFold: fold('kalkulator laser cut'),
     keywordFold: fold('harga potong ukir sebut harga quotation plywood akrilik acrylic mdf'),

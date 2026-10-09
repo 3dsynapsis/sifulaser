@@ -2,15 +2,16 @@
 //
 // Privacy: the file is read with File.arrayBuffer() and handed to a Web Worker
 // from this same page. There is no fetch, no upload and no share call anywhere
-// in src/ - tools/test-ui.js fails the build if one appears.
+// in src/.
 
 import {
   state, subscribe, load, startFile, setAnalysis, setError, setMaterial, setQtyText,
+  setRole, setScale, resetJob,
 } from './store.js';
-import { screenOf, renderFileInfo, renderQuote } from './ui.js';
+import { screenOf, renderFileInfo, renderQuote, renderLayers, renderSize, renderMaterials } from './ui.js';
 import { PreviewPane } from './view.js';
-import { MATERIALS, parseQty } from './pricing.js';
-import { MAX_BYTES, analyseFile } from './analyse.js';
+import { parseQty, materialById } from './pricing.js';
+import { MAX_BYTES, openFile as openLocal, runJob as runLocal } from './analyse.js';
 
 const $ = (id) => document.getElementById(id);
 const TIMEOUT_MS = 20000;
@@ -22,6 +23,8 @@ const els = {
   fileInfo: $('fileInfo'),
   quoteBox: $('quoteBox'),
   materialRow: $('materialRow'),
+  layerBox: $('layerBox'),
+  sizeBox: $('sizeBox'),
   qty: $('qty'),
   qtyMinus: $('qtyMinus'),
   qtyPlus: $('qtyPlus'),
@@ -34,6 +37,8 @@ const pane = new PreviewPane($('pane'));
 // ------------------------------------------------------------------ reading
 
 let worker = null;
+let local = null; // the opened file when there is no worker (very old browser)
+
 function getWorker() {
   if (worker) return worker;
   try {
@@ -44,16 +49,19 @@ function getWorker() {
   return worker;
 }
 
-// The buffer is transferred to the worker (no 50 MB copy), so the main-thread
-// fallback reads the file again rather than reusing a detached buffer.
-async function onMainThread(file) {
-  return analyseFile(new Uint8Array(await file.arrayBuffer()), file.name);
+async function onMainThread(msg, file) {
+  if (msg.op === 'open') {
+    const o = await openLocal(new Uint8Array(await file.arrayBuffer()), file.name);
+    local = o.ok ? o.session : null;
+    return o.ok ? runLocal(local, local.roles, 1) : { ok: false, code: o.code };
+  }
+  return local ? runLocal(local, msg.roles, msg.scale) : { ok: false, code: 'corrupt' };
 }
 
-function analyseInWorker(bytes, file) {
-  const name = file.name;
+/** One request to the worker; falls back to the main thread if it cannot run. */
+function ask(msg, file = null) {
   const w = getWorker();
-  if (!w) return onMainThread(file); // no module workers: same code, main thread
+  if (!w) return onMainThread(msg, file);
   return new Promise((resolve) => {
     const id = Math.random().toString(36).slice(2);
     const timer = setTimeout(() => {
@@ -61,25 +69,26 @@ function analyseInWorker(bytes, file) {
       worker = null;
       resolve({ ok: false, code: 'too-complex' });
     }, TIMEOUT_MS);
-    const onMsg = (e) => {
-      if (e.data?.id !== id) return;
+    const done = () => {
       clearTimeout(timer);
       w.removeEventListener('message', onMsg);
       w.removeEventListener('error', onErr);
+    };
+    const onMsg = (e) => {
+      if (e.data?.id !== id) return;
+      done();
       resolve(e.data.result);
     };
     const onErr = (ev) => {
-      // A module worker that fails to load (very old browser) - fall back.
+      // A module worker that fails to load - same code on the main thread.
       ev.preventDefault?.();
-      clearTimeout(timer);
-      w.removeEventListener('message', onMsg);
-      w.removeEventListener('error', onErr);
+      done();
       worker = null;
-      resolve(onMainThread(file));
+      resolve(file ? onMainThread(msg, file) : { ok: false, code: 'corrupt' });
     };
     w.addEventListener('message', onMsg);
     w.addEventListener('error', onErr);
-    w.postMessage({ id, bytes, name }, [bytes]);
+    w.postMessage({ ...msg, id }, msg.bytes ? [msg.bytes] : []);
   });
 }
 
@@ -99,11 +108,25 @@ async function openFile(file) {
   await new Promise((r) => setTimeout(r, 0));
   let result;
   try {
-    result = await analyseInWorker(buf, file);
+    result = await ask({ op: 'open', bytes: buf, name: file.name }, file);
   } catch {
     result = { ok: false, code: 'corrupt' };
   }
   setAnalysis(seq, result);
+}
+
+// Layer and size changes: price again, newest request wins.
+let ticket = 0;
+async function reprice() {
+  const seq = state.seq;
+  const t = ++ticket;
+  let result;
+  try {
+    result = await ask({ op: 'job', roles: state.job.roles, scale: state.job.scale });
+  } catch {
+    result = { ok: false, code: 'corrupt' };
+  }
+  if (t === ticket) setAnalysis(seq, result);
 }
 
 const pickFile = () => {
@@ -113,30 +136,29 @@ const pickFile = () => {
 
 // ------------------------------------------------------------------ controls
 
-function buildMaterialButtons() {
-  els.materialRow.replaceChildren(...MATERIALS.map((m) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'target-btn';
-    b.dataset.id = m.id;
-    const top = document.createElement('span');
-    top.className = 'm-name';
-    top.textContent = m.name;
-    const sub = document.createElement('span');
-    sub.className = 'm-rate';
-    sub.textContent = m.thick;
-    b.append(top, sub);
-    b.addEventListener('click', () => setMaterial(m.id));
-    return b;
-  }));
-}
-
 function stepQty(delta) {
   const q = parseQty(els.qty.value);
   const next = Math.max(1, (q.ok ? q.value : 1) + delta);
   els.qty.value = String(next);
   setQtyText(els.qty.value);
 }
+
+const actions = {
+  pickFile,
+  setMaterial: (id) => setMaterial(id),
+  setRole: (key, role) => { setRole(key, role); reprice(); },
+  resetLayers: () => { resetJob(); reprice(); },
+  setSize: (axis, cm) => {
+    const a = state.analysis;
+    const cur = a?.sizeMm?.[axis];
+    if (!(cur > 0) || !(cm > 0)) return;
+    const next = state.job.scale * ((cm * 10) / cur);
+    if (Math.abs(next - state.job.scale) < 1e-9) return;
+    setScale(next);
+    reprice();
+  },
+  resetSize: () => { setScale(1); reprice(); },
+};
 
 // ------------------------------------------------------------------ render
 
@@ -150,32 +172,30 @@ function render() {
   const v = screenOf(state);
   els.empty.hidden = v.mode !== 'empty';
   els.work.hidden = v.mode === 'empty';
-  els.status.textContent = v.mode === 'busy' ? v.busy : '';
-  for (const b of els.materialRow.children) {
-    const on = b.dataset.id === v.materialId;
-    b.classList.toggle('is-on', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
+  els.status.textContent = v.mode === 'busy' ? v.busy : v.working ? 'Mengira semula...' : '';
+  renderMaterials(els.materialRow, v, actions);
   if (document.activeElement !== els.qty && els.qty.value !== state.params.qtyText) els.qty.value = state.params.qtyText;
   els.qty.setAttribute('aria-invalid', parseQty(state.params.qtyText).ok ? 'false' : 'true');
   if (v.mode === 'empty') return;
 
   if (v.mode === 'busy') {
-    renderFileInfo(els.fileInfo, { fileName: state.file.name, fileSize: state.file.size, ruleText: '', warnings: [] }, { pickFile });
+    renderFileInfo(els.fileInfo, { fileName: state.file.name, fileSize: state.file.size, warnings: [] }, actions);
     els.quoteBox.replaceChildren();
     pane.root.hidden = false;
-    pane.empty('Membaca fail...');
+    pane.empty(v.busy);
     els.controls.hidden = true;
     return;
   }
-  renderFileInfo(els.fileInfo, v, { pickFile });
+  renderFileInfo(els.fileInfo, v, actions);
   renderQuote(els.quoteBox, v);
-  // Material and quantity only matter when there is something to price.
-  els.controls.hidden = !(v.quote && v.quote.lines.length) || (v.errorCode && v.errorCode !== 'oversize');
-  // A refused file has nothing to picture: the message moves up instead of
-  // sitting under an empty grid.
+  // Material, size and layers only matter when there is a drawing to work on.
+  els.controls.hidden = !v.layers.length || (v.errorCode && !['oversize', 'nothing'].includes(v.errorCode));
+  if (!els.controls.hidden) {
+    renderSize(els.sizeBox, v, actions);
+    renderLayers(els.layerBox, v, actions);
+  }
   pane.root.hidden = !v.preview;
-  if (v.preview) pane.draw(v.preview, v.quote ? v.quote.lines : []);
+  if (v.preview) pane.draw(v.preview, v.quote ? v.quote.lines : [], materialById(v.materialId)?.group);
 }
 
 // ------------------------------------------------------------------ events
@@ -209,8 +229,6 @@ window.addEventListener('resize', () => {
 });
 
 load();
-buildMaterialButtons();
 els.qty.value = state.params.qtyText;
 subscribe(scheduleRender);
 render();
-

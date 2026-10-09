@@ -16,8 +16,9 @@
 // are only ever set as text. h() has no innerHTML option at all.
 // No document at module scope: tools/test-ui.js imports this under node.
 
-import { quote, materialById, DEFAULT_MATERIAL } from './pricing.js';
-import { errorText, warningText, ruleText, WHATSAPP_ON_ERROR, MIN_NOTE, DISCLAIMER, ATTACH_NOTE, OVERSIZE, ERRORS } from './messages.js';
+import { quote, materialById, groupById, DEFAULT_MATERIAL, MATERIALS, GROUPS } from './pricing.js';
+import { errorText, warningText, WHATSAPP_ON_ERROR, MIN_NOTE, DISCLAIMER, ATTACH_NOTE, OVERSIZE, ERRORS } from './messages.js';
+import { ROLES, ROLE_LABEL } from './layers.js';
 import { whatsappLink } from './whatsapp.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
@@ -52,6 +53,7 @@ export function screenOf(s) {
   if (s.busy) return { mode: 'busy', materialId, busy: s.busy, priced: false };
   const a = s.analysis;
   const code = s.error?.code || (a && !a.ok ? a.code : null);
+  const layers = a?.layers || [];
   const pieces = a?.pieces || [];
   const q = pieces.length ? quote(pieces, a?.laser, materialId, s.params.qtyText) : null;
 
@@ -60,13 +62,16 @@ export function screenOf(s) {
     materialId,
     fileName: s.file.name,
     fileSize: s.file.size,
-    rule: a?.rule || null,
-    ruleText: a?.rule ? ruleText(a.rule, a.names) : '',
+    source: a?.source || null,
+    layers,
+    defaults: a?.defaults || null,
+    sizeMm: a?.sizeMm || null,
+    scale: s.job?.scale || 1,
+    working: !!s.working,
     warnings: (a?.warnings || []).map(warningText).filter(Boolean),
     preview: a?.preview || null,
     laser: a?.laser || null,
     quote: q,
-    holes: a?.holes || 0,
     errorCode: null,
     errorText: '',
     priced: false,
@@ -76,7 +81,7 @@ export function screenOf(s) {
   if (code) {
     out.errorCode = code;
     out.errorText = errorText(code);
-    out.quote = code === 'cut-overlap' ? q : null;
+    out.quote = null;
   } else if (q?.state === 'oversize') {
     out.errorCode = 'oversize';
     out.errorText = OVERSIZE;
@@ -97,6 +102,9 @@ export function screenOf(s) {
       q: chosen ? q : null,
       qtyText: chosen ? s.params.qtyText : null,
       code: out.errorCode,
+      sizeMm: chosen ? out.sizeMm : null,
+      scale: out.scale,
+      layers: chosen ? layers : [],
     });
   }
   return out;
@@ -112,7 +120,8 @@ export function renderFileInfo(root, v, ctx) {
       h('span', { class: 'chip' }, fmtBytes(v.fileSize)),
       h('button', { class: 'ghost small', type: 'button', onClick: ctx.pickFile }, 'Tukar Fail')),
   ];
-  if (v.ruleText) kids.push(h('p', { class: 'rule-line' }, v.ruleText));
+  const SOURCE = { pdf: 'PDF / AI', dxf: 'DXF', image: 'Gambar, dijejak jadi vektor' };
+  if (v.source) kids.push(h('p', { class: 'rule-line' }, `Jenis fail: ${SOURCE[v.source] || v.source}`));
   if (v.warnings.length) {
     kids.push(h('div', { class: 'warn-box', role: 'status' },
       h('h4', {}, 'Sila semak'),
@@ -168,22 +177,149 @@ export function renderQuote(root, v) {
     kids.push(h('p', { class: 'banner-inline', role: 'alert' }, v.qtyError));
   }
 
-  if (q && q.lines.length) {
-    const many = q.lines.length > 60;
-    kids.push(h('h3', { class: 'block-title' }, `Kepingan (${q.lines.length})`));
-    const body = q.lines.slice(0, many ? 60 : undefined).map((l) => h('tr', { class: l.fits ? '' : 'row-bad' },
-      h('td', { class: 'num' }, String(l.index)),
-      h('td', {}, l.sizeText, l.fits ? null : h('span', { class: 'chip chip-bad' }, 'Melebihi bed')),
-      h('td', { class: 'num' }, l.sqftText)));
-    kids.push(h('div', { class: 'table-wrap' },
-      h('table', { class: 'pieces' },
-        h('thead', {}, h('tr', {}, h('th', { class: 'num' }, '#'), h('th', {}, 'Saiz (L x T)'), h('th', { class: 'num' }, 'Luas (kaki persegi)'))),
-        h('tbody', {}, body))));
-    if (many) kids.push(h('p', { class: 'fineprint' }, `Senarai dipendekkan: ${q.lines.length - 60} kepingan lagi tidak ditunjukkan.`));
-    const notes = [];
-    if (v.holes) notes.push(`${v.holes} lubang di dalam kepingan dipotong, tetapi tidak dikira sebagai kepingan baru.`);
-    notes.push('Luas bahan = lebar x tinggi kotak setiap kepingan.');
-    kids.push(h('p', { class: 'fineprint' }, notes.join(' ')));
-  }
+  // No per-piece table (Boss, 9 Okt 2026): the sizes are on the preview, and an
+  // oversize piece is outlined there and named in the banner.
   root.replaceChildren(...kids);
+}
+
+// ---------------------------------------------------------------------------
+// Material picker: a swatch per material, then its thicknesses. Built once and
+// updated in place, so a tap does not rebuild what the finger is on.
+
+export function renderMaterials(root, v, ctx) {
+  const current = materialById(v.materialId);
+  if (!root.dataset.built) {
+    root.dataset.built = '1';
+    const cards = h('div', { class: 'mat-grid', role: 'radiogroup', 'aria-label': 'Jenis bahan' },
+      GROUPS.map((g) => {
+        const first = MATERIALS.find((m) => m.group === g.id);
+        const thick = MATERIALS.filter((m) => m.group === g.id).map((m) => m.thick).join(' / ');
+        return h('button', {
+          type: 'button', class: `mat-card mat-${g.id}`, role: 'radio', 'data-group': g.id,
+          onClick: () => {
+            // Keep the thickness when the new material comes in it.
+            const cur = materialById(root.dataset.current);
+            const same = MATERIALS.find((m) => m.group === g.id && cur && m.thick === cur.thick);
+            ctx.setMaterial((same || first).id);
+          },
+        },
+        h('span', { class: 'mat-swatch', 'aria-hidden': 'true' }, h('span', { class: 'mat-shine' })),
+        h('span', { class: 'mat-text' },
+          h('span', { class: 'mat-name' }, g.name),
+          h('span', { class: 'mat-sub' }, thick)),
+        h('span', { class: 'mat-check', 'aria-hidden': 'true' }, String.fromCharCode(0x2713)));
+      }));
+    const thick = h('div', { class: 'thick-row', role: 'radiogroup', 'aria-label': 'Ketebalan' });
+    root.replaceChildren(cards, thick);
+  }
+  root.dataset.current = current.id;
+  const [cards, thick] = root.children;
+  for (const b of cards.children) {
+    const on = b.dataset.group === current.group;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  }
+  const options = MATERIALS.filter((m) => m.group === current.group);
+  const sig = options.map((m) => m.id).join(',');
+  if (thick.dataset.sig !== sig) {
+    thick.dataset.sig = sig;
+    thick.replaceChildren(
+      h('span', { class: 'thick-label' }, 'Ketebalan'),
+      ...options.map((m) => h('button', {
+        type: 'button', class: 'thick-chip', role: 'radio', 'data-id': m.id, onClick: () => ctx.setMaterial(m.id),
+      }, m.thick)),
+    );
+  }
+  for (const b of thick.querySelectorAll('.thick-chip')) {
+    const on = b.dataset.id === current.id;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Size: the whole drawing, aspect locked. Typing in one box scales both.
+
+const cm1 = (mm) => (Math.round(mm) / 10).toFixed(1);
+
+export function renderSize(root, v, ctx) {
+  if (!root.dataset.built) {
+    root.dataset.built = '1';
+    const box = (axis, label) => {
+      const input = h('input', {
+        id: `size${axis}`, type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'done', 'aria-label': `${label} dalam cm`,
+      });
+      const commit = () => {
+        const n = Number(String(input.value).replace(',', '.'));
+        if (Number.isFinite(n) && n > 0 && n <= 1000) ctx.setSize(axis === 'W' ? 'w' : 'h', n);
+        else input.value = input.dataset.shown || '';
+      };
+      input.addEventListener('change', commit);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+      return h('label', { class: 'size-field' }, h('span', { class: 'size-label' }, label), input, h('span', { class: 'size-unit' }, 'cm'));
+    };
+    root.replaceChildren(
+      h('div', { class: 'size-row' },
+        box('W', 'Lebar'),
+        h('span', { class: 'size-lock', title: 'Nisbah dikunci', 'aria-hidden': 'true' }, String.fromCharCode(0x00d7)),
+        box('H', 'Tinggi')),
+      h('p', { class: 'fineprint size-note' },
+        h('span', { class: 'size-note-text' }),
+        h('button', { type: 'button', class: 'link-btn size-reset', onClick: ctx.resetSize }, 'Kembali ke saiz asal')),
+    );
+  }
+  const w = root.querySelector('#sizeW'), hh = root.querySelector('#sizeH');
+  const show = (input, mm) => {
+    const t = mm ? cm1(mm) : '';
+    input.dataset.shown = t;
+    if (document.activeElement !== input) input.value = t;
+  };
+  show(w, v.sizeMm?.w);
+  show(hh, v.sizeMm?.h);
+  const scaled = Math.abs(v.scale - 1) > 1e-6;
+  root.querySelector('.size-reset').hidden = !scaled;
+  root.querySelector('.size-note-text').textContent = scaled
+    ? `Design diubah ke ${Math.round(v.scale * 100)}% daripada saiz dalam fail. `
+    : 'Saiz keseluruhan design. Taip lebar atau tinggi baharu - nisbah dikunci.';
+}
+
+// ---------------------------------------------------------------------------
+// Layers: one row per colour, each with its job.
+
+const KIND_TEXT = {
+  line: 'garisan', thick: 'garisan tebal', fill: 'isi warna', image: 'gambar', frame: 'bingkai segi empat', spot: 'warna potong', named: 'lapisan fail',
+};
+
+export function renderLayers(root, v, ctx) {
+  const sig = v.layers.map((L) => `${L.key}=${L.role}`).join('|');
+  if (root.dataset.sig === sig) return;
+  root.dataset.sig = sig;
+  const changed = v.layers.some((L) => v.defaults && v.defaults[L.key] && v.defaults[L.key] !== L.role);
+  const rows = v.layers.map((L) => {
+    const sel = h('select', { class: 'role-select', 'data-role': L.role, 'aria-label': `Fungsi layer ${L.name} ${KIND_TEXT[L.kind] || ''}` },
+      ROLES.map((r) => {
+        const o = h('option', { value: r }, ROLE_LABEL[r]);
+        if (r === L.role) o.selected = true;
+        return o;
+      }));
+    // 'input' as well as 'change': some mobile pickers and autofill tools only
+    // fire one of them. The guard keeps it to one re-price per real change.
+    let last = L.role;
+    const pick = () => { if (sel.value === last) return; last = sel.value; ctx.setRole(L.key, sel.value); };
+    sel.addEventListener('change', pick);
+    sel.addEventListener('input', pick);
+    const sw = h('span', { class: `layer-swatch sw-${L.kind}`, 'aria-hidden': 'true' });
+    if (L.colour) sw.style.setProperty('--sw', L.colour);
+    return h('li', { class: `layer-row role-${L.role}` },
+      sw,
+      h('span', { class: 'layer-text' },
+        h('span', { class: 'layer-name' }, L.name),
+        h('span', { class: 'layer-kind' }, `${KIND_TEXT[L.kind] || L.kind}${L.file ? ` - layer ${L.file}` : ''} - ${L.n} objek`)),
+      sel);
+  });
+  root.replaceChildren(
+    h('ul', { class: 'layer-list' }, rows),
+    h('p', { class: 'fineprint' }, 'Kami teka fungsi setiap warna. Tukar jika salah - contohnya jika anda guna biru untuk potong. ',
+      changed ? h('button', { type: 'button', class: 'link-btn', onClick: ctx.resetLayers }, 'Pulihkan tekaan asal') : null),
+  );
 }

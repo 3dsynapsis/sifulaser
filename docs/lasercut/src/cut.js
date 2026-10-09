@@ -109,6 +109,37 @@ function union(n) {
   return { find, join: (a, b) => { p[find(a)] = find(b); } };
 }
 
+/**
+ * Laser: the outermost closed outlines of these paths, one piece each, with
+ * outlines that cross merged into one piece (they make one silhouette). The
+ * same as rule (c) below, for whatever set of paths the layers say is cut.
+ * Each root keeps `.path`, so a caller can ask which painted object it is.
+ */
+export function outermostRoots(paths, { mediaBox = null } = {}) {
+  const { cands: raw, dropped } = candidatesOf(paths, { clip: true, skipHidden: true, mediaBox });
+  if (raw.length > MAX_CANDIDATES) throw Object.assign(new Error('too many outlines'), { code: 'too-complex' });
+  raw.sort((A, B) => B.area - A.area);
+  return { roots: outermostOnly(dedupe(raw)), dropped };
+}
+
+export function piecesFromRoots(roots) {
+  const u = union(roots.length);
+  for (let i = 0; i < roots.length; i++) {
+    for (let j = i + 1; j < roots.length; j++) {
+      if (bbOverlap(roots[i].bb, roots[j].bb, TOL) && outlinesCross(roots[i].pts, roots[i].bb, roots[j].pts, roots[j].bb)) u.join(i, j);
+    }
+  }
+  const groups = new Map();
+  roots.forEach((r, i) => {
+    const k = u.find(i);
+    if (!groups.has(k)) groups.set(k, { bb: r.bb, outlines: [], holes: [] });
+    const g = groups.get(k);
+    g.bb = bbUnion(g.bb, r.bb);
+    g.outlines.push(r.pts);
+  });
+  return [...groups.values()];
+}
+
 export function detectCut(read) {
   const warnings = [];
   const warn = (code, extra = {}) => warnings.push({ code, ...extra });

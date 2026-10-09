@@ -1,12 +1,14 @@
-// What the laser does with page 1, and how long it takes.
+// What the laser does with the drawing, and how long it takes.
 //
-// Every painted path is sorted into one job:
-//   cut      a hairline stroke (thinner than THICK_MM), or a filled shape that
-//            IS a piece outline (the shape of the material itself)
-//   score    a hairline stroke in blue: a vector line at MARK_SPEED, not cut
-//   engrave  any other filled shape, a thick stroke, an image or a gradient
-// White strokes and fills are paper, not laser work, and are ignored. So is
-// anything in a hidden layer or lying outside every piece.
+// The layers (layers.js) say what each painted part is for - cut, score,
+// engrave or ignore - and this file turns that into machine work:
+//   cut / score   every line as drawn, every shape along its edge (holes too)
+//   engrave       shapes are raster-filled, thick lines are engraved as bands
+//                 of their width, hairlines as a vector line, pictures over
+//                 their box
+// Pieces of material are the outermost closed outlines of the CUT work. With
+// nothing closed to cut (engraving only, or loose DXF lines) the material is
+// the box around everything that is worked on.
 //
 // Time follows the bridge's simulator (bridge/ui/index.html, segTime): each
 // move accelerates from V0 to its speed and brakes back. A cut line only brakes
@@ -19,16 +21,14 @@
 // Units: page points in, millimetres and seconds out. Pure: runs in the worker
 // and under node.
 
-import { MM_PER_PT } from './cut.js';
-import { bbOverlap, bbIntersect } from './geom.js';
+import { MM_PER_PT, outermostRoots, piecesFromRoots } from './cut.js';
+import { bbIntersect, bbOverlap } from './geom.js';
+import { THICK_MM, isWhiteish } from './layers.js';
 
 export const MOTION = { vmax: 300, v0: 15, acc: 3000 }; // mm/s, mm/s, mm/s^2 (bridge defaults)
 export const ENGRAVE = { speed: 200, gap: 0.1 };        // mm/s, mm between scan lines
 export const MARK_SPEED = 100;                           // mm/s, score line
-export const THICK_MM = 0.5;                             // a stroke this wide is artwork, engraved
 const CORNER_DEG = 30;
-const BACKGROUND_SHARE = 0.85; // a fill covering this much of a piece is its board colour
-const WHITE = 0.98;
 const MAX_SCAN_LINES = 3000; // sampled, then scaled to the real line count
 const MAX_NN = 3000;         // nearest-neighbour ordering above this is file order
 
@@ -42,9 +42,6 @@ export function segTime(d, v, v0 = MOTION.v0, a = MOTION.acc) {
   if (2 * dAcc >= d) { const vp = Math.sqrt(v0 * v0 + a * d); return (2 * (vp - v0)) / a; }
   return (2 * (v - v0)) / a + (d - 2 * dAcc) / v;
 }
-
-const isWhite = (rgb) => !!rgb && rgb[0] >= WHITE && rgb[1] >= WHITE && rgb[2] >= WHITE;
-export const isBlue = (rgb) => !!rgb && rgb[2] >= 0.5 && rgb[2] > rgb[0] + 0.25 && rgb[2] > rgb[1] + 0.15;
 
 const bbOf = (pts) => {
   const b = [Infinity, Infinity, -Infinity, -Infinity];
@@ -118,33 +115,6 @@ function boxIndex(boxes, tol) {
   };
 }
 
-/** Exact-ish box match (within tol) by hashing the lower-left corner. */
-function sameBoxIndex(boxes, tol) {
-  const cellSize = Math.max(tol * 4, 1e-6);
-  const key = (x, y) => `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)}`;
-  const map = new Map();
-  for (const b of boxes) {
-    const k = key(b[0], b[1]);
-    if (!map.has(k)) map.set(k, []);
-    map.get(k).push(b);
-  }
-  return (bb) => {
-    const cx = Math.floor(bb[0] / cellSize), cy = Math.floor(bb[1] / cellSize);
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (const o of map.get(`${cx + dx},${cy + dy}`) || []) {
-          if (Math.abs(o[0] - bb[0]) <= tol && Math.abs(o[1] - bb[1]) <= tol
-            && Math.abs(o[2] - bb[2]) <= tol && Math.abs(o[3] - bb[3]) <= tol) return true;
-        }
-      }
-    }
-    return false;
-  };
-}
-
-/** Two colours a person would call the same (a fill with its own outline). */
-const sameColour = (a, b) => !!a && !!b && Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) < 0.3;
-
 function polyLenMm(pts) {
   let L = 0;
   for (let i = 0; i + 3 < pts.length; i += 2) L += Math.hypot(pts[i + 2] - pts[i], pts[i + 3] - pts[i + 1]);
@@ -152,41 +122,41 @@ function polyLenMm(pts) {
 }
 
 /**
- * @param read    readPdf() output
- * @param pieces  detectCut().pieces: { bb, outlines, holes } in page points
- * @param speeds  { [materialId]: cut speed mm/s }
+ * @param read      readPdf()-shaped drawing, page points
+ * @param assigned  assignLayers(read)
+ * @param roles     { [layerKey]: 'cut' | 'engrave' | 'score' | 'ignore' }
+ * @param speeds    { [materialId]: cut speed mm/s }
  */
-export function laserJob(read, pieces, speeds) {
+export function laserJob(read, assigned, roles, speeds) {
   const TOL = 0.05 / MM_PER_PT;
-  const onMaterial = boxIndex(pieces.map((p) => p.bb), TOL);
+  const { parts, rasterKey } = assigned;
+  const roleOf = (key) => (key ? roles[key] || 'ignore' : 'ignore');
+  const shown = (p) => !p.oc?.some((g) => g.off);
 
-  // Outlines of the material: pieces and their holes. A filled shape that
-  // matches one of these is the material, so it is cut along its edge.
-  const outlineBoxes = [];
-  for (const p of pieces) for (const o of [...p.outlines, ...(p.holes || [])]) outlineBoxes.push(bbOf(o));
-  const isOutline = sameBoxIndex(outlineBoxes, TOL);
-
-  // A fill covering (nearly) a whole piece is the colour of the board in a
-  // mockup, not a request to engrave the entire surface: priced as engraving
-  // it turns a RM30 cut job into hundreds of ringgit. Skipped, and the
-  // customer is told so they can ask for full-surface engraving by WhatsApp.
-  let background = 0;
-  const isBackground = (subs) => {
+  // ---- pieces: outermost closed outlines of the cut work
+  const cutPaths = read.paths.filter((p, i) => shown(p) && (roleOf(parts[i].stroke) === 'cut' || roleOf(parts[i].fill) === 'cut'));
+  let pieces = piecesFromRoots(outermostRoots(cutPaths, { mediaBox: read.page?.mediaBox || null }).roots);
+  const hasCutPieces = pieces.length > 0;
+  if (!hasCutPieces) {
     let bb = null;
-    for (const s of subs) bb = bb ? [Math.min(bb[0], s.bb[0]), Math.min(bb[1], s.bb[1]), Math.max(bb[2], s.bb[2]), Math.max(bb[3], s.bb[3])] : [...s.bb];
-    const area = (bb[2] - bb[0]) * (bb[3] - bb[1]);
-    return pieces.length <= 500 && pieces.some((p) => {
-      const pa = (p.bb[2] - p.bb[0]) * (p.bb[3] - p.bb[1]);
-      const ov = bbIntersect(bb, p.bb);
-      return pa > 0 && ov && (ov[2] - ov[0]) * (ov[3] - ov[1]) >= BACKGROUND_SHARE * pa && area <= pa / BACKGROUND_SHARE;
+    const grow = (b) => { bb = bb ? [Math.min(bb[0], b[0]), Math.min(bb[1], b[1]), Math.max(bb[2], b[2]), Math.max(bb[3], b[3])] : [...b]; };
+    read.paths.forEach((p, i) => {
+      if (!shown(p) || (roleOf(parts[i].stroke) === 'ignore' && roleOf(parts[i].fill) === 'ignore')) return;
+      for (const s of p.subs) grow(p.clip ? (bbIntersect(s.bb, p.clip) || s.bb) : s.bb);
     });
-  };
+    if (roleOf(rasterKey) !== 'ignore') for (const r of read.rasters || []) if (!r.oc?.some((g) => g.off)) grow(r.bb);
+    if (!bb || (bb[2] - bb[0]) * MM_PER_PT < 0.5 || (bb[3] - bb[1]) * MM_PER_PT < 0.5) return { error: 'nothing' };
+    pieces = [{ bb, outlines: [], holes: [] }];
+  }
+  const onMaterial = boxIndex(pieces.map((p) => p.bb), TOL);
 
   const cut = [];      // flat pts per cut line
   const score = [];
   const fills = [];    // closed outlines to engrave (flat pts)
   const bands = [];    // thick strokes: { pts, w } (w in pt)
   const rasters = [];  // boxes
+  const ignored = [];  // switched-off artwork, drawn faintly so the customer sees it
+  let outside = 0;     // worked-on parts lying outside every piece
   const seen = new Set();
   const addLine = (list, pts, closed) => {
     const p = closed ? closedPts(pts) : pts;
@@ -196,56 +166,39 @@ export function laserJob(read, pieces, speeds) {
     list.push(p);
   };
 
-  // Piece outlines are always cut, whatever painted them (CutContour spot,
-  // cut layer, or the outermost shape).
-  for (const p of pieces) {
-    for (const o of p.outlines) addLine(cut, o, true);
-    for (const o of p.holes || []) addLine(cut, o, true);
-  }
-
-  for (const path of read.paths) {
-    if (path.oc.some((g) => g.off)) continue;
-    const visible = path.subs.filter((s) => {
-      if (path.clip && !bbIntersect(s.bb, path.clip)) return false;
-      return onMaterial(s.bb);
-    });
-    if (!visible.length) continue;
-
-    if (path.clipPainted) {
-      for (const s of visible) fills.push(closedPts(s.pts));
-      continue;
+  read.paths.forEach((path, i) => {
+    if (!shown(path)) return;
+    const sRole = roleOf(parts[i].stroke), fRole = roleOf(parts[i].fill);
+    if (sRole === 'ignore' && fRole === 'ignore') {
+      // Paper-white fills and a picture's background are not worth showing.
+      const paper = path.backdrop || (!path.stroke && isWhiteish(path.fillRGB)) || (path.stroke && !path.fill && isWhiteish(path.strokeRGB));
+      if (!paper) for (const s of path.subs) ignored.push(s.closed ? closedPts(s.pts) : s.pts);
+      return;
     }
-    const piecePath = visible.some((s) => s.closed && isOutline(s.bb));
-    // A filled shape outlined in its own colour (CorelDRAW's default outline)
-    // is one engraved shape; the outline is not a cut line.
-    const ownOutline = path.fill && path.stroke && !piecePath && !isWhite(path.fillRGB) && sameColour(path.fillRGB, path.strokeRGB);
-    if (path.stroke && !isWhite(path.strokeRGB) && !ownOutline) {
-      // A piece's own outline is cut however thick it was drawn.
-      if (path.lw * MM_PER_PT >= THICK_MM && !piecePath) {
-        for (const s of visible) bands.push({ pts: s.closed ? closedPts(s.pts) : s.pts, w: path.lw });
-      } else {
-        const list = isBlue(path.strokeRGB) ? score : cut;
-        for (const s of visible) addLine(list, s.pts, s.closed);
-      }
+    const inClip = path.subs.filter((s) => !path.clip || bbIntersect(s.bb, path.clip));
+    const visible = inClip.filter((s) => onMaterial(s.bb));
+    outside += inClip.length - visible.length;
+    if (!visible.length) return;
+    if (sRole === 'cut' || sRole === 'score') {
+      for (const s of visible) addLine(sRole === 'cut' ? cut : score, s.pts, s.closed);
+    } else if (sRole === 'engrave') {
+      if (path.lw * MM_PER_PT >= THICK_MM) for (const s of visible) bands.push({ pts: s.closed ? closedPts(s.pts) : s.pts, w: path.lw });
+      else for (const s of visible) addLine(score, s.pts, s.closed);
     }
-    if (path.fill) {
-      if (piecePath) {
-        // The material's own shape (letters cut out of acrylic, a filled
-        // plaque): its edge and its counters are cut, its fill is the board.
-        for (const s of visible) if (s.closed) addLine(cut, s.pts, true);
-      } else if (!isWhite(path.fillRGB) && (ownOutline || !(path.stroke && !isWhite(path.strokeRGB)))) {
-        // Filled and stroked in another colour: the stroke says "cut here",
-        // the fill is only a mockup of the material.
-        const closed = visible.filter((s) => s.closed);
-        if (closed.length && isBackground(closed)) { background++; continue; }
-        for (const s of closed) fills.push(closedPts(s.pts));
-      }
+    const closed = visible.filter((s) => s.closed);
+    if (fRole === 'cut' || fRole === 'score') for (const s of closed) addLine(fRole === 'cut' ? cut : score, s.pts, true);
+    else if (fRole === 'engrave') for (const s of closed) fills.push(closedPts(s.pts));
+  });
+  const rRole = roleOf(rasterKey);
+  if (rRole !== 'ignore') {
+    for (const r of read.rasters || []) {
+      if (r.oc?.some((g) => g.off)) continue;
+      if (!onMaterial(r.bb)) { outside++; continue; }
+      const [x0, y0, x1, y1] = r.bb;
+      const box = [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0];
+      if (rRole === 'engrave') rasters.push(box);
+      else addLine(rRole === 'cut' ? cut : score, box, true);
     }
-  }
-  for (const r of read.rasters || []) {
-    if (r.oc.some((g) => g.off) || !onMaterial(r.bb)) continue;
-    const [x0, y0, x1, y1] = r.bb;
-    rasters.push([x0, y0, x1, y0, x1, y1, x0, y1, x0, y0]);
   }
 
   // ---- cut and score: lengths, runs, time per material
@@ -343,8 +296,9 @@ export function laserJob(read, pieces, speeds) {
   }
 
   return {
-    cutMm, scoreMm, cutSec, scoreSec, rapidSec, engraveSec, engraveLines, engraveBox, background,
+    pieces, noCut: !hasCutPieces, cutMm, scoreMm, cutSec, scoreSec, rapidSec, engraveSec, engraveLines, engraveBox,
     counts: { cut: cut.length, score: score.length, fills: fills.length, bands: bands.length, rasters: rasters.length },
-    draw: { cut, score, fills, bands, rasters },
+    outside,
+    draw: { cut, score, fills, bands, rasters, ignored },
   };
 }

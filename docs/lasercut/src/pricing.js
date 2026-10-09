@@ -2,6 +2,7 @@
 //
 //   price per set = material + laser time
 //     material    = sum of piece boxes (sq ft) x sheet price / sheet area
+//                   x MATERIAL_MARKUP
 //     laser time  = (cut + score + engrave + travel) minutes x RATE_SEN_PER_MIN
 //   total         = price per set x quantity, nearest 10 sen (half up),
 //                   never under MIN_SEN
@@ -18,22 +19,41 @@ export const SHEET_SQFT = 12;            // prices are per 4 x 3 ft sheet
 export const RATE_SEN_PER_MIN = 300;     // RM3 a minute of laser time
 export const MIN_SEN = 1000;             // RM10 minimum per order
 export const RANGE = 0.15;               // shown as total -15% .. +15%
+export const MATERIAL_MARKUP = 2;        // material is charged at cost + 100%
 export const BED_LONG_MM = 1200;         // largest piece, either orientation:
 export const BED_SHORT_MM = 900;         // a 4 x 3 ft sheet on a 1280 x 900 bed
 
-// cutSpeed in mm/s from bridge/config.json. Acrylic 2mm and MDF 5mm are not in
-// that file yet: their speeds are estimates until measured on the machine.
+// Material groups, as the picker shows them: a swatch per group, then the
+// thicknesses it comes in.
+export const GROUPS = [
+  { id: 'ply', name: 'Plywood', note: 'Kayu lapis' },
+  { id: 'mdf', name: 'MDF', note: 'Papan gentian' },
+  { id: 'clear', name: 'Akrilik Clear', note: 'Jernih' },
+  { id: 'black', name: 'Akrilik Hitam', note: 'Hitam berkilat' },
+  { id: 'gold', name: 'Cermin Emas', note: 'Akrilik mirror' },
+  { id: 'silver', name: 'Cermin Perak', note: 'Akrilik mirror' },
+];
+
+// sheetSen: the price of one 4 x 3 ft sheet (Boss, 9 Okt 2026). cutSpeed in
+// mm/s from bridge/config.json; the ones marked "est" are not in that file yet
+// and are estimates until measured on the machine. Akrilik Hitam has no price
+// of its own yet: it uses Akrilik Clear's until Boss sets one.
 export const MATERIALS = [
-  { id: 'ply3', name: 'Plywood', thick: '3mm', label: 'Plywood 3mm', sheetSen: 3000, cutSpeed: 15 },
-  { id: 'ply5', name: 'Plywood', thick: '5mm', label: 'Plywood 5mm', sheetSen: 3000, cutSpeed: 8 },
-  { id: 'acr2', name: 'Akrilik', thick: '2mm', label: 'Akrilik 2mm', sheetSen: 5000, cutSpeed: 25 },
-  { id: 'acr3', name: 'Akrilik', thick: '3mm', label: 'Akrilik 3mm', sheetSen: 7000, cutSpeed: 18 },
-  { id: 'acr5', name: 'Akrilik', thick: '5mm', label: 'Akrilik 5mm', sheetSen: 8000, cutSpeed: 10 },
-  { id: 'mdf3', name: 'MDF', thick: '3mm', label: 'MDF 3mm', sheetSen: 3000, cutSpeed: 14 },
-  { id: 'mdf5', name: 'MDF', thick: '5mm', label: 'MDF 5mm', sheetSen: 4000, cutSpeed: 8 },
+  { id: 'ply3', group: 'ply', thick: '3mm', label: 'Plywood 3mm', sheetSen: 3000, cutSpeed: 15 },
+  { id: 'ply5', group: 'ply', thick: '5mm', label: 'Plywood 5mm', sheetSen: 3000, cutSpeed: 8 },
+  { id: 'mdf3', group: 'mdf', thick: '3mm', label: 'MDF 3mm', sheetSen: 3000, cutSpeed: 14 },
+  { id: 'mdf5', group: 'mdf', thick: '5mm', label: 'MDF 5mm', sheetSen: 4000, cutSpeed: 8 },           // est
+  { id: 'acr2', group: 'clear', thick: '2mm', label: 'Akrilik Clear 2mm', sheetSen: 5000, cutSpeed: 25 }, // est
+  { id: 'acr3', group: 'clear', thick: '3mm', label: 'Akrilik Clear 3mm', sheetSen: 7000, cutSpeed: 18 },
+  { id: 'acr5', group: 'clear', thick: '5mm', label: 'Akrilik Clear 5mm', sheetSen: 8000, cutSpeed: 10 },
+  { id: 'blk2', group: 'black', thick: '2mm', label: 'Akrilik Hitam 2mm', sheetSen: 5000, cutSpeed: 25 }, // est, price = clear
+  { id: 'blk3', group: 'black', thick: '3mm', label: 'Akrilik Hitam 3mm', sheetSen: 7000, cutSpeed: 18 }, // price = clear
+  { id: 'gold15', group: 'gold', thick: '1.5mm', label: 'Akrilik Cermin Emas 1.5mm', sheetSen: 8000, cutSpeed: 30 },   // est
+  { id: 'silv15', group: 'silver', thick: '1.5mm', label: 'Akrilik Cermin Perak 1.5mm', sheetSen: 8000, cutSpeed: 30 }, // est
 ];
 export const DEFAULT_MATERIAL = 'ply3';
 export const materialById = (id) => MATERIALS.find((m) => m.id === id) || null;
+export const groupById = (id) => GROUPS.find((g) => g.id === id) || null;
 export const CUT_SPEEDS = Object.fromEntries(MATERIALS.map((m) => [m.id, m.cutSpeed]));
 
 /** Points (already x UserUnit) to whole micrometres, half up. */
@@ -131,7 +151,7 @@ export function quote(pieces, laser, materialId, qtyText) {
   if (!q.ok) return { ...base, state: 'bad-qty', qtyCode: q.code };
 
   // Material in milli-sen through BigInt (a big order passes 2^53), then sen.
-  const materialSen = Number((setArea * BigInt(material.sheetSen) * 1000n) / (BigInt(SHEET_SQFT) * SQFT_UM2)) / 1000;
+  const materialSen = (Number((setArea * BigInt(material.sheetSen) * 1000n) / (BigInt(SHEET_SQFT) * SQFT_UM2)) / 1000) * MATERIAL_MARKUP;
   const sec = setSeconds(laser, material);
   const timeSen = (sec / 60) * RATE_SEN_PER_MIN;
   const setSen = materialSen + timeSen;
