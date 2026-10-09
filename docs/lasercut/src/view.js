@@ -18,8 +18,8 @@ const el = (name, attrs = {}) => {
 const n3 = (v) => Math.round(v * 1000) / 1000;
 
 // How each material looks in the preview: the board, and what engraving looks
-// like on it. Wood and MDF darken; clear acrylic, black acrylic and both
-// mirrors engrave to a whitish grey (Boss, 9 Okt 2026). A whitish engraving
+// like on it. Wood and MDF darken; black acrylic turns dark grey; clear acrylic
+// and both mirrors turn a whitish grey (Boss, 9 Okt 2026). A whitish engraving
 // gets a thin grey edge so it still reads on a pale board.
 const GRADIENTS = {
   'g-clear': [[0, '#cfe8f5', 0.75], [0.5, '#ffffff', 0.35], [1, '#b9dcef', 0.7]],
@@ -31,7 +31,7 @@ const LOOK = {
   ply: { board: '#e8cfa0', engrave: '#5a3a1c', swatch: '#e8cfa0' },
   mdf: { board: '#b98a5e', engrave: '#3a2414', swatch: '#b98a5e' },
   clear: { board: 'url(#g-clear)', engrave: '#eef0f2', edge: '#8a949c', swatch: '#cfe8f5' },
-  black: { board: 'url(#g-black)', engrave: '#c9ccd1', swatch: '#2b2d31' },
+  black: { board: 'url(#g-black)', engrave: '#5f6268', swatch: '#2b2d31' },
   gold: { board: 'url(#g-gold)', engrave: '#e8e8e6', edge: '#7a6a3a', swatch: '#e2c25e' },
   silver: { board: 'url(#g-silver)', engrave: '#eceeef', edge: '#6f757c', swatch: '#c9cdd2' },
 };
