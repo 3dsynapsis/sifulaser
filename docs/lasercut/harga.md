@@ -64,6 +64,13 @@ Kalkulator mengira masa dengan tepat dari fail (termasuk pecutan mesin di setiap
 6. **Jumlah** = (kos bahan + kos masa) x kuantiti, bundar ke 10 sen, minimum RM10.
 7. **Julat** untuk pelanggan: jumlah x 0.85 (bundar ke bawah) hingga jumlah x 1.15 (bundar ke atas), ringgit penuh.
 
+Peraturan yang menjadikan kiraan sama dengan kalkulator:
+
+- **Set dan kuantiti.** Satu set ialah semua yang ada dalam satu fail. Tanpa fail, anggap 1 set = 1 kepingan dan darab dengan kuantiti; ukiran setiap kepingan dikira berasingan. Peraturan "blok sebaris digabung" hanya terpakai bila beberapa kepingan disusun bersama dalam satu fail.
+- **Panjang potong.** Segi empat = 2 x (lebar + tinggi). Bulatan atau lubang bulat = 3.1416 x diameter. Bucu bulat berjejari r: perimeter segi empat - 8r + 2 x 3.1416 x r.
+- **Pembundaran.** Jangan bundar di tengah kiraan. Bundar hanya jumlah akhir ke 10 sen terdekat. Kadar bahan dalam jadual dibundar ke sen; perbezaannya tidak menjejaskan harga.
+- **Kawasan ukiran tulisan.** Guna kotak di sekeliling tulisan (lebar x tinggi). Kalkulator mengukur setiap baris mengikut bentuk huruf sebenar, jadi harganya biasanya sedikit lebih rendah daripada anggaran kotak.
+
 ## Contoh
 
 ### Plak nama 20 x 12 cm, plywood 3mm, 1 keping

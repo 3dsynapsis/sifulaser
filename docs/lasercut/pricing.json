@@ -151,7 +151,11 @@
     "score_seconds": "panjang_garisan_halus_mm / 100",
     "engrave_seconds": "(tinggi_ukiran_mm / 0.1) x (lebar_ukiran_mm / 200 + 0.062)",
     "engrave_line_overhead_seconds": 0.062,
-    "engrave_same_rows": "blok ukiran pada baris yang sama dikira sebagai satu kawasan, dari blok paling kiri hingga paling kanan"
+    "engrave_same_rows": "blok ukiran pada baris yang sama dikira sebagai satu kawasan, dari blok paling kiri hingga paling kanan (hanya bila beberapa kepingan disusun bersama dalam satu fail)",
+    "set_and_quantity": "satu set = semua yang ada dalam satu fail; tanpa fail, anggap 1 set = 1 kepingan dan darab dengan kuantiti",
+    "cut_length": "segi empat = 2 x (lebar + tinggi); bulatan atau lubang = 3.1416 x diameter; bucu bulat jejari r: perimeter - 8r + 2 x 3.1416 x r",
+    "rounding": "jangan bundar di tengah kiraan; bundar hanya jumlah akhir ke 10 sen",
+    "text_area": "guna kotak di sekeliling tulisan; kalkulator biasanya sedikit lebih rendah kerana mengikut bentuk huruf sebenar"
   },
   "layers": {
     "default_meaning": {
