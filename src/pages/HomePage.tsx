@@ -1,4 +1,3 @@
-import { ArrowRight, Crown } from 'lucide-react'
 import { LazyMotion, MotionConfig, m } from 'motion/react'
 import { SiteHeader } from '../components/SiteHeader'
 import { HomeHero } from '../components/home/HomeHero'
@@ -11,7 +10,6 @@ import {
   gridStagger,
 } from '../components/home/ToolCards'
 import { GROUPS, toolsInGroup, type GroupId } from '../data/tools'
-import { ACCESS_PERIOD_LABEL, PRICE_LABEL } from '../lib/access'
 import { useAuth } from '../lib/auth'
 
 /**
@@ -36,7 +34,7 @@ const GRID_CLASS: Record<Exclude<GroupId, 'harga' | 'belajar'>, string> = {
 }
 
 export const HomePage = () => {
-  const { configured, loading, paid } = useAuth()
+  const { loading, paid } = useAuth()
 
   const body = (id: GroupId) => {
     if (id === 'belajar') return <LearnStep paid={paid} loading={loading} />
@@ -84,18 +82,11 @@ export const HomePage = () => {
           <StepChips groups={GROUPS} />
 
           <main className="home-main">
-            {/* Jalur naik taraf. Satu-satunya laluan jualan Akses Penuh di
-                halaman ini, jadi ia kekal kelihatan untuk akaun percuma. */}
-            {configured && !loading && !paid ? (
-              <a href="#/bayar" className="upgrade">
-                <Crown className="h-4 w-4 shrink-0 text-near" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  Naik taraf ke Akses Penuh — {PRICE_LABEL} / {ACCESS_PERIOD_LABEL}
-                </span>
-                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-              </a>
-            ) : null}
-
+            {/* Tiada jalur naik taraf di sini (Boss, 9 Okt 2026): halaman utama
+                ialah One Stop Centre, bukan halaman jualan. Akses Penuh
+                ditawarkan di tempat ia diperlukan - LockedNotice bila pengguna
+                cuba buka Level 2 simulator ke atas atau panduan berbayar - dan
+                di langkah 4 / #/pakej. */}
             {GROUPS.map((group) => (
               <StepSection
                 key={group.id}
