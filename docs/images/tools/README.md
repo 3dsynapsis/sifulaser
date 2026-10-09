@@ -1,6 +1,6 @@
 # Gambar tile untuk halaman utama
 
-Sebelas gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
+Dua belas gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
 (Simulator, Maintenance, Troubleshooting, Template Adjuster, Converter File,
 Blog, About) tidak menghasilkan apa-apa untuk digambarkan dan memakai ikon
 lucide, bukan gambar.
@@ -17,7 +17,7 @@ bukan lukisan pelanggan yang direka-reka.
 Semuanya dilukis pada nisbah 96 x 64 (3:2) di atas latar lutsinar, supaya warna
 well tile menembusi dan kesebelas-belasnya terbaca sebagai satu set.
 
-## Lapan yang dijana - tidak boleh jadi basi
+## Sembilan yang dijana - tidak boleh jadi basi
 
 | Fail | Dijana oleh |
 |---|---|
@@ -29,6 +29,7 @@ well tile menembusi dan kesebelas-belasnya terbaca sebagai satu set.
 | `rehal.svg` | `25_Rehal Generator/tools/thumb.mjs` |
 | `uvprint.svg` | `7_SifuLaser/scripts/thumb-uvprint.mjs` |
 | `tray.svg` | `7_SifuLaser/scripts/thumb-tray.mjs` |
+| `lasercut.svg` | `7_SifuLaser/scripts/thumb-lasercut.mjs` |
 
 Setiap satu memanggil `build*()` alat itu sendiri dan menulis semula gambar
 daripada geometri sebenar. Jalankan semula bila-bila masa:
@@ -46,7 +47,17 @@ berikan. Jalankan semula selepas apa-apa perubahan pada geometri:
 
     node scripts/thumb-tray.mjs
 
-`uvprint.svg` ialah satu-satunya yang penjananya tinggal dalam repo ini
+`lasercut.svg` dijana dengan cara yang sama seperti `uvprint.svg` di bawah:
+`scripts/thumb-lasercut.mjs` mengimport salinan VENDORED di
+`docs/lasercut/src` (`analyseFile()` dan `quote()`), membaca fail contoh
+`plaque-200x120.pdf` dari `23_Lasercut Languange Machine/quote/tools/samples/`,
+dan melukis papan plywood, ukiran, garisan halus biru, garisan potong merah
+dan julat harga satu set plywood 3 mm. Jalankan semula selepas
+`node scripts/vendor-lasercut.mjs`:
+
+    node scripts/thumb-lasercut.mjs
+
+`uvprint.svg` ialah yang pertama penjananya tinggal dalam repo ini
 sementara ALATNYA tinggal di luar. Ia mengimport salinan VENDORED di `docs/uvprint/src`
 (`analyseFile()` dan `quote()`), membaca fixture `a-cutcontour-objstm.pdf` dari
 `26_UV Print Calculator/tools/fixtures/`, dan melukis artwork kelabu, garisan

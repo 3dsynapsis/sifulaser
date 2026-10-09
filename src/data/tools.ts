@@ -6,7 +6,7 @@
 // laluan yang ditulis tangan — salinan itu boleh diterbitkan dari sini
 // kemudian.
 //
-// SEMBILAN BELAS destinasi hari ini, LAPAN BELAS tile. Yang keluar dari grid
+// DUA PULUH destinasi hari ini, SEMBILAN BELAS tile. Yang keluar dari grid
 // ialah "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di
 // jalur kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi
 // pada satu halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama
@@ -16,6 +16,10 @@
 // itu kini ENAM tile dan baris A halaman utama ialah 3 + 6 = 9, sama seperti
 // baris B. Matematik lebar panel dalam src/index.css diterbitkan semula untuk
 // itu; lihat komen .home-row di sana sebelum menambah tile lagi.
+//
+// Tile kesembilan belas ialah Kalkulator Laser Cut, dalam "Belajar & Sumber"
+// di sebelah UV Print Calculator - jadi kumpulan itu juga ENAM tile dan baris
+// B ialah 4 + 6 = 10. Matematik .home-row--b diterbitkan semula sekali lagi.
 
 import {
   ArrowRightLeft,
@@ -24,6 +28,7 @@ import {
   BookOpen,
   BookOpenText,
   CakeSlice,
+  Calculator,
   ClipboardCheck,
   Crosshair,
   House,
@@ -338,6 +343,42 @@ export const TOOLS: ToolEntry[] = [
     Icon: Printer,
   },
   {
+    // Jiran UV Print Calculator atas sebab yang sama: ia MEMBACA fail pelanggan
+    // (PDF, AI, DXF atau gambar) dan hujungnya sebut harga WhatsApp ke kedai.
+    title: 'Kalkulator Laser Cut',
+    shortDescription: 'Harga potong & ukir laser dari fail anda.',
+    description:
+      'Upload PDF, AI, DXF atau gambar, pilih bahan dan saiz, dan terus nampak anggaran harga potong dan ukir laser, kemudian hantar sebut harga ke WhatsApp.',
+    href: '#/lasercut',
+    group: 'belajar',
+    variant: 'art',
+    // SVG dijana oleh `node scripts/thumb-lasercut.mjs` daripada kod vendored
+    // dan satu fail contoh sebenar: papan, ukiran, garisan potong dan julat
+    // harga semuanya keluar dari alat itu sendiri.
+    art: '/images/tools/lasercut.svg',
+    keywords: [
+      'laser cut',
+      'laser',
+      'potong',
+      'ukir',
+      'engrave',
+      'harga',
+      'sebut harga',
+      'quotation',
+      'plywood',
+      'akrilik',
+      'acrylic',
+      'mdf',
+      'cermin',
+      'mirror',
+      'dxf',
+      'png',
+      'gambar',
+      'kalkulator',
+    ],
+    Icon: Calculator,
+  },
+  {
     title: 'Blog',
     shortDescription: 'Episod Laser, nota kerja Sifu Hisham.',
     description:
@@ -521,21 +562,6 @@ const TARGETS: RankedTarget[] = [
       keywordFold: '',
     }
   }),
-  {
-    // Kalkulator Laser Cut belum ada tile: kedua-dua baris grid sudah dikira
-    // untuk sembilan tile (lihat .home-row dalam src/index.css), dan tile
-    // kesembilan belas memerlukan matematik itu diterbitkan semula. Sementara
-    // itu ia boleh dicari di sini dan dibuka terus di #/lasercut atau /lasercut/.
-    title: 'Kalkulator Laser Cut',
-    line: 'Harga potong & ukir laser terus dari fail anda.',
-    href: '#/lasercut',
-    accent: ACCENT_BY_GROUP.belajar,
-    haystack: fold(
-      'kalkulator laser cut harga potong ukir sebut harga quotation plywood akrilik acrylic mdf cermin mirror pdf ai dxf png gambar',
-    ),
-    titleFold: fold('kalkulator laser cut'),
-    keywordFold: fold('harga potong ukir sebut harga quotation plywood akrilik acrylic mdf'),
-  },
   {
     title: 'Home',
     line: 'Halaman laman',

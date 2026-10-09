@@ -249,9 +249,24 @@
    -------------------------------------------------------------------------- */
 
 /* ---- baris panel ----
-   Nombor di sini diterbitkan semula apabila Tray Organizer menjadikan "Buat
-   Design" ENAM tile. Kumpulan kini 3/6/4/5. (Terbitan sebelumnya ialah untuk
-   UV Print Calculator, 3/5/4/5, dan sebelum itu Rehal Generator, 3/5/4/4.)
+   Nombor di sini diterbitkan semula apabila Kalkulator Laser Cut menjadikan
+   "Belajar & Sumber" ENAM tile. Kumpulan kini 3/6/4/6. (Terbitan sebelumnya
+   ialah untuk Tray Organizer, 3/6/4/5; UV Print Calculator, 3/5/4/5; dan
+   Rehal Generator, 3/5/4/4.)
+
+   Kalkulator Laser Cut: baris B kini 4 + 6 = 10 tile. Dengan Wn = n*t + 12n
+   + 30 (di bawah), W4 + W6 = 10t + 180 = 1128, jadi t = 94.8, W4 = 457.2 dan
+   W6 = 670.8 (ditulis 2286fr / 3354fr, iaitu 5x, supaya nisbahnya tepat).
+   Baris A tidak berubah: 3 + 6, t = 106.667.
+
+   Sembilan belas tile tidak boleh dibahagi kepada dua baris sama banyak, jadi
+   tuntutan KESEMUA TILE SATU LEBAR pecah semula - betul-betul kes alat
+   ketujuh belas di bawah. Dalam setiap baris tile masih satu lebar dan tepi
+   panel masih segaris; baris A 106.7 px, baris B 94.8 px pada lebar penuh.
+   Kenapa baris B: alat itu kalkulator yang MEMBACA fail pelanggan, jirannya
+   UV Print Calculator dalam "Belajar & Sumber", alasan yang sama seperti UV
+   Print dahulu. Di bawah 70rem kumpulan ini memakai peraturan kumpulan enam
+   tile yang sudah ada untuk "Buat Design" (data-tile-count='6').
 
    Tray Organizer: baris A kini 3 + 6 = 9 tile, sama seperti baris B - iaitu
    betul-betul kes yang perenggan AWAS di bawah ramalkan untuk alat kelapan
@@ -337,9 +352,11 @@
   grid-template-columns: minmax(0, 386fr) minmax(0, 742fr);
 }
 .home-row--b {
-  /* W4 : W5 = 504.667 : 623.333, ditulis sebagai 3x kedua-duanya supaya nisbah
-     itu tepat dan bukan dibundarkan — lihat penerbitan di atas. */
-  grid-template-columns: minmax(0, 1514fr) minmax(0, 1870fr);
+  /* W4 : W6 = 457.2 : 670.8 untuk 4 + 6 tile (t = 94.8), ditulis sebagai 5x
+     kedua-duanya supaya nisbah itu tepat. Nombor lama 1514 : 1870 ialah untuk
+     4 + 5 (t = 106.667) dan akan memberi tile belajar 88.6 px di sebelah tile
+     generator 106.7 px — lihat penerbitan di atas. */
+  grid-template-columns: minmax(0, 2286fr) minmax(0, 3354fr);
 }
 
 /* ---- panel ----
