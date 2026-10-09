@@ -66,6 +66,12 @@ export interface ToolEntry {
   shelf?: 'mesin'
   /** false = sasaran carian sahaja, tiada tile di halaman utama. */
   onHome?: boolean
+  /**
+   * true = alat belum siap: kadnya dipaparkan dengan label "Akan datang" tetapi
+   * tidak boleh diklik, ia tiada dalam carian, dan fail untuk AI (llms.txt,
+   * sitemap) tidak menyebutnya. Buang bila alat itu dimuktamadkan.
+   */
+  soon?: boolean
   Icon: LucideIcon
 }
 
@@ -118,6 +124,8 @@ export const TOOLS: ToolEntry[] = [
     href: '#/uvprint',
     group: 'harga',
     variant: 'art',
+    // Belum dimuktamadkan (Boss, 9 Okt 2026): kad dipaparkan, tidak boleh diklik.
+    soon: true,
     // SVG dijana oleh `node scripts/thumb-uvprint.mjs` daripada kod vendored
     // dan satu fixture sebenar: garisan potong, artwork dan harga semuanya
     // keluar dari alat itu sendiri, jadi ia tidak boleh jadi basi.
@@ -519,7 +527,8 @@ interface RankedTarget extends SearchTarget {
 }
 
 const TARGETS: RankedTarget[] = [
-  ...TOOLS.map((tool) => ({
+  // Alat "akan datang" tiada dalam carian: hasil carian ialah pautan.
+  ...TOOLS.filter((tool) => !tool.soon).map((tool) => ({
     title: tool.title,
     line: tool.shortDescription,
     href: tool.href,

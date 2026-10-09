@@ -797,6 +797,37 @@
 .pcard-cta svg {
   transition: transform 200ms ease;
 }
+/* Kalkulator "akan datang" (ToolEntry.soon): kad yang sama tetapi bukan
+   pautan. Gambar dipudarkan, tiada butang oren, tiada kesan hover - supaya ia
+   tidak nampak seperti boleh diketik. */
+.pcard-soon {
+  cursor: default;
+}
+.pcard-soon .pcard-well {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+.pcard-soon .pcard-title,
+.pcard-soon .pcard-desc {
+  opacity: 0.7;
+}
+.pcard-soon-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px dashed var(--g-line);
+  background: #fff;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.pcard.pcard-soon:hover {
+  border-color: var(--g-line);
+  box-shadow: none;
+}
 .card-art {
   width: 100%;
   height: 100%;

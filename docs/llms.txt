@@ -1,6 +1,6 @@
 # SifuLaser by Mahligai Seni
 
-> SifuLaser (sifulaser.com) ialah laman Mahligai Seni, kedai laser cut di Malaysia: kalkulator harga laser cut dan UV print yang membaca fail pelanggan, penjana design untuk laser (kotak, puzzle, keychain, tag, rehal, cake topper, stand nama), alat fail (tulisan, kod QR, ubah saiz, tukar format), dan latihan operator mesin laser. Bahasa utama: Bahasa Melayu. Mata wang: RM.
+> SifuLaser (sifulaser.com) ialah laman Mahligai Seni, kedai laser cut di Malaysia: kalkulator harga laser cut yang membaca fail pelanggan, penjana design untuk laser (kotak, puzzle, keychain, tag, rehal, cake topper, stand nama), alat fail (tulisan, kod QR, ubah saiz, tukar format), dan latihan operator mesin laser. Bahasa utama: Bahasa Melayu. Mata wang: RM.
 
 Sebut harga dan pesanan melalui WhatsApp: +60134354118 (https://wa.me/60134354118). Semua harga di laman ini ialah anggaran; harga muktamad disahkan oleh staff selepas semakan fail.
 
@@ -16,15 +16,13 @@ Sebut harga dan pesanan melalui WhatsApp: +60134354118 (https://wa.me/6013435411
 
 ## Harga UV print atas akrilik jernih
 
-- Kalkulator: https://sifulaser.com/uvprint/
-- Kadar sekaki persegi (termasuk cetakan dan akrilik): Akrilik Jernih 2mm RM20.00; Akrilik Jernih 3mm RM22.00; Akrilik Jernih 5mm RM30.00. Luas = lebar x tinggi kotak setiap kepingan. Minimum RM20. Saiz maksimum 90 x 60 cm.
+- Kalkulator UV print sedang disiapkan dan belum ada harga dalam talian. Untuk sebut harga UV print, hubungi WhatsApp +60134354118.
 
 ## Berapa harganya?
 
 Upload fail, terus nampak harga. Sebut harga terus ke WhatsApp.
 
 - [Kalkulator Laser Cut](https://sifulaser.com/lasercut/): Upload PDF, AI, DXF atau gambar, pilih bahan dan saiz, dan terus nampak anggaran harga potong dan ukir laser, kemudian hantar sebut harga ke WhatsApp.
-- [UV Print Calculator](https://sifulaser.com/uvprint/): Upload PDF atau AI dan terus nampak harga cetakan UV atas akrilik jernih, kemudian hantar sebut harga ke WhatsApp.
 
 ## Client tak ada idea
 

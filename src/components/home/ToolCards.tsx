@@ -32,20 +32,41 @@ const Well = ({ tool, size }: { tool: ToolEntry; size: number }) =>
  * butang "Dapatkan Harga" berasingan - dengan dua kalkulator, butang tunggal
  * tidak dapat memberitahu ke mana ia pergi. Kad itu sendiri butangnya.
  */
-export const PriceCard = ({ tool }: { tool: ToolEntry }) => (
-  <m.a href={tool.href} className="pcard" variants={pop} whileTap={TAP}>
+export const PriceCard = ({ tool }: { tool: ToolEntry }) =>
+  tool.soon ? (
+    <SoonPriceCard tool={tool} />
+  ) : (
+    <m.a href={tool.href} className="pcard" variants={pop} whileTap={TAP}>
+      <span className="pcard-well">
+        <Well tool={tool} size={44} />
+      </span>
+      <span className="pcard-body">
+        <span className="pcard-title">{tool.title}</span>
+        <span className="pcard-desc">{tool.shortDescription}</span>
+        <span className="pcard-cta">
+          Kira harga
+          <ArrowRight size={16} strokeWidth={2.5} aria-hidden="true" />
+        </span>
+      </span>
+    </m.a>
+  )
+
+/**
+ * Kalkulator yang belum siap: kad yang sama, tetapi BUKAN pautan - satu <div>
+ * tanpa href dan tanpa kesan tekan, gambar dipudarkan, dan label "Akan datang"
+ * menggantikan butang. aria-disabled supaya pembaca skrin pun tahu.
+ */
+const SoonPriceCard = ({ tool }: { tool: ToolEntry }) => (
+  <m.div className="pcard pcard-soon" variants={pop} aria-disabled="true">
     <span className="pcard-well">
       <Well tool={tool} size={44} />
     </span>
     <span className="pcard-body">
       <span className="pcard-title">{tool.title}</span>
       <span className="pcard-desc">{tool.shortDescription}</span>
-      <span className="pcard-cta">
-        Kira harga
-        <ArrowRight size={16} strokeWidth={2.5} aria-hidden="true" />
-      </span>
+      <span className="pcard-soon-tag">Akan datang</span>
     </span>
-  </m.a>
+  </m.div>
 )
 
 /** Tile alat untuk langkah 2 dan 3. */
