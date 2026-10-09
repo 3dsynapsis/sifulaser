@@ -522,6 +522,21 @@ const TARGETS: RankedTarget[] = [
     }
   }),
   {
+    // Kalkulator Laser Cut belum ada tile: kedua-dua baris grid sudah dikira
+    // untuk sembilan tile (lihat .home-row dalam src/index.css), dan tile
+    // kesembilan belas memerlukan matematik itu diterbitkan semula. Sementara
+    // itu ia boleh dicari di sini dan dibuka terus di #/lasercut atau /lasercut/.
+    title: 'Kalkulator Laser Cut',
+    line: 'Harga potong & ukir laser terus dari fail anda.',
+    href: '#/lasercut',
+    accent: ACCENT_BY_GROUP.belajar,
+    haystack: fold(
+      'kalkulator laser cut harga potong ukir sebut harga quotation plywood akrilik acrylic mdf pdf ai',
+    ),
+    titleFold: fold('kalkulator laser cut'),
+    keywordFold: fold('harga potong ukir sebut harga quotation plywood akrilik acrylic mdf'),
+  },
+  {
     title: 'Home',
     line: 'Halaman laman',
     href: '#/',
