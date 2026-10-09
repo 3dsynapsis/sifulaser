@@ -1,0 +1,60 @@
+# SifuLaser by Mahligai Seni
+
+> SifuLaser (sifulaser.com) ialah laman Mahligai Seni, kedai laser cut di Malaysia: kalkulator harga laser cut dan UV print yang membaca fail pelanggan, penjana design untuk laser (kotak, puzzle, keychain, tag, rehal, cake topper, stand nama), alat fail (tulisan, kod QR, ubah saiz, tukar format), dan latihan operator mesin laser. Bahasa utama: Bahasa Melayu. Mata wang: RM.
+
+Sebut harga dan pesanan melalui WhatsApp: +60134354118 (https://wa.me/60134354118). Semua harga di laman ini ialah anggaran; harga muktamad disahkan oleh staff selepas semakan fail.
+
+## Harga laser cut (ringkasan untuk AI)
+
+- Panduan penuh dengan formula dan contoh: https://sifulaser.com/lasercut/harga.md
+- Data JSON: https://sifulaser.com/lasercut/pricing.json
+- Kalkulator (muat naik PDF, AI, DXF atau gambar): https://sifulaser.com/lasercut/
+- Formula: harga satu set = kos bahan + kos masa laser. Kos bahan = luas kotak setiap kepingan (kaki persegi) x kadar bahan. Kos masa = minit masa mesin x RM3. Jumlah x kuantiti, minimum RM10, dipaparkan sebagai julat -15% hingga +15%.
+- Masa mesin: potong = panjang (mm) / kelajuan potong; garisan halus = panjang / 100; ukir = (tinggi mm / 0.1) x (lebar mm / 200 + 0.062) saat.
+- Kadar bahan (RM sekaki persegi; kelajuan potong mm/s): Plywood 3mm RM5.00 (15); Plywood 5mm RM5.00 (8); MDF 3mm RM5.00 (14); MDF 5mm RM6.67 (6); Akrilik Clear 2mm RM8.33 (20); Akrilik Clear 3mm RM11.67 (18); Akrilik Clear 5mm RM13.33 (10); Akrilik Hitam 2mm RM8.33 (20); Akrilik Hitam 3mm RM11.67 (18); Akrilik Cermin Emas 1.5mm RM13.33 (20); Akrilik Cermin Perak 1.5mm RM13.33 (20).
+- Saiz maksimum sekeping 120 x 90 cm.
+
+## Harga UV print atas akrilik jernih
+
+- Kalkulator: https://sifulaser.com/uvprint/
+- Kadar sekaki persegi (termasuk cetakan dan akrilik): Akrilik Jernih 2mm RM20.00; Akrilik Jernih 3mm RM22.00; Akrilik Jernih 5mm RM30.00. Luas = lebar x tinggi kotak setiap kepingan. Minimum RM20. Saiz maksimum 90 x 60 cm.
+
+## Berapa harganya?
+
+Upload fail, terus nampak harga. Sebut harga terus ke WhatsApp.
+
+- [Kalkulator Laser Cut](https://sifulaser.com/lasercut/): Upload PDF, AI, DXF atau gambar, pilih bahan dan saiz, dan terus nampak anggaran harga potong dan ukir laser, kemudian hantar sebut harga ke WhatsApp.
+- [UV Print Calculator](https://sifulaser.com/uvprint/): Upload PDF atau AI dan terus nampak harga cetakan UV atas akrilik jernih, kemudian hantar sebut harga ke WhatsApp.
+
+## Client tak ada idea
+
+Isi nama dan saiz, alat ini lukis seluruh design untuk anda.
+
+- [Box Maker](https://sifulaser.com/boxmaker/): Reka kotak finger joint ikut saiz anda, terus dapat fail SVG siap potong.
+- [Tray Organizer](https://sifulaser.com/tray/): Reka dulang organizer berpetak untuk laci atau meja - belah petak, seret pembahagi, dapat SVG half-lap untuk laser atau STL satu jasad untuk 3D printer.
+- [Rehal Generator](https://sifulaser.com/rehal/): Rehal Al-Quran boleh lipat — corak geometri dan nama terukir di tengahnya.
+- [Cake Topper](https://sifulaser.com/topper/): Nama untuk atas kek, satu keping dengan pancang. Untuk akrilik tuang.
+- [Stand Nama](https://sifulaser.com/stand/): Papan tanda nama meja: plate berukir atau huruf potong, siap dengan tapak.
+- [Keychain Generator](https://sifulaser.com/keychain/): Nama jadi kekunci satu keping, siap lubang ring. Untuk akrilik atau kayu.
+- [Tag Generator](https://sifulaser.com/tag/): Tag beg dengan slot tali. Muka depan untuk nama, belakang untuk alamat.
+- [Puzzle Generator](https://sifulaser.com/puzzle/): Jana garisan potong jigsaw ikut saiz papan anda, terus dapat fail SVG.
+
+## Ada idea, perlu fail
+
+Tulisan, kod QR, ubah saiz dan tukar format fail.
+
+- [Text Engraver](https://sifulaser.com/text/): Teks satu garisan untuk ukiran laju. Dapat fail SVG atau PDF ikut saiz mm.
+- [QR Generator](https://sifulaser.com/qr/): Tukar link jadi kod QR untuk laser. Saiz mm sebenar, ada bingkai keychain.
+- [Template Adjuster](https://sifulaser.com/adjust/): Fail SVG dari internet tak padan material anda? Ubah saiz dan tebalnya.
+- [Converter File](https://sifulaser.com/converter/): Tukar format fail vektor tanpa mengubah saiz, bentuk atau kedudukan lukisan.
+
+## Belajar lebih
+
+Tips mingguan Sifu Hisham, kelas, dan panduan mesin.
+
+- [Blog](https://sifulaser.com/#/blog): Episod Laser — nota Sifu Hisham dari kerja harian, sedia untuk disalin.
+- [Simulator Alignment](https://sifulaser.com/#/simulator): Belajar dan praktik alignment cermin untuk Mesin Laser Cut.
+- [Maintenance](https://sifulaser.com/#/maintenance): Senarai semak weekly & yearly untuk memastikan mesin sentiasa optimum.
+- [Troubleshooting](https://sifulaser.com/#/troubleshoot): Carta SOP untuk kesan punca bila mesin laser tak berfungsi.
+- [About Me & Kedai Laser](https://sifulaser.com/#/about): Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.
+

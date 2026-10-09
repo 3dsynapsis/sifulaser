@@ -467,3 +467,20 @@ code {
 @media (max-width: 360px) {
   .mat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---------- the static price guide (for people and AI assistants) ----------
+   Plain HTML written by tools/build-ai-files.mjs, readable without JavaScript.
+   Closed by default so it stays out of the way of the calculator. */
+
+.ai-guide {
+  width: min(980px, calc(100% - 32px)); margin: 8px auto 28px; padding: 4px 16px 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: 13px; color: var(--text);
+}
+.ai-guide summary { cursor: pointer; font-weight: 700; min-height: 40px; display: flex; align-items: center; color: var(--muted); }
+.ai-guide summary:hover { color: var(--text); }
+.ai-guide p { margin: 8px 0; line-height: 1.55; }
+.ai-guide a { color: var(--accent); font-weight: 600; }
+.ai-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.ai-table th, .ai-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.ai-table th { font-size: 12px; color: var(--muted); font-weight: 600; }

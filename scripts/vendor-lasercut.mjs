@@ -13,6 +13,9 @@
 // tree are CRLF; the tool's own folder keeps LF. Text files are converted on
 // the way in, binaries copied untouched.
 //
+// Also copied: harga.md and pricing.json, the price guide for AI assistants
+// that the tool's tools/build-ai-files.mjs writes (run it before vendoring).
+//
 // Excluded, deliberately: package.json, tools/ (tests, fixtures, samples, dev
 // server) and .claude/. The destination keeps its own Malay README.
 //
@@ -97,7 +100,7 @@ const keptReadme = fs.existsSync(path.join(DEST, 'README.md'))
 
 fs.rmSync(path.join(DEST, 'src'), { recursive: true, force: true });
 copyInto(path.join(SRC, 'src'), path.join(DEST, 'src'));
-for (const f of ['index.html', 'styles.css']) {
+for (const f of ['index.html', 'styles.css', 'harga.md', 'pricing.json']) {
   writeText(path.join(DEST, f), fs.readFileSync(path.join(SRC, f)));
   files++;
 }

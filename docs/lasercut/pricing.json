@@ -1,0 +1,244 @@
+{
+  "name": "Kalkulator Laser Cut - SifuLaser by Mahligai Seni",
+  "description": "Anggaran harga laser cut dan ukiran (engrave) dari fail PDF, AI, DXF atau gambar. Semua harga dalam Ringgit Malaysia.",
+  "url": "https://sifulaser.com/lasercut/",
+  "guide_markdown": "https://sifulaser.com/lasercut/harga.md",
+  "updated": "2026-10-09",
+  "currency": "MYR",
+  "contact": {
+    "whatsapp": "+60134354118",
+    "whatsapp_link": "https://wa.me/60134354118"
+  },
+  "how_to_order": "Muat naik fail di kalkulator untuk harga anggaran, kemudian tekan \"Hantar ke WhatsApp\" dan lampirkan fail. Staff mengesahkan harga muktamad.",
+  "disclaimer": "Harga anggaran. Harga muktamad disahkan oleh staff selepas semakan fail.",
+  "pricing": {
+    "formula": "harga_satu_set = kos_bahan + kos_masa_laser; jumlah = harga_satu_set x kuantiti, dibundar ke 10 sen, minimum RM10; dipaparkan sebagai julat -15% hingga +15%",
+    "material_cost": "luas kotak (lebar x tinggi) setiap kepingan dalam kaki persegi x kadar bahan sekaki persegi",
+    "square_foot_cm2": 929.0304,
+    "laser_time_cost": "minit masa mesin x RM3",
+    "laser_rate_myr_per_minute": 3,
+    "minimum_order_myr": 10,
+    "rounding": "jumlah dibundar ke 10 sen terdekat (separuh ke atas)",
+    "display_range": {
+      "below_percent": 15,
+      "above_percent": 15,
+      "rounding": "ringgit penuh; hujung bawah dibundar ke bawah, hujung atas ke atas; minimum tetap RM10"
+    },
+    "max_piece_cm": {
+      "long_side": 120,
+      "short_side": 90
+    },
+    "not_included": [
+      "penghantaran",
+      "pemasangan",
+      "cetakan warna (lihat UV Print Calculator)",
+      "teks yang belum ditukar ke outline dalam fail"
+    ]
+  },
+  "materials": [
+    {
+      "id": "ply3",
+      "name": "Plywood",
+      "thickness_mm": 3,
+      "label": "Plywood 3mm",
+      "material_myr_per_sqft": 5,
+      "material_myr_per_100cm2": 0.54,
+      "cut_speed_mm_per_s": 15
+    },
+    {
+      "id": "ply5",
+      "name": "Plywood",
+      "thickness_mm": 5,
+      "label": "Plywood 5mm",
+      "material_myr_per_sqft": 5,
+      "material_myr_per_100cm2": 0.54,
+      "cut_speed_mm_per_s": 8
+    },
+    {
+      "id": "mdf3",
+      "name": "MDF",
+      "thickness_mm": 3,
+      "label": "MDF 3mm",
+      "material_myr_per_sqft": 5,
+      "material_myr_per_100cm2": 0.54,
+      "cut_speed_mm_per_s": 14
+    },
+    {
+      "id": "mdf5",
+      "name": "MDF",
+      "thickness_mm": 5,
+      "label": "MDF 5mm",
+      "material_myr_per_sqft": 6.67,
+      "material_myr_per_100cm2": 0.72,
+      "cut_speed_mm_per_s": 6
+    },
+    {
+      "id": "acr2",
+      "name": "Akrilik Clear",
+      "thickness_mm": 2,
+      "label": "Akrilik Clear 2mm",
+      "material_myr_per_sqft": 8.33,
+      "material_myr_per_100cm2": 0.9,
+      "cut_speed_mm_per_s": 20
+    },
+    {
+      "id": "acr3",
+      "name": "Akrilik Clear",
+      "thickness_mm": 3,
+      "label": "Akrilik Clear 3mm",
+      "material_myr_per_sqft": 11.67,
+      "material_myr_per_100cm2": 1.26,
+      "cut_speed_mm_per_s": 18
+    },
+    {
+      "id": "acr5",
+      "name": "Akrilik Clear",
+      "thickness_mm": 5,
+      "label": "Akrilik Clear 5mm",
+      "material_myr_per_sqft": 13.33,
+      "material_myr_per_100cm2": 1.44,
+      "cut_speed_mm_per_s": 10
+    },
+    {
+      "id": "blk2",
+      "name": "Akrilik Hitam",
+      "thickness_mm": 2,
+      "label": "Akrilik Hitam 2mm",
+      "material_myr_per_sqft": 8.33,
+      "material_myr_per_100cm2": 0.9,
+      "cut_speed_mm_per_s": 20
+    },
+    {
+      "id": "blk3",
+      "name": "Akrilik Hitam",
+      "thickness_mm": 3,
+      "label": "Akrilik Hitam 3mm",
+      "material_myr_per_sqft": 11.67,
+      "material_myr_per_100cm2": 1.26,
+      "cut_speed_mm_per_s": 18
+    },
+    {
+      "id": "gold15",
+      "name": "Cermin Emas",
+      "thickness_mm": 1.5,
+      "label": "Akrilik Cermin Emas 1.5mm",
+      "material_myr_per_sqft": 13.33,
+      "material_myr_per_100cm2": 1.44,
+      "cut_speed_mm_per_s": 20
+    },
+    {
+      "id": "silv15",
+      "name": "Cermin Perak",
+      "thickness_mm": 1.5,
+      "label": "Akrilik Cermin Perak 1.5mm",
+      "material_myr_per_sqft": 13.33,
+      "material_myr_per_100cm2": 1.44,
+      "cut_speed_mm_per_s": 20
+    }
+  ],
+  "machine": {
+    "cut": "garisan potong dilalui sekali pada kelajuan potong bahan (cut_speed_mm_per_s)",
+    "score_speed_mm_per_s": 100,
+    "engrave_speed_mm_per_s": 200,
+    "engrave_line_gap_mm": 0.1,
+    "engrave_method": "raster: setiap baris (0.1 mm) disapu dari tanda pertama ke tanda terakhir pada baris itu",
+    "travel_speed_mm_per_s": 300,
+    "acceleration_mm_per_s2": 3000
+  },
+  "quick_time_estimate": {
+    "note": "Cara ringkas untuk menganggar masa tanpa fail. Kalkulator mengira dengan tepat dari fail; kaedah ringkas ini biasanya dalam lingkungan 15% daripadanya.",
+    "cut_seconds": "panjang_potong_mm / cut_speed_mm_per_s",
+    "score_seconds": "panjang_garisan_halus_mm / 100",
+    "engrave_seconds": "(tinggi_ukiran_mm / 0.1) x (lebar_ukiran_mm / 200 + 0.062)",
+    "engrave_line_overhead_seconds": 0.062,
+    "engrave_same_rows": "blok ukiran pada baris yang sama dikira sebagai satu kawasan, dari blok paling kiri hingga paling kanan"
+  },
+  "layers": {
+    "default_meaning": {
+      "garisan halus (hairline) merah/hitam": "potong",
+      "bentuk berisi warna": "ukir",
+      "garisan halus biru": "garisan halus (score)",
+      "putih": "diabaikan",
+      "garisan tebal (0.5 mm ke atas)": "ukir"
+    },
+    "note": "Setiap warna ialah satu layer dan pelanggan boleh menukar fungsinya (Potong, Ukir, Garisan halus, Abaikan) dalam kalkulator."
+  },
+  "file_types": [
+    "PDF",
+    "AI (disimpan dengan Create PDF Compatible File)",
+    "DXF (ASCII)",
+    "PNG",
+    "JPG",
+    "WEBP"
+  ],
+  "file_types_not_supported": [
+    "DWG (simpan sebagai DXF)",
+    "CDR (eksport ke PDF)",
+    "HEIC/TIFF (simpan sebagai PNG/JPG)"
+  ],
+  "examples": [
+    {
+      "id": "plak-nama",
+      "title": "Plak nama 20 x 12 cm, plywood 3mm, 1 keping",
+      "description": "Bucu bulat dan 2 lubang gantung dipotong; tulisan setinggi 3 cm (selebar 14 cm) dan garisan bawah 14 x 0.6 cm diukir; bingkai dalam sebagai garisan halus.",
+      "material": "Plywood 3mm",
+      "quantity": 1,
+      "calculator": {
+        "material_myr": 1.29,
+        "laser_seconds": 315,
+        "laser_myr": 15.75,
+        "total_myr": 17,
+        "shown_as": "RM14 - RM20",
+        "cut_mm_per_set": 660,
+        "engrave_lines_per_set": 360
+      },
+      "quick_estimate": {
+        "inputs": "kepingan 200 x 120 mm; potong = perimeter bucu bulat 623 mm + 2 lubang 38 mm = 661 mm; garisan halus 576 mm; ukir 140 x 30 mm dan 140 x 6 mm",
+        "laser_seconds": 324,
+        "total_myr": 17.5
+      }
+    },
+    {
+      "id": "keychain",
+      "title": "10 keychain 5 x 3 cm, akrilik clear 3mm (1 set = 10 keping)",
+      "description": "Setiap keychain: bentuk segi empat dan lubang 5 mm dipotong, satu blok 3 x 1 cm diukir. Disusun 5 sebaris, 2 baris.",
+      "material": "Akrilik Clear 3mm",
+      "quantity": 1,
+      "calculator": {
+        "material_myr": 1.88,
+        "laser_seconds": 384,
+        "laser_myr": 19.18,
+        "total_myr": 21.1,
+        "shown_as": "RM17 - RM25",
+        "cut_mm_per_set": 1757,
+        "engrave_lines_per_set": 200
+      },
+      "quick_estimate": {
+        "inputs": "10 kepingan 50 x 30 mm; potong 10 x (160 + 16) mm = 1757 mm; ukir 2 baris susunan, setiap satu dari blok pertama ke blok kelima = 270 x 10 mm",
+        "laser_seconds": 380,
+        "total_myr": 20.9
+      }
+    },
+    {
+      "id": "bulatan-cermin",
+      "title": "20 bulatan diameter 10 cm, akrilik cermin emas 1.5mm, potong sahaja",
+      "description": "Satu bulatan dipotong, tiada ukiran. Kuantiti 20.",
+      "material": "Akrilik Cermin Emas 1.5mm",
+      "quantity": 20,
+      "calculator": {
+        "material_myr": 28.7,
+        "laser_seconds": 314,
+        "laser_myr": 15.69,
+        "total_myr": 44.4,
+        "shown_as": "RM37 - RM52",
+        "cut_mm_per_set": 314,
+        "engrave_lines_per_set": 0
+      },
+      "quick_estimate": {
+        "inputs": "kepingan 100 x 100 mm; potong pi x 100 = 314 mm; tiada ukiran; kuantiti 20",
+        "laser_seconds": 314,
+        "total_myr": 44.4
+      }
+    }
+  ]
+}
