@@ -313,8 +313,9 @@ export function renderLayers(root, v, ctx) {
     return h('li', { class: `layer-row role-${L.role}` },
       sw,
       h('span', { class: 'layer-text' },
-        h('span', { class: 'layer-name' }, L.name),
-        h('span', { class: 'layer-kind' }, `${KIND_TEXT[L.kind] || L.kind}${L.file ? ` - layer ${L.file}` : ''} - ${L.n} objek`)),
+        // A CAD layer is known by its own name; its colour goes underneath.
+        h('span', { class: 'layer-name', title: L.file || L.name }, L.file || L.name),
+        h('span', { class: 'layer-kind' }, `${L.file ? `${L.name} - ` : ''}${KIND_TEXT[L.kind] || L.kind} - ${L.n} objek`)),
       sel);
   });
   root.replaceChildren(

@@ -66,13 +66,14 @@ export function buildMessage({
     const more = groups.length - shown.length;
     lines.push(`Kepingan: ${q.lines.length} (${shown.join('; ')}${more > 0 ? `; ... +${more} saiz lagi` : ''})`);
   }
-  if (sizeMm) {
+  // One piece already has its size on the Kepingan line.
+  if (sizeMm && q?.lines?.length > 1) {
     const cm = (mm) => (Math.round(mm) / 10).toFixed(1);
-    const changed = Math.abs(scale - 1) > 1e-6 ? ` (diubah ke ${Math.round(scale * 100)}% dari fail)` : '';
-    lines.push(`Saiz keseluruhan: ${cm(sizeMm.w)} x ${cm(sizeMm.h)} cm${changed}`);
+    lines.push(`Saiz keseluruhan: ${cm(sizeMm.w)} x ${cm(sizeMm.h)} cm`);
   }
+  if (sizeMm && Math.abs(scale - 1) > 1e-6) lines.push(`Saiz diubah ke ${Math.round(scale * 100)}% daripada fail asal`);
   const work = layers.filter((L) => L.role !== 'ignore');
-  if (work.length) lines.push(`Layer: ${work.slice(0, 6).map((L) => `${L.name} ${L.kind === 'fill' ? 'isi' : L.kind === 'line' ? 'garisan' : ''} = ${ROLE_LABEL[L.role]}`.replace(/\s+=/, ' =')).join('; ')}${work.length > 6 ? '; ...' : ''}`);
+  if (work.length) lines.push(`Layer: ${work.slice(0, 6).map((L) => `${L.file || L.name} ${L.kind === 'fill' ? 'isi' : L.kind === 'line' ? 'garisan' : ''} = ${ROLE_LABEL[L.role]}`.replace(/\s+=/, ' =')).join('; ')}${work.length > 6 ? '; ...' : ''}`);
   const qty = q?.state === 'priced' ? { ok: true, value: q.qty } : parseQty(qtyText);
   if (qty.ok) lines.push(`Kuantiti: ${qty.value} set`);
   if (q?.state === 'priced') {

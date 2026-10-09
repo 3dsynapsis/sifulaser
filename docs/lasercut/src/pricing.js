@@ -34,22 +34,22 @@ export const GROUPS = [
   { id: 'silver', name: 'Cermin Perak', note: 'Akrilik mirror' },
 ];
 
-// sheetSen: the price of one 4 x 3 ft sheet (Boss, 9 Okt 2026). cutSpeed in
-// mm/s from bridge/config.json; the ones marked "est" are not in that file yet
-// and are estimates until measured on the machine. Akrilik Hitam has no price
-// of its own yet: it uses Akrilik Clear's until Boss sets one.
+// sheetSen: the price of one 4 x 3 ft sheet. cutSpeed: mm/s. All confirmed by
+// Boss on 9 Okt 2026 - prices (Akrilik Hitam priced as Clear, Plywood 5mm the
+// same RM30 as 3mm) and the speeds not in bridge/config.json (MDF 5mm 6 mm/s,
+// 2mm acrylic and 1.5mm mirror 20 mm/s); the rest are the machine presets.
 export const MATERIALS = [
   { id: 'ply3', group: 'ply', thick: '3mm', label: 'Plywood 3mm', sheetSen: 3000, cutSpeed: 15 },
   { id: 'ply5', group: 'ply', thick: '5mm', label: 'Plywood 5mm', sheetSen: 3000, cutSpeed: 8 },
   { id: 'mdf3', group: 'mdf', thick: '3mm', label: 'MDF 3mm', sheetSen: 3000, cutSpeed: 14 },
-  { id: 'mdf5', group: 'mdf', thick: '5mm', label: 'MDF 5mm', sheetSen: 4000, cutSpeed: 8 },           // est
-  { id: 'acr2', group: 'clear', thick: '2mm', label: 'Akrilik Clear 2mm', sheetSen: 5000, cutSpeed: 25 }, // est
+  { id: 'mdf5', group: 'mdf', thick: '5mm', label: 'MDF 5mm', sheetSen: 4000, cutSpeed: 6 },
+  { id: 'acr2', group: 'clear', thick: '2mm', label: 'Akrilik Clear 2mm', sheetSen: 5000, cutSpeed: 20 },
   { id: 'acr3', group: 'clear', thick: '3mm', label: 'Akrilik Clear 3mm', sheetSen: 7000, cutSpeed: 18 },
   { id: 'acr5', group: 'clear', thick: '5mm', label: 'Akrilik Clear 5mm', sheetSen: 8000, cutSpeed: 10 },
-  { id: 'blk2', group: 'black', thick: '2mm', label: 'Akrilik Hitam 2mm', sheetSen: 5000, cutSpeed: 25 }, // est, price = clear
-  { id: 'blk3', group: 'black', thick: '3mm', label: 'Akrilik Hitam 3mm', sheetSen: 7000, cutSpeed: 18 }, // price = clear
-  { id: 'gold15', group: 'gold', thick: '1.5mm', label: 'Akrilik Cermin Emas 1.5mm', sheetSen: 8000, cutSpeed: 30 },   // est
-  { id: 'silv15', group: 'silver', thick: '1.5mm', label: 'Akrilik Cermin Perak 1.5mm', sheetSen: 8000, cutSpeed: 30 }, // est
+  { id: 'blk2', group: 'black', thick: '2mm', label: 'Akrilik Hitam 2mm', sheetSen: 5000, cutSpeed: 20 },
+  { id: 'blk3', group: 'black', thick: '3mm', label: 'Akrilik Hitam 3mm', sheetSen: 7000, cutSpeed: 18 },
+  { id: 'gold15', group: 'gold', thick: '1.5mm', label: 'Akrilik Cermin Emas 1.5mm', sheetSen: 8000, cutSpeed: 20 },
+  { id: 'silv15', group: 'silver', thick: '1.5mm', label: 'Akrilik Cermin Perak 1.5mm', sheetSen: 8000, cutSpeed: 20 },
 ];
 export const DEFAULT_MATERIAL = 'ply3';
 export const materialById = (id) => MATERIALS.find((m) => m.id === id) || null;
