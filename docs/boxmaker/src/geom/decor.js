@@ -50,9 +50,12 @@ export function makeObject(type, panel, extra = {}) {
     const t = panel.thickness || 3;
     const strut = Math.max(2, Math.round(t * 10) / 10);
     const id = extra.pattern || 'rozet12';
-    const win = safeRect(panel, t + strut / 2) || { x: base.x, y: base.y, w, h };
-    Object.assign(base, {
-      ...win, pattern: id, angle: null, motif: defaultMotif(id, win.w), strut, clear: true, process: 'cut',
+    const win = safeRect(panel, t + strut / 2);
+    Object.assign(base, win || { x: base.x, y: base.y, w, h }, {
+      pattern: id, angle: null, motif: defaultMotif(id, win ? win.w : w, strut), strut, clear: true, process: 'cut',
+      // Filling the face is the point of a pattern, so it keeps filling it when
+      // the box is resized - see refitPattern.
+      fit: !!win, fitKey: win ? patternFitKey(panel) : null,
     });
   }
   return { ...base, ...extra };
@@ -218,6 +221,26 @@ function obstacleRing(o) {
   // a logo reads better than wood following every letter.
   if (!(o.w > 0 && o.h > 0)) return null;
   return rotatePts(rect(o.x, o.y, o.w, o.h), o.x + o.w / 2, o.y + o.h / 2, o.rot || 0);
+}
+
+/** Identifies the face size a fitted pattern was laid out for. */
+export const patternFitKey = (panel) =>
+  `${Math.round(panel.size.w * 100)}x${Math.round(panel.size.h * 100)}x${panel.thickness}`;
+
+/**
+ * A pattern that fills its face follows the face when the box changes size or
+ * board: a 200 mm wall's pattern left on a 120 mm wall would hang off the end.
+ * Only when the face itself changed, so a pattern the user has moved stays put
+ * until there is a reason to move it. Returns true when it moved.
+ */
+export function refitPattern(obj, panel) {
+  if (obj.type !== 'pattern' || !obj.fit) return false;
+  const key = patternFitKey(panel);
+  if (obj.fitKey === key) return false;
+  const win = safeRect(panel, (panel.thickness || 3) + obj.strut / 2);
+  if (!win) return false;
+  Object.assign(obj, win, { rot: 0, fitKey: key });
+  return true;
 }
 
 const NO_PANEL = {};

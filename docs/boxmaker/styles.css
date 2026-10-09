@@ -348,7 +348,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 .shape-list button:hover { background: var(--surface-2); }
 .pattern-list { min-width: 220px; }
-.pattern-list svg { flex: 0 0 auto; border-radius: 4px; }
+.pattern-list .pattern-thumb { flex: 0 0 48px; display: block; }
+.pattern-list .pattern-thumb svg { display: block; width: 48px; height: 30px; }
 .pattern-list small { color: var(--muted); font-size: 11px; }
 .emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 240px; overflow-y: auto; }
 .emoji-grid button { border: 0; background: transparent; font-size: 20px; padding: 4px; border-radius: 6px; cursor: pointer; }

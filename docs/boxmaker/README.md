@@ -56,7 +56,12 @@ lubang engsel dan objek lain pada muka yang sama; kerf ditambah pada jejari.
 - `src/view2d.js`, `src/view3d.js`, `src/exportSvg.js`, `src/ui.js` (ringkasan) —
   hantar `{ panel, decor }` kepada `objectRings`; `view2d.hitTest` utamakan
   objek kecil di atas corak.
-- `src/ui.js` — `patternGroup` (inspektor), `patternMenu` + pratonton.
+- `src/ui.js` — `patternGroup` (inspektor), `patternMenu` + pratonton, dan
+  `patternPresets`: kad corak dalam panel Overall (di bawah Box Style). Satu
+  tekan memotong corak pada semua dinding (pilihan: dinding + penutup) terus
+  dalam 3D — tak perlu masuk 2D. Objek preset ditanda `preset: true`.
+- `src/store.js` — `clampDecor` memanggil `refitPattern`: corak yang memenuhi
+  muka (`fit: true`) ikut saiz muka bila dimensi/tebal kotak berubah.
 - `src/main.js` — pengendali butang `pattern`.
 - `index.html` — butang alat "Pattern".
 - `styles.css` — `.pattern-list`; jalur alat telefon dirapatkan supaya 7 butang muat.

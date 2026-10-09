@@ -95,15 +95,17 @@ const TILINGS = {
 /**
  * The library. `angle` is the default contact angle in degrees - the valid
  * range is worked out by angleRange(), not written by hand. `across`: how many
- * repeats of the motif span the window when the object is first made. Ids are
+ * repeats of the motif span the window when the object is first made. `lace`:
+ * the smallest motif, in struts, that still reads as lace - below it the struts
+ * swallow the small tiles and a wall turns into scattered pinholes. Ids are
  * stored in saved designs, so they never change.
  */
 export const PATTERNS = [
-  { id: 'rozet12', name: 'Rosette 12', note: '4.6.12', tiling: '4.6.12', angle: 60, across: 3 },
-  { id: 'bintang12', name: 'Star 12', note: '3.12.12', tiling: '3.12.12', angle: 60, across: 3 },
-  { id: 'khatim8', name: 'Star 8 (Khatim)', note: '4.8.8', tiling: '4.8.8', angle: 67.5, across: 3.5 },
-  { id: 'bintang6', name: 'Star 6', note: '6.6.6', tiling: '6.6.6', angle: 60, across: 4.5 },
-  { id: 'salib4', name: 'Cross & Star 4', note: '4.4.4.4', tiling: '4.4.4.4', angle: 60, across: 5 },
+  { id: 'rozet12', name: 'Rosette 12', note: '4.6.12', tiling: '4.6.12', angle: 60, across: 3, lace: 16 },
+  { id: 'bintang12', name: 'Star 12', note: '3.12.12', tiling: '3.12.12', angle: 60, across: 3, lace: 13 },
+  { id: 'khatim8', name: 'Star 8 (Khatim)', note: '4.8.8', tiling: '4.8.8', angle: 67.5, across: 3.5, lace: 12 },
+  { id: 'bintang6', name: 'Star 6', note: '6.6.6', tiling: '6.6.6', angle: 60, across: 4.5, lace: 9 },
+  { id: 'salib4', name: 'Cross & Star 4', note: '4.4.4.4', tiling: '4.4.4.4', angle: 60, across: 5, lace: 7 },
 ];
 
 export const patternById = (id) => PATTERNS.find((q) => q.id === id) || PATTERNS[0];
@@ -499,7 +501,10 @@ export function angleRange(id) {
 
 /** Repeat distance of a tiling in edge lengths; motif (mm) / period = tile edge (mm). */
 export const tilingPeriod = (id) => Math.hypot(...TILINGS[patternById(id).tiling]().a1);
-export const defaultMotif = (id, width) => Math.max(8, Math.round(width / patternById(id).across));
+export const defaultMotif = (id, width, strut = 3) => {
+  const def = patternById(id);
+  return Math.max(8, Math.round(width / def.across), Math.round(strut * def.lace));
+};
 
 /**
  * Pattern holes in the window rect = { x, y, w, h }.
@@ -528,7 +533,7 @@ export function patternHoles(rect, opts = {}) {
   const minHole = Math.max(0.5, Number(opts.minHole) || 1.5);
   const [lo, hi] = angleRange(def.id);
   const angle = Math.min(hi, Math.max(lo, Number(opts.angle) || def.angle));
-  const motif = Math.max(4, Number(opts.motif) || defaultMotif(def.id, rect.w));
+  const motif = Math.max(4, Number(opts.motif) || defaultMotif(def.id, rect.w, strut));
   const cell = motif / tilingPeriod(def.id);
   const stats = { holes: 0, tooSmall: 0, nearJoint: 0, angle, motif, strut, pattern: def.id };
 

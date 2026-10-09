@@ -1,6 +1,7 @@
 // Single source of truth. Everything else subscribes and re-renders.
 
 import { buildBox, DEFAULTS, PANEL_ORDER } from './geom/box.js';
+import { refitPattern } from './geom/decor.js';
 
 // `char`: a CO2 beam leaves a burnt black edge on wood, MDF and card. Acrylic
 // comes off the bed with a clean polished edge instead.
@@ -231,6 +232,7 @@ export function clampDecor() {
   if (!b.panels.some((p) => p.id === state.face)) state.face = b.panels[0].id;
   for (const p of b.panels) {
     for (const o of state.decor[p.id] || []) {
+      refitPattern(o, p);
       o.x = Math.min(Math.max(o.x, -o.w), p.size.w);
       o.y = Math.min(Math.max(o.y, -o.h), p.size.h);
     }

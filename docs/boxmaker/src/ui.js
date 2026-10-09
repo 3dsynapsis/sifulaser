@@ -6,7 +6,9 @@ import {
 } from './store.js';
 import * as gallery from './designs.js';
 import { PANEL_LABELS, SCREW } from './geom/box.js';
-import { makeObject, PROCESSES, objectRings, measureText, patternInfo } from './geom/decor.js';
+import {
+  makeObject, PROCESSES, objectRings, measureText, patternInfo, patternFitKey,
+} from './geom/decor.js';
 import { PATTERNS, patternById, patternHoles, angleRange, safeRect } from './geom/pattern.js';
 import { FONTS, loadFont } from './fonts.js';
 import { SHEETS } from './exportSvg.js';
@@ -536,7 +538,7 @@ export function renderInspector(root, ctx) {
 
 const labelFor = (o) => ({
   text: 'Text', rect: 'Rectangle', ellipse: 'Ellipse', star: 'Star',
-  polygon: 'Polygon', image: 'Artwork', svg: 'Vector art',
+  polygon: 'Polygon', image: 'Artwork', svg: 'Vector art', pattern: 'Pattern',
 }[o.type] || 'Object');
 
 // Which sections the user left open survives a re-render.
@@ -566,6 +568,9 @@ function overallInspector(root, ctx) {
       label))),
     ...(p.style === 'shoebox' ? liftOffRows(p, ctx)
       : p.style === 'almari' ? drawerRows(p, ctx) : [])));
+
+  // Straight after the style: this is where everyone looks first.
+  root.append(patternPresets(mat, ctx));
 
   // Dividers and drawers want the same interior, and the pair cannot be
   // assembled - the geometry already refuses it, so the control should not be
@@ -1260,7 +1265,7 @@ function patternGroup(obj, set) {
       class: 'ghost', type: 'button',
       onclick: () => {
         const win = safeRect(panel, t + obj.strut / 2);
-        if (win) set({ ...win, rot: 0 });
+        if (win) set({ ...win, rot: 0, fit: true, fitKey: patternFitKey(panel) });
       },
     }, 'Fill face'),
     h('p', { class: 'hint' },
@@ -1270,20 +1275,92 @@ function patternGroup(obj, set) {
     ...notes);
 }
 
-/** A small live preview of one pattern, for the picker. */
-function patternThumb(def) {
-  const W = 64, H = 40;
-  const { rings } = patternHoles({ x: 0, y: 0, w: W, h: H }, {
-    pattern: def.id, strut: 1.6, motif: W / Math.max(1.3, def.across * 0.5), minHole: 0.5,
+// ---- pattern presets ------------------------------------------------------
+// One tap on the Overall panel cuts a pattern through every wall, without
+// knowing that the 2D editor exists. Nobody goes looking for a feature they
+// have not seen, so the presets sit next to Box Style where everyone looks.
+
+const WALL_IDS = ['front', 'back', 'left', 'right', 'lidFront', 'lidBack', 'lidLeft', 'lidRight'];
+const LID_IDS = ['top', 'lidTop', 'leafFront', 'leafBack', 'cabTop'];
+let presetFaces = 'walls';
+
+const presetTargets = (box, faces) => {
+  const ids = faces === 'all' ? [...WALL_IDS, ...LID_IDS] : WALL_IDS;
+  return box.panels.filter((p) => ids.includes(p.id));
+};
+
+/** The preset now on the box, or 'none'. Only presets count, not hand-placed patterns. */
+function activePreset(box) {
+  for (const p of box.panels) {
+    const o = decorFor(p).find((x) => x.preset);
+    if (o) return o.pattern;
+  }
+  return 'none';
+}
+
+function applyPreset(id, faces, ctx) {
+  const box = getBox();
+  update((s) => {
+    for (const p of box.panels) {
+      const list = s.decor[p.id];
+      if (!list) continue;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (!list[i].preset) continue;
+        if (list[i].id === s.selection) s.selection = null;
+        list.splice(i, 1);
+      }
+    }
+    if (id === 'none') return;
+    for (const p of presetTargets(box, faces)) {
+      const o = makeObject('pattern', p, { pattern: id, preset: true });
+      if (o.fit) s.decor[p.id].push(o); // no room for a pattern on this face
+    }
   });
+  ctx.refresh();
+}
+
+function patternPresets(mat, ctx) {
+  const box = getBox();
+  const active = activePreset(box);
+  const hasLid = box.panels.some((p) => LID_IDS.includes(p.id));
+  if (!hasLid) presetFaces = 'walls';
+  const card = (id, label, art) => h('button', {
+    class: 'card', type: 'button', 'aria-pressed': String(active === id),
+    onclick: () => applyPreset(id, presetFaces, ctx),
+  }, h('span', { class: 'art', html: art }), label);
+  return group('Pattern', true,
+    h('div', { class: 'cards' },
+      card('none', 'None', patternThumbSvg(null, mat.color)),
+      PATTERNS.map((d) => card(d.id, d.name, patternThumbSvg(d, mat.color)))),
+    hasLid ? h('div', { class: 'field' },
+      h('label', {}, 'Cut on'),
+      segmented([{ id: 'walls', label: 'Walls' }, { id: 'all', label: 'Walls + lid' }],
+        presetFaces, (f) => {
+          presetFaces = f;
+          if (active !== 'none') applyPreset(active, f, ctx);
+          else ctx.refresh();
+        })) : null,
+    h('p', { class: 'hint' }, active === 'none'
+      ? 'Tap a pattern to cut it through the walls. It keeps clear of the joints and slots by itself.'
+      : 'Cut through every wall, clear of the joints. To change the size or angle, or to leave room '
+        + 'for a logo, open 2D Design and click the pattern.'));
+}
+
+const thumbCache = new Map();
+/** A small live preview of one pattern (null = plain board), in the board's colour. */
+function patternThumbSvg(def, color = '#d8b47e') {
+  const key = `${def ? def.id : 'none'}|${color}`;
+  if (thumbCache.has(key)) return thumbCache.get(key);
+  const W = 64, H = 40;
+  const rings = def ? patternHoles({ x: 0, y: 0, w: W, h: H }, {
+    pattern: def.id, strut: 1.6, motif: W / Math.max(1.3, def.across * 0.5), minHole: 0.5,
+  }).rings : [];
   const d = rings.map((r) =>
     `M${r.map(([x, y]) => `${x.toFixed(2)} ${(H - y).toFixed(2)}`).join('L')}Z`).join('');
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('width', '48');
-  svg.setAttribute('height', '30');
-  svg.innerHTML = `<rect width="${W}" height="${H}" rx="3" fill="#d8b47e"/>` +
-    `<path d="${d}" fill="#3a2a1c"/>`;
+  const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`
+    + `<rect width="${W}" height="${H}" rx="3" fill="${color}"/>`
+    + (d ? `<path d="${d}" fill="#2b2118"/>` : '') + '</svg>';
+  thumbCache.set(key, svg);
   return svg;
 }
 
@@ -1292,7 +1369,7 @@ export function patternMenu(onPick) {
     h('div', { class: 'pop-title' }, 'Pattern'),
     h('div', { class: 'shape-list pattern-list' }, PATTERNS.map((d) =>
       h('button', { type: 'button', onclick: () => onPick(d.id) },
-        patternThumb(d),
+        h('span', { class: 'pattern-thumb', html: patternThumbSvg(d) }),
         h('span', {}, d.name, h('small', {}, ` ${d.note}`))))),
     h('p', { class: 'hint', style: 'margin:8px 4px 0' },
       'Fills the face and cuts through. Joints, slots and other objects are kept clear.'));
