@@ -1,31 +1,27 @@
 // Direktori alat halaman utama — data, bukan markup.
 //
-// Senarai ini dulu duduk di dalam HomePage.tsx sebagai tatasusunan CARDS.
-// Dipindahkan ke sini kerana dua benda kini membacanya (grid dan carian), dan
-// kerana scripts/blog-screenshots.mjs sudah menyimpan salinan kedua senarai
-// laluan yang ditulis tangan — salinan itu boleh diterbitkan dari sini
-// kemudian.
+// Dua benda membacanya: halaman utama dan carian.
 //
-// DUA PULUH destinasi hari ini, SEMBILAN BELAS tile. Yang keluar dari grid
-// ialah "Pakej & Harga": ia sudah jadi pill nav DAN butang CTA biru besar di
-// jalur kaki, jadi tile menjadikannya kemunculan ketiga bagi satu destinasi
-// pada satu halaman. Tempatnya diambil oleh "About Me & Kedai Laser" (bersama
-// kedai Shopee di dalamnya). Tiada apa-apa yang hilang.
+// Halaman utama ialah "One Stop Centre": empat langkah mengikut perjalanan
+// satu kerja laser, bukan mengikut jenis alat. Susunan TOOLS di bawah IALAH
+// susunan pada halaman, jadi alihkan entri untuk mengubah urutan tile.
 //
-// Tile kelapan belas ialah Tray Organizer, dalam "Buat Design" - jadi kumpulan
-// itu kini ENAM tile dan baris A halaman utama ialah 3 + 6 = 9, sama seperti
-// baris B. Matematik lebar panel dalam src/index.css diterbitkan semula untuk
-// itu; lihat komen .home-row di sana sebelum menambah tile lagi.
+//   1 harga    Berapa harganya?      - pelanggan dapat harga dulu
+//   2 idea     Client tak ada idea   - alat yang menjana design penuh
+//   3 fail     Ada idea, perlu fail  - alat yang mengubah atau menukar fail
+//   4 belajar  Belajar lebih         - episod, kelas, dan rak mesin di bawah
 //
-// Tile kesembilan belas ialah Kalkulator Laser Cut, dalam "Belajar & Sumber"
-// di sebelah UV Print Calculator - jadi kumpulan itu juga ENAM tile dan baris
-// B ialah 4 + 6 = 10. Matematik .home-row--b diterbitkan semula sekali lagi.
+// Mesin & penjagaan TIDAK lagi kumpulan sendiri. Bos memutuskan pada 9 Oktober
+// 2026 bahawa laman ini bukan lagi tentang penjagaan mesin, jadi tiga alat itu
+// duduk di rak kecil (`shelf: 'mesin'`) di hujung langkah 4.
+//
+// Blog dan About tidak menjadi tile (`onHome: false`): langkah 4 memaparkan
+// episod terkini sendiri, dan About sudah ada di bar tab. Kedua-duanya kekal
+// sebagai sasaran carian.
 
 import {
   ArrowRightLeft,
-  Boxes,
   Box,
-  BookOpen,
   BookOpenText,
   CakeSlice,
   Calculator,
@@ -42,17 +38,14 @@ import {
   QrCode,
   RectangleHorizontal,
   Scaling,
-  Settings2,
   Stethoscope,
-  Tag,
   UserRound,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import type { Route } from '../hooks/useHashRoute'
 
-export type GroupId = 'mesin' | 'design' | 'generator' | 'belajar'
+export type GroupId = 'harga' | 'idea' | 'fail' | 'belajar'
 
 export interface ToolEntry {
   title: string
@@ -69,53 +62,88 @@ export interface ToolEntry {
   keywords: string[]
   /** true jika kad ini kandungan berbayar sepenuhnya. */
   premium?: boolean
+  /** 'mesin' = rak kecil di hujung langkah 4, bukan tile penuh. */
+  shelf?: 'mesin'
+  /** false = sasaran carian sahaja, tiada tile di halaman utama. */
+  onHome?: boolean
   Icon: LucideIcon
 }
 
 export const TOOLS: ToolEntry[] = [
-  // ---- 1. MESIN & PENJAGAAN ----
+  // ---- 1. BERAPA HARGANYA? ----
   {
-    title: 'Simulator Alignment',
-    shortDescription: 'Latih alignment cermin, langkah demi langkah.',
-    description: 'Belajar dan praktik alignment cermin untuk Mesin Laser Cut.',
-    href: '#/simulator',
-    group: 'mesin',
-    variant: 'icon',
-    keywords: ['cermin', 'mirror', 'laras', 'level', 'latihan', 'align'],
-    Icon: Crosshair,
-  },
-  {
-    title: 'Maintenance',
-    shortDescription: 'Senarai semak weekly & yearly mesin anda.',
+    // Langkah pertama halaman utama: soalan pertama setiap kerja laser ialah
+    // "berapa?". Kalkulator ini MEMBACA fail pelanggan (PDF, AI, DXF atau
+    // gambar) dan hujungnya sebut harga WhatsApp ke kedai, pada harga kedai.
+    title: 'Kalkulator Laser Cut',
+    shortDescription: 'Harga potong & ukir laser dari fail anda.',
     description:
-      'Senarai semak weekly & yearly untuk memastikan mesin sentiasa optimum.',
-    href: '#/maintenance',
-    group: 'mesin',
-    variant: 'icon',
-    keywords: ['servis', 'weekly', 'yearly', 'chiller', 'wifi', 'penjagaan'],
-    premium: true,
-    Icon: ClipboardCheck,
+      'Upload PDF, AI, DXF atau gambar, pilih bahan dan saiz, dan terus nampak anggaran harga potong dan ukir laser, kemudian hantar sebut harga ke WhatsApp.',
+    href: '#/lasercut',
+    group: 'harga',
+    variant: 'art',
+    // SVG dijana oleh `node scripts/thumb-lasercut.mjs` daripada kod vendored
+    // dan satu fail contoh sebenar: papan, ukiran, garisan potong dan julat
+    // harga semuanya keluar dari alat itu sendiri.
+    art: '/images/tools/lasercut.svg',
+    keywords: [
+      'laser cut',
+      'laser',
+      'potong',
+      'ukir',
+      'engrave',
+      'harga',
+      'sebut harga',
+      'quotation',
+      'plywood',
+      'akrilik',
+      'acrylic',
+      'mdf',
+      'cermin',
+      'mirror',
+      'dxf',
+      'png',
+      'gambar',
+      'kalkulator',
+    ],
+    Icon: Calculator,
   },
   {
-    title: 'Troubleshooting',
-    shortDescription: 'Carta SOP bila mesin laser tak menjadi.',
-    description: 'Carta SOP untuk kesan punca bila mesin laser tak berfungsi.',
-    href: '#/troubleshoot',
-    group: 'mesin',
-    variant: 'icon',
-    keywords: ['rosak', 'masalah', 'sop', 'punca', 'tak potong'],
-    premium: true,
-    Icon: Stethoscope,
+    // Jiran Kalkulator Laser Cut atas sebab yang sama: ia membaca fail
+    // pelanggan dan hujungnya sebut harga WhatsApp ke kedai.
+    title: 'UV Print Calculator',
+    shortDescription: 'Harga UV print akrilik terus dari fail anda.',
+    description:
+      'Upload PDF atau AI dan terus nampak harga cetakan UV atas akrilik jernih, kemudian hantar sebut harga ke WhatsApp.',
+    href: '#/uvprint',
+    group: 'harga',
+    variant: 'art',
+    // SVG dijana oleh `node scripts/thumb-uvprint.mjs` daripada kod vendored
+    // dan satu fixture sebenar: garisan potong, artwork dan harga semuanya
+    // keluar dari alat itu sendiri, jadi ia tidak boleh jadi basi.
+    art: '/images/tools/uvprint.svg',
+    keywords: [
+      'uv print',
+      'akrilik',
+      'acrylic',
+      'harga',
+      'sebut harga',
+      'quotation',
+      'cetak',
+      'pdf',
+      'kalkulator',
+    ],
+    Icon: Printer,
   },
 
-  // ---- 2. BUAT DESIGN UNTUK LASER ----
+  // ---- 2. CLIENT TAK ADA IDEA ----
   {
     title: 'Box Maker',
     shortDescription: 'Kotak finger joint, terus jadi fail SVG.',
     description:
       'Reka kotak finger joint ikut saiz anda, terus dapat fail SVG siap potong.',
     href: '#/boxmaker',
-    group: 'design',
+    group: 'idea',
     variant: 'art',
     // FOTO 3D, diambil 4 September 2026, gaya Almari Laci. Boleh jadi basi dan
     // tiada apa-apa dalam repo ini akan memberitahu. Ambil semula dengan
@@ -136,7 +164,7 @@ export const TOOLS: ToolEntry[] = [
     description:
       'Reka dulang organizer berpetak untuk laci atau meja - belah petak, seret pembahagi, dapat SVG half-lap untuk laser atau STL satu jasad untuk 3D printer.',
     href: '#/tray',
-    group: 'design',
+    group: 'idea',
     variant: 'art',
     // SVG dijana oleh `node scripts/thumb-tray.mjs` daripada buildTray() sebenar
     // dalam docs/tray/src: pandangan atas dulang dengan petak tak seragam.
@@ -167,53 +195,14 @@ export const TOOLS: ToolEntry[] = [
     Icon: LayoutGrid,
   },
   {
-    title: 'Puzzle Generator',
-    shortDescription: 'Garisan jigsaw ikut saiz papan anda.',
-    description:
-      'Jana garisan potong jigsaw ikut saiz papan anda, terus dapat fail SVG.',
-    href: '#/puzzle',
-    group: 'design',
-    variant: 'art',
-    art: '/images/tools/puzzle.svg',
-    keywords: ['jigsaw', 'teka-teki', 'papan', 'kepingan', 'mainan'],
-    Icon: Puzzle,
-  },
-  {
-    title: 'Text Engraver',
-    shortDescription: 'Teks satu garisan untuk ukiran laju.',
-    description:
-      'Teks satu garisan untuk ukiran laju. Dapat fail SVG atau PDF ikut saiz mm.',
-    href: '#/text',
-    group: 'design',
-    variant: 'art',
-    art: '/images/tools/text.svg',
-    keywords: ['tulisan', 'ukir', 'engrave', 'font', 'single line', 'plotter'],
-    Icon: PenLine,
-  },
-  {
-    title: 'Stand Nama',
-    shortDescription: 'Papan nama meja, siap dengan tapak.',
-    description:
-      'Papan tanda nama meja: plate berukir atau huruf potong, siap dengan tapak.',
-    href: '#/stand',
-    group: 'design',
-    variant: 'art',
-    // FOTO 3D, 4 September 2026 — sama amaran seperti Box Maker di atas.
-    art: '/images/tools/stand.webp',
-    keywords: ['papan nama', 'meja', 'signage', 'plate', 'nameplate', 'tapak'],
-    Icon: RectangleHorizontal,
-  },
-  {
-    // Kumpulan 'design' dan bukan 'generator'. Generator Pantas ialah empat
-    // benda satu keping rata tanpa sendi; rehal ialah lima keping yang
-    // dicantum, dengan mortis dan tenon yang dikira dari tebal papan dan sudut
-    // baca. Tempatnya di sebelah Box Maker dan Stand Nama.
+    // Tinggi dalam senarai idea: rehal ialah hadiah yang paling kerap diminta
+    // tanpa design, dan alat ini menjana keseluruhannya dari nama dan corak.
     title: 'Rehal Generator',
     shortDescription: 'Rehal Al-Quran, corak dan nama terukir.',
     description:
       'Rehal Al-Quran boleh lipat — corak geometri dan nama terukir di tengahnya.',
     href: '#/rehal',
-    group: 'design',
+    group: 'idea',
     variant: 'art',
     // SVG dijana oleh `node tools/thumb.mjs` alat itu sendiri daripada geometri
     // sebenar, jadi ia tidak boleh jadi basi seperti tiga foto 3D di atas.
@@ -232,19 +221,30 @@ export const TOOLS: ToolEntry[] = [
     ],
     Icon: BookOpenText,
   },
-
-  // ---- 3. GENERATOR PANTAS ----
   {
-    title: 'QR Generator',
-    shortDescription: 'Link jadi kod QR, saiz mm sebenar.',
+    title: 'Cake Topper',
+    shortDescription: 'Nama atas kek, satu keping berpancang.',
     description:
-      'Tukar link jadi kod QR untuk laser. Saiz mm sebenar, ada bingkai keychain.',
-    href: '#/qr',
-    group: 'generator',
+      'Nama untuk atas kek, satu keping dengan pancang. Untuk akrilik tuang.',
+    href: '#/topper',
+    group: 'idea',
     variant: 'art',
-    art: '/images/tools/qr.svg',
-    keywords: ['kod', 'scan', 'link', 'plaque', 'papan', 'barcode'],
-    Icon: QrCode,
+    art: '/images/tools/topper.svg',
+    keywords: ['kek', 'cake', 'birthday', 'akrilik', 'pancang', 'harijadi', 'stl', 'cetak 3d', '3d print'],
+    Icon: CakeSlice,
+  },
+  {
+    title: 'Stand Nama',
+    shortDescription: 'Papan nama meja, siap dengan tapak.',
+    description:
+      'Papan tanda nama meja: plate berukir atau huruf potong, siap dengan tapak.',
+    href: '#/stand',
+    group: 'idea',
+    variant: 'art',
+    // FOTO 3D, 4 September 2026 — sama amaran seperti Box Maker di atas.
+    art: '/images/tools/stand.webp',
+    keywords: ['papan nama', 'meja', 'signage', 'plate', 'nameplate', 'tapak'],
+    Icon: RectangleHorizontal,
   },
   {
     title: 'Keychain Generator',
@@ -252,7 +252,7 @@ export const TOOLS: ToolEntry[] = [
     description:
       'Nama jadi kekunci satu keping, siap lubang ring. Untuk akrilik atau kayu.',
     href: '#/keychain',
-    group: 'generator',
+    group: 'idea',
     variant: 'art',
     art: '/images/tools/keychain.svg',
     keywords: ['kunci', 'gantung', 'ring', 'akrilik', 'nama', 'souvenir'],
@@ -264,7 +264,7 @@ export const TOOLS: ToolEntry[] = [
     description:
       'Tag beg dengan slot tali. Muka depan untuk nama, belakang untuk alamat.',
     href: '#/tag',
-    group: 'generator',
+    group: 'idea',
     variant: 'art',
     // FOTO 3D, 4 September 2026 — sama amaran seperti Box Maker di atas.
     art: '/images/tools/tag.webp',
@@ -272,26 +272,50 @@ export const TOOLS: ToolEntry[] = [
     Icon: Luggage,
   },
   {
-    title: 'Cake Topper',
-    shortDescription: 'Nama atas kek, satu keping berpancang.',
+    title: 'Puzzle Generator',
+    shortDescription: 'Garisan jigsaw ikut saiz papan anda.',
     description:
-      'Nama untuk atas kek, satu keping dengan pancang. Untuk akrilik tuang.',
-    href: '#/topper',
-    group: 'generator',
+      'Jana garisan potong jigsaw ikut saiz papan anda, terus dapat fail SVG.',
+    href: '#/puzzle',
+    group: 'idea',
     variant: 'art',
-    art: '/images/tools/topper.svg',
-    keywords: ['kek', 'cake', 'birthday', 'akrilik', 'pancang', 'harijadi', 'stl', 'cetak 3d', '3d print'],
-    Icon: CakeSlice,
+    art: '/images/tools/puzzle.svg',
+    keywords: ['jigsaw', 'teka-teki', 'papan', 'kepingan', 'mainan'],
+    Icon: Puzzle,
   },
 
-  // ---- 4. BELAJAR & SUMBER ----
+  // ---- 3. ADA IDEA, PERLU FAIL ----
+  {
+    title: 'Text Engraver',
+    shortDescription: 'Teks satu garisan untuk ukiran laju.',
+    description:
+      'Teks satu garisan untuk ukiran laju. Dapat fail SVG atau PDF ikut saiz mm.',
+    href: '#/text',
+    group: 'fail',
+    variant: 'art',
+    art: '/images/tools/text.svg',
+    keywords: ['tulisan', 'ukir', 'engrave', 'font', 'single line', 'plotter'],
+    Icon: PenLine,
+  },
+  {
+    title: 'QR Generator',
+    shortDescription: 'Link jadi kod QR, saiz mm sebenar.',
+    description:
+      'Tukar link jadi kod QR untuk laser. Saiz mm sebenar, ada bingkai keychain.',
+    href: '#/qr',
+    group: 'fail',
+    variant: 'art',
+    art: '/images/tools/qr.svg',
+    keywords: ['kod', 'scan', 'link', 'plaque', 'papan', 'barcode'],
+    Icon: QrCode,
+  },
   {
     title: 'Template Adjuster',
     shortDescription: 'Ubah saiz dan tebal fail SVG luar.',
     description:
       'Fail SVG dari internet tak padan material anda? Ubah saiz dan tebalnya.',
     href: '#/adjust',
-    group: 'belajar',
+    group: 'fail',
     variant: 'icon',
     keywords: ['svg', 'template', 'saiz', 'tebal', 'skala', 'material'],
     Icon: Scaling,
@@ -306,78 +330,13 @@ export const TOOLS: ToolEntry[] = [
     description:
       'Tukar format fail vektor tanpa mengubah saiz, bentuk atau kedudukan lukisan.',
     href: '#/converter',
-    group: 'belajar',
+    group: 'fail',
     variant: 'icon',
     keywords: ['svg', 'dxf', 'pdf', 'tukar', 'format', 'convert', 'autocad', 'lightburn', 'fail'],
     Icon: ArrowRightLeft,
   },
-  {
-    // Kumpulan 'belajar' dan bukan 'design' atau 'generator'. Dua kumpulan itu
-    // MENGHASILKAN fail untuk dipotong; kalkulator ini tidak menghasilkan
-    // apa-apa — ia MEMBACA fail pelanggan, sama seperti Template Adjuster dan
-    // Converter File di atasnya, dan hujungnya ialah sebut harga WhatsApp ke
-    // kedai, jiran semula jadi "About Me & Kedai Laser". Tempatnya di sebelah
-    // dua alat baca-fail itu.
-    title: 'UV Print Calculator',
-    shortDescription: 'Harga UV print akrilik terus dari fail anda.',
-    description:
-      'Upload PDF atau AI dan terus nampak harga cetakan UV atas akrilik jernih, kemudian hantar sebut harga ke WhatsApp.',
-    href: '#/uvprint',
-    group: 'belajar',
-    variant: 'art',
-    // SVG dijana oleh `node scripts/thumb-uvprint.mjs` daripada kod vendored
-    // dan satu fixture sebenar: garisan potong, artwork dan harga semuanya
-    // keluar dari alat itu sendiri, jadi ia tidak boleh jadi basi.
-    art: '/images/tools/uvprint.svg',
-    keywords: [
-      'uv print',
-      'akrilik',
-      'acrylic',
-      'harga',
-      'sebut harga',
-      'quotation',
-      'cetak',
-      'pdf',
-      'kalkulator',
-    ],
-    Icon: Printer,
-  },
-  {
-    // Jiran UV Print Calculator atas sebab yang sama: ia MEMBACA fail pelanggan
-    // (PDF, AI, DXF atau gambar) dan hujungnya sebut harga WhatsApp ke kedai.
-    title: 'Kalkulator Laser Cut',
-    shortDescription: 'Harga potong & ukir laser dari fail anda.',
-    description:
-      'Upload PDF, AI, DXF atau gambar, pilih bahan dan saiz, dan terus nampak anggaran harga potong dan ukir laser, kemudian hantar sebut harga ke WhatsApp.',
-    href: '#/lasercut',
-    group: 'belajar',
-    variant: 'art',
-    // SVG dijana oleh `node scripts/thumb-lasercut.mjs` daripada kod vendored
-    // dan satu fail contoh sebenar: papan, ukiran, garisan potong dan julat
-    // harga semuanya keluar dari alat itu sendiri.
-    art: '/images/tools/lasercut.svg',
-    keywords: [
-      'laser cut',
-      'laser',
-      'potong',
-      'ukir',
-      'engrave',
-      'harga',
-      'sebut harga',
-      'quotation',
-      'plywood',
-      'akrilik',
-      'acrylic',
-      'mdf',
-      'cermin',
-      'mirror',
-      'dxf',
-      'png',
-      'gambar',
-      'kalkulator',
-    ],
-    Icon: Calculator,
-  },
+
+  // ---- 4. BELAJAR LEBIH ----
   {
     title: 'Blog',
     shortDescription: 'Episod Laser, nota kerja Sifu Hisham.',
@@ -385,9 +344,46 @@ export const TOOLS: ToolEntry[] = [
       'Episod Laser — nota Sifu Hisham dari kerja harian, sedia untuk disalin.',
     href: '#/blog',
     group: 'belajar',
+    onHome: false,
     variant: 'icon',
     keywords: ['episod', 'nota', 'artikel', 'panduan', 'tulisan', 'hisham'],
     Icon: Newspaper,
+  },
+  {
+    title: 'Simulator Alignment',
+    shortDescription: 'Latih alignment cermin, langkah demi langkah.',
+    description: 'Belajar dan praktik alignment cermin untuk Mesin Laser Cut.',
+    href: '#/simulator',
+    group: 'belajar',
+    shelf: 'mesin',
+    variant: 'icon',
+    keywords: ['cermin', 'mirror', 'laras', 'level', 'latihan', 'align'],
+    Icon: Crosshair,
+  },
+  {
+    title: 'Maintenance',
+    shortDescription: 'Senarai semak weekly & yearly mesin anda.',
+    description:
+      'Senarai semak weekly & yearly untuk memastikan mesin sentiasa optimum.',
+    href: '#/maintenance',
+    group: 'belajar',
+    shelf: 'mesin',
+    variant: 'icon',
+    keywords: ['servis', 'weekly', 'yearly', 'chiller', 'wifi', 'penjagaan'],
+    premium: true,
+    Icon: ClipboardCheck,
+  },
+  {
+    title: 'Troubleshooting',
+    shortDescription: 'Carta SOP bila mesin laser tak menjadi.',
+    description: 'Carta SOP untuk kesan punca bila mesin laser tak berfungsi.',
+    href: '#/troubleshoot',
+    group: 'belajar',
+    shelf: 'mesin',
+    variant: 'icon',
+    keywords: ['rosak', 'masalah', 'sop', 'punca', 'tak potong'],
+    premium: true,
+    Icon: Stethoscope,
   },
   {
     title: 'About Me & Kedai Laser',
@@ -396,6 +392,7 @@ export const TOOLS: ToolEntry[] = [
       'Kenali SifuLaser, dan lihat barang keperluan kerja laser di Shopee kami.',
     href: '#/about',
     group: 'belajar',
+    onHome: false,
     variant: 'icon',
     keywords: ['kedai', 'shopee', 'beli', 'barang', 'mahligai seni', 'hubungi'],
     Icon: UserRound,
@@ -404,19 +401,14 @@ export const TOOLS: ToolEntry[] = [
 
 export interface ToolGroup {
   id: GroupId
+  /** Nombor langkah yang dipaparkan. Mengikut susunan GROUPS. */
+  step: number
   title: string
+  /** Label pendek untuk cip lompat di bawah hero — satu perkataan. */
+  chip: string
   subtitle: string
-  Icon: LucideIcon
   /** Lima pemboleh ubah warna yang diwarisi oleh setiap anak panel. */
   vars: CSSProperties
-  /**
-   * Hanya kumpulan yang benar-benar ada tempat untuk pergi mendapat pautan.
-   * Tiga daripada empat kumpulan tiada halaman indeks, dan useHashRoute jatuh
-   * senyap ke 'home' untuk laluan yang tidak dikenali — jadi href yang salah
-   * kelihatan seperti halaman rosak, bukan 404. Sauh dalam halaman pula akan
-   * bergaduh dengan window.scrollTo(0, 0) dalam useHashRoute.
-   */
-  seeAll?: { label: string; href: string }
 }
 
 const vars = (n: 1 | 2 | 3 | 4): CSSProperties =>
@@ -430,51 +422,54 @@ const vars = (n: 1 | 2 | 3 | 4): CSSProperties =>
 
 export const GROUPS: ToolGroup[] = [
   {
-    id: 'mesin',
-    title: 'Mesin & Penjagaan',
-    subtitle: 'Pastikan mesin sentiasa dalam keadaan optimum.',
-    Icon: Settings2,
-    vars: vars(1),
-  },
-  {
-    id: 'design',
-    title: 'Buat Design untuk Laser',
-    subtitle: 'Jana fail SVG siap potong dengan mudah.',
-    Icon: Boxes,
+    id: 'harga',
+    step: 1,
+    title: 'Berapa harganya?',
+    chip: 'Harga',
+    subtitle: 'Upload fail, terus nampak harga. Sebut harga terus ke WhatsApp.',
     vars: vars(2),
   },
   {
-    id: 'generator',
-    title: 'Generator Pantas',
-    subtitle: 'Masukkan maklumat, dapat fail SVG terus.',
-    Icon: Zap,
+    id: 'idea',
+    step: 2,
+    title: 'Client tak ada idea',
+    chip: 'Idea',
+    subtitle: 'Isi nama dan saiz, alat ini lukis seluruh design untuk anda.',
+    vars: vars(1),
+  },
+  {
+    id: 'fail',
+    step: 3,
+    title: 'Ada idea, perlu fail',
+    chip: 'Fail',
+    subtitle: 'Tulisan, kod QR, ubah saiz dan tukar format fail.',
     vars: vars(3),
   },
   {
     id: 'belajar',
-    title: 'Belajar & Sumber',
-    subtitle: 'Nota, panduan dan perkongsian dari Sifu Hisham.',
-    Icon: BookOpen,
+    step: 4,
+    title: 'Belajar lebih',
+    chip: 'Belajar',
+    subtitle: 'Tips mingguan Sifu Hisham, kelas, dan panduan mesin.',
     vars: vars(4),
-    // Satu-satunya kumpulan yang mendapatnya: 12 episod blog benar-benar
-    // melebihi satu tile.
-    seeAll: { label: 'Lihat semua', href: '#/blog' },
   },
 ]
 
+/** Tile halaman utama dalam satu langkah, ikut susunan TOOLS. */
 export const toolsInGroup = (id: GroupId): ToolEntry[] =>
-  TOOLS.filter((t) => t.group === id)
+  TOOLS.filter((t) => t.group === id && t.onHome !== false && !t.shelf)
 
-/** Empat destinasi bar nav. Semuanya laluan sedia ada — tiada kerja penghalaan. */
+/** Rak mesin di hujung langkah 4. */
+export const machineShelf = (): ToolEntry[] =>
+  TOOLS.filter((t) => t.shelf === 'mesin')
+
+/**
+ * Destinasi bar nav: pill di atas pada skrin lebar, bar tab di bawah pada
+ * telefon. Tiga sahaja - bar tab telefon paling selesa dengan lima ke bawah,
+ * dan "Pakej & Harga" kini dicapai dari langkah 4 halaman utama.
+ */
 export interface NavItem {
   label: string
-  /**
-   * Ekor label yang digugurkan pada telefon (span .nav-pill-long). Empat pill
-   * berjumlah lebih lebar daripada trek 343 px pada 375 px, jadi tanpa ini
-   * destinasi keempat duduk di luar skrin sehingga diskrol. Yang digugurkan
-   * hanya panjang label — destinasi kekal empat.
-   */
-  labelTail?: string
   href: string
   Icon: LucideIcon
   /** Nama laluan yang dikembalikan useHashRoute bila pill ini aktif. */
@@ -484,23 +479,14 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { label: 'Home', href: '#/', Icon: House, route: 'home' },
   { label: 'Blog', href: '#/blog', Icon: Newspaper, route: 'blog' },
-  {
-    label: 'Pakej',
-    labelTail: ' & Harga',
-    href: '#/pakej',
-    Icon: Tag,
-    route: 'pakej',
-  },
   { label: 'About', href: '#/about', Icon: UserRound, route: 'about' },
 ]
 
 /**
- * Sasaran carian: 18 tile ditambah destinasi nav yang BUKAN sudah menjadi
- * tile = 20. Blog dan About memiliki #/blog dan #/about sebagai alat, jadi
- * memasukkan pill navnya juga memberi dua baris serupa yang menuju ke tempat
- * yang sama — dan dua adik-beradik React dengan key yang sama, kerana
- * ToolSearch mengunci pada href. Dua daripada enam slot hasil dibazirkan
- * untuk mengulang satu destinasi, dengan label yang lebih buruk.
+ * Sasaran carian: setiap alat dalam TOOLS (termasuk Blog dan About, yang tiada
+ * tile), Pakej & Kelas (yang kini dicapai dari langkah 4, bukan dari nav), dan
+ * Home. Pill nav Blog dan About tidak ditambah lagi - alatnya sudah memiliki
+ * #/blog dan #/about, dan ToolSearch mengunci pada href.
  */
 export interface SearchTarget {
   title: string
@@ -521,9 +507,9 @@ const fold = (value: string): string =>
     .toLowerCase()
 
 const ACCENT_BY_GROUP: Record<GroupId, string> = {
-  mesin: 'var(--color-g1-accent)',
-  design: 'var(--color-g2-accent)',
-  generator: 'var(--color-g3-accent)',
+  harga: 'var(--color-g2-accent)',
+  idea: 'var(--color-g1-accent)',
+  fail: 'var(--color-g3-accent)',
   belajar: 'var(--color-g4-accent)',
 }
 
@@ -531,8 +517,6 @@ interface RankedTarget extends SearchTarget {
   titleFold: string
   keywordFold: string
 }
-
-const TOOL_HREFS = new Set(TOOLS.map((tool) => tool.href))
 
 const TARGETS: RankedTarget[] = [
   ...TOOLS.map((tool) => ({
@@ -546,22 +530,17 @@ const TARGETS: RankedTarget[] = [
     titleFold: fold(tool.title),
     keywordFold: fold(tool.keywords.join(' ')),
   })),
-  ...NAV.filter(
-    (item) => item.route !== 'home' && !TOOL_HREFS.has(item.href),
-  ).map((item) => {
-    // Nama penuh, bukan `label` sahaja: `label` ialah versi pendek telefon
-    // ("Pakej"), dan carian untuk "harga" mesti tetap menjumpainya.
-    const full = `${item.label}${item.labelTail ?? ''}`
-    return {
-      title: full,
-      line: 'Halaman laman',
-      href: item.href,
-      accent: 'var(--color-screw-2)',
-      haystack: fold(`${full} halaman laman`),
-      titleFold: fold(full),
-      keywordFold: '',
-    }
-  }),
+  {
+    // Dulu pill nav "Pakej & Harga". Nav kini tiga destinasi sahaja, jadi
+    // carian untuk "harga", "kelas" atau "pakej" mesti tetap sampai ke sini.
+    title: 'Kelas & Pakej',
+    line: 'Kelas training dan Akses Penuh',
+    href: '#/pakej',
+    accent: 'var(--color-g4-accent)',
+    haystack: fold('kelas pakej harga training akses penuh langganan bayar'),
+    titleFold: fold('kelas & pakej'),
+    keywordFold: fold('kelas pakej harga training akses penuh langganan bayar'),
+  },
   {
     title: 'Home',
     line: 'Halaman laman',

@@ -4,16 +4,18 @@ import { Search } from 'lucide-react'
 import { searchTools } from '../data/tools'
 
 /**
- * Carian direktori: 20 sasaran (18 tile + Pakej & Harga + Home), padanan
- * substring lipat-huruf, maksimum enam baris. Nombor itu dikira dari
- * src/data/tools.ts dan bukan dihafal: Blog dan About ialah tile, jadi pill
- * navnya digugurkan supaya tiada dua baris menuju ke tempat yang sama.
+ * Carian direktori: setiap alat, Kelas & Pakej dan Home (lihat TARGETS dalam
+ * src/data/tools.ts), padanan substring lipat-huruf, maksimum enam baris.
  *
- * Grid di bawah TIDAK pernah disusun semula. Meredupkan atau menapis tujuh
- * belas tile yang semuanya sudah kelihatan lebih lambat daripada membaca
- * senarai ini, dan pada 375 px senarai ini ialah keseluruhan jawapannya.
+ * Grid di bawah TIDAK pernah disusun semula. Meredupkan atau menapis tile
+ * yang semuanya sudah kelihatan lebih lambat daripada membaca senarai ini,
+ * dan pada 375 px senarai ini ialah keseluruhan jawapannya.
  */
-export const ToolSearch = () => {
+export const ToolSearch = ({
+  placeholder = 'Cari tool... contoh: Box Maker, QR, Alignment...',
+}: {
+  placeholder?: string
+}) => {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -110,7 +112,7 @@ export const ToolSearch = () => {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Cari tool... contoh: Box Maker, QR, Alignment..."
+          placeholder={placeholder}
           /* 16px di bawah 640 dengan sengaja — iOS zum masuk pada apa-apa
              yang lebih kecil sebaik sahaja medan itu difokus. */
           className="h-[52px] w-full rounded-xl border border-line bg-white pr-4 pl-11 text-base font-medium text-ink shadow-[0_1px_2px_rgb(20_33_61/0.05)] outline-none placeholder:text-muted/80 focus:border-screw-2 sm:text-[15px]"

@@ -11,14 +11,17 @@ import { useAuth } from '../lib/auth'
 import { isAdmin } from '../lib/admin'
 import { useHashRoute } from '../hooks/useHashRoute'
 import { NAV } from '../data/tools'
+import { BottomTabBar } from './BottomTabBar'
 
 /**
  * Bar atas laman.
  *
- * Dirender pada HomePage SAHAJA dalam pusingan ini, tetapi ditulis berdiri
- * sendiri supaya ia boleh diterima pakai ke seluruh laman kemudian tanpa
- * ditulis semula. Dua belas halaman alat kini mempunyai pengepala sendiri, dan
- * AppHeader hanya untuk simulator.
+ * Dirender pada Home, Blog, About dan Pakej. Halaman alat mempunyai
+ * pengepala sendiri, dan AppHeader hanya untuk simulator.
+ *
+ * Pada telefon pill nav tidak dipaparkan di sini langsung: navigasi tinggal
+ * di BottomTabBar, yang dirender bersama bar ini supaya keempat-empat halaman
+ * itu mendapatnya tanpa setiap satu perlu mengingatinya.
  *
  * Tiada loceng notifikasi di sini dengan sengaja: tiada medan, tiada koleksi
  * dan tiada cap masa di mana-mana dalam projek yang boleh menyalakannya.
@@ -68,18 +71,7 @@ const NavPills = ({ route }: { route: string }) => {
           aria-current={item.route === route ? 'page' : undefined}
         >
           <item.Icon size={15} strokeWidth={2} aria-hidden="true" />
-          {/* Satu span, bukan dua item flex: `gap: 6px` pada pill akan
-              menyisipkan jurang di tengah label kalau ekor itu adik-beradik
-              teksnya. CSS menggugurkan ekor ini dengan display:none di bawah
-              900 px, jadi nama boleh capai pill itu pun jadi "Pakej" di sana,
-              bukan "Pakej & Harga" — pendek, tetapi masih menamakan destinasi
-              yang betul. */}
-          <span>
-            {item.label}
-            {item.labelTail ? (
-              <span className="nav-pill-long">{item.labelTail}</span>
-            ) : null}
-          </span>
+          <span>{item.label}</span>
         </a>
       ))}
     </div>
@@ -277,6 +269,22 @@ export const SiteHeader = () => {
   const route = useHashRoute()
   const { error } = useAuth()
   const [scrolled, setScrolled] = useState(false)
+  const barRef = useRef<HTMLElement>(null)
+
+  // Tinggi bar atas sebagai --bar-h, supaya apa-apa yang melekat di bawahnya
+  // (cip langkah halaman utama) dan sasaran lompat tahu di mana bar berakhir.
+  // Diukur, bukan ditulis: bar ini 56 px pada telefon dan 68 px di atasnya,
+  // dan baris ralat log masuk boleh menambah tingginya.
+  useLayoutEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    const root = document.documentElement
+    const measure = () => root.style.setProperty('--bar-h', `${el.offsetHeight}px`)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4)
@@ -286,7 +294,12 @@ export const SiteHeader = () => {
   }, [])
 
   return (
-    <header className="home-bar" data-scrolled={scrolled ? 'true' : 'false'}>
+    <>
+    <header
+      ref={barRef}
+      className="home-bar"
+      data-scrolled={scrolled ? 'true' : 'false'}
+    >
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
         <div className="home-bar-inner">
           {/* w-fit: tanpanya pautan ini meregang ke seluruh lajur grid dan
@@ -315,7 +328,7 @@ export const SiteHeader = () => {
                 berakhir di udara jauh melepasi glif terakhir. Dan mockup
                 meletakkan tagline DI ATAS garis, bukan di bawahnya. */}
             <span className="mt-[3px] hidden w-fit border-b-2 border-near/55 pb-1 text-[10px] leading-none font-bold tracking-[0.26em] text-muted uppercase mid:block">
-              Align. Maintain. Perform.
+              Satu tempat. Semua kerja.
             </span>
           </a>
 
@@ -326,15 +339,12 @@ export const SiteHeader = () => {
           <AccountSlot />
         </div>
 
-        {/* Pada telefon pill nav keluar dari bar ke barisnya sendiri. */}
-        <nav aria-label="Navigasi laman" className="pb-2 sm:hidden">
-          <NavPills route={route} />
-        </nav>
-
         {error ? (
           <p className="pb-2 text-[12px] font-semibold text-[#8a2226]">{error}</p>
         ) : null}
       </div>
     </header>
+    <BottomTabBar route={route} />
+    </>
   )
 }
