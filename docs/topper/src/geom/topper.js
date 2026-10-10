@@ -98,10 +98,12 @@ export const CONNECT_MODES = [
  * or too fine to handle, and it arrives with a warning attached. So every one of
  * these carries the numbers that go with its own words.
  *
- * The numbers are not guesses either. Each was walked up from the lightest
- * thickening that builds clean and left at the first setting that needs no
- * connectors at all, or as close to that as the words allow - and there is a
- * test that builds all eight and fails if any of them warns about anything.
+ * The numbers are not guesses either. The set shares one line height, one
+ * thickening and a single narrow stake, and a card moves off those only as far
+ * as its own words make it: thicker where a long line leaves the letters too
+ * fine, a wider stake where the weight sits to one side of it. There is a test
+ * that builds every one of them and fails if any of them warns about anything -
+ * a card that opens on a red warning is not a starting point, it is a chore.
  *
  * The names are placeholders and are meant to be typed over. They are real
  * names rather than "NAME" because a preset should show what the thing looks
@@ -157,7 +159,10 @@ export const PRESETS = [
       face: 'great-vibes',
       width: 120,
       lineHeight: 90,
-      thicken: 0.5,
+      // A tenth more than the rest of the set. "Hari Jadi" is the long line, so
+      // at the standard width the script comes out at 2.4 mm - a hair under the
+      // 2.5 mm that survives being pushed into a cake.
+      thicken: 0.6,
       stakes: 1,
       stakeLength: 50,
       stakeWidth: 5,
@@ -176,7 +181,10 @@ export const PRESETS = [
       thicken: 0.5,
       stakes: 1,
       stakeLength: 50,
-      stakeWidth: 5,
+      // Wider than the 5 mm the rest stand on. Two names never weigh the same:
+      // here the weight sits 3 mm to one side of the stake, and a single stake
+      // has to be under the weight or the piece leans.
+      stakeWidth: 7,
     },
   },
   {
@@ -228,7 +236,10 @@ export const PRESETS = [
       face: 'great-vibes',
       width: 120,
       lineHeight: 90,
-      thicken: 0.5,
+      // A full name on one line is the smallest lettering in the set: 2.1 mm at
+      // the 0.5 the others use. This is the first step that clears 2.5 mm, and
+      // it welds the letters without the two connectors the thinner one needed.
+      thicken: 0.8,
       stakes: 1,
       stakeLength: 50,
       stakeWidth: 5,
@@ -263,7 +274,9 @@ export const PRESETS = [
       thicken: 0.5,
       stakes: 1,
       stakeLength: 50,
-      stakeWidth: 5,
+      // As with Nikah: the weight sits 3.7 mm off the stake, so the stake is
+      // widened until it is under it.
+      stakeWidth: 8,
     },
   },
   {
