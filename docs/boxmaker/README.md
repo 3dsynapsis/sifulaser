@@ -37,10 +37,16 @@ hanya diperlukan semasa pembangunan.
 
 ## Perubahan yang dibuat terus dalam salinan ini
 
-**Amaran:** perubahan di bawah wujud dalam `docs/boxmaker/` sahaja. Kalau
-langkah "Cara kemas kini" di atas dijalankan tanpa memindahkannya dahulu ke
-projek asal, ia akan terpadam senyap. Pindahkan dahulu, atau salin semula
-fail-fail ini selepas mengemas kini.
+**Sudah dipindahkan pada 11 Oktober 2026.** Perubahan di bawah mula-mula dibuat
+terus di sini, dan pada tarikh itu kesemuanya disalin balik ke projek asal
+(`CLAUDE CODE/12_Box Maker`) sebelum ukuran dalam ditambah. Projek asal kini
+mengandungi corak Islamik, jadi "Cara kemas kini" di atas selamat dijalankan.
+
+Kalau perubahan dibuat terus di sini lagi, amaran lama terpakai semula: ia
+wujud dalam `docs/boxmaker/` sahaja, dan menyalin dari projek asal tanpa
+memindahkannya dahulu akan memadamnya senyap. Semak dengan
+`diff -rq --strip-trailing-cr "../12_Box Maker/src" docs/boxmaker/src` sebelum
+menyalin - ia mesti senyap.
 
 ### Perpustakaan corak Islamik (alat "Pattern")
 
@@ -67,3 +73,21 @@ lubang engsel dan objek lain pada muka yang sama; kerf ditambah pada jejari.
 - `styles.css` — `.pattern-list`; jalur alat telefon dirapatkan supaya 7 butang muat.
 
 Ujian: `node scripts/test-boxmaker-pattern.mjs` (dari akar repo).
+
+### Ukuran dalam (suis Outside / Inside)
+
+Length, Width dan Height boleh dibaca sebagai ukuran luar kotak atau ruang
+bersih di dalamnya (`params.measure`). Pada Almari Laci, "dalam" ialah ruang
+dalam setiap laci.
+
+- `src/geom/box.js` — `dimMap`, `outsideFor`, `insideOf`; `buildBox` menukar
+  ukuran dalam kepada ukuran luar sekali di atas dan `derived.dims` melaporkan
+  kedua-dua bacaan dari kotak yang benar-benar dibina.
+- `src/store.js` — `setMeasure` menukar bacaan tanpa menggerakkan kotak;
+  `applyDesign` kini membina semula kotak (dulu tidak) dan design lama tanpa
+  `measure` dibuka sebagai ukuran luar.
+- `src/ui.js` — `dimensionRows` (suis, tiga medan, bacaan sebaliknya, amaran).
+- `src/view3d.js`, `styles.css` — garisan ukuran berpindah ke muka dalam dan
+  berlabel "inside".
+
+Ujian: `npm test` dalam projek asal (bahagian "inside dimensions").

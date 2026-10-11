@@ -3,9 +3,10 @@
 import {
   state, update, setParam, getBox, currentPanel, decorFor, selectedObject,
   MATERIALS, material, canUndo, canRedo, clampDecor, reset, applyDesign,
+  setMeasure,
 } from './store.js';
 import * as gallery from './designs.js';
-import { PANEL_LABELS, SCREW } from './geom/box.js';
+import { PANEL_LABELS, SCREW, dimMap, insideOf } from './geom/box.js';
 import {
   makeObject, PROCESSES, objectRings, measureText, patternInfo, patternFitKey,
 } from './geom/decor.js';
@@ -595,13 +596,7 @@ function overallInspector(root, ctx) {
       + 'Keeping them short of the rim leaves room to reach in, and a lid closes '
       + 'over them rather than onto them.')));
 
-  root.append(group('Dimensions', true,
-    dimRow('Length', 'length', ctx),
-    dimRow('Width', 'width', ctx),
-    dimRow('Height', 'height', ctx),
-    h('p', { class: 'hint' }, p.style === 'almari'
-      ? 'Outer dimensions: across the front, front to back, and floor to the top.'
-      : 'Outer dimensions, including the lid.')));
+  root.append(group('Dimensions', true, ...dimensionRows(p, ctx)));
 
   const matSel = h('select', {
     onchange: (e) => {
@@ -718,7 +713,7 @@ function overallInspector(root, ctx) {
       onInput: (v) => { setParam('slitOvershoot', v); ctx.refresh(); },
     }),
     numberRow('Floor height above base (mm)', p.floorOffset ?? p.thickness, {
-      min: 0, max: Math.max(20, p.height / 3), step: 0.5,
+      min: 0, max: Math.max(20, getBox().params.height / 3), step: 0.5,
       onInput: (v) => { setParam('floorOffset', v); ctx.refresh(); },
     }),
   ));
@@ -797,8 +792,11 @@ function drawerRows(p, ctx) {
         onclick: () => { setParam(key, v); ctx.refresh(); },
       }, text))));
 
-  const isStock = p.length === ALMARI_SIZE.length && p.width === ALMARI_SIZE.width
-    && p.height === ALMARI_SIZE.height;
+  // The cabinet as built, always an outside size - with the Inside switch on,
+  // p.length is a drawer's inside and says nothing about the cabinet.
+  const cab = getBox().params;
+  const isStock = ['length', 'width', 'height']
+    .every((k) => Math.abs(cab[k] - ALMARI_SIZE[k]) < 0.01);
 
   const rows = [
     h('div', { class: 'field' },
@@ -852,13 +850,20 @@ function drawerRows(p, ctx) {
       // The only control here that touches a number the user typed, which is why
       // it is a button they press rather than something that happens to them.
       onclick: () => {
-        update((s) => { Object.assign(s.params, ALMARI_SIZE); }, { geometry: true });
+        // ALMARI_SIZE is the cabinet. With the Inside switch on the fields
+        // hold a drawer, so write the drawer that cabinet gives rather than
+        // flipping the switch back behind the user's back.
+        update((s) => {
+          Object.assign(s.params, s.params.measure === 'inside'
+            ? insideOf(s.params, ALMARI_SIZE) : ALMARI_SIZE);
+        }, { geometry: true });
         clampDecor();
         ctx.refresh();
       },
     }, isStock ? 'Saiz almari biasa ✓' : 'Saiz almari biasa · 200 × 150 × 260 mm'),
     h('p', { class: 'hint' },
-      `This one is ${p.length} × ${p.width} × ${p.height} mm. The app's default `
+      `This one is ${rnd(cab.length, 1)} × ${rnd(cab.width, 1)} × ${rnd(cab.height, 1)} mm `
+      + "outside. The app's default "
       + 'box is a small shallow tray, and a tray split into levels gives drawers '
       + 'a couple of centimetres deep - correct, but not what anyone means by an '
       + 'almari. The button sets a cabinet-shaped 200 × 150 × 260 mm; nothing '
@@ -957,15 +962,104 @@ function drawerRows(p, ctx) {
   return rows;
 }
 
+const mm3 = (o) => `${rnd(o.l, 1)} × ${rnd(o.w, 1)} × ${rnd(o.h, 1)} mm`;
+
+/**
+ * The Dimensions group: the switch that says what the three numbers mean, the
+ * numbers, and the same box read the other way.
+ *
+ * Both readings are always on screen. Somebody boxing a book thinks in the size
+ * of the book; somebody fitting a shelf thinks in the size of the box; and the
+ * commonest mistake with this tool was typing the first into a field that meant
+ * the second. The line under the fields is what would have caught it.
+ *
+ * Everything shown here is read off the box that was built (derived.dims), not
+ * recomputed from the fields, so a size the geometry had to clamp shows as the
+ * size it became.
+ */
+function dimensionRows(p, ctx) {
+  const dims = getBox().derived.dims;
+  const inside = dims.measure === 'inside';
+  const drawer = dims.what === 'drawer';
+  const rows = [
+    h('div', { class: 'field' },
+      h('label', {}, 'These three sizes are the'),
+      segmented([
+        { id: 'outside', label: 'Outside', hint: 'The space the finished box takes up.' },
+        {
+          id: 'inside',
+          label: drawer ? 'Inside each drawer' : 'Inside',
+          hint: 'The clear space for whatever goes in it.',
+        },
+      ], dims.measure, (id) => { setMeasure(id); clampDecor(); ctx.refresh(); })),
+    dimRow('Length', 'length', ctx),
+    dimRow('Width', 'width', ctx),
+    dimRow('Height', 'height', ctx),
+    h('div', { class: 'stat dims-other' },
+      h('span', {}, inside
+        ? (drawer ? 'Cabinet outside' : 'Outside')
+        : (drawer ? 'Each drawer inside' : 'Inside')),
+      h('b', {}, inside ? mm3(dims.outer) : (dims.inner ? mm3(dims.inner) : 'no drawer'))),
+    dims.cell
+      ? h('div', { class: 'stat' },
+        h('span', {}, `Each of the ${dims.cell.count} spaces`),
+        h('b', {}, `${rnd(dims.cell.l, 1)} × ${rnd(dims.cell.w, 1)} mm`))
+      : null,
+  ];
+
+  // Asked for a space and the box could not be that space. The fields still
+  // show what was typed, so without this the box would be quietly wrong.
+  if (inside && !dims.met) {
+    rows.push(h('p', { class: 'warn' }, dims.inner
+      ? `This ${drawer ? 'drawer' : 'box'} holds ${mm3(dims.inner)}, not the `
+        + `${mm3(dims.asked)} asked for. `
+        + (drawer
+          ? 'The cabinet could not be built around that drawer - the note under '
+            + 'Box Style says which part gave way.'
+          : 'A jointed wall needs at least eight board thicknesses of length and '
+            + 'six of height, so a very small space gets a larger box than it asked for.')
+      : 'No drawer fits this cabinet, so there is no inside to measure. The note '
+        + 'under Box Style says why.'));
+  }
+
+  rows.push(h('p', { class: 'hint' }, inside
+    ? (drawer
+      ? 'Inside each drawer: wall to wall, front to back, and from the drawer\'s '
+        + 'floor up to its rim. Every drawer is the same size. '
+      : 'Inside: the clear space wall to wall, and from the floor up to the rim'
+        + (p.style === 'open' ? '. ' : ', which is where the lid sits. '))
+      + 'Type the size of what goes in and add 2-3 mm each way so it slides in '
+      + 'and out - nothing is added for you. Change the board and the space '
+      + 'stays; the box grows around it.'
+    : (drawer
+      ? 'Outside: across the front, front to back, and floor to the top. '
+      : 'Outside: the space the finished box takes up, including the lid. ')
+      + 'Boxing something? Switch to Inside and type its size instead - the '
+      + 'walls take two board thicknesses off whatever is typed here.'));
+  return rows;
+}
+
+const DIM_AXIS = { length: 'x', width: 'y', height: 'z' };
+
 function dimRow(label, key, ctx) {
   const p = state.params;
   const maxima = { length: 900, width: 900, height: 600 };
+  // The limits are limits on the BOX: eight boards is the least a jointed wall
+  // can be, and the maxima are what fits a bed. Read as an inside size the same
+  // two limits land somewhere else, and they move when the board changes.
+  let min = p.thickness * 8;
+  let max = maxima[key];
+  if (p.measure === 'inside') {
+    const { k, c } = dimMap(p)[DIM_AXIS[key]];
+    min = Math.max(1, Math.ceil((min - c) / k));
+    max = Math.max(min, Math.floor((max - c) / k));
+  }
   return numberRow(`${label} (mm)`, p[key], {
-    min: p.thickness * 8,
-    max: maxima[key],
+    min,
+    max,
     step: 1,
     onInput: (v) => {
-      setParam(key, clamp(v, p.thickness * 8, maxima[key]));
+      setParam(key, clamp(v, min, max));
       clampDecor();
       ctx.refresh();
     },
@@ -988,6 +1082,11 @@ function summaryRows() {
     h('div', { class: 'stat' }, h('span', {}, 'Path length'), h('b', {}, `${(cut / 1000).toFixed(2)} m`)),
     h('div', { class: 'stat' }, h('span', {}, 'Board area'), h('b', {}, `${(area / 100).toFixed(0)} cm²`)),
     h('div', { class: 'stat' }, h('span', {}, 'Wall height'), h('b', {}, `${rnd(box.derived.wallH, 1)} mm`)),
+    // Both readings, whichever was typed. A drawer cabinet has its own line
+    // further down, because there the inside that matters is the drawer's.
+    !box.derived.almari && box.derived.dims.inner
+      ? h('div', { class: 'stat' }, h('span', {}, 'Inside'), h('b', {}, mm3(box.derived.dims.inner)))
+      : null,
     box.derived.lid
       ? h('div', { class: 'stat' },
         h('span', {}, 'Overall size'),
@@ -1465,7 +1564,9 @@ export function fillExportDialog(dlg, box) {
   const inside = a?.drawer
     ? ` · drawer inside ${rnd(a.drawer.inner.l, 1)} × ${rnd(a.drawer.inner.w, 1)}`
       + ` × ${rnd(a.drawer.inner.h, 1)} mm`
-    : '';
+    : !a && box.derived.dims.inner
+      ? ` · inside ${mm3(box.derived.dims.inner)}`
+      : '';
   dlg.querySelector('#exportSummary').textContent =
     `${box.panels.length} panels · ${outer} · ${box.params.thickness} mm board${inside}`;
   // Placed images cannot go into the PDF. A PDF image is an XObject with its own

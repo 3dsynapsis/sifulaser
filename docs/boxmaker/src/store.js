@@ -1,6 +1,6 @@
 // Single source of truth. Everything else subscribes and re-renders.
 
-import { buildBox, DEFAULTS, PANEL_ORDER } from './geom/box.js';
+import { buildBox, insideOf, DEFAULTS, PANEL_ORDER } from './geom/box.js';
 import { refitPattern } from './geom/decor.js';
 
 // `char`: a CO2 beam leaves a burnt black edge on wood, MDF and card. Acrylic
@@ -115,6 +115,43 @@ export function setParam(key, value) {
   update((s) => { s.params[key] = value; }, { geometry: true });
 }
 
+/**
+ * Change what Length, Width and Height MEAN - outside or inside - without
+ * moving the box.
+ *
+ * The switch is a change of ruler, not a change of design: the box on screen
+ * stays exactly as it is and the three numbers are rewritten to describe it the
+ * other way. Flipping it and getting a different box would make the switch
+ * something to be afraid of, and flipping it back would not undo it.
+ *
+ * The numbers come from the box that was actually built, not from what was
+ * typed, so a size the geometry had to clamp is carried across as the size it
+ * became.
+ */
+export function setMeasure(to) {
+  const next = to === 'inside' ? 'inside' : 'outside';
+  if ((state.params.measure || 'outside') === next) return;
+  const built = getBox();
+  update((s) => {
+    // A cabinet too narrow for two columns is cut with one. Say so in the
+    // parameters before converting, or the conversion describes two drawers
+    // side by side while the screen shows one wide one.
+    if (built.derived.almari) s.params.lajur = built.derived.almari.lajur;
+    const outside = {
+      length: built.params.length,
+      width: built.params.width,
+      height: built.params.height,
+    };
+    const size = next === 'inside' ? insideOf(s.params, outside) : outside;
+    for (const key of ['length', 'width', 'height']) {
+      // A cabinet too small to hold a drawer has no inside to speak of; a
+      // millimetre is the least a dimension box can sensibly show.
+      s.params[key] = Math.max(1, Math.round(size[key] * 1000) / 1000);
+    }
+    s.params.measure = next;
+  }, { geometry: true });
+}
+
 export function canUndo() { return undoStack.length > 0; }
 export function canRedo() { return redoStack.length > 0; }
 
@@ -211,11 +248,21 @@ export function applyDesign(row) {
     }
   }
   update((s) => {
-    Object.assign(s.params, row.params || {});
+    // `measure` first, as a floor under the saved params: a design saved before
+    // the inside/outside switch existed carries no `measure`, and its numbers
+    // are outside sizes. Without this it would inherit whatever the switch was
+    // set to when it was opened and come back as a different box.
+    Object.assign(s.params, { measure: 'outside' }, row.params || {});
     if (row.name) s.name = row.name;
     if (row.material) s.material = row.material;
     if (decor) s.decor = { ...emptyDecor(), ...decor };
-  });
+    // geometry: a saved design is a different box. Without the flag the
+    // inspector filled with the saved numbers while the 3D view went on drawing
+    // the box that was there before, until some unrelated slider was touched.
+  }, { geometry: true });
+  // The saved design may be a different style, and the face being edited may
+  // be a panel that style does not have.
+  clampDecor();
 }
 
 export const material = () => MATERIALS.find((m) => m.id === state.material)

@@ -431,8 +431,15 @@ function boxNote(files) {
   // The one measurement a drawer cabinet needs and its outside size cannot give.
   if (a?.drawer) {
     const i = a.drawer.inner;
+    // a.drawers, not a.tingkat: two columns double the count, and "2 of them"
+    // on a four-drawer cabinet sends somebody looking for the other two.
     out.push(`Drawer inside: ${rnd(i.l, 1)} x ${rnd(i.w, 1)} x ${rnd(i.h, 1)} mm`
-      + (a.tingkat === 1 ? '.' : `, ${a.tingkat} of them.`));
+      + (a.drawers === 1 ? '.' : `, ${a.drawers} of them.`));
+  } else if (!a && box.derived.dims.inner) {
+    // The same for a plain box: the outside says where it will stand, the
+    // inside says whether the thing it was made for goes in.
+    const i = box.derived.dims.inner;
+    out.push(`Inside: ${rnd(i.l, 1)} x ${rnd(i.w, 1)} x ${rnd(i.h, 1)} mm clear.`);
   }
   if (files.length > 1) out.push(`${files.length} sheets.`);
   // Said out loud, because it is the one thing in the box that the PDF cannot

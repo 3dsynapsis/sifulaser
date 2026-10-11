@@ -43,9 +43,12 @@ export const DEFAULTS = {
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
   dividerHeight: 60,    // % of the interior depth the dividers stand up
+  // What length/width/height below MEAN. 'outside' is the size the finished box
+  // stands in; 'inside' is the clear space its contents get - see dimMap().
+  measure: 'outside',
   length: 100,          // X
   width: 76,            // Y
-  height: 50,           // Z (outer, including the lid on a lidded box)
+  height: 50,           // Z (outside: including the lid on a lidded box)
   thickness: 3,
   kerf: 0.2,            // laser beam width; cut paths are offset by half of it
   fit: 0.05,            // interference: slots shrink by this much (+ = tighter)
@@ -302,13 +305,90 @@ function normalisePanel(panel) {
   return panel;
 }
 
+/** A micron. Cleans float noise off a converted size without moving it. */
+const r3 = (v) => Math.round(v * 1000) / 1000;
+
+/**
+ * How the clear space INSIDE relates to the size OUTSIDE, one axis at a time.
+ *
+ * Somebody boxing a book knows the book, not the box: type the book as an
+ * outside size and the walls eat two boards of it and the book does not go in.
+ * So the three numbers can be read either way, and this is the one place that
+ * says how to get from one reading to the other.
+ *
+ * Every axis is a straight line, outside = k * inside + c:
+ *
+ *   box      x, y  the two walls it sits between                 c = 2t
+ *            z     floor top to the RIM of the walls. An open box has nothing
+ *                  above the rim; a lid of any kind sits a board on top of it.
+ *                  c = floor + t, plus t more under a lid.
+ *   almari   "inside" is the inside of ONE DRAWER, because that is where things
+ *            are put - the cabinet's own interior is full of drawer.
+ *            x     k = columns. Each column is drawer walls, a running gap each
+ *                  side, and the columns share uprights and two cabinet sides.
+ *            y     k = 1. Drawer walls, the back wall, the inset at the front.
+ *            z     k = levels. Each level is the drawer's raised floor and the
+ *                  board under it, plus headroom; the levels share shelves, the
+ *                  cabinet floor and its top.
+ *
+ * `lajur` is taken as given. buildBox quietly falls back to one column when the
+ * cabinet cannot carry an upright, and then the drawer it cuts is not the one
+ * this line describes - derived.dims.met is what reports that.
+ */
+export function dimMap(input = {}) {
+  const p = { ...DEFAULTS, ...input };
+  const t = Math.max(0.5, p.thickness);
+  const floor = p.floorOffset == null ? t : Math.max(0, p.floorOffset);
+  if (p.style === 'almari') {
+    const tingkat = p.tingkat === 1 ? 1 : 2;
+    const lajur = p.lajur === 2 ? 2 : 1;
+    const cs = Math.max(0, p.drawerSide);
+    const ct = Math.max(0, p.drawerTop);
+    const ci = Math.max(0, p.drawerInset);
+    return {
+      what: 'drawer',
+      x: { k: lajur, c: lajur * (2 * t + 2 * cs) + (lajur - 1) * t + 2 * t },
+      y: { k: 1, c: 3 * t + ci },
+      z: { k: tingkat, c: tingkat * (2 * t + ct) + (tingkat - 1) * t + floor + 2 * t },
+    };
+  }
+  const lid = p.style === 'lidded' || p.style === 'double' || p.style === 'shoebox';
+  return {
+    what: 'box',
+    x: { k: 1, c: 2 * t },
+    y: { k: 1, c: 2 * t },
+    z: { k: 1, c: floor + t + (lid ? t : 0) },
+  };
+}
+
+const AXES = [['length', 'x'], ['width', 'y'], ['height', 'z']];
+
+/** The outside size that gives this much room inside. */
+export function outsideFor(params, inside) {
+  const map = dimMap(params);
+  return Object.fromEntries(AXES.map(([key, ax]) =>
+    [key, r3(map[ax].k * inside[key] + map[ax].c)]));
+}
+
+/** The room inside a box of this outside size. */
+export function insideOf(params, outside) {
+  const map = dimMap(params);
+  return Object.fromEntries(AXES.map(([key, ax]) =>
+    [key, r3((outside[key] - map[ax].c) / map[ax].k)]));
+}
+
 /** Build every panel for the given parameters. */
 export function buildBox(input = {}) {
   const p = { ...DEFAULTS, ...input };
   const t = Math.max(0.5, p.thickness);
-  const L = Math.max(t * 8, p.length);
-  const W = Math.max(t * 8, p.width);
-  const H = Math.max(t * 6, p.height);
+  // From here down everything is laid out from the OUTSIDE size, exactly as it
+  // always was. An inside size is turned into the outside one that yields it
+  // and then forgotten, so no joint below has to know which was typed.
+  const measuredInside = p.measure === 'inside';
+  const want = measuredInside ? outsideFor(p, p) : p;
+  const L = Math.max(t * 8, want.length);
+  const W = Math.max(t * 8, want.width);
+  const H = Math.max(t * 6, want.height);
   const lidded = p.style === 'lidded';
   const double = p.style === 'double';
   // A lid that lifts clean off, so the walls stop a board short and the lid's own
@@ -1297,9 +1377,45 @@ export function buildBox(input = {}) {
     pan.kerf = 2 * k; // patterns widen their struts by this so the burn can't thin them
   }
 
+  // ---- what it measures, both ways -----------------------------------------
+  // Read back off what was actually built, never off what was asked for: every
+  // clamp above (a box too small to joint, a cabinet too narrow for two
+  // columns) moves the result, and a readout that repeats the request would
+  // say the book fits in a box it does not fit in.
+  const drawerIn = almariInfo?.drawer?.inner ?? null;
+  const inner = almari
+    ? (drawerIn ? { l: drawerIn.l, w: drawerIn.w, h: drawerIn.h } : null)
+    : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, wallH - floorZ - t) };
+  const askedIn = measuredInside
+    ? { l: p.length, w: p.width, h: p.height } : null;
+  const near = (a, b) => Math.abs(a - b) <= 0.002;
+  const dims = {
+    measure: measuredInside ? 'inside' : 'outside',
+    what: almari ? 'drawer' : 'box',
+    outer: { l: L, w: W, h: H },
+    inner,
+    asked: askedIn,
+    // Only meaningful when an inside size was asked for: did the box that came
+    // out really have it? False means a clamp or a fallback got in the way.
+    met: Boolean(askedIn && inner
+      && near(inner.l, askedIn.l) && near(inner.w, askedIn.w) && near(inner.h, askedIn.h)),
+    // One compartment, when dividers split the floor. Dividers sit on the
+    // centre lines, so the cells are equal.
+    cell: divOK
+      ? {
+        count: divCount,
+        l: (L - 3 * t) / 2,
+        w: divCount === 4 ? (W - 3 * t) / 2 : W - 2 * t,
+      }
+      : null,
+  };
+
   return {
-    params: { ...p, thickness: t, length: L, width: W, height: H },
+    // Always the OUTSIDE size, and always marked so: feeding these params back
+    // into buildBox must give this same box, not convert them a second time.
+    params: { ...p, measure: 'outside', thickness: t, length: L, width: W, height: H },
     derived: {
+      dims,
       wallH, floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       lid: lidInfo,
       vFeats, xFeats, yFeats,

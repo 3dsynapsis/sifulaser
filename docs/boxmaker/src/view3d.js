@@ -411,19 +411,41 @@ export class View3D {
     // Each witness sits off the box along its own outward direction, the way a
     // drawing would place it, rather than lying on the edge itself.
     this.dimOffset = Math.max(4, Math.max(L, W, H) * 0.06);
-    this.dims = [
-      { label: fmtMm(L), a: P(0, 0, H), b: P(L, 0, H), dir: unit([0, 0, 1]) },
-      { label: fmtMm(W), a: P(L, 0, H), b: P(L, W, H), dir: unit([0, 0, 1]) },
-      { label: fmtMm(H), a: P(L, 0, 0), b: P(L, 0, H), dir: unit([1, 0, 0]) },
-    ];
+    // The witnesses measure whatever the three fields mean. Read as an inside
+    // size they move in to the faces that bound the space - wall to wall, floor
+    // to rim - and say "inside", because a line that still spanned the outside
+    // of the box with the inside number on it would be a wrong drawing.
+    const dm = box.derived.dims;
+    const t = box.params.thickness;
+    const inBox = dm && dm.measure === 'inside' && dm.what === 'box' && dm.inner;
+    // A drawer cabinet read as an inside size: the drawer's own space cannot be
+    // dimensioned on a closed cabinet, so the lines stay on the cabinet and are
+    // labelled as what they are.
+    const tag = dm && dm.measure === 'inside' && !inBox ? ' outside' : '';
+    if (inBox) {
+      const z0 = box.derived.floorZ + t;
+      const z1 = box.derived.wallH;
+      this.dims = [
+        { label: `${fmtMm(dm.inner.l)} inside`, a: P(t, 0, H), b: P(L - t, 0, H), dir: unit([0, 0, 1]) },
+        { label: `${fmtMm(dm.inner.w)} inside`, a: P(L, t, H), b: P(L, W - t, H), dir: unit([0, 0, 1]) },
+        { label: `${fmtMm(dm.inner.h)} inside`, a: P(L, 0, z0), b: P(L, 0, z1), dir: unit([1, 0, 0]) },
+      ];
+    } else {
+      this.dims = [
+        { label: fmtMm(L) + tag, a: P(0, 0, H), b: P(L, 0, H), dir: unit([0, 0, 1]) },
+        { label: fmtMm(W) + tag, a: P(L, 0, H), b: P(L, W, H), dir: unit([0, 0, 1]) },
+        { label: fmtMm(H) + tag, a: P(L, 0, 0), b: P(L, 0, H), dir: unit([1, 0, 0]) },
+      ];
+    }
+    const mark = inBox ? ' dim-in' : '';
     this.dimLayer.replaceChildren();
     for (const d of this.dims) {
       d.extA = svg('line', { class: 'dim-ext' });
       d.extB = svg('line', { class: 'dim-ext' });
-      d.line = svg('line', { class: 'dim-line' });
-      d.headA = svg('polygon', { class: 'dim-head' });
-      d.headB = svg('polygon', { class: 'dim-head' });
-      d.text = svg('text', { class: 'dim-text' });
+      d.line = svg('line', { class: `dim-line${mark}` });
+      d.headA = svg('polygon', { class: `dim-head${mark}` });
+      d.headB = svg('polygon', { class: `dim-head${mark}` });
+      d.text = svg('text', { class: `dim-text${mark}` });
       d.text.textContent = d.label;
       this.dimLayer.append(d.extA, d.extB, d.line, d.headA, d.headB, d.text);
     }
