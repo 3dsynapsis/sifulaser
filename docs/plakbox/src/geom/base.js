@@ -271,7 +271,9 @@ export function buildPlakBox(input = {}) {
   const tris = heightfieldMesh(xs, ys, H);
 
   const warnings = [...notes];
-  if (p.gap - p.grooveClear - (p.pocket ? p.pocketClear : 0) < 3) {
+  // Hanya bila ada poket: tanpanya, bahagian di dalam alur ialah satu pulau
+  // pepejal penuh dan tiada dinding nipis untuk dirisaukan.
+  if (p.pocket && p.gap - p.grooveClear - p.pocketClear < 3) {
     warnings.push('Dinding antara poket plak dan alur akrilik kurang 3 mm - besarkan ruang plak kalau ia rapuh.');
   }
   if (p.acrylic + 2 * p.grooveClear < 2) warnings.push('Alur kurang 2 mm lebar - sukar dicetak bersih.');

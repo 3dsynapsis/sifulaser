@@ -145,6 +145,11 @@ for (const input of CASES) {
   if (p.stepW > 0) check(`${tag}: tingkat`, near(at(p.stepW / 2, midY), p.baseH - p.stepH, 1e-6));
   check(`${tag}: lantai >= 2 mm`, Math.min(...grid.H.flat()) >= 2 - 1e-9, `${Math.min(...grid.H.flat())}`);
 
+  // Amaran dinding poket hanya bila poket wujud dan dindingnya memang nipis.
+  const wallWarn = r.warnings.some((w) => w.startsWith('Dinding antara poket'));
+  check(`${tag}: amaran dinding poket tepat`,
+    wallWarn === (p.pocket && p.gap - p.grooveClear - p.pocketClear < 3), r.warnings.join(' | '));
+
   // STL: saiz fail betul.
   const buf = trianglesToStl(mesh);
   check(`${tag}: saiz STL`, buf.byteLength === 84 + stats.triangles * 50);
@@ -157,6 +162,18 @@ for (const input of CASES) {
   check('lalai: tapak 280.8 x 130.8', near(d.baseL, 280.8) && near(d.baseW, 130.8), `${d.baseL} x ${d.baseW}`);
   check('lalai: tinggi kotak', near(d.coverH, 4 + 310 - 2 + 10 + 3), `${d.coverH}`);
   check('lalai: poket hidup', p.pocket === true);
+}
+
+// Isipadu lalai dikira dengan tangan, bebas daripada grid: kotak penuh tolak
+// jalur tingkat, cincin alur dan poket.
+{
+  const { stats } = buildPlakBox(DEFAULTS);
+  const full = 280.8 * 130.8 * 25;
+  const band = (280.8 * 130.8 - 272.8 * 122.8) * 4;
+  const groove = (256.8 * 106.8 - 249.2 * 99.2) * 4;
+  const pocket = 231 * 81 * 2;
+  check('lalai: isipadu kiraan tangan', Math.abs(stats.volumeMm3 - (full - band - groove - pocket)) < 1e-3,
+    `${stats.volumeMm3} lawan ${full - band - groove - pocket}`);
 }
 
 // Input teruk.
