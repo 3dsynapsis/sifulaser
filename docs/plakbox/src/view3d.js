@@ -32,6 +32,12 @@ export class View3D {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
+    // OrbitControls memutar 360 darjah bagi setiap tinggi kanvas diseret. Di
+    // telefon pentasnya cuma ~230 px, jadi seretan ibu jari 120 px memusingkan
+    // kotak separuh pusingan. Perlahankan untuk sentuhan.
+    if (matchMedia('(pointer: coarse)').matches) this.controls.rotateSpeed = 0.45;
+    // Jangan turun ke bawah lantai - tiada apa untuk dilihat di bawah tapak.
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
 
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x2a2f38, 1.5);
     this.scene.add(this.hemi);
@@ -290,6 +296,10 @@ export class View3D {
     const r = 0.5 * Math.hypot(L, W, H);
     const fit = Math.min(this.camera.fov, this.camera.fov * this.camera.aspect) * Math.PI / 360;
     const dist = (r / Math.sin(fit)) * 1.08;
+    // Had zum ikut saiz model: cukup dekat untuk melihat alur, tetapi tidak
+    // sampai kamera masuk ke dalam kotak; cukup jauh tanpa hilang jadi titik.
+    this.controls.minDistance = r * 0.9;
+    this.controls.maxDistance = dist * 3;
     const dir = [0.5, -0.78, 0.38];
     const m = Math.hypot(...dir);
     this.controls.target.set(0, 0, H / 2);

@@ -195,7 +195,10 @@ button { font-family: inherit; }
   background: var(--surface); border-left: 1px solid var(--line);
   padding: 12px 14px 40px;
 }
-.insp-title { font: 600 13px/1 inherit; color: var(--muted); margin: 4px 0 12px; letter-spacing: .02em; }
+/* font-size dan font-weight berasingan: "font: 600 13px/1 inherit" tidak sah
+   (inherit tidak boleh jadi keluarga dalam singkatan) dan pelayar membuang
+   seluruh baris, jadi h2 ini dahulu keluar dalam saiz lalai yang besar. */
+.insp-title { font-size: 13px; font-weight: 600; line-height: 1; color: var(--muted); margin: 4px 0 12px; letter-spacing: .02em; }
 
 .group { border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
 .group > summary {
@@ -208,7 +211,10 @@ button { font-family: inherit; }
 .group[open] > summary::after { transform: rotate(180deg); }
 .group-body { padding: 12px; display: grid; gap: 12px; }
 
-.field { display: grid; gap: 6px; }
+/* minmax(0, 1fr): tanpanya trek grid ikut lebar minimum kandungan, dan slider
+   (lebar asal 129 px) + kotak nombor menolak baris keluar dari panel sempit
+   landskap telefon - unit "mm" terpotong di tepi. */
+.field { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
 .field[hidden] { display: none; }
 .field > label { font-size: 12px; color: var(--muted); }
 .row { display: flex; gap: 8px; align-items: center; }
@@ -224,8 +230,12 @@ input[type="text"], input[type="number"], select {
 input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 input[type="range"] { flex: 1; accent-color: var(--accent); }
 
-.num { display: flex; align-items: center; gap: 6px; }
-.num input { text-align: right; }
+.num { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* Input mengecut di dalam kotaknya supaya unit "mm" sentiasa muat - dengan
+   width:100% unit itu ditolak keluar dan terpotong di panel sempit. */
+.num input { text-align: right; flex: 1 1 auto; width: auto; min-width: 0; }
+
+.vt .short { display: none; }
 .num .unit, .row .unit { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
 .seg { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
@@ -283,6 +293,21 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 @media (max-width: 900px) {
   .inspector { width: 270px; }
   .topbar { grid-template-columns: auto 1fr auto; }
+  .vt .long { display: none; }
+  .vt .short { display: inline; }
+  /* Saiz tapak sudah ada dalam Ringkasan dan pada garis dimensi. */
+  #sizeReadout { display: none; }
+}
+
+/* Skrin sentuh, apa pun lebarnya (landskap telefon jatuh di atas 640 px):
+   sasaran jari sekurang-kurangnya ~36-40 px. */
+@media (pointer: coarse) {
+  .backdrop-pick button { width: 34px; height: 34px; }
+  .frame-btn { width: 40px; height: 40px; }
+  .swatches button { width: 38px; height: 38px; }
+  .vt { min-height: 36px; }
+  .seg button { min-height: 38px; }
+  input[type="range"] { height: 28px; }
 }
 
 /* ---------- telefon ---------- */
@@ -290,22 +315,31 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
    jadi sehelai dan tiga lajur bar atas melimpah. Jadi susun menegak -
    pratonton di atas selebar skrin, tetapan dalam panel menatal di bawah. */
 @media (max-width: 640px) {
+  /* Dua baris: nama + butang di atas, tiga paparan selebar skrin di bawah.
+     Dahulu tiga paparan berkongsi baris dengan nama, dan pada 320 px ia
+     menutup "Plak Box" sehingga tinggal "Pl". */
   .topbar {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "brand   mid"
-      "actions actions";
+      "brand actions"
+      "mid   mid";
     gap: 6px 8px;
-    padding: 6px 10px;
+    padding: 6px 10px 8px;
   }
   .brand { grid-area: brand; gap: 6px; }
   .midbar { grid-area: mid; }
-  .actions { grid-area: actions; flex-wrap: wrap; row-gap: 6px; gap: 6px; }
+  .viewtoggle { display: flex; width: 100%; }
+  .vt { flex: 1; padding: 9px 6px; font-size: 13px; }
+  .actions { grid-area: actions; gap: 6px; }
   .logo { font-size: 16px; }
-  .vt { padding: 9px 10px; font-size: 12px; }
-  .actions > #sizeReadout { flex: 1 0 100%; order: -1; font-size: 11.5px; }
-  .icon-btn { width: 38px; height: 38px; font-size: 16px; }
-  .primary, .ghost { padding: 11px 14px; }
+  .icon-btn { width: 40px; height: 40px; font-size: 16px; }
+  .primary, .ghost { padding: 12px 16px; }
+  .insp-title { display: none; }
+  /* Dalam halaman SifuLaser nama alat sudah ada di bar atasnya: satu baris
+     sahaja di sini - tiga paparan, bantuan dan Export. */
+  .embedded .brand { display: none; }
+  .embedded .topbar { grid-template-areas: "mid actions"; padding: 6px 8px; }
+  .embedded .vt { padding: 9px 4px; }
 
   .layout { flex-direction: column; }
   .stage { flex: 5 1 0; min-height: 230px; overflow: hidden; }
@@ -318,7 +352,6 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
     padding: 10px 12px 28px;
     -webkit-overflow-scrolling: touch;
   }
-  .insp-title { margin: 2px 0 8px; }
   .group > summary { padding: 14px 12px; }
   input[type="text"], input[type="number"], select { font-size: 16px; padding: 10px 11px; }
   .seg button { padding: 12px 4px; font-size: 12px; }

@@ -11,6 +11,10 @@ import { View3D } from './view3d.js';
 const $ = (s) => document.querySelector(s);
 const KEY = 'sifulaser.plakbox.v1';
 
+// Dalam iframe halaman #/plakbox, bar SifuLaser di atas sudah menamakan alat
+// ini. Di telefon nama kedua itu memakan satu baris penuh (lihat styles.css).
+if (window.self !== window.top) document.documentElement.classList.add('embedded');
+
 const COLORS = [
   { id: '#6b4430', name: 'Walnut' },
   { id: '#a8774f', name: 'Kayu' },
