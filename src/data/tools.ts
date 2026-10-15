@@ -21,6 +21,7 @@
 
 import {
   ArrowRightLeft,
+  Award,
   Box,
   BookOpenText,
   CakeSlice,
@@ -253,6 +254,43 @@ export const TOOLS: ToolEntry[] = [
     art: '/images/tools/stand.webp',
     keywords: ['papan nama', 'meja', 'signage', 'plate', 'nameplate', 'tapak'],
     Icon: RectangleHorizontal,
+  },
+  {
+    // Sebelah Stand Nama dengan sengaja: kedua-duanya papan yang berdiri di
+    // atas tapak. Ini untuk plak cenderahati korporat - plak berdiri dalam
+    // kotak akrilik jernih (5 keping tanpa tanggam, dicantum dengan selotip)
+    // di atas tapak cetak 3D. Isi saiz plak, alat ini kira tapak (STL) dan
+    // saiz setiap keping akrilik.
+    title: 'Plak Box',
+    shortDescription: 'Tapak cetak 3D dan kotak akrilik plak.',
+    description:
+      'Kotak pameran untuk plak cenderahati: tapak cetak 3D (STL) beralur untuk akrilik, dan saiz 5 keping akrilik yang dicantum dengan selotip.',
+    href: '#/plakbox',
+    group: 'idea',
+    variant: 'art',
+    // SVG dijana oleh `node scripts/thumb-plakbox.mjs` daripada buildPlakBox()
+    // sebenar dalam docs/plakbox/src: pandangan depan tapak, plak dan akrilik.
+    art: '/images/tools/plakbox.svg',
+    keywords: [
+      'plak',
+      'plaque',
+      'cenderahati',
+      'souvenir',
+      'trofi',
+      'award',
+      'kotak pameran',
+      'display',
+      'akrilik',
+      'perspex',
+      'tapak',
+      'base',
+      'korporat',
+      'stl',
+      'cetak 3d',
+      '3d print',
+      'bambu',
+    ],
+    Icon: Award,
   },
   {
     title: 'Keychain Generator',

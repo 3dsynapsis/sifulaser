@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-47.6 -10 384 256" width="96" height="64">
+<title>Plak Box - plak dalam kotak akrilik, tapak cetak 3D</title>
+<ellipse cx="144.4" cy="239" rx="150.176" ry="5" fill="rgba(0,0,0,0.12)"/>
+<rect x="0" y="215" width="288.8" height="21" fill="#4f3122"/>
+<rect x="4" y="211" width="280.8" height="25" fill="#6b4430"/>
+<rect x="39.4" y="199" width="210" height="14" fill="#2b2b2d"/>
+<rect x="51.4" y="13" width="186" height="186" fill="#4f3122"/>
+<rect x="60.4" y="22" width="168" height="168" fill="#e3cfa3"/>
+<rect x="97.36" y="38" width="94.08" height="10" fill="#8a6a45"/>
+<rect x="80.56" y="62" width="127.68" height="70" fill="#b39368"/>
+<rect x="90.64" y="144" width="107.52" height="6" fill="#8a6a45"/>
+<rect x="107.44" y="157" width="73.92" height="5" fill="#8a6a45"/>
+<rect x="14.4" y="0" width="260" height="211" fill="rgba(200,232,242,0.22)" stroke="#7fa6b5" stroke-width="1.6"/>
+<rect x="14.4" y="0" width="6" height="211" fill="rgba(201,164,106,0.85)"/>
+<rect x="268.4" y="0" width="6" height="211" fill="rgba(201,164,106,0.85)"/>
+<rect x="14.4" y="0" width="260" height="6" fill="rgba(201,164,106,0.85)"/>
+<path d="M36.4 18L66.4 18L28.4 181Z" fill="rgba(255,255,255,0.45)"/>
+</svg>

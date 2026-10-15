@@ -16,6 +16,7 @@ import { TopperPage } from './pages/TopperPage'
 import { KeychainPage } from './pages/KeychainPage'
 import { RehalPage } from './pages/RehalPage'
 import { TagPage } from './pages/TagPage'
+import { PlakBoxPage } from './pages/PlakBoxPage'
 import { MaintenancePage } from './pages/MaintenancePage'
 import { MaintenanceChooserPage } from './pages/MaintenanceChooserPage'
 import { TroubleshootingPage } from './pages/TroubleshootingPage'
@@ -100,6 +101,8 @@ const Root = () => {
       return <BoxMakerPage />
     case 'tray':
       return <TrayPage />
+    case 'plakbox':
+      return <PlakBoxPage />
     case 'puzzle':
       return <PuzzlePage />
     case 'text':

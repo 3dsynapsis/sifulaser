@@ -1,6 +1,6 @@
 # Gambar tile untuk halaman utama
 
-Dua belas gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
+Tiga belas gambar, satu bagi setiap alat yang menghasilkan sesuatu. Tujuh alat lain
 (Simulator, Maintenance, Troubleshooting, Template Adjuster, Converter File,
 Blog, About) tidak menghasilkan apa-apa untuk digambarkan dan memakai ikon
 lucide, bukan gambar.
@@ -15,9 +15,9 @@ ialah apa yang kalkulator itu sendiri tunjukkan untuk satu fixture sebenar,
 bukan lukisan pelanggan yang direka-reka.
 
 Semuanya dilukis pada nisbah 96 x 64 (3:2) di atas latar lutsinar, supaya warna
-well tile menembusi dan kesebelas-belasnya terbaca sebagai satu set.
+well tile menembusi dan kesemua tiga belas terbaca sebagai satu set.
 
-## Sembilan yang dijana - tidak boleh jadi basi
+## Sepuluh yang dijana - tidak boleh jadi basi
 
 | Fail | Dijana oleh |
 |---|---|
@@ -30,6 +30,7 @@ well tile menembusi dan kesebelas-belasnya terbaca sebagai satu set.
 | `uvprint.svg` | `7_SifuLaser/scripts/thumb-uvprint.mjs` |
 | `tray.svg` | `7_SifuLaser/scripts/thumb-tray.mjs` |
 | `lasercut.svg` | `7_SifuLaser/scripts/thumb-lasercut.mjs` |
+| `plakbox.svg` | `7_SifuLaser/scripts/thumb-plakbox.mjs` |
 
 Setiap satu memanggil `build*()` alat itu sendiri dan menulis semula gambar
 daripada geometri sebenar. Jalankan semula bila-bila masa:
@@ -46,6 +47,13 @@ seragam: dinding, pembahagi dan petak pada kedudukan yang geometri sebenar
 berikan. Jalankan semula selepas apa-apa perubahan pada geometri:
 
     node scripts/thumb-tray.mjs
+
+`plakbox.svg` dijana oleh `scripts/thumb-plakbox.mjs` daripada `buildPlakBox()`
+dalam `docs/plakbox/src/geom/base.js` - sama seperti Tray, sumbernya tinggal
+dalam repo ini. Pandangan depan: tapak bertingkat, plak di dalam, akrilik
+dengan selotip pada bucu. Jalankan semula selepas apa-apa perubahan geometri:
+
+    node scripts/thumb-plakbox.mjs
 
 `lasercut.svg` dijana dengan cara yang sama seperti `uvprint.svg` di bawah:
 `scripts/thumb-lasercut.mjs` mengimport salinan VENDORED di

@@ -17,6 +17,7 @@ export type Route =
   | 'keychain'
   | 'rehal'
   | 'tag'
+  | 'plakbox'
   | 'maintenance'
   | 'troubleshoot'
   | 'weekly'
@@ -65,6 +66,8 @@ const parseRoute = (hash: string): Route => {
       return 'rehal'
     case 'tag':
       return 'tag'
+    case 'plakbox':
+      return 'plakbox'
     case 'maintenance':
       return 'maintenance'
     case 'troubleshoot':
