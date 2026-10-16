@@ -41,6 +41,8 @@ const state = {
   color: COLORS.some((c) => c.id === saved.color) ? saved.color : COLORS[0].id,
   backdrop: saved.backdrop === 'dark' ? 'dark' : 'light',
 };
+// Jenis yang tersimpan tetapi sudah dibuang (Terapung) kembali ke Standard.
+if (!BASE_TYPES.some((t) => t.id === state.params.type)) state.params.type = DEFAULTS.type;
 const save = () => {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* abaikan */ }
 };
@@ -126,7 +128,6 @@ function sync() {
   for (const b of typeCards.children) b.setAttribute('aria-pressed', String(b.dataset.id === type));
   for (const [id, el] of Object.entries(typeFields)) el.hidden = id !== type;
   typeNote.textContent = BASE_TYPES.find((t) => t.id === type).note + '.';
-  splitSeg.paint(model.params.plinthSplit ? 'dua' : 'satu');
   frontSeg.paint(model.params.slantFrontOnly ? 'depan' : 'semua');
 }
 
@@ -190,8 +191,6 @@ const typeCards = h('div', { class: 'types', role: 'group', 'aria-label': 'Jenis
     return b;
   }));
 const typeNote = h('p', { class: 'hint' });
-const splitSeg = seg([{ id: 'satu', label: 'Satu jasad (serong 45°)' }, { id: 'dua', label: 'Dua bahagian' }],
-  state.params.plinthSplit ? 'dua' : 'satu', (v) => { state.params.plinthSplit = v === 'dua'; rebuild(); sync(); });
 const frontSeg = seg([{ id: 'semua', label: 'Semua sisi' }, { id: 'depan', label: 'Depan sahaja' }],
   state.params.slantFrontOnly ? 'depan' : 'semua', (v) => { state.params.slantFrontOnly = v === 'depan'; rebuild(); sync(); });
 const sub = (...kids) => h('div', { class: 'group-body', style: 'padding:0' }, ...kids);
@@ -199,12 +198,6 @@ const typeFields = {
   standard: sub(
     numberRow('stepW', 'Tingkat tepi atas: lebar', { step: 0.5, hint: '0 = blok lurus tanpa tingkat.' }),
     numberRow('stepH', 'Tingkat tepi atas: dalam', { step: 0.5 })),
-  terapung: sub(
-    numberRow('plinthInset', 'Kaki masuk ke dalam', { step: 0.5, hint: '1–2 cm memberi garis bayang yang jelas.' }),
-    numberRow('plinthH', 'Tinggi kaki', { step: 0.5 }),
-    h('div', { class: 'field' }, h('label', {}, 'Cara cetak'), splitSeg),
-    h('p', { class: 'hint' }, 'Satu jasad: bawah papan diserong 45° supaya tidak perlu support. '
-      + 'Dua bahagian: kaki tegak dan tajam, dicetak berasingan lalu dilekat.')),
   serong: sub(
     numberRow('slantAngle', 'Sudut serong (dari tegak)', { step: 0.5, unit: '°' }),
     h('div', { class: 'field' }, h('label', {}, 'Sisi yang serong'), frontSeg),
@@ -288,9 +281,8 @@ function renderDynamic() {
   const stat = (k, v) => h('div', { class: 'stat' }, h('span', {}, k), h('b', {}, v));
   const typeName = BASE_TYPES.find((t) => t.id === p.type).name;
   summaryBox.replaceChildren(
-    stat('Jenis tapak', d.split ? `${typeName}, 2 bahagian` : typeName),
+    stat('Jenis tapak', typeName),
     stat('Tapak', `${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm`),
-    d.split ? stat('Kaki', `${mm(d.plinth.x1 - d.plinth.x0)} × ${mm(d.plinth.y1 - d.plinth.y0)} × ${mm(p.plinthH)} mm`) : null,
     d.namePlate ? stat('Ruang plat nama (depan)', `${mm(d.namePlate.w)} × ${mm(d.namePlate.h)} mm`) : null,
     stat('Kotak akrilik (luar)', `${mm(d.coverOutL)} × ${mm(d.coverOutW)} × ${mm(d.coverH)} mm`),
     stat('Tinggi keseluruhan', `${mm(d.totalH)} mm`),
@@ -335,13 +327,9 @@ $('#exportBtn').addEventListener('click', () => {
   $('#exportSummary').textContent =
     `${parts}: tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm, `
     + `${model.stats.triangles} segitiga, isipadu ${mm(model.stats.volumeMm3 / 1000)} cm³.`;
-  $('#exportNote').textContent = d.split
-    ? 'Dua fail, kedua-duanya rata di plat dan tanpa support: papan atas (alur ke atas) dan kaki. '
-      + `Lekat kaki di tengah bawah papan, ${mm(p.plinthInset)} mm dari setiap tepi.`
-    : p.type === 'terapung'
-      ? 'Sudah menghadap betul. Bawah papan diserong 45° ke kaki, jadi tiada support diperlukan.'
-      : 'Sudah menghadap betul: bawah rata di plat, alur ke atas. Setiap sisi mengecil ke atas atau tegak, '
-        + 'jadi tiada support diperlukan.';
+  $('#exportNote').textContent =
+    'Sudah menghadap betul: bawah rata di plat, alur ke atas. Setiap sisi mengecil ke atas atau tegak, '
+    + 'jadi tiada support diperlukan.';
   const actions = $('#exportActions');
   actions.replaceChildren(h('button', { value: 'cancel', class: 'ghost' }, 'Batal'),
     ...model.bodies.map((bd) => h('button', { value: bd.id, class: 'primary' },
@@ -366,12 +354,9 @@ exportDlg.addEventListener('close', () => {
 
 // ------------------------------------------------------------ cara pasang
 $('#helpBtn').addEventListener('click', () => {
-  const split = model.derived.split;
   const steps = [
     ['Muat turun STL dan buka dalam Bambu Studio (atau slicer lain).',
       'Ia sudah menghadap betul dan tidak perlu support. Tetapkan infill dan dinding dalam slicer.'],
-    ...(split ? [['Lekat kaki di tengah bawah papan atas.',
-      `Jarak ${mm(model.params.plinthInset)} mm dari setiap tepi. Gam CA atau silikon.`]] : []),
     ['Potong 5 keping akrilik ikut senarai "Keping untuk dipotong".',
       'Kupas kertas pelindung hanya selepas siap dipasang.'],
     ['Berdirikan depan dan belakang, masukkan kiri dan kanan di antaranya.',

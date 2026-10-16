@@ -122,25 +122,23 @@ export class View3D {
     const show = opts.show || 'siap';
 
     // Tapak: setiap jasad tanpa indeks, jadi computeVertexNormals memberi muka
-    // rata. Terapung dua bahagian: papan duduk di atas kaki; dalam paparan
-    // "Tapak sahaja" papan diangkat sedikit supaya dua bahagian itu kelihatan.
+    // rata.
     const baseMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(opts.color || '#6b4430'), roughness: 0.6, metalness: 0.02,
     });
-    const explode = show === 'tapak' && model.bodies.length > 1 ? Math.max(14, p.baseH * 0.6) : 0;
     for (const body of model.bodies) {
       const geom = new THREE.BufferGeometry();
       geom.setAttribute('position', new THREE.BufferAttribute(body.mesh.slice(), 3));
       geom.computeVertexNormals();
       const mesh = new THREE.Mesh(geom, baseMat);
-      mesh.position.z = body.z + (body.z > 0 ? explode : 0);
+      mesh.position.z = body.z;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.root.add(mesh);
     }
 
     const lift = show === 'angkat' ? Math.max(40, d.coverH * 0.45) : 0;
-    let top = p.baseH + explode;
+    let top = p.baseH;
 
     if (show !== 'tapak') {
       // Plak: kotak sempadan sahaja - bentuk sebenarnya bukan urusan alat ini.

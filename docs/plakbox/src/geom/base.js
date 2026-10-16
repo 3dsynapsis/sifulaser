@@ -22,20 +22,21 @@
 //
 // JENIS TAPAK. Rupa tepi tapak ialah PROFIL: senarai titik (o, z) dari bawah ke
 // atas, `o` ialah jarak ke luar dari tepi permukaan atas (negatif = ke dalam).
-// Lima jenis, setiap satu hanya satu profil yang berbeza:
+// Empat jenis, setiap satu hanya satu profil yang berbeza:
 //
 //   standard  blok, dengan tingkat kecil di tepi atas
-//   terapung  papan dengan kaki tersorok di bawah - rupa "melayang" plak premium.
-//             Kaki diserong 45 darjah (satu jasad, tanpa support) atau dicetak
-//             sebagai bahagian berasingan.
 //   serong    sisi condong, lebar di bawah; semua sisi atau depan sahaja
 //   klasik    lengkung S (ogee) di tepi atas - profil tapak trofi tradisional
 //   tingkat   dua tingkat: tingkat bawah lebar (ruang plat nama), atas kecil
 //
-// BOLEH DICETAK TANPA SUPPORT. Setiap profil sama ada mengecil ke atas (o
-// menurun bila z naik - permukaan menghadap ke atas, tidak pernah perlu
-// support) atau, untuk kaki terapung, berundur ke dalam pada tepat 45 darjah.
-// scripts/test-plakbox.mjs menyemak setiap segitiga menghadap ke bawah.
+// BOLEH DICETAK TANPA SUPPORT. Setiap profil mengecil ke atas (o menurun bila
+// z naik), jadi setiap permukaan sisi menghadap ke atas atau tegak - tidak
+// pernah perlu support. scripts/test-plakbox.mjs menyemak setiap segitiga
+// yang menghadap ke bawah.
+//
+// (Jenis "Terapung" - papan dengan kaki tersorok - pernah ada dan dibuang
+// pada 16 Oktober 2026: pada kotak akrilik yang tinggi, tapak yang menyempit
+// di bawah dirasakan tidak stabil.)
 //
 // GEOMETRI. Jasad = permukaan atas + kulit sisi + muka bawah:
 //   * permukaan atas: MEDAN TINGGI atas grid segi empat tak seragam (garisan
@@ -51,7 +52,6 @@
 
 export const BASE_TYPES = [
   { id: 'standard', name: 'Standard', note: 'Blok, tingkat kecil di tepi atas', baseH: 25 },
-  { id: 'terapung', name: 'Terapung', note: 'Kaki tersorok, papan nampak melayang', baseH: 32 },
   { id: 'serong', name: 'Serong', note: 'Sisi condong, lebar di bawah', baseH: 25 },
   { id: 'klasik', name: 'Klasik', note: 'Lengkung S (ogee) di tepi atas', baseH: 25 },
   { id: 'tingkat', name: 'Dua Tingkat', note: 'Tingkat bawah untuk plat nama', baseH: 34 },
@@ -78,10 +78,6 @@ export const DEFAULTS = {
   // standard
   stepW: 4,
   stepH: 4,
-  // terapung
-  plinthInset: 12,   // kaki masuk ke dalam dari tepi papan
-  plinthH: 10,
-  plinthSplit: false,
   // serong
   slantAngle: 12,    // darjah dari tegak
   slantFrontOnly: false,
@@ -108,8 +104,6 @@ export const LIMITS = {
   pocketClear: [0, 3],
   stepW: [0, 30],
   stepH: [0, 30],
-  plinthInset: [3, 60],
-  plinthH: [3, 40],
   slantAngle: [3, 30],
   ogeeR: [1.5, 12],
   tierInset: [3, 40],
@@ -135,41 +129,15 @@ export function cleanParams(input = {}) {
   p.type = BASE_TYPES.some((t) => t.id === input.type) ? input.type : DEFAULTS.type;
   const notes = [];
 
-  // Ketebalan jasad yang memegang alur dan poket: seluruh tapak, kecuali
-  // terapung dua bahagian - di situ hanya papan atas.
-  const split = p.type === 'terapung' && p.plinthSplit;
-  if (split && p.baseH - p.plinthH < p.grooveDepth + 3) {
-    p.plinthH = R6(Math.max(3, p.baseH - p.grooveDepth - 3));
-    notes.push(`Kaki dihadkan ${p.plinthH} mm supaya papan atas cukup tebal untuk alur.`);
-  }
-  const slab = split ? p.baseH - p.plinthH : p.baseH;
-  if (p.grooveDepth > slab - 3) {
-    p.grooveDepth = R6(Math.max(1, slab - 3));
+  if (p.grooveDepth > p.baseH - 3) {
+    p.grooveDepth = R6(Math.max(1, p.baseH - 3));
     notes.push(`Alur dihadkan ${p.grooveDepth} mm supaya lantai di bawahnya kekal 3 mm.`);
   }
-  if (p.pocketDepth > slab - 2) p.pocketDepth = R6(Math.max(0.5, slab - 2));
+  if (p.pocketDepth > p.baseH - 2) p.pocketDepth = R6(Math.max(0.5, p.baseH - 2));
 
   if (p.type === 'standard') {
     if (p.stepH > p.baseH - 3) p.stepH = R6(p.baseH - 3);
     if (!(p.stepW > 0) || !(p.stepH > 0)) { p.stepW = 0; p.stepH = 0; }
-  }
-  if (p.type === 'terapung' && !split) {
-    // Serong 45 darjah dari tepi kaki ke tepi papan. Bawah papan di tepi alur
-    // ialah plinthH + plinthInset - rim; dasar alur mesti 2 mm di atasnya, dan
-    // tepi tegak papan sekurang-kurangnya 3 mm.
-    const toPocket = p.rim + p.grooveClear + p.acrylic + p.gap - p.pocketClear; // tepi papan -> tepi poket
-    const fit = () => Math.min(
-      p.baseH - 3 - (p.plinthH + p.plinthInset),
-      (p.baseH - p.grooveDepth) - 2 - (p.plinthH + Math.max(0, p.plinthInset - p.rim)),
-      p.pocket ? (p.baseH - p.pocketDepth) - 2 - (p.plinthH + Math.max(0, p.plinthInset - toPocket)) : 1,
-    );
-    if (fit() < 0) {
-      const before = [p.plinthH, p.plinthInset];
-      while (fit() < 0 && p.plinthH > 3) p.plinthH = R6(Math.max(3, p.plinthH + fit()));
-      while (fit() < 0 && p.plinthInset > 3) p.plinthInset = R6(Math.max(3, p.plinthInset + fit()));
-      if (fit() < 0) { p.type = 'standard'; notes.push('Tapak terlalu nipis untuk kaki terapung - jenis Standard dipakai.'); }
-      else notes.push(`Kaki dikecilkan ke ${p.plinthH} mm tinggi, ${p.plinthInset} mm ke dalam (asal ${before[0]} / ${before[1]}) supaya papan cukup tebal.`);
-    }
   }
   if (p.type === 'klasik' && 2 * p.ogeeR > p.baseH - 3) {
     p.ogeeR = R6((p.baseH - 3) / 2);
@@ -205,11 +173,6 @@ const U = (o, z) => ({ z, o: { l: o, r: o, f: o, b: o } });
 export function profileOf(p) {
   const H = p.baseH;
   switch (p.type) {
-    case 'terapung': {
-      if (p.plinthSplit) return [U(0, 0), U(0, H - p.plinthH)];
-      const q = p.plinthInset, h = p.plinthH;
-      return [U(-q, 0), U(-q, h), U(0, h + q), U(0, H)];
-    }
     case 'serong': {
       const s = R6(H * Math.tan(p.slantAngle * DEG));
       if (p.slantFrontOnly) return [{ z: 0, o: { l: 0, r: 0, f: s, b: 0 } }, U(0, H)];
@@ -275,10 +238,6 @@ export function derive(p) {
   const pocket = p.pocket
     ? { x0: plak.x0 - p.pocketClear, y0: plak.y0 - p.pocketClear, x1: plak.x1 + p.pocketClear, y1: plak.y1 + p.pocketClear }
     : null;
-  const split = p.type === 'terapung' && p.plinthSplit;
-  const plinth = p.type === 'terapung'
-    ? { x0: top.x0 + p.plinthInset, y0: top.y0 + p.plinthInset, x1: top.x1 - p.plinthInset, y1: top.y1 - p.plinthInset }
-    : null;
 
   const plakZ = p.baseH - (p.pocket ? p.pocketDepth : 0);
   const coverZ = p.baseH - p.grooveDepth;              // dinding akrilik berdiri di dasar alur
@@ -300,7 +259,7 @@ export function derive(p) {
     : null;
 
   return {
-    t, baseL, baseW, top, groove, grooveIn, cover, plak, pocket, plinth, split, plakZ, coverZ, coverTop, coverH,
+    t, baseL, baseW, top, groove, grooveIn, cover, plak, pocket, plakZ, coverZ, coverTop, coverH,
     coverOutL, coverOutW, coverInL, coverInW, panels, tape, profile, namePlate,
     totalH: coverTop,
   };
@@ -408,7 +367,7 @@ export function buildBody(top, xs, ys, H, Htop, profile) {
     for (let i = 0; i < N; i++) {
       const a0 = A[i], a1 = A[(i + 1) % N], b0 = B[i], b1 = B[(i + 1) % N];
       // Dengan cincin lawan arah jam, (atas_i, bawah_i, bawah_i+1) menghadap
-      // ke luar - termasuk tebing mendatar dan bawah kaki terapung.
+      // ke luar - termasuk tebing mendatar.
       push(a0, b0, b1);
       push(a0, b1, a1);
     }
@@ -441,9 +400,9 @@ function meshVolume(t) {
 export function buildPlakBox(input = {}) {
   const { p, notes } = cleanParams(input);
   const d = derive(p);
-  const Hs = d.split ? R6(p.baseH - p.plinthH) : p.baseH; // tinggi jasad yang beralur
+  const Hs = p.baseH;
 
-  // Grid permukaan atas, dalam koordinat jasad beralur.
+  // Grid permukaan atas.
   const xs = uniqSorted([d.top.x0, d.top.x1, d.groove.x0, d.groove.x1, d.grooveIn.x0, d.grooveIn.x1,
     ...(d.pocket ? [d.pocket.x0, d.pocket.x1] : [])]);
   const ys = uniqSorted([d.top.y0, d.top.y1, d.groove.y0, d.groove.y1, d.grooveIn.y0, d.grooveIn.y1,
@@ -461,16 +420,9 @@ export function buildPlakBox(input = {}) {
     }
   }
 
-  const bodies = [];
-  const main = buildBody(d.top, xs, ys, H, Hs, d.profile);
-  if (d.split) {
-    bodies.push({ id: 'papan', name: 'Papan atas', tris: main, z: p.plinthH });
-    const k = d.plinth;
-    const kaki = buildBody(k, [k.x0, k.x1], [k.y0, k.y1], [[p.plinthH]], p.plinthH, [U(0, 0), U(0, p.plinthH)]);
-    bodies.push({ id: 'kaki', name: 'Kaki', tris: kaki, z: 0 });
-  } else {
-    bodies.push({ id: 'tapak', name: 'Tapak', tris: main, z: 0 });
-  }
+  // Senarai jasad, walaupun kini sentiasa satu: pengeksport dan pratonton
+  // sudah tahu mengendalikan lebih daripada satu bahagian.
+  const bodies = [{ id: 'tapak', name: 'Tapak', tris: buildBody(d.top, xs, ys, H, Hs, d.profile), z: 0 }];
   let volume = 0, triangles = 0;
   for (const b of bodies) {
     b.volumeMm3 = meshVolume(b.tris);

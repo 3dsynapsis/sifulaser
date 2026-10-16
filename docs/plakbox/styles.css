@@ -265,11 +265,13 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 .group[hidden], .field[hidden] { display: none; }
 
 /* ---- jenis tapak ---- */
-.types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+/* Empat sebaris (panel desktop, telefon potret); dua sebaris dalam panel
+   270 px landskap telefon - lihat blok max-width: 900px. */
+.types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .types button {
-  display: grid; justify-items: center; gap: 2px; padding: 6px 4px 7px; cursor: pointer;
+  display: grid; justify-items: center; gap: 2px; padding: 6px 2px 7px; cursor: pointer;
   border: 1.5px solid var(--line-strong); border-radius: 9px; background: var(--surface);
-  color: #7a5a44; font-family: inherit; font-size: 11.5px; line-height: 1.2;
+  color: #7a5a44; font-family: inherit; font-size: 11px; line-height: 1.2;
 }
 .types button span { color: var(--muted); }
 .types button svg { display: block; width: 100%; height: 34px; }
@@ -303,6 +305,9 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 .steps li { color: var(--text); }
 .steps li span { color: var(--muted); }
 
+@media (min-width: 641px) and (max-width: 900px) {
+  .types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 900px) {
   .inspector { width: 270px; }
   .topbar { grid-template-columns: auto 1fr auto; }

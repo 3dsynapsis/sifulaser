@@ -1,4 +1,4 @@
-// Ujian Plak Box: tapak cetak 3D (lima jenis) dan saiz kotak akrilik.
+// Ujian Plak Box: tapak cetak 3D (empat jenis) dan saiz kotak akrilik.
 // Tiada kebergantungan.
 //
 //     node scripts/test-plakbox.mjs
@@ -18,7 +18,7 @@
 //                            45 darjah. Itulah janji setiap jenis tapak.
 //   * kotak sempadan       - tapak tepat baseL x baseW, bermula di z = 0.
 //   * lantai               - di bawah alur dan poket sekurang-kurangnya 2 mm
-//                            bahan, termasuk di atas serong kaki terapung.
+//                            bahan.
 //   * akrilik muat         - dinding akrilik duduk dalam alur dengan kelonggaran
 //                            yang diminta di KEDUA-DUA sisi; keping cantum
 //                            hujung ke hujung memberi saiz luar yang betul.
@@ -98,9 +98,7 @@ for (const t of BASE_TYPES) {
   CASES.push({ type: t.id, baseH: t.baseH, pocket: false, acrylic: 5 });
   CASES.push({ type: t.id, baseH: 10, grooveDepth: 8 });         // tapak nipis: had mesti bertindak
 }
-CASES.push({ type: 'terapung', baseH: 32, plinthSplit: true });
-CASES.push({ type: 'terapung', baseH: 32, plinthInset: 60, plinthH: 40 });
-CASES.push({ type: 'terapung', baseH: 20, plinthSplit: true, plinthH: 40 });
+CASES.push({ type: 'terapung', baseH: 32, plinthSplit: true });   // jenis yang sudah dibuang -> Standard
 CASES.push({ type: 'serong', slantFrontOnly: true });
 CASES.push({ type: 'serong', slantAngle: 30, baseH: 60 });
 CASES.push({ type: 'klasik', ogeeR: 12, baseH: 20 });
@@ -118,7 +116,6 @@ for (let k = 0; k < 80; k++) {
     baseH: 8 + rnd() * 50, rim: 3 + rnd() * 30, grooveDepth: 1 + rnd() * 12,
     grooveClear: rnd() * 1.5, pocket: rnd() > 0.3, pocketDepth: 0.5 + rnd() * 6,
     pocketClear: rnd() * 3, stepW: rnd() > 0.4 ? rnd() * 20 : 0, stepH: rnd() * 10,
-    plinthInset: 3 + rnd() * 30, plinthH: 3 + rnd() * 20, plinthSplit: rnd() > 0.5,
     slantAngle: 3 + rnd() * 27, slantFrontOnly: rnd() > 0.6, ogeeR: 1.5 + rnd() * 10,
     tierInset: 3 + rnd() * 30, tierRatio: 25 + rnd() * 50, tierChamfer: rnd() * 5,
   });
@@ -142,22 +139,18 @@ for (const input of CASES) {
       `${m.vol.toFixed(2)} lawan ${b.volumeMm3.toFixed(2)}`);
     check(`${bt}: tanpa support (overhang <= 45 darjah)`, m.worstDown >= -Math.SQRT1_2 - 1e-4, `nz ${m.worstDown.toFixed(4)}`);
     check(`${bt}: duduk di z = 0`, near(m.bbox.z0, 0, 1e-4));
-    if (b.id === 'kaki') {
-      check(`${bt}: saiz kaki`, near(m.bbox.x0, d.plinth.x0, 1e-3) && near(m.bbox.x1, d.plinth.x1, 1e-3)
-        && near(m.bbox.z1, p.plinthH, 1e-3) && near(b.z, 0));
-    } else {
-      check(`${bt}: kotak sempadan`, near(m.bbox.x0, 0, 1e-3) && near(m.bbox.y0, 0, 1e-3)
-        && near(m.bbox.x1, d.baseL, 1e-3) && near(m.bbox.y1, d.baseW, 1e-3) && near(m.bbox.z1, Hs, 1e-3),
-        JSON.stringify(m.bbox));
-      check(`${bt}: atas papan = tinggi tapak bila dipasang`, near(b.z + Hs, p.baseH, 1e-6));
-    }
+    check(`${bt}: kotak sempadan`, near(m.bbox.x0, 0, 1e-3) && near(m.bbox.y0, 0, 1e-3)
+      && near(m.bbox.x1, d.baseL, 1e-3) && near(m.bbox.y1, d.baseW, 1e-3) && near(m.bbox.z1, Hs, 1e-3),
+      JSON.stringify(m.bbox));
+    check(`${bt}: tinggi = tinggi tapak`, near(b.z + Hs, p.baseH, 1e-6));
     volSum += b.volumeMm3;
     triSum += b.mesh.length / 9;
     const buf = trianglesToStl(b.mesh);
     check(`${bt}: saiz STL`, buf.byteLength === 84 + (b.mesh.length / 9) * 50);
   }
   check(`${tag}: statistik = jumlah jasad`, near(stats.volumeMm3, volSum, 1e-6) && stats.triangles === triSum);
-  check(`${tag}: bilangan jasad`, bodies.length === (d.split ? 2 : 1));
+  check(`${tag}: satu jasad`, bodies.length === 1);
+  check(`${tag}: jenis sah`, BASE_TYPES.some((t) => t.id === p.type) && (input.type !== 'terapung' || p.type === 'standard'));
 
   // Profil ikut jenis: saiz tapak berbanding permukaan atas.
   const topL = d.top.x1 - d.top.x0, topW = d.top.y1 - d.top.y0;
@@ -170,23 +163,13 @@ for (const input of CASES) {
   }
   if (p.type === 'klasik') check(`${tag}: klasik`, near(d.baseL, topL + 4 * p.ogeeR, 1e-5));
   if (p.type === 'tingkat') check(`${tag}: tingkat`, near(d.baseL, topL + 2 * (p.tierInset + p.tierChamfer), 1e-5));
-  if (p.type === 'terapung') {
-    check(`${tag}: terapung - papan selebar permukaan atas`, near(d.baseL, topL, 1e-5));
-    if (!d.split) {
-      const m = meshReport(bodies[0].mesh);
-      check(`${tag}: terapung - kaki tersorok`, near(m.bottomMinX, d.top.x0 + p.plinthInset, 1e-3), `${m.bottomMinX}`);
-    }
-  }
+  // Tiada jenis yang menyempit di bawah: muka bawah sentiasa selebar tapak.
+  check(`${tag}: muka bawah selebar tapak (stabil)`, near(meshReport(bodies[0].mesh).bottomMinX, 0, 1e-3));
 
-  // Lantai di bawah alur dan poket, termasuk di atas serong kaki terapung.
-  const under = (dist) => (p.type === 'terapung' && !d.split && dist < p.plinthInset
-    ? p.plinthH + p.plinthInset - dist : 0);
-  const grooveFloor = (Hs - p.grooveDepth) - under(p.rim);
+  // Lantai di bawah alur dan poket.
+  const grooveFloor = Hs - p.grooveDepth;
   check(`${tag}: lantai alur >= 2 mm`, grooveFloor >= 2 - 1e-6, `${grooveFloor}`);
-  if (p.pocket) {
-    const pf = (Hs - p.pocketDepth) - under(d.pocket.x0 - d.top.x0);
-    check(`${tag}: lantai poket >= 2 mm`, pf >= 2 - 1e-6, `${pf}`);
-  }
+  if (p.pocket) check(`${tag}: lantai poket >= 2 mm`, Hs - p.pocketDepth >= 2 - 1e-6, `${Hs - p.pocketDepth}`);
   check(`${tag}: bibir permukaan atas penuh`, grid.H[0].every((z) => near(z, Hs)) && grid.H.every((col) => near(col[0], Hs)));
 
   // Akrilik dan alur.
@@ -233,25 +216,9 @@ for (const input of CASES) {
   check('serong: isipadu kiraan tangan (prismoid)', Math.abs(r.stats.volumeMm3 - (frustum - cut)) < 0.05,
     `${r.stats.volumeMm3} lawan ${frustum - cut}`);
 }
-{
-  // Terapung dua bahagian: kaki ialah kotak tepat.
-  const r = buildPlakBox({ type: 'terapung', baseH: 32, plinthSplit: true, plinthInset: 12, plinthH: 10 });
-  const kaki = r.bodies.find((b) => b.id === 'kaki');
-  check('terapung: isipadu kaki kiraan tangan', near(kaki.volumeMm3, (272.8 - 24) * (122.8 - 24) * 10, 1e-3), `${kaki.volumeMm3}`);
-  // Satu jasad: papan penuh tolak serong di bawah = kotak kaki + papan + baji serong.
-  const one = buildPlakBox({ type: 'terapung', baseH: 32, plinthInset: 12, plinthH: 10 });
-  const Lt = 272.8, Wt = 122.8, q = 12, h = 10, H = 32;
-  const plinth = (Lt - 2 * q) * (Wt - 2 * q) * h;
-  const slab = Lt * Wt * (H - h - q);
-  const wedge = (q / 6) * ((Lt - 2 * q) * (Wt - 2 * q) + 4 * (Lt - q) * (Wt - q) + Lt * Wt);
-  const cut = (256.8 * 106.8 - 249.2 * 99.2) * 4 + 231 * 81 * 2;
-  check('terapung: isipadu satu jasad kiraan tangan', Math.abs(one.stats.volumeMm3 - (plinth + slab + wedge - cut)) < 0.05,
-    `${one.stats.volumeMm3} lawan ${plinth + slab + wedge - cut}`);
-}
-
 // ---- input teruk ------------------------------------------------------------------
 for (const bad of [{ plakL: 0 }, { plakL: -5, plakW: NaN }, { acrylic: 'abc' }, { baseH: 1e9 }, null, undefined,
-  { pocket: 'ya' }, { type: 42 }, { type: 'terapung', plinthH: -9, plinthInset: 'x' }]) {
+  { pocket: 'ya' }, { type: 42 }, { type: 'terapung', plinthH: -9 }]) {
   let ok = true;
   try { buildPlakBox(bad || undefined); } catch (e) { ok = false; }
   check(`input teruk ${JSON.stringify(bad)}: tak campak`, ok);
