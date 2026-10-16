@@ -63,7 +63,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return n;
 };
 const mm = (v, dp = 1) => `${Math.round(v * 10 ** dp) / 10 ** dp}`;
-const isSlot = () => model.derived.slotMode === true;
+const isSlot = () => !!model.derived.slot;
 const ACRYLIC_G_PER_CM3 = 1.19;
 
 // ------------------------------------------------------------ pengiraan semula
@@ -97,12 +97,12 @@ const liftBtn = $('#liftBtn');
 function paintLift() {
   liftBtn.hidden = state.show === 'tapak';
   const up = view.lifted;
-  const [a, b] = isSlot() ? ['Cabut plak', 'Cucuk plak'] : ['Angkat kotak', 'Turunkan kotak'];
-  liftBtn.replaceChildren(h('span', { class: 'arrow', 'aria-hidden': 'true' }, up ? '↓' : '↑'), up ? b : a);
+  liftBtn.replaceChildren(h('span', { class: 'arrow', 'aria-hidden': 'true' }, up ? '↓' : '↑'),
+    up ? 'Turunkan kotak' : 'Angkat kotak');
   liftBtn.setAttribute('aria-pressed', String(up));
-  liftBtn.title = isSlot()
-    ? (up ? 'Masukkan semula plak ke dalam slot' : 'Tarik plak keluar dari slot')
-    : (up ? 'Turunkan kotak akrilik ke dalam alur' : 'Angkat kotak akrilik dari tapak');
+  liftBtn.title = up ? 'Turunkan kotak akrilik ke dalam alur'
+    : isSlot() ? 'Angkat kotak akrilik dari tapak - plak pun terangkat keluar dari slot'
+      : 'Angkat kotak akrilik dari tapak';
 }
 liftBtn.addEventListener('click', () => { view.setLifted(!view.lifted); paintLift(); });
 
@@ -151,16 +151,16 @@ function sync() {
   typeNote.textContent = BASE_TYPES.find((t) => t.id === type).note + '.';
   frontSeg.paint(model.params.slantFrontOnly ? 'depan' : 'semua');
   sheetSeg.paint(model.params.sheetT);
-  // Jenis slot: tiada kotak akrilik, tiada alur atau poket - plak itu sendiri
-  // ialah sekeping akrilik.
+  // Jenis slot: plak sekeping akrilik dicucuk ke slot di tengah - slot itu
+  // menggantikan poket. Kotak akrilik dan alurnya sama seperti jenis lain.
   const slot = type === 'slot';
-  coverGroup.hidden = slot;
-  coverOnly.hidden = slot;
-  plakWRow.hidden = slot;
+  pocketBlock.hidden = slot;
   sheetRow.hidden = !slot;
+  plakWLabel.textContent = slot ? 'Ruang plak (depan ke belakang)' : 'Lebar (depan ke belakang)';
+  plakWHint.hidden = !slot;
   plakTitle.textContent = slot ? 'Plak akrilik' : 'Plak yang dimasukkan';
   plakHint.textContent = slot
-    ? 'Saiz keping akrilik yang dicucuk ke dalam slot. Panjang = sisi bawah yang masuk ke slot.'
+    ? 'Plak sekeping akrilik, dicucuk tegak ke dalam slot tepat di tengah tapak. Kotak akrilik dikira daripada saiz ini.'
     : 'Saiz LUAR plak, termasuk tapak plak itu sendiri. Kotak akrilik dan tapak dikira daripada saiz ini.';
 }
 
@@ -203,13 +203,14 @@ function profileIcon(type) {
   const L = prof.slice().reverse().map((q) => `${(32 - half - q.o.l * k).toFixed(2)},${(floor - q.z * k).toFixed(2)}`);
   const topY = floor - p.baseH * k;
   const wall = half - p.rim * k * 0.6;
-  // Akrilik di atas tapak: dua dinding kotak, atau (slot) sekeping plak
-  // condong yang terbenam dalam tapak.
-  const glass = type === 'slot'
-    ? `<path d="M30.6 ${(topY + p.slotDepth * k).toFixed(2)}L37.4 2" stroke="#8fb8c7" stroke-width="2.4" fill="none"/>`
-    : `<path d="M${32 - wall} ${topY + 1}V2M${32 + wall} ${topY + 1}V2" stroke="#8fb8c7" stroke-width="1.6" fill="none"/>`;
+  // Dinding kotak akrilik; jenis slot juga plak sekeping yang terbenam di tengah.
+  const sheet = type === 'slot'
+    ? `<path d="M32 ${(topY + p.slotDepth * k).toFixed(2)}V9" stroke="#8fb8c7" stroke-width="2.4" fill="none"/>`
+    : '';
   return '<svg viewBox="0 0 64 40" aria-hidden="true">'
-    + `<polygon points="${[...R, ...L].join(' ')}" fill="currentColor"/>${glass}</svg>`;
+    + `<polygon points="${[...R, ...L].join(' ')}" fill="currentColor"/>`
+    + `<path d="M${32 - wall} ${topY + 1}V2M${32 + wall} ${topY + 1}V2" stroke="#8fb8c7" stroke-width="1.6" fill="none"/>`
+    + `${sheet}</svg>`;
 }
 
 function pickType(id) {
@@ -240,11 +241,7 @@ const slotSub = sub(
   numberRow('slotClear', 'Kelonggaran slot (setiap sisi)', { step: 0.05,
     hint: 'Lebar slot = tebal plak + 2 × kelonggaran. 0.2–0.3 mm muat ketat untuk akrilik potong laser; '
       + 'naikkan 0.05 kalau terlalu ketat.' }),
-  numberRow('slotTilt', 'Condong plak ke belakang', { step: 0.5, unit: '°',
-    hint: '0 = tegak. 5–10° biasa untuk plak anugerah. Slot dicetak condong sama - tanpa support.' }),
-  numberRow('baseDepth', 'Dalam tapak (depan ke belakang)', {
-    hint: 'Permukaan atas. Tingkat bawah menambah lagi di depan dan belakang.' }),
-  numberRow('sideMargin', 'Lebih tapak di kiri dan kanan plak', { step: 0.5 }));
+  h('p', { class: 'hint' }, 'Slot tegak dan tepat di tengah tapak, jadi plak masuk lurus.'));
 const typeBlocks = {
   standard: sub(
     numberRow('stepW', 'Tingkat tepi atas: lebar', { step: 0.5, hint: '0 = blok lurus tanpa tingkat.' }),
@@ -270,17 +267,17 @@ const sheetSeg = seg([3, 5, 6, 8, 10].map((v) => ({ id: v, label: `${v} mm` })),
   (v) => { state.params.sheetT = v; rebuild(); sync(); });
 const sheetRow = h('div', { class: 'field' }, h('label', {}, 'Tebal plak akrilik'), sheetSeg);
 const plakWRow = numberRow('plakW', 'Lebar (depan ke belakang)');
+const plakWLabel = plakWRow.querySelector('label');
+const plakWHint = h('p', { class: 'hint' }, 'Plak berdiri tepat di tengah ruang ini. '
+  + 'Dalam kotak = ruang ini + 2 × ruang di keliling plak.');
+plakWRow.append(plakWHint);
 const plakTitle = h('summary', {}, 'Plak yang dimasukkan');
 const plakHint = h('p', { class: 'hint', style: 'margin:0' });
 
-const coverOnly = sub(
-  numberRow('rim', 'Bibir di luar alur', { hint: 'Permukaan atas yang rata di luar alur akrilik.' }),
-  numberRow('grooveDepth', 'Dalam alur akrilik', { step: 0.5 }),
-  numberRow('grooveClear', 'Kelonggaran alur (setiap sisi)', { step: 0.05,
-    hint: 'Lebar alur = tebal akrilik + 2 × kelonggaran. 0.3–0.5 mm biasanya muat untuk PLA.' }),
+// Poket untuk tapak plak - tiada pada jenis slot (slot yang memegang plak).
+const pocketBlock = sub(
   h('label', { class: 'check' }, pocketChk, ' Poket untuk tapak plak (supaya plak tidak bergeser)'),
   pocketFields);
-let coverGroup = null;
 
 const piecesBox = h('div', { class: 'pieces' });
 const acrylicNote = h('p', { class: 'hint' });
@@ -298,7 +295,7 @@ function renderStatic() {
       numberRow('plakH', 'Tinggi'),
       sheetRow)),
 
-    coverGroup = group('Kotak akrilik', true,
+    group('Kotak akrilik', true,
       h('div', { class: 'field' },
         h('label', {}, 'Tebal akrilik'),
         seg([2, 3, 4, 5].map((v) => ({ id: v, label: `${v} mm` })), state.params.acrylic,
@@ -313,7 +310,11 @@ function renderStatic() {
       typeNote,
       ...fieldBlocks,
       numberRow('baseH', 'Tinggi tapak'),
-      coverOnly,
+      numberRow('rim', 'Bibir di luar alur', { hint: 'Permukaan atas yang rata di luar alur akrilik.' }),
+      numberRow('grooveDepth', 'Dalam alur akrilik', { step: 0.5 }),
+      numberRow('grooveClear', 'Kelonggaran alur (setiap sisi)', { step: 0.05,
+        hint: 'Lebar alur = tebal akrilik + 2 × kelonggaran. 0.3–0.5 mm biasanya muat untuk PLA.' }),
+      pocketBlock,
       h('div', { class: 'field' },
         h('label', {}, 'Warna pratonton'),
         h('div', { class: 'swatches' }, COLORS.map((c) => h('button', {
@@ -345,29 +346,14 @@ function renderDynamic() {
     + 'Fail SVG potong akrilik akan datang dalam Bahagian 2.';
   const stat = (k, v) => h('div', { class: 'stat' }, h('span', {}, k), h('b', {}, v));
   const typeName = BASE_TYPES.find((t) => t.id === p.type).name;
-  if (d.slotMode) {
-    const sl = d.slot;
-    const sheetG = (p.plakL * p.plakH * p.sheetT / 1000) * ACRYLIC_G_PER_CM3;
-    summaryBox.replaceChildren(
-      stat('Jenis tapak', typeName),
-      stat('Tapak', `${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm`),
-      stat('Slot', `${mm(sl.x1 - sl.x0, 2)} × ${mm(sl.y1 - sl.y0, 2)} × ${mm(sl.depth)} mm`),
-      stat('Condong plak', p.slotTilt > 0 ? `${mm(p.slotTilt)}° ke belakang` : 'Tegak'),
-      stat('Plak akrilik', `${mm(p.plakL)} × ${mm(p.plakH)} × ${mm(p.sheetT)} mm`),
-      stat('Berat plak lebih kurang', `${Math.round(sheetG)} g`),
-      stat('Ruang plat nama (depan)', `${mm(d.namePlate.w)} × ${mm(d.namePlate.h)} mm`),
-      stat('Tinggi keseluruhan', `${mm(d.totalH)} mm`),
-      stat('Isipadu tapak', `${mm(model.stats.volumeMm3 / 1000)} cm³`),
-      stat('Berat jika 100% pepejal', `${Math.round(model.stats.gramsSolid)} g PLA`),
-      stat('Segitiga STL', `${model.stats.triangles}`),
-    );
-    return;
-  }
   summaryBox.replaceChildren(
     stat('Jenis tapak', typeName),
     stat('Tapak', `${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm`),
     d.namePlate ? stat('Ruang plat nama (depan)', `${mm(d.namePlate.w)} × ${mm(d.namePlate.h)} mm`) : null,
     stat('Kotak akrilik (luar)', `${mm(d.coverOutL)} × ${mm(d.coverOutW)} × ${mm(d.coverH)} mm`),
+    d.slot ? stat('Slot (di tengah)', `${mm(d.slot.x1 - d.slot.x0, 2)} × ${mm(d.slot.y1 - d.slot.y0, 2)} × ${mm(d.slot.depth)} mm`) : null,
+    d.slot ? stat('Plak akrilik', `${mm(p.plakL)} × ${mm(p.plakH)} × ${mm(p.sheetT)} mm`) : null,
+    d.slot ? stat('Berat plak lebih kurang', `${Math.round((p.plakL * p.plakH * p.sheetT / 1000) * ACRYLIC_G_PER_CM3)} g`) : null,
     stat('Tinggi keseluruhan', `${mm(d.totalH)} mm`),
     stat('Isipadu tapak', `${mm(model.stats.volumeMm3 / 1000)} cm³`),
     stat('Berat jika 100% pepejal', `${Math.round(model.stats.gramsSolid)} g PLA`),
@@ -410,12 +396,9 @@ $('#exportBtn').addEventListener('click', () => {
   $('#exportSummary').textContent =
     `${parts}: tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm, `
     + `${model.stats.triangles} segitiga, isipadu ${mm(model.stats.volumeMm3 / 1000)} cm³.`;
-  $('#exportNote').textContent = isSlot()
-    ? 'Sudah menghadap betul: bawah rata di plat, slot ke atas. '
-      + (p.slotTilt > 0 ? `Dinding depan slot condong ${mm(p.slotTilt)}° - jauh di bawah 45°, ` : 'Slot tegak, ')
-      + 'jadi tiada support diperlukan.'
-    : 'Sudah menghadap betul: bawah rata di plat, alur ke atas. Setiap sisi mengecil ke atas atau tegak, '
-      + 'jadi tiada support diperlukan.';
+  $('#exportNote').textContent =
+    `Sudah menghadap betul: bawah rata di plat, alur${isSlot() ? ' dan slot' : ''} ke atas. `
+    + 'Setiap sisi mengecil ke atas atau tegak, jadi tiada support diperlukan.';
   const actions = $('#exportActions');
   actions.replaceChildren(h('button', { value: 'cancel', class: 'ghost' }, 'Batal'),
     ...model.bodies.map((bd) => h('button', { value: bd.id, class: 'primary' },
@@ -441,17 +424,10 @@ exportDlg.addEventListener('close', () => {
 // ------------------------------------------------------------ cara pasang
 $('#helpBtn').addEventListener('click', () => {
   const p = model.params;
-  const steps = isSlot() ? [
-    ['Muat turun STL dan buka dalam Bambu Studio (atau slicer lain).',
-      'Ia sudah menghadap betul dan tidak perlu support. Tetapkan infill dan dinding dalam slicer.'],
-    [`Potong plak ${mm(p.plakL)} × ${mm(p.plakH)} mm daripada akrilik ${mm(p.sheetT)} mm.`,
-      'Sisi bawah mesti lurus - itulah yang masuk ke dalam slot. Ukir atau cetak UV sebelum kupas kertas pelindung.'],
-    ['Cucuk plak terus ke dalam slot sehingga mencecah lantai.',
-      'Kalau terlalu ketat, naikkan kelonggaran slot 0.05 mm dan cetak semula. Kalau longgar, sekeping pita '
-      + 'dua muka di dalam slot sudah cukup - tiada gam atau chloroform.'],
-    ['Lekat plat nama pada muka depan tingkat bawah (pilihan).',
-      `Ruang yang ada ${mm(model.derived.namePlate.w)} × ${mm(model.derived.namePlate.h)} mm.`],
-  ] : [
+  const slotStep = [
+    `Cucuk plak akrilik ${mm(p.plakL)} × ${mm(p.plakH)} × ${mm(p.sheetT)} mm tegak ke dalam slot di tengah tapak.`,
+    'Kalau terlalu ketat, naikkan kelonggaran slot 0.05 mm dan cetak semula. Kemudian turunkan kotak akrilik ke dalam alur.'];
+  const steps = [
     ['Muat turun STL dan buka dalam Bambu Studio (atau slicer lain).',
       'Ia sudah menghadap betul dan tidak perlu support. Tetapkan infill dan dinding dalam slicer.'],
     ['Potong 5 keping akrilik ikut senarai "Keping untuk dipotong".',
@@ -459,7 +435,7 @@ $('#helpBtn').addEventListener('click', () => {
     ['Berdirikan depan dan belakang, masukkan kiri dan kanan di antaranya.',
       'Lekat selotip pada empat bucu tegak.'],
     ['Letak keping atas di atas keempat-empat dinding.', 'Lekat selotip pada empat tepinya.'],
-    ['Letak plak dalam poket tapak, kemudian turunkan kotak akrilik ke dalam alur.',
+    isSlot() ? slotStep : ['Letak plak dalam poket tapak, kemudian turunkan kotak akrilik ke dalam alur.',
       'Kalau terlalu ketat, naikkan kelonggaran alur 0.1 mm dan cetak semula.'],
   ];
   $('#assembleSteps').replaceChildren(...steps.map(([a, b]) => h('li', {}, a, ' ', h('span', {}, b))));

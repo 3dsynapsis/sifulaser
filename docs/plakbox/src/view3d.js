@@ -2,13 +2,13 @@
 // semula di sini - jadi alur dan poket yang kelihatan ialah yang dicetak.
 // Kotak akrilik dan plak ialah gambaran: akrilik dari saiz keping yang dikira
 // (cantum hujung ke hujung, atas menindih dinding), plak sebagai kotak
-// sempadannya sahaja. Jenis slot tiada kotak: plak ialah sekeping akrilik
-// condong yang terbenam dalam slot. Rangka renderer, lampu dan garis dimensi
-// disalin daripada Tray Organizer.
+// sempadannya sahaja - kecuali jenis slot, yang plaknya sekeping akrilik
+// tegak terbenam dalam slot di tengah. Rangka renderer, lampu dan garis
+// dimensi disalin daripada Tray Organizer.
 //
-// ANGKAT. Kotak akrilik (atau plak slot) ialah satu kumpulan, `mover`, yang
-// digerakkan sepanjang satu arah: ke atas untuk kotak, sepanjang paksi plak
-// untuk slot. setLifted() hanya menukar sasaran; animate() menghampirinya
+// ANGKAT. Kotak akrilik ialah satu kumpulan yang dinaikkan sejauh separuh
+// tingginya; bagi jenis slot, plak sekeping juga naik keluar dari slot supaya
+// slot kelihatan. setLifted() hanya menukar sasaran; animate() menghampirinya
 // sedikit setiap bingkai, macam penutup dalam Box Maker. Kamera ikut naik
 // separuh jarak itu dan berundur sejauh sfera yang membesar, supaya bahagian
 // yang terangkat kekal dalam bingkai - tanpa membuang sudut atau zum pengguna.
@@ -77,7 +77,7 @@ export class View3D {
     container.appendChild(this.dimLayer);
     this.dims = null;
 
-    this.mover = null;
+    this.movers = [];       // [kotak, plak slot?] - yang pertama dibawa kamera
     this.lift = 0;          // 0 = dipasang, 1 = terangkat sepenuhnya
     this.liftTarget = 0;
     this.follow = 0;        // berapa jauh kamera sudah dinaikkan untuk angkat
@@ -93,7 +93,14 @@ export class View3D {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
     this.renderer.setSize(w, h);
-    this.camera.aspect = w / h;
+    // Baris butang di atas pentas (latar, angkat, bingkai) menutup ~55 px.
+    // Bingkaikan model dalam ruang DI BAWAHNYA: bingkai penuh kamera ialah
+    // h - reserve, dan tetingkap yang dilukis terjulur `reserve` ke atasnya.
+    // Di telefon, pentas cuma ~230 px - tanpa ini bumbung kotak duduk di
+    // belakang butang.
+    const reserve = Math.round(Math.min(58, h * 0.22));
+    this.camera.aspect = w / (h - reserve);
+    this.camera.setViewOffset(w, h - reserve, 0, -reserve, w, h);
     this.camera.updateProjectionMatrix();
   }
 
@@ -101,14 +108,15 @@ export class View3D {
 
   setLifted(on) { this.liftTarget = on ? 1 : 0; }
 
-  /** Letak `mover` pada kedudukan this.lift, dan bawa kamera bersama. */
+  /** Letak setiap bahagian bergerak pada kedudukan this.lift, dan bawa kamera bersama. */
   applyLift() {
-    const mv = this.mover;
     const k = this.lift;
-    if (mv) mv.obj.position.copy(mv.base).addScaledVector(mv.dir, mv.dist * k);
-    const rise = mv ? mv.dist * mv.dir.z * k : 0;
+    for (const mv of this.movers) mv.obj.position.set(0, 0, mv.dist * k);
+    const rise = this.movers.length ? this.movers[0].dist * k : 0;
     const want = rise / 2;
-    const back = this.fitDist(rise) - this.fitDist(0);
+    // Lebih sedikit daripada sfera semata-mata: bumbung yang naik paling
+    // dekat dengan kamera, dan perspektif membesarkannya.
+    const back = (this.fitDist(rise) - this.fitDist(0)) * 1.15;
     const dz = want - this.follow;
     const db = back - this.backoff;
     if (dz || db) {
@@ -191,7 +199,7 @@ export class View3D {
     }
 
     let top = p.baseH;
-    this.mover = null;
+    this.movers = [];
     const glass = new THREE.MeshPhysicalMaterial({
       color: 0xe8f4f8, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.16,
       depthWrite: false, side: THREE.DoubleSide,
@@ -207,26 +215,18 @@ export class View3D {
       return m;
     };
 
-    if (show !== 'tapak' && d.slotMode) {
-      // Plak sekeping, condong `tilt` ke belakang. Paksinya melalui pusat
-      // bukaan slot; ia bersandar pada lantai slot di bucu paling bawahnya
-      // (belakang-bawah bila condong).
-      const a = (d.tilt * Math.PI) / 180, t = d.t, sl = d.slot;
-      const u = new THREE.Vector3(0, Math.sin(a), Math.cos(a));
-      const sc = (sl.y0 + sl.y1) / 2;
-      const s = (sl.depth - (t / 2) * Math.sin(a)) / Math.cos(a);
+    if (show !== 'tapak' && d.sheet) {
+      // Plak sekeping akrilik, tegak di tengah slot, berdiri di lantainya.
+      const k = d.sheet;
       const sheet = new THREE.Group();
-      sheet.position.set(0, sc - s * u.y, p.baseH - s * u.z);
-      sheet.rotation.x = -a;
       const acrylic = new THREE.MeshPhysicalMaterial({
         color: 0xdff0f6, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.3,
         depthWrite: false, side: THREE.DoubleSide,
       });
-      glassBox(sheet, [d.plak.x0, -t / 2, 0, d.plak.x1, t / 2, p.plakH], acrylic);
+      glassBox(sheet, [k.x0, k.y0, d.plakZ, k.x1, k.y1, d.plakZ + p.plakH], acrylic);
       this.root.add(sheet);
-      // Cabut: keluar sepenuhnya dari slot, dengan sedikit ruang.
-      this.mover = { obj: sheet, base: sheet.position.clone(), dir: u, dist: s + Math.max(20, p.plakH * 0.08) };
-      top = d.totalH;
+      // Bila diangkat: keluar sepenuhnya dari slot, dengan sedikit ruang.
+      this.sheetMover = { obj: sheet, dist: d.slot.depth + Math.max(12, p.plakH * 0.05) };
     } else if (show !== 'tapak') {
       // Plak: kotak sempadan sahaja - bentuk sebenarnya bukan urusan alat ini.
       const k = d.plak;
@@ -240,7 +240,9 @@ export class View3D {
         new THREE.EdgesGeometry(plak.geometry),
         new THREE.LineBasicMaterial({ color: 0x8a6a3a, transparent: true, opacity: 0.7 }),
       ));
+    }
 
+    if (show !== 'tapak') {
       // Akrilik: lima keping cantum hujung ke hujung, dalam satu kumpulan
       // yang diangkat bersama selotipnya.
       const cover = new THREE.Group();
@@ -289,9 +291,11 @@ export class View3D {
       this.root.add(cover);
       // Angkat separuh tinggi kotak: alur dan poket jelas kelihatan, dan
       // kotak tetap dalam bingkai (kamera naik separuh jarak ini).
-      this.mover = { obj: cover, base: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, 1), dist: Math.max(40, d.coverH * 0.5) };
+      this.movers.push({ obj: cover, dist: Math.max(40, d.coverH * 0.5) });
+      if (d.sheet && this.sheetMover) this.movers.push(this.sheetMover);
       top = z1;
     }
+    this.sheetMover = null;
 
 
     this.root.position.set(-d.baseL / 2, -d.baseW / 2, 0);
