@@ -17,10 +17,9 @@
 
     <div class="midbar">
       <div class="viewtoggle" role="tablist" aria-label="Paparan">
-        <!-- Label pendek di skrin sempit: "Akrilik diangkat" pecah dua baris
-             dalam landskap telefon dan menolak nama alat keluar di 320 px. -->
+        <!-- Label pendek di skrin sempit. Paparan "Akrilik diangkat" dahulu
+             tab ketiga; kini butang #liftBtn yang beranimasi di atas pentas. -->
         <button class="vt" data-show="siap" role="tab" aria-selected="true">Siap</button>
-        <button class="vt" data-show="angkat" role="tab" aria-selected="false" title="Akrilik diangkat"><span class="long">Akrilik diangkat</span><span class="short">Angkat</span></button>
         <button class="vt" data-show="tapak" role="tab" aria-selected="false" title="Tapak sahaja"><span class="long">Tapak sahaja</span><span class="short">Tapak</span></button>
       </div>
     </div>
@@ -40,6 +39,8 @@
       <div id="stage3d" class="stage-pane"></div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Latar belakang"></div>
       <button class="frame-btn" id="frameBtn" title="Tengok semula keseluruhan">&#8982;</button>
+      <!-- Angkat kotak akrilik / cabut plak dari slot - label diisi src/main.js. -->
+      <button class="lift-btn" id="liftBtn" type="button" aria-pressed="false"></button>
       <div class="warnings" id="warnings" hidden></div>
       <div class="stage-hint" id="stageHint"></div>
     </section>

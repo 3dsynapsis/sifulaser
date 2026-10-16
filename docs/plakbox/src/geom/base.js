@@ -28,6 +28,15 @@
 //   serong    sisi condong, lebar di bawah; semua sisi atau depan sahaja
 //   klasik    lengkung S (ogee) di tepi atas - profil tapak trofi tradisional
 //   tingkat   dua tingkat: tingkat bawah lebar (ruang plat nama), atas kecil
+//   slot      profil dua tingkat yang sama, tetapi TANPA kotak akrilik: plak
+//             itu sendiri sekeping akrilik (biasanya 5 mm) yang dicucuk terus
+//             ke dalam SLOT di permukaan atas, tegak atau condong ke belakang
+//
+// SLOT. Lubang segi empat selebar plak + 2 x kelonggaran, dalam `slotDepth`.
+// Bila plak condong `slotTilt` darjah, slot itu condong sama: dasarnya
+// beranjak ke depan, dinding depannya menghadap ke bawah sebanyak sudut itu
+// (paling banyak 20 darjah dari tegak - masih tanpa support). Slot diletak
+// supaya berat plak jatuh di tengah tapak, bukan di tengah permukaan atas.
 //
 // BOLEH DICETAK TANPA SUPPORT. Setiap profil mengecil ke atas (o menurun bila
 // z naik), jadi setiap permukaan sisi menghadap ke atas atau tegak - tidak
@@ -55,6 +64,7 @@ export const BASE_TYPES = [
   { id: 'serong', name: 'Serong', note: 'Sisi condong, lebar di bawah', baseH: 25 },
   { id: 'klasik', name: 'Klasik', note: 'Lengkung S (ogee) di tepi atas', baseH: 25 },
   { id: 'tingkat', name: 'Dua Tingkat', note: 'Tingkat bawah untuk plat nama', baseH: 34 },
+  { id: 'slot', name: 'Dua Tingkat Slot', note: 'Plak akrilik sekeping dicucuk terus, tanpa kotak', baseH: 30 },
 ];
 
 export const DEFAULTS = {
@@ -87,6 +97,13 @@ export const DEFAULTS = {
   tierInset: 10,
   tierRatio: 45,     // % tinggi tapak untuk tingkat bawah
   tierChamfer: 1.5,
+  // slot: plak sekeping dicucuk terus (plakL x plakH ialah saiz keping itu)
+  sheetT: 5,         // tebal plak akrilik
+  slotDepth: 12,
+  slotClear: 0.25,   // setiap sisi; akrilik potong laser + PLA = muat ketat
+  slotTilt: 8,       // darjah plak condong ke belakang (0 = tegak)
+  baseDepth: 70,     // dalam permukaan atas, depan ke belakang
+  sideMargin: 15,    // permukaan atas di kiri dan kanan slot
 };
 
 export const LIMITS = {
@@ -109,6 +126,12 @@ export const LIMITS = {
   tierInset: [3, 40],
   tierRatio: [25, 75],
   tierChamfer: [0, 5],
+  sheetT: [2, 12],
+  slotDepth: [5, 40],
+  slotClear: [0, 1],
+  slotTilt: [0, 20],
+  baseDepth: [30, 200],
+  sideMargin: [5, 60],
 };
 
 const PLA_G_PER_CM3 = 1.24;
@@ -128,8 +151,9 @@ export function cleanParams(input = {}) {
   }
   p.type = BASE_TYPES.some((t) => t.id === input.type) ? input.type : DEFAULTS.type;
   const notes = [];
+  const slot = p.type === 'slot';
 
-  if (p.grooveDepth > p.baseH - 3) {
+  if (!slot && p.grooveDepth > p.baseH - 3) {
     p.grooveDepth = R6(Math.max(1, p.baseH - 3));
     notes.push(`Alur dihadkan ${p.grooveDepth} mm supaya lantai di bawahnya kekal 3 mm.`);
   }
@@ -143,16 +167,40 @@ export function cleanParams(input = {}) {
     p.ogeeR = R6((p.baseH - 3) / 2);
     notes.push(`Lengkung klasik dihadkan ${p.ogeeR} mm supaya tepi tegak di bawahnya kekal 3 mm.`);
   }
-  if (p.type === 'tingkat') {
+  if (p.type === 'tingkat' || slot) {
     const h1 = (p.baseH * p.tierRatio) / 100;
-    if (p.baseH - h1 < p.grooveDepth + 3) {
-      const fit = ((p.baseH - p.grooveDepth - 3) / p.baseH) * 100;
+    const need = slot ? 6 : p.grooveDepth + 3;
+    if (p.baseH - h1 < need) {
+      const fit = ((p.baseH - need) / p.baseH) * 100;
       p.tierRatio = R6(Math.max(LIMITS.tierRatio[0], fit));
-      notes.push(`Tingkat bawah dikecilkan ke ${Math.round(p.tierRatio)}% supaya tingkat atas cukup tebal untuk alur.`);
+      notes.push(slot
+        ? `Tingkat bawah dikecilkan ke ${Math.round(p.tierRatio)}% supaya tingkat atas kekal 6 mm.`
+        : `Tingkat bawah dikecilkan ke ${Math.round(p.tierRatio)}% supaya tingkat atas cukup tebal untuk alur.`);
     }
     const h1b = (p.baseH * p.tierRatio) / 100;
     p.tierChamfer = R6(Math.min(p.tierChamfer, p.tierInset - 1, h1b / 2, (p.baseH - h1b) / 3));
     if (p.tierChamfer < 0.2) p.tierChamfer = 0;
+  }
+  if (slot) {
+    if (p.slotDepth > p.baseH - 3) {
+      p.slotDepth = R6(Math.max(LIMITS.slotDepth[0], p.baseH - 3));
+      notes.push(`Slot dihadkan ${p.slotDepth} mm dalam supaya lantai di bawahnya kekal 3 mm.`);
+    }
+    // Slot condong: dasarnya beranjak ke depan dan bukaannya lebih lebar.
+    // Walaupun slot ditolak ke belakang sekali, dinding depan di dasar dan
+    // dinding belakang di atas mesti kekal 3 mm. (Sudut 0 sentiasa muat:
+    // slot paling lebar 14 mm, tapak paling cetek 30 mm.)
+    const fits = (deg) => {
+      const a = deg * DEG;
+      return p.slotDepth * Math.tan(a) + slotWidth(p, a) <= p.baseDepth - 6 + 1e-9;
+    };
+    if (!fits(p.slotTilt)) {
+      let deg = Math.floor(p.slotTilt * 10) / 10;
+      while (deg > 0 && !fits(deg)) deg = R6(deg - 0.1);
+      p.slotTilt = Math.max(0, deg);
+      notes.push(`Condong dihadkan ${p.slotTilt}° supaya dinding slot kekal 3 mm.`);
+    }
+    return { p, notes };
   }
 
   // Dinding antara alur dan poket.
@@ -195,7 +243,8 @@ export function profileOf(p) {
       pts[pts.length - 1] = U(0, H);
       return pts;
     }
-    case 'tingkat': {
+    case 'tingkat':
+    case 'slot': {
       const t = p.tierInset, c = p.tierChamfer, h1 = R6((H * p.tierRatio) / 100);
       if (!(c > 0)) return [U(t, 0), U(t, h1), U(0, h1), U(0, H)];
       return [U(t + c, 0), U(t + c, h1 - c), U(t, h1), U(c, h1), U(c, H - c), U(0, H)];
@@ -210,6 +259,7 @@ export function profileOf(p) {
 
 /** Semua ukuran yang diterbitkan, dalam mm. Paksi: x kiri-kanan, y depan-belakang, z ke atas. */
 export function derive(p) {
+  if (p.type === 'slot') return deriveSlot(p);
   const t = p.acrylic;
   const c = p.grooveClear;
   const coverInL = p.plakL + 2 * p.gap;
@@ -219,17 +269,7 @@ export function derive(p) {
   const topL = coverOutL + 2 * c + 2 * p.rim;
   const topW = coverOutW + 2 * c + 2 * p.rim;
 
-  // Tapak bermula di x = y = 0: anjak permukaan atas sejauh profil terkeluar.
-  const profile = profileOf(p);
-  const out = { l: 0, r: 0, f: 0, b: 0 };
-  for (const q of profile) for (const k of Object.keys(out)) out[k] = Math.max(out[k], q.o[k]);
-  // Dibundarkan sekali di sini: grid permukaan atas, cincin sisi dan muka
-  // bawah semuanya membaca bucu ini, dan mesti mendapat nombor yang SAMA tepat
-  // - beza 1e-6 sudah cukup untuk slicer melihat sisi terbuka.
-  const ox = R6(out.l), oy = R6(out.f);
-  const top = { x0: ox, y0: oy, x1: R6(ox + topL), y1: R6(oy + topW) };
-  const baseL = R6(top.x1 + out.r);
-  const baseW = R6(top.y1 + out.b);
+  const { profile, top, baseL, baseW } = place(p, topL, topW);
 
   const groove = { x0: top.x0 + p.rim, y0: top.y0 + p.rim, x1: top.x1 - p.rim, y1: top.y1 - p.rim };
   const grooveIn = { x0: groove.x0 + t + 2 * c, y0: groove.y0 + t + 2 * c, x1: groove.x1 - t - 2 * c, y1: groove.y1 - t - 2 * c };
@@ -265,6 +305,68 @@ export function derive(p) {
   };
 }
 
+/** Profil, segi empat permukaan atas (topL x topW) dan tapak keseluruhan. */
+function place(p, topL, topW) {
+  // Tapak bermula di x = y = 0: anjak permukaan atas sejauh profil terkeluar.
+  const profile = profileOf(p);
+  const out = { l: 0, r: 0, f: 0, b: 0 };
+  for (const q of profile) for (const k of Object.keys(out)) out[k] = Math.max(out[k], q.o[k]);
+  // Dibundarkan sekali di sini: grid permukaan atas, cincin sisi dan muka
+  // bawah semuanya membaca bucu ini, dan mesti mendapat nombor yang SAMA tepat
+  // - beza 1e-6 sudah cukup untuk slicer melihat sisi terbuka.
+  const ox = R6(out.l), oy = R6(out.f);
+  const top = { x0: ox, y0: oy, x1: R6(ox + topL), y1: R6(oy + topW) };
+  return { profile, top, baseL: R6(top.x1 + out.r), baseW: R6(top.y1 + out.b) };
+}
+
+/**
+ * Lebar MENDATAR bukaan slot. Dinding slot selari dengan plak, jadi bila plak
+ * condong sudut a, jarak tegak lurus antara dinding = lebar mendatar x cos a.
+ * Bahagi dengan cos a supaya kelonggaran sebenar kekal `slotClear`.
+ */
+const slotWidth = (p, a) => (p.sheetT + 2 * p.slotClear) / Math.cos(a);
+
+/**
+ * Jenis slot: tiada kotak. Permukaan atas = panjang plak + kelonggaran + lebih
+ * tapak di kiri dan kanan, kali `baseDepth`. Plak berdiri di lantai slot.
+ */
+function deriveSlot(p) {
+  const c = p.slotClear;
+  const a = p.slotTilt * DEG;
+  const topL = p.plakL + 2 * c + 2 * p.sideMargin;
+  const { profile, top, baseL, baseW } = place(p, topL, p.baseDepth);
+  const w = slotWidth(p, a);
+  const shift = R6(p.slotDepth * Math.tan(a)); // dasar slot ke depan sejauh ini
+
+  // Pusat berat plak, diukur ke belakang dari pusat bukaan slot: paksi plak
+  // melalui pusat bukaan, dan titik tengahnya setinggi plakH/2 dari hujung
+  // bawah - yang terbenam slotDepth/cos(a) di sepanjang paksi.
+  const lean = (p.plakH / 2 - p.slotDepth / Math.cos(a)) * Math.sin(a);
+  const cy = (top.y0 + top.y1) / 2;
+  const lo = top.y0 + 3 + shift + w / 2;     // dinding depan di dasar >= 3 mm
+  const hi = top.y1 - 3 - w / 2;             // dinding belakang di atas >= 3 mm
+  const sc = Math.min(hi, Math.max(lo, cy - lean));
+  const slot = {
+    x0: R6(top.x0 + p.sideMargin), x1: R6(top.x1 - p.sideMargin),
+    y0: R6(sc - w / 2), y1: R6(sc + w / 2),
+    depth: p.slotDepth, shift,
+  };
+  const plakZ = p.baseH - p.slotDepth;
+  const h1 = (p.baseH * p.tierRatio) / 100;
+  return {
+    slotMode: true, t: p.sheetT, tilt: p.slotTilt, baseL, baseW, top, slot, profile,
+    // Keratan plak pada paras permukaan atas.
+    plak: { x0: slot.x0 + c, x1: slot.x1 - c, y0: R6(sc - p.sheetT / 2 / Math.cos(a)), y1: R6(sc + p.sheetT / 2 / Math.cos(a)) },
+    plakZ,
+    // Pusat berat plak dari pusat tapak, + ke belakang.
+    leanOff: R6(sc + lean - baseW / 2),
+    namePlate: { w: R6(baseL - 2 * p.tierChamfer), h: R6(h1 - p.tierChamfer) },
+    panels: [{ id: 'plak', name: 'Plak akrilik', w: R6(p.plakL), h: R6(p.plakH), qty: 1 }],
+    groove: null, grooveIn: null, cover: null, pocket: null, tape: 0,
+    totalH: R6(plakZ + p.plakH * Math.cos(a) + p.sheetT * Math.sin(a)),
+  };
+}
+
 const uniqSorted = (vals) => {
   const s = [...new Set(vals.map(R6))].sort((a, b) => a - b);
   return s.filter((v, i) => i === 0 || v - s[i - 1] > 1e-6);
@@ -281,7 +383,7 @@ const uniqSorted = (vals) => {
  * paras yang wujud di bucu grid itu, supaya setiap segmen tegak dikongsi tepat
  * dua muka - bukan simpang-T yang slicer laporkan sebagai "non-manifold".
  */
-export function buildBody(top, xs, ys, H, Htop, profile) {
+export function buildBody(top, xs, ys, H, Htop, profile, slot = null) {
   const out = [];
   const push = (...pts) => { for (const q of pts) out.push(R6(q[0]), R6(q[1]), R6(q[2])); };
   const tri = (a, b, c, nx, ny, nz) => {
@@ -309,9 +411,12 @@ export function buildBody(top, xs, ys, H, Htop, profile) {
       }
     }
   };
+  // Sel slot: bukaannya mesti satu sel grid tepat, pada tinggi penuh.
+  const isSlot = (i, j) => slot && xs[i] === slot.x0 && xs[i + 1] === slot.x1 && ys[j] === slot.y0 && ys[j + 1] === slot.y1;
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < m; j++) {
       const z = H[i][j];
+      if (isSlot(i, j)) continue;
       tri([xs[i], ys[j], z], [xs[i + 1], ys[j], z], [xs[i + 1], ys[j + 1], z], 0, 0, 1);
       tri([xs[i], ys[j], z], [xs[i + 1], ys[j + 1], z], [xs[i], ys[j + 1], z], 0, 0, 1);
     }
@@ -333,6 +438,19 @@ export function buildBody(top, xs, ys, H, Htop, profile) {
       zip(levels(i, j).filter((z) => z >= lo && z <= hi), levels(i + 1, j).filter((z) => z >= lo && z <= hi),
         [xs[i], ys[j]], [xs[i + 1], ys[j]], [0, hb > ha ? 1 : -1, 0]);
     }
+  }
+
+  // ---- rongga slot: empat dinding (condong ke depan bila `shift` > 0) dan
+  // lantai. Tepi atasnya ialah tepi sel slot, dikongsi dengan sel jirannya.
+  if (slot) {
+    const { x0, x1, y0, y1 } = slot, s = slot.shift, zb = Htop - slot.depth;
+    const T = (x, y) => [x, y, Htop], B = (x, y) => [x, y - s, zb];
+    const quad = (a, b, c, d, nrm) => { tri(a, b, c, ...nrm); tri(a, c, d, ...nrm); };
+    quad(T(x0, y0), T(x1, y0), B(x1, y0), B(x0, y0), [0, 1, 0]);    // dinding depan
+    quad(T(x0, y1), B(x0, y1), B(x1, y1), T(x1, y1), [0, -1, 0]);   // dinding belakang
+    quad(T(x0, y0), B(x0, y0), B(x0, y1), T(x0, y1), [1, 0, 0]);    // hujung kiri
+    quad(T(x1, y0), T(x1, y1), B(x1, y1), B(x1, y0), [-1, 0, 0]);   // hujung kanan
+    quad(B(x0, y0), B(x1, y0), B(x1, y1), B(x0, y1), [0, 0, 1]);    // lantai
   }
 
   // ---- kulit sisi: satu cincin bagi setiap titik profil (atas ke bawah)
@@ -401,6 +519,7 @@ export function buildPlakBox(input = {}) {
   const { p, notes } = cleanParams(input);
   const d = derive(p);
   const Hs = p.baseH;
+  if (d.slotMode) return finish(p, d, notes, slotBody(p, d));
 
   // Grid permukaan atas.
   const xs = uniqSorted([d.top.x0, d.top.x1, d.groove.x0, d.groove.x1, d.grooveIn.x0, d.grooveIn.x1,
@@ -420,9 +539,37 @@ export function buildPlakBox(input = {}) {
     }
   }
 
+  const warnings = [...notes];
+  // Hanya bila ada poket: tanpanya, bahagian di dalam alur ialah satu pulau
+  // pepejal penuh dan tiada dinding nipis untuk dirisaukan.
+  if (p.pocket && p.gap - p.grooveClear - p.pocketClear < 3) {
+    warnings.push('Dinding antara poket plak dan alur akrilik kurang 3 mm - besarkan ruang plak kalau ia rapuh.');
+  }
+  if (p.acrylic + 2 * p.grooveClear < 2) warnings.push('Alur kurang 2 mm lebar - sukar dicetak bersih.');
+  return finish(p, d, warnings, { xs, ys, H, tris: buildBody(d.top, xs, ys, H, Hs, d.profile) });
+}
+
+/** Jasad jenis slot: grid 3 x 3, sel tengah ialah bukaan slot. */
+function slotBody(p, d) {
+  const Hs = p.baseH, sl = d.slot;
+  const xs = [d.top.x0, sl.x0, sl.x1, d.top.x1];
+  const ys = [d.top.y0, sl.y0, sl.y1, d.top.y1];
+  const H = [0, 1, 2].map(() => [Hs, Hs, Hs]);
+  return { xs, ys, H, tris: buildBody(d.top, xs, ys, H, Hs, d.profile, sl) };
+}
+
+function finish(p, d, notes, { xs, ys, H, tris }) {
+  const warnings = [...notes];
+  if (d.slotMode) {
+    if (d.baseW < 0.2 * p.plakH) warnings.push('Tapak cetek berbanding tinggi plak - mudah tumbang. Dalamkan tapak.');
+    else if (Math.abs(d.leanOff) > d.baseW / 6) {
+      warnings.push('Berat plak jatuh jauh dari tengah tapak - kurangkan condong atau dalamkan tapak.');
+    }
+    if (p.sheetT + 2 * p.slotClear < 2) warnings.push('Slot kurang 2 mm lebar - sukar dicetak bersih.');
+  }
   // Senarai jasad, walaupun kini sentiasa satu: pengeksport dan pratonton
   // sudah tahu mengendalikan lebih daripada satu bahagian.
-  const bodies = [{ id: 'tapak', name: 'Tapak', tris: buildBody(d.top, xs, ys, H, Hs, d.profile), z: 0 }];
+  const bodies = [{ id: 'tapak', name: 'Tapak', tris, z: 0 }];
   let volume = 0, triangles = 0;
   for (const b of bodies) {
     b.volumeMm3 = meshVolume(b.tris);
@@ -432,18 +579,10 @@ export function buildPlakBox(input = {}) {
     triangles += b.mesh.length / 9;
   }
 
-  const warnings = [...notes];
-  // Hanya bila ada poket: tanpanya, bahagian di dalam alur ialah satu pulau
-  // pepejal penuh dan tiada dinding nipis untuk dirisaukan.
-  if (p.pocket && p.gap - p.grooveClear - p.pocketClear < 3) {
-    warnings.push('Dinding antara poket plak dan alur akrilik kurang 3 mm - besarkan ruang plak kalau ia rapuh.');
-  }
-  if (p.acrylic + 2 * p.grooveClear < 2) warnings.push('Alur kurang 2 mm lebar - sukar dicetak bersih.');
-
   return {
     params: p,
     derived: d,
-    grid: { xs, ys, H, Htop: Hs },
+    grid: { xs, ys, H, Htop: p.baseH },
     bodies,
     stats: {
       triangles,

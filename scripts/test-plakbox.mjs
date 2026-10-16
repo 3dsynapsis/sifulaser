@@ -1,4 +1,4 @@
-// Ujian Plak Box: tapak cetak 3D (empat jenis) dan saiz kotak akrilik.
+// Ujian Plak Box: tapak cetak 3D (lima jenis) dan saiz kotak akrilik.
 // Tiada kebergantungan.
 //
 //     node scripts/test-plakbox.mjs
@@ -22,6 +22,9 @@
 //   * akrilik muat         - dinding akrilik duduk dalam alur dengan kelonggaran
 //                            yang diminta di KEDUA-DUA sisi; keping cantum
 //                            hujung ke hujung memberi saiz luar yang betul.
+//   * slot                 - lebar = tebal plak + 2 x kelonggaran, dinding depan,
+//                            belakang dan lantai >= 3 mm walau condong, berat
+//                            plak di tengah tapak, isipadu kiraan tangan.
 //   * input teruk          - sifar, negatif, NaN, teks, jenis palsu: tak campak.
 
 import path from 'node:path';
@@ -104,6 +107,12 @@ CASES.push({ type: 'serong', slantAngle: 30, baseH: 60 });
 CASES.push({ type: 'klasik', ogeeR: 12, baseH: 20 });
 CASES.push({ type: 'tingkat', tierChamfer: 0 });
 CASES.push({ type: 'tingkat', tierRatio: 75, baseH: 20, tierChamfer: 5 });
+CASES.push({ type: 'slot', slotTilt: 0 });
+CASES.push({ type: 'slot', slotTilt: 20, slotDepth: 25, baseH: 40 });
+CASES.push({ type: 'slot', baseDepth: 30, slotTilt: 20, slotDepth: 40, sheetT: 12 });   // had condong
+CASES.push({ type: 'slot', baseH: 8, slotDepth: 40, tierRatio: 75 });                    // had dalam slot
+CASES.push({ type: 'slot', sheetT: 2, slotClear: 0, sideMargin: 5, tierChamfer: 0 });
+CASES.push({ type: 'slot', plakL: 30, plakH: 800, baseDepth: 40 });                      // amaran tumbang
 CASES.push({ type: 'palsu' });
 // Rawak, tetapi boleh diulang.
 let seed = 7;
@@ -118,6 +127,8 @@ for (let k = 0; k < 80; k++) {
     pocketClear: rnd() * 3, stepW: rnd() > 0.4 ? rnd() * 20 : 0, stepH: rnd() * 10,
     slantAngle: 3 + rnd() * 27, slantFrontOnly: rnd() > 0.6, ogeeR: 1.5 + rnd() * 10,
     tierInset: 3 + rnd() * 30, tierRatio: 25 + rnd() * 50, tierChamfer: rnd() * 5,
+    sheetT: 2 + rnd() * 10, slotDepth: 5 + rnd() * 35, slotClear: rnd(), slotTilt: rnd() * 20,
+    baseDepth: 30 + rnd() * 170, sideMargin: 5 + rnd() * 55,
   });
 }
 
@@ -162,9 +173,14 @@ for (const input of CASES) {
       : near(d.baseL, topL + 2 * s, 1e-4) && near(d.baseW, topW + 2 * s, 1e-4));
   }
   if (p.type === 'klasik') check(`${tag}: klasik`, near(d.baseL, topL + 4 * p.ogeeR, 1e-5));
-  if (p.type === 'tingkat') check(`${tag}: tingkat`, near(d.baseL, topL + 2 * (p.tierInset + p.tierChamfer), 1e-5));
+  if (p.type === 'tingkat' || p.type === 'slot') {
+    check(`${tag}: ${p.type}`, near(d.baseL, topL + 2 * (p.tierInset + p.tierChamfer), 1e-5));
+  }
   // Tiada jenis yang menyempit di bawah: muka bawah sentiasa selebar tapak.
   check(`${tag}: muka bawah selebar tapak (stabil)`, near(meshReport(bodies[0].mesh).bottomMinX, 0, 1e-3));
+
+  if (d.slotMode) { slotChecks(tag, r); continue; }
+  check(`${tag}: bukan slot = ada kotak`, p.type !== 'slot' && d.cover && d.groove);
 
   // Lantai di bawah alur dan poket.
   const grooveFloor = Hs - p.grooveDepth;
@@ -189,6 +205,45 @@ for (const input of CASES) {
   const wallWarn = r.warnings.some((w) => w.startsWith('Dinding antara poket'));
   check(`${tag}: amaran dinding poket tepat`,
     wallWarn === (p.pocket && p.gap - p.grooveClear - p.pocketClear < 3), r.warnings.join(' | '));
+}
+
+function slotChecks(tag, r) {
+  const { params: p, derived: d, grid, warnings } = r;
+  const sl = d.slot, c = p.slotClear, a = (p.slotTilt * Math.PI) / 180;
+  // Lebar diukur tegak lurus pada dinding slot yang condong.
+  check(`${tag}: slot = tebal plak + 2c`, near((sl.y1 - sl.y0) * Math.cos(a), p.sheetT + 2 * c, 1e-5)
+    && near(sl.x1 - sl.x0, p.plakL + 2 * c, 1e-5));
+  check(`${tag}: slot di tengah kiri-kanan`, near(sl.x0 - d.top.x0, p.sideMargin, 1e-5) && near(d.top.x1 - sl.x1, p.sideMargin, 1e-5));
+  check(`${tag}: lantai slot >= 3 mm`, grid.Htop - sl.depth >= 3 - 1e-6, `${grid.Htop - sl.depth}`);
+  check(`${tag}: dasar slot condong sejauh tan`, near(sl.shift, sl.depth * Math.tan(a), 1e-5));
+  check(`${tag}: dinding depan di dasar >= 3 mm`, sl.y0 - sl.shift - d.top.y0 >= 3 - 1e-5, `${sl.y0 - sl.shift - d.top.y0}`);
+  check(`${tag}: dinding belakang >= 3 mm`, d.top.y1 - sl.y1 >= 3 - 1e-5, `${d.top.y1 - sl.y1}`);
+  check(`${tag}: plak dalam slot`, near(d.plak.x1 - d.plak.x0, p.plakL, 1e-5)
+    && near((d.plak.y1 - d.plak.y0) * Math.cos(a), p.sheetT, 1e-5)
+    && near((d.plak.y0 - sl.y0) * Math.cos(a), c, 1e-5) && near(d.plakZ, p.baseH - p.slotDepth));
+  check(`${tag}: satu keping akrilik sahaja`, d.panels.length === 1 && near(d.panels[0].w, p.plakL, 1e-5)
+    && near(d.panels[0].h, p.plakH, 1e-5) && d.tape === 0 && !d.cover && !d.groove);
+  check(`${tag}: tinggi keseluruhan`, near(d.totalH, d.plakZ + p.plakH * Math.cos(a) + p.sheetT * Math.sin(a), 1e-5));
+  check(`${tag}: permukaan atas rata`, grid.H.every((col) => col.every((z) => near(z, grid.Htop))));
+  // Berat plak di tengah tapak - kecuali bila slot sudah ditolak ke had.
+  const free = sl.y0 - sl.shift - d.top.y0 > 3 + 1e-4 && d.top.y1 - sl.y1 > 3 + 1e-4;
+  if (free) check(`${tag}: berat plak di tengah tapak`, near(d.leanOff, 0, 1e-4), `${d.leanOff}`);
+  const tip = warnings.some((w) => w.includes('mudah tumbang') || w.includes('jauh dari tengah'));
+  check(`${tag}: amaran tumbang tepat`, tip === (d.baseW < 0.2 * p.plakH || Math.abs(d.leanOff) > d.baseW / 6), warnings.join(' | '));
+  // Isipadu: badan dua tingkat (prismoid bagi setiap segmen profil) tolak
+  // slot - prisma condong, isipadunya luas bukaan x dalam.
+  const H = p.baseH, h1 = (H * p.tierRatio) / 100, t = p.tierInset, ch = p.tierChamfer;
+  const L = d.top.x1 - d.top.x0, W = d.top.y1 - d.top.y0;
+  const prof = ch > 0 ? [[t + ch, 0], [t + ch, h1 - ch], [t, h1], [ch, h1], [ch, H - ch], [0, H]] : [[t, 0], [t, h1], [0, h1], [0, H]];
+  const area = (o) => (L + 2 * o) * (W + 2 * o);
+  let body = 0;
+  for (let k = 0; k + 1 < prof.length; k++) {
+    const [oa, za] = prof[k], [ob, zb] = prof[k + 1];
+    body += ((zb - za) / 6) * (area(oa) + 4 * area((oa + ob) / 2) + area(ob));
+  }
+  const hole = (sl.x1 - sl.x0) * (sl.y1 - sl.y0) * sl.depth;
+  check(`${tag}: isipadu slot kiraan tangan`, Math.abs(r.stats.volumeMm3 - (body - hole)) < Math.max(0.05, body * 1e-8),
+    `${r.stats.volumeMm3} lawan ${body - hole}`);
 }
 
 // ---- nombor lalai dan kiraan tangan ------------------------------------------------
@@ -216,9 +271,28 @@ for (const input of CASES) {
   check('serong: isipadu kiraan tangan (prismoid)', Math.abs(r.stats.volumeMm3 - (frustum - cut)) < 0.05,
     `${r.stats.volumeMm3} lawan ${frustum - cut}`);
 }
+{
+  // Slot lalai: 5 mm, condong 8 darjah, plak 230 x 310.
+  const { derived: d, params: p } = buildPlakBox({ type: 'slot', baseH: 30 });
+  check('slot lalai: tapak 283.5 x 93', near(d.baseL, 283.5) && near(d.baseW, 93), `${d.baseL} x ${d.baseW}`);
+  check('slot lalai: slot 230.5 x 5.554 x 12', near(d.slot.x1 - d.slot.x0, 230.5)
+    && near(d.slot.y1 - d.slot.y0, 5.5 / Math.cos(8 * Math.PI / 180), 1e-5) && near(d.slot.depth, 12),
+    `${d.slot.y1 - d.slot.y0}`);
+  check('slot lalai: condong 8 darjah tidak dihadkan', near(p.slotTilt, 8));
+  check('slot lalai: slot di depan tengah (plak condong ke belakang)', d.slot.y0 + 2.75 < (d.top.y0 + d.top.y1) / 2);
+}
+{
+  // Slot dalam pada tapak cetek: condong mesti dihadkan, dan diberitahu.
+  const r = buildPlakBox({ type: 'slot', baseH: 60, baseDepth: 30, slotDepth: 40, sheetT: 12, slotClear: 1, slotTilt: 20 });
+  check('slot had condong: dihadkan', r.params.slotTilt < 20 && r.params.slotTilt > 0, `${r.params.slotTilt}`);
+  check('slot had condong: diberitahu', r.warnings.some((w) => w.startsWith('Condong dihadkan')), r.warnings.join(' | '));
+  const sl = r.derived.slot;
+  check('slot had condong: dinding depan tepat 3 mm atau lebih', sl.y0 - sl.shift - r.derived.top.y0 >= 3 - 1e-5);
+}
 // ---- input teruk ------------------------------------------------------------------
 for (const bad of [{ plakL: 0 }, { plakL: -5, plakW: NaN }, { acrylic: 'abc' }, { baseH: 1e9 }, null, undefined,
-  { pocket: 'ya' }, { type: 42 }, { type: 'terapung', plinthH: -9 }]) {
+  { pocket: 'ya' }, { type: 42 }, { type: 'terapung', plinthH: -9 },
+  { type: 'slot', sheetT: 'x', slotTilt: -90, baseDepth: 0 }, { type: 'slot', slotDepth: Infinity }]) {
   let ok = true;
   try { buildPlakBox(bad || undefined); } catch (e) { ok = false; }
   check(`input teruk ${JSON.stringify(bad)}: tak campak`, ok);

@@ -264,7 +264,7 @@ export const TOOLS: ToolEntry[] = [
     title: 'Plak Box',
     shortDescription: 'Tapak cetak 3D dan kotak akrilik plak.',
     description:
-      'Kotak pameran untuk plak cenderahati: tapak cetak 3D (STL) beralur untuk akrilik, dan saiz 5 keping akrilik yang dicantum dengan selotip.',
+      'Kotak pameran untuk plak cenderahati: tapak cetak 3D (STL) beralur untuk akrilik, dan saiz 5 keping akrilik yang dicantum dengan selotip. Atau tapak slot untuk plak akrilik sekeping yang dicucuk terus.',
     href: '#/plakbox',
     group: 'idea',
     variant: 'art',
@@ -289,6 +289,8 @@ export const TOOLS: ToolEntry[] = [
       'cetak 3d',
       '3d print',
       'bambu',
+      'slot',
+      'stand plak',
     ],
     Icon: Award,
   },

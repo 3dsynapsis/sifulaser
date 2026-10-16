@@ -1,7 +1,8 @@
 # Plak Box
 
 Kotak pameran untuk plak cenderahati: plak berdiri di dalam kotak akrilik
-jernih, di atas tapak. Dihidangkan terus oleh GitHub Pages di
+jernih, di atas tapak - atau (jenis Dua Tingkat Slot) plak akrilik sekeping
+dicucuk terus ke dalam slot pada tapak, tanpa kotak. Dihidangkan terus oleh GitHub Pages di
 `sifulaser.com/plakbox/`; halaman React `#/plakbox` memuatkannya dalam iframe.
 
 Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
@@ -12,7 +13,7 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
 1. **Tapak - cetak 3D, output STL.** (Siap.) Pepejal; infill ditetapkan dalam
    Bambu Studio, bukan di sini. Ada alur keliling untuk dinding akrilik dan
    poket cetek untuk tapak plak. Dahulu tapak ini dibuat daripada MDF yang
-   dipotong laser berlapis-lapis. Empat jenis, semuanya boleh dicetak TANPA
+   dipotong laser berlapis-lapis. Lima jenis, semuanya boleh dicetak TANPA
    SUPPORT (diuji: tiada segitiga menghadap ke bawah lebih landai dari 45°):
 
    | Jenis | Rupa | Kenapa boleh dicetak tanpa support |
@@ -21,6 +22,12 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
    | Serong | Sisi condong, lebar di bawah; semua sisi atau depan sahaja | Mengecil ke atas |
    | Klasik | Lengkung S (ogee Rom) di tepi atas, macam tapak trofi kayu | Kedua-dua lengkung berundur ke atas |
    | Dua Tingkat | Tingkat bawah lebar (ruang plat nama), tingkat atas kecil | Mengecil ke atas |
+   | Dua Tingkat Slot | Profil Dua Tingkat, tanpa kotak: slot untuk plak akrilik sekeping (lalai 5 mm), tegak atau condong hingga 20° ke belakang | Dinding depan slot condong paling banyak 20° dari tegak |
+
+   Slot: lebar mendatar = (tebal plak + 2 × kelonggaran) / cos(condong), supaya
+   kelonggaran SEBENAR (tegak lurus pada dinding yang condong) kekal seperti
+   yang diminta. Slot diletak supaya berat plak jatuh di tengah tapak; dinding
+   depan (di dasar), belakang dan lantai sekurang-kurangnya 3 mm.
 2. **Kotak akrilik jernih - potong laser, output SVG.** (Bahagian 2, belum.)
    Lima keping tanpa tanggam, dicantum hujung ke hujung dan sambungannya
    ditutup selotip (tiada chloroform). Saiz setiap keping sudah dikira dan
@@ -44,7 +51,11 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
   (Standard, Serong, Klasik, Dua Tingkat). Jenis "Terapung" (kaki tersorok)
   dibuang pada 16 Oktober 2026 kerana tidak stabil untuk kotak yang tinggi.
 - `src/view3d.js` - pratonton three.js: tapak (segitiga yang sama dengan STL),
-  akrilik lutsinar dengan selotip, plak sebagai kotak sempadan.
+  akrilik lutsinar dengan selotip, plak sebagai kotak sempadan (atau plak
+  akrilik condong dalam slot). Butang "Angkat kotak" / "Cabut plak" di atas
+  pentas menganimasikan kotak naik dari alur (plak keluar dari slot) dan
+  turun semula - konsep yang sama dengan "Open the box" dalam Box Maker. Ia
+  menggantikan tab "Akrilik diangkat".
 - `src/main.js` - panel tetapan, ringkasan, export, cara pasang.
 - `vendor/` - three.js dan OrbitControls (MIT), disalin dari `docs/tray/vendor`.
 

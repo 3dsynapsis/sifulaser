@@ -33,7 +33,7 @@ Isi nama dan saiz, alat ini lukis seluruh design untuk anda.
 - [Rehal Generator](https://sifulaser.com/rehal/): Rehal Al-Quran boleh lipat — corak geometri dan nama terukir di tengahnya.
 - [Cake Topper](https://sifulaser.com/topper/): Nama untuk atas kek, satu keping dengan pancang. Untuk akrilik tuang.
 - [Stand Nama](https://sifulaser.com/stand/): Papan tanda nama meja: plate berukir atau huruf potong, siap dengan tapak.
-- [Plak Box](https://sifulaser.com/plakbox/): Kotak pameran untuk plak cenderahati: tapak cetak 3D (STL) beralur untuk akrilik, dan saiz 5 keping akrilik yang dicantum dengan selotip.
+- [Plak Box](https://sifulaser.com/plakbox/): Kotak pameran untuk plak cenderahati: tapak cetak 3D (STL) beralur untuk akrilik, dan saiz 5 keping akrilik yang dicantum dengan selotip. Atau tapak slot untuk plak akrilik sekeping yang dicucuk terus.
 - [Keychain Generator](https://sifulaser.com/keychain/): Nama jadi kekunci satu keping, siap lubang ring. Untuk akrilik atau kayu.
 - [Tag Generator](https://sifulaser.com/tag/): Tag beg dengan slot tali. Muka depan untuk nama, belakang untuk alamat.
 - [Puzzle Generator](https://sifulaser.com/puzzle/): Jana garisan potong jigsaw ikut saiz papan anda, terus dapat fail SVG.

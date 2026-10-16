@@ -2,8 +2,16 @@
 // semula di sini - jadi alur dan poket yang kelihatan ialah yang dicetak.
 // Kotak akrilik dan plak ialah gambaran: akrilik dari saiz keping yang dikira
 // (cantum hujung ke hujung, atas menindih dinding), plak sebagai kotak
-// sempadannya sahaja. Rangka renderer, lampu dan garis dimensi disalin
-// daripada Tray Organizer.
+// sempadannya sahaja. Jenis slot tiada kotak: plak ialah sekeping akrilik
+// condong yang terbenam dalam slot. Rangka renderer, lampu dan garis dimensi
+// disalin daripada Tray Organizer.
+//
+// ANGKAT. Kotak akrilik (atau plak slot) ialah satu kumpulan, `mover`, yang
+// digerakkan sepanjang satu arah: ke atas untuk kotak, sepanjang paksi plak
+// untuk slot. setLifted() hanya menukar sasaran; animate() menghampirinya
+// sedikit setiap bingkai, macam penutup dalam Box Maker. Kamera ikut naik
+// separuh jarak itu dan berundur sejauh sfera yang membesar, supaya bahagian
+// yang terangkat kekal dalam bingkai - tanpa membuang sudut atau zum pengguna.
 
 import * as THREE from '../vendor/three.module.js';
 import { OrbitControls } from '../vendor/OrbitControls.js';
@@ -69,6 +77,12 @@ export class View3D {
     container.appendChild(this.dimLayer);
     this.dims = null;
 
+    this.mover = null;
+    this.lift = 0;          // 0 = dipasang, 1 = terangkat sepenuhnya
+    this.liftTarget = 0;
+    this.follow = 0;        // berapa jauh kamera sudah dinaikkan untuk angkat
+    this.backoff = 0;       // dan berapa jauh ia sudah berundur
+
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -83,8 +97,50 @@ export class View3D {
     this.camera.updateProjectionMatrix();
   }
 
+  get lifted() { return this.liftTarget === 1; }
+
+  setLifted(on) { this.liftTarget = on ? 1 : 0; }
+
+  /** Letak `mover` pada kedudukan this.lift, dan bawa kamera bersama. */
+  applyLift() {
+    const mv = this.mover;
+    const k = this.lift;
+    if (mv) mv.obj.position.copy(mv.base).addScaledVector(mv.dir, mv.dist * k);
+    const rise = mv ? mv.dist * mv.dir.z * k : 0;
+    const want = rise / 2;
+    const back = this.fitDist(rise) - this.fitDist(0);
+    const dz = want - this.follow;
+    const db = back - this.backoff;
+    if (dz || db) {
+      const away = this.camera.position.clone().sub(this.controls.target).normalize();
+      this.controls.target.z += dz;
+      this.camera.position.z += dz;
+      this.camera.position.addScaledVector(away, db);
+      this.follow = want;
+      this.backoff = back;
+    }
+  }
+
+  /** Jarak kamera yang memuatkan sfera keseluruhan, dengan `extra` mm tambahan di atas. */
+  fitDist(extra = 0) {
+    const { L, W, H } = this.bounds || { L: 300, W: 150, H: 300 };
+    const r = 0.5 * Math.hypot(L, W, H + extra);
+    const fit = Math.min(this.camera.fov, this.camera.fov * this.camera.aspect) * Math.PI / 360;
+    return (r / Math.sin(fit)) * 1.08;
+  }
+
   animate = () => {
     this.raf = requestAnimationFrame(this.animate);
+    // Ikut masa, bukan bingkai: sama laju pada skrin 60 Hz, 120 Hz atau
+    // telefon lama yang tersekat-sekat. Kira-kira 0.6 s dari hujung ke hujung.
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - (this.lastT || now)) / 1000);
+    this.lastT = now;
+    if (this.lift !== this.liftTarget) {
+      this.lift += (this.liftTarget - this.lift) * (1 - Math.exp(-dt / 0.11));
+      if (Math.abs(this.liftTarget - this.lift) < 0.002) this.lift = this.liftTarget;
+      this.applyLift();
+    }
     this.controls.update();
     this.updateDims();
     this.renderer.render(this.scene, this.camera);
@@ -106,10 +162,7 @@ export class View3D {
     return new THREE.Mesh(g, mat);
   }
 
-  /**
-   * show: 'siap' (dipasang), 'angkat' (akrilik terangkat supaya alur
-   * kelihatan), 'tapak' (tapak sahaja - apa yang dicetak).
-   */
+  /** show: 'siap' (dipasang) atau 'tapak' (tapak sahaja - apa yang dicetak). */
   build(model, opts = {}) {
     const pale = opts.backdrop !== 'dark';
     this.hemi.groundColor.set(pale ? 0xd7dbe2 : 0x2a2f38);
@@ -137,10 +190,44 @@ export class View3D {
       this.root.add(mesh);
     }
 
-    const lift = show === 'angkat' ? Math.max(40, d.coverH * 0.45) : 0;
     let top = p.baseH;
+    this.mover = null;
+    const glass = new THREE.MeshPhysicalMaterial({
+      color: 0xe8f4f8, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.16,
+      depthWrite: false, side: THREE.DoubleSide,
+    });
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0x7fa6b5, transparent: true, opacity: 0.85 });
+    const glassBox = (parent, b, mat = glass) => {
+      const m = View3D.box(...b, mat);
+      m.renderOrder = 2;
+      parent.add(m);
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), edgeMat);
+      e.renderOrder = 3;
+      parent.add(e);
+      return m;
+    };
 
-    if (show !== 'tapak') {
+    if (show !== 'tapak' && d.slotMode) {
+      // Plak sekeping, condong `tilt` ke belakang. Paksinya melalui pusat
+      // bukaan slot; ia bersandar pada lantai slot di bucu paling bawahnya
+      // (belakang-bawah bila condong).
+      const a = (d.tilt * Math.PI) / 180, t = d.t, sl = d.slot;
+      const u = new THREE.Vector3(0, Math.sin(a), Math.cos(a));
+      const sc = (sl.y0 + sl.y1) / 2;
+      const s = (sl.depth - (t / 2) * Math.sin(a)) / Math.cos(a);
+      const sheet = new THREE.Group();
+      sheet.position.set(0, sc - s * u.y, p.baseH - s * u.z);
+      sheet.rotation.x = -a;
+      const acrylic = new THREE.MeshPhysicalMaterial({
+        color: 0xdff0f6, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.3,
+        depthWrite: false, side: THREE.DoubleSide,
+      });
+      glassBox(sheet, [d.plak.x0, -t / 2, 0, d.plak.x1, t / 2, p.plakH], acrylic);
+      this.root.add(sheet);
+      // Cabut: keluar sepenuhnya dari slot, dengan sedikit ruang.
+      this.mover = { obj: sheet, base: sheet.position.clone(), dir: u, dist: s + Math.max(20, p.plakH * 0.08) };
+      top = d.totalH;
+    } else if (show !== 'tapak') {
       // Plak: kotak sempadan sahaja - bentuk sebenarnya bukan urusan alat ini.
       const k = d.plak;
       const plakMat = new THREE.MeshStandardMaterial({
@@ -154,16 +241,13 @@ export class View3D {
         new THREE.LineBasicMaterial({ color: 0x8a6a3a, transparent: true, opacity: 0.7 }),
       ));
 
-      // Akrilik: lima keping cantum hujung ke hujung.
+      // Akrilik: lima keping cantum hujung ke hujung, dalam satu kumpulan
+      // yang diangkat bersama selotipnya.
+      const cover = new THREE.Group();
       const t = d.t;
       const c = d.cover;
-      const z0 = d.coverZ + lift;
-      const z1 = d.coverTop + lift;
-      const glass = new THREE.MeshPhysicalMaterial({
-        color: 0xe8f4f8, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.16,
-        depthWrite: false, side: THREE.DoubleSide,
-      });
-      const edgeMat = new THREE.LineBasicMaterial({ color: 0x7fa6b5, transparent: true, opacity: 0.85 });
+      const z0 = d.coverZ;
+      const z1 = d.coverTop;
       const pieces = [
         [c.x0, c.y0, z0, c.x1, c.y0 + t, z1 - t],          // depan
         [c.x0, c.y1 - t, z0, c.x1, c.y1, z1 - t],          // belakang
@@ -171,14 +255,7 @@ export class View3D {
         [c.x1 - t, c.y0 + t, z0, c.x1, c.y1 - t, z1 - t],  // kanan
         [c.x0, c.y0, z1 - t, c.x1, c.y1, z1],              // atas
       ];
-      for (const b of pieces) {
-        const m = View3D.box(...b, glass);
-        m.renderOrder = 2;
-        this.root.add(m);
-        const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), edgeMat);
-        e.renderOrder = 3;
-        this.root.add(e);
-      }
+      for (const b of pieces) glassBox(cover, b);
 
       // Selotip: jalur nipis yang dilipat atas setiap sambungan luar.
       const tw = 6;    // separuh lebar selotip pada setiap muka
@@ -207,17 +284,23 @@ export class View3D {
         for (const [a, z] of [[0, 3], [1, 4], [2, 5]]) if (box[a] > box[z]) [box[a], box[z]] = [box[z], box[a]];
         const m = View3D.box(...box, tape);
         m.renderOrder = 4;
-        this.root.add(m);
+        cover.add(m);
       }
+      this.root.add(cover);
+      // Angkat separuh tinggi kotak: alur dan poket jelas kelihatan, dan
+      // kotak tetap dalam bingkai (kamera naik separuh jarak ini).
+      this.mover = { obj: cover, base: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, 1), dist: Math.max(40, d.coverH * 0.5) };
       top = z1;
     }
 
+
     this.root.position.set(-d.baseL / 2, -d.baseW / 2, 0);
-    // Dimensi tinggi ialah tinggi SIAP, bukan dengan akrilik terangkat.
+    // Dimensi tinggi ialah tinggi SIAP, bukan semasa terangkat.
     this.setupDims(d.baseL, d.baseW, show === 'tapak' ? p.baseH : d.totalH);
-    // Bingkai ikut sfera yang memeluk semuanya, termasuk akrilik terangkat:
-    // kotak plak tinggi dan sempit, jadi "saiz terbesar" sahaja memotong bumbung.
+    // Bingkai ikut sfera yang memeluk semuanya: kotak plak tinggi dan sempit,
+    // jadi "saiz terbesar" sahaja memotong bumbung.
     this.bounds = { L: d.baseL, W: d.baseW, H: top };
+    this.applyLift();
     const key = `${Math.round(d.baseL)}|${Math.round(d.baseW)}|${Math.round(top)}`;
     if (key !== this._frameKey) { this._frameKey = key; this.frame(); }
   }
@@ -299,16 +382,17 @@ export class View3D {
   frame() {
     const { L, W, H } = this.bounds || { L: 300, W: 150, H: 300 };
     const r = 0.5 * Math.hypot(L, W, H);
-    const fit = Math.min(this.camera.fov, this.camera.fov * this.camera.aspect) * Math.PI / 360;
-    const dist = (r / Math.sin(fit)) * 1.08;
+    const dist = this.fitDist(0) + this.backoff;
     // Had zum ikut saiz model: cukup dekat untuk melihat alur, tetapi tidak
     // sampai kamera masuk ke dalam kotak; cukup jauh tanpa hilang jadi titik.
     this.controls.minDistance = r * 0.9;
-    this.controls.maxDistance = dist * 3;
+    this.controls.maxDistance = this.fitDist(0) * 3;
     const dir = [0.5, -0.78, 0.38];
     const m = Math.hypot(...dir);
-    this.controls.target.set(0, 0, H / 2);
-    this.camera.position.set(dir[0] / m * dist, dir[1] / m * dist, H / 2 + dir[2] / m * dist);
+    // Kekalkan kenaikan kamera untuk bahagian yang sedang terangkat.
+    const cz = H / 2 + this.follow;
+    this.controls.target.set(0, 0, cz);
+    this.camera.position.set(dir[0] / m * dist, dir[1] / m * dist, cz + dir[2] / m * dist);
     this.controls.update();
   }
 }
