@@ -17,6 +17,11 @@
 //     so it finishes flush rather than sitting in a well. This is the only style
 //     whose lid rides OUTSIDE the walls, and so the only one where the finished
 //     box is bigger than length x width.
+//   * mihrab - a keel-arch front (see geom/arch.js) closed by two arch-topped
+//     doors that swing outwards on square pins: down into a base plate that
+//     stands proud of the box, up into a ceiling board at the spring line. The
+//     arch above the ceiling is a hollow crown - an inner arch board, the back,
+//     and a kerf-bent roof strip glued over both.
 //   * dividers - interior panels standing on the floor, tenoned through the walls
 //     the same way the floor is. They stop short of the rim so the compartments
 //     stay easy to reach into and a lid never lands on them. Four compartments
@@ -36,9 +41,10 @@ import {
   sub, len as vlen, norm, dedupe, bbox, translate,
   offsetPolygon, ellipse, rect,
 } from './path.js';
+import { solveKeel, keelPath, keelZ, strip as archStrip, livingHinge } from './arch.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari' | 'mihrab'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -74,6 +80,11 @@ export const DEFAULTS = {
                      // wall, so the reveal you see and the gap behind it are
                      // the same number by construction.
   drawerNotch: true, // thumb notch in the top edge of each drawer front
+
+  // ---- Mihrab (keel-arch box, double doors) -----------------------------
+  archRise: 50,      // arch height above the spring line, % of the length
+  archRound: 55,     // shoulder radius, % of half the length - how round
+  plinthMargin: 8,   // how far the base plate stands out round the box, mm
 };
 
 export const PANEL_ORDER = [
@@ -93,6 +104,10 @@ export const PANEL_ORDER = [
   'd3Front', 'd3Back', 'd3Left', 'd3Right', 'd3Base',
   'd4Front', 'd4Back', 'd4Left', 'd4Right', 'd4Base',
   'up1', 'up2',
+  // Mihrab. 'back', 'left' and 'right' are reused; the roof strip has a decor
+  // list only so a stray write cannot throw - the UI never offers it, because
+  // anything cut through a living hinge breaks it.
+  'plinth', 'ceiling', 'doorLeft', 'doorRight', 'rib', 'roof',
 ];
 
 export const PANEL_LABELS = {
@@ -115,7 +130,15 @@ export const PANEL_LABELS = {
   d4Front: 'D4 front', d4Back: 'D4 back', d4Left: 'D4 left',
   d4Right: 'D4 right', d4Base: 'D4 base',
   up1: 'Upright 1', up2: 'Upright 2',
+  plinth: 'Base', ceiling: 'Ceiling', doorLeft: 'Door left', doorRight: 'Door right',
+  rib: 'Arch inner', roof: 'Roof (flex)',
 };
+
+/**
+ * Least height a mihrab can be: the base, a door tall enough to be one, the
+ * ceiling, and an arch with room for its apex curve.
+ */
+const mihrabMinH = (t) => t + Math.max(30, 10 * t) + Math.max(10, 3.3 * t) + 2 * t;
 
 /**
  * M3, and only M3 - one screw, one nut, one drill bit to own.
@@ -352,6 +375,19 @@ export function dimMap(input = {}) {
       z: { k: tingkat, c: tingkat * (2 * t + ct) + (tingkat - 1) * t + floor + 2 * t },
     };
   }
+  if (p.style === 'mihrab') {
+    // Inside: wall to wall, door to back, base to ceiling. The arch above the
+    // ceiling is a hollow crown, not storage. Its rise is a share of the
+    // OUTSIDE length, which is what this reading has to be converted from.
+    const Lout = p.measure === 'inside' ? p.length + 2 * t : p.length;
+    const rise = ((p.archRise ?? DEFAULTS.archRise) / 100) * Lout;
+    return {
+      what: 'box',
+      x: { k: 1, c: 2 * t },
+      y: { k: 1, c: 2 * t },
+      z: { k: 1, c: 2 * t + rise },
+    };
+  }
   const lid = p.style === 'lidded' || p.style === 'double' || p.style === 'shoebox';
   return {
     what: 'box',
@@ -386,9 +422,10 @@ export function buildBox(input = {}) {
   // and then forgotten, so no joint below has to know which was typed.
   const measuredInside = p.measure === 'inside';
   const want = measuredInside ? outsideFor(p, p) : p;
-  const L = Math.max(t * 8, want.length);
-  const W = Math.max(t * 8, want.width);
-  const H = Math.max(t * 6, want.height);
+  const mihrab = p.style === 'mihrab';
+  const L = Math.max(t * 8, mihrab ? 40 : 0, want.length);
+  const W = Math.max(t * 8, mihrab ? 40 : 0, want.width);
+  const H = Math.max(mihrab ? mihrabMinH(t) : t * 6, want.height);
   const lidded = p.style === 'lidded';
   const double = p.style === 'double';
   // A lid that lifts clean off, so the walls stop a board short and the lid's own
@@ -464,7 +501,7 @@ export function buildBox(input = {}) {
   const divCross = divCount === 4;
   // Dividers and drawers want the same interior, and the combination cannot be
   // assembled - the drawer would have to pass through the divider.
-  const divOK = !almari && divCount > 0
+  const divOK = !almari && !mihrab && divCount > 0
     && divH > Math.max(6, t * 3)
     && Math.min(L, W) > 8 * t;
   // A divider only stands square if it is pinned in more than one place, so its
@@ -502,7 +539,9 @@ export function buildBox(input = {}) {
   // Screws go where the finger joint leaves room. Rather than force a spacing,
   // the free runs between tabs are measured and the biggest ones are used - so a
   // screw never lands on a tab, and there are only ever as many as asked for.
-  const wantScrew = p.joint === 'screw';
+  // The mihrab has no front wall and only two jointed corners, glued - its
+  // doors are what comes apart.
+  const wantScrew = p.joint === 'screw' && !mihrab;
   const nutPocketL = pocketDepth(t);
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
@@ -614,7 +653,7 @@ export function buildBox(input = {}) {
   // side walls and boards carry a different set of joints. Rather than fork the
   // corner-joint maths in here with a mode flag, this style writes its own small
   // local builders, the way the lift-off lid already does.
-  if (!almari) {
+  if (!almari && !mihrab) {
     for (const id of ['front', 'back']) {
       const g = buildWall();
       panels.push(normalisePanel({
@@ -686,14 +725,14 @@ export function buildBox(input = {}) {
     return { outline: dedupe(pts), holes };
   };
 
-  if (!almari) {
+  if (!almari && !mihrab) {
     const g = buildSide((y) => W - y);
     panels.push(normalisePanel({
       id: 'left', label: PANEL_LABELS.left, outline: g.outline, holes: g.holes,
       frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
   }
-  if (!almari) {
+  if (!almari && !mihrab) {
     const g = buildSide((y) => y);
     panels.push(normalisePanel({
       id: 'right', label: PANEL_LABELS.right, outline: g.outline, holes: g.holes,
@@ -702,7 +741,7 @@ export function buildBox(input = {}) {
   }
 
   // ---- bottom -------------------------------------------------------------
-  if (!almari) {
+  if (!almari && !mihrab) {
     const x0 = t;
     const x1 = L - t;
     const y0 = t;
@@ -1364,6 +1403,247 @@ export function buildBox(input = {}) {
     };
   }
 
+  // ---- mihrab: keel-arch box with double doors ----------------------------
+  // X across the doors, Y from the doors (y = 0) to the back, Z up. The box
+  // stands on a base plate that is wider than it all round; everything else is
+  // tenoned down into that plate.
+  //
+  //   base     z 0..t. Mortises for the back and the sides, a round hole for
+  //            each door's bottom pin.
+  //   sides    plain walls from the base to the spring line zS, starting a
+  //            little behind the doors so the hinge side of a door can swing.
+  //   back     the full arch, fingered to the sides below the spring line.
+  //   ceiling  z zS-t..zS, caught in open notches in the side walls' top edges
+  //            and tenoned into the back. Its front corners come forward over
+  //            the door hinge line and carry the top pin holes.
+  //   doors    arch-topped halves of the front. Each turns on two square pins
+  //            on its outer edge. Near the top of that edge a notch clears the
+  //            ceiling corner the top pin goes into, so nothing of the door is
+  //            ever above that corner within reach of the hinge.
+  //   crown    above the ceiling: an inner arch board just behind the doors,
+  //            the back's own arch, and the roof strip bent over both.
+  //
+  // Clearances. A door's tail (the sliver behind its pin) swings inwards as it
+  // opens, so the side walls start one tail radius back. Closed, a door rests
+  // against the ceiling's front edge, which is what stops it swinging in.
+  let mihrabInfo = null;
+  if (mihrab) {
+    const num = (v, d) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d);
+    const g = Math.max(0.1, num(p.lidGap, DEFAULTS.lidGap));
+    const mb = Math.max(2.5 * t, num(p.plinthMargin, DEFAULTS.plinthMargin));
+    const zMin = t + Math.max(30, 10 * t);
+    const ra0 = Math.max(10, 3.3 * t);
+    const riseWant = (Math.min(95, Math.max(15, num(p.archRise, DEFAULTS.archRise))) / 100) * L;
+    const rise = Math.max(ra0 + 2 * t, Math.min(riseWant, H - zMin));
+    const zS = H - rise;                   // spring line: top of the walls and the ceiling
+    const zC = zS - t;                     // underside of the ceiling
+    const Rwant = (Math.min(98, Math.max(10, num(p.archRound, DEFAULTS.archRound))) / 100) * (L / 2);
+    const keel = solveKeel({ L, zS, H, R: Math.max(Rwant, ra0 + t + 1), ra: ra0 })
+      || solveKeel({ L, zS, H, R: ra0 + t + 1, ra: ra0, minSlope: 0 });
+
+    // Hinge. The pin is the same square peg the lid uses, standing on the
+    // door's outer edge half a board in.
+    const xp = t / 2;
+    const holeR = hingeR + Math.max(0.1, fit);
+    const bossM = holeR + Math.max(1.2, 0.4 * t);
+    const tail = Math.hypot(xp, t / 2);
+    const ys = t / 2 + tail + 0.4;         // side walls start behind the tail's swing
+    const cD = 0.5;
+    const yC0 = t + cD;                    // ceiling front edge, just behind the doors
+    const xB = t + Math.max(4, 1.3 * t);   // the ceiling corner that carries the pin
+    const yE = yC0 + 2 * t;                // ... and how far back it runs over the wall
+    const notchW = xB + 0.5;               // door notch that the corner lives in
+    const gT = Math.max(0.3, g);
+    const yR = yC0 + t;                    // inner arch board, a board behind the edge
+    const zB0 = t + g;                     // door bottom; it settles onto the base
+    const xc = L / 2 - g;                  // free edge of the left door
+    const hW = zS - t;                     // wall span above the base
+
+    const vF = featureLayout(hW, m);       // back-to-side corner fingers, from z = t
+    const bX = keep(featureLayout(L, m), t + 0.5, L - t - 0.5);
+    const sF = keep(featureLayout(W - ys, m).map((f) => ({ s: f.s + ys, e: f.e + ys })),
+      ys + 0.5, W - t - 0.5);
+    const cF = keep(featureLayout(W - t - yE, m).map((f) => ({ s: f.s + yE, e: f.e + yE })),
+      yE + 0.5, W - t - 0.5);
+    const o = { slits };
+
+    // ---- base plate
+    panels.push(normalisePanel({
+      id: 'plinth', label: PANEL_LABELS.plinth,
+      outline: rect(0, 0, L + 2 * mb, W + 2 * mb),
+      holes: [
+        ...bX.map((f) => shrinkRect(f.s + mb, W - t + mb, f.e - f.s, t, fit)),
+        ...sF.map((f) => shrinkRect(mb, f.s + mb, t, f.e - f.s, fit)),
+        ...sF.map((f) => shrinkRect(L - t + mb, f.s + mb, t, f.e - f.s, fit)),
+        ellipse(xp + mb, t / 2 + mb, holeR, holeR, 40),
+        ellipse(L - xp + mb, t / 2 + mb, holeR, holeR, 40),
+      ],
+      frame: { origin: [-mb, -mb, t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+
+    // ---- back. Symmetric about the middle, so it is drawn with u = x.
+    const inset = keelPath(keel, t);       // (t, zS) over the top to (L - t, zS)
+    panels.push(normalisePanel({
+      id: 'back', label: PANEL_LABELS.back,
+      outline: dedupe([
+        ...edgeRun([t, t], [L - t, t], forWalk(bX, t, L - t), t, o),
+        ...edgeRun([L - t, t], [L - t, zS], vF, t),
+        ...inset.slice().reverse(),
+        ...edgeRun([t, zS], [t, t], flipFeatures(vF, hW), t),
+      ]),
+      holes: bX.map((f) => shrinkRect(f.s, zC, f.e - f.s, t, fit)),
+      frame: { origin: [L, W, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] },
+    }));
+
+    // ---- side walls, drawn for the right wall (u = y) and mirrored
+    const sideRing = dedupe([
+      ...edgeRun([ys, t], [W, t], forWalk(sF, ys, W), t, o),
+      ...edgeRun([W, t], [W, zS], vF, -t),
+      ...edgeRun([W, zS], [yE, zS], forWalk(snug(cF), W, yE), -t),
+      [yE, zS], [yE, zC], [ys, zC],
+    ]);
+    const mirror = (ring, span) => ring.map(([u, v]) => [span - u, v]).reverse();
+    panels.push(normalisePanel({
+      id: 'left', label: PANEL_LABELS.left, outline: mirror(sideRing, W), holes: [],
+      frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
+    }));
+    panels.push(normalisePanel({
+      id: 'right', label: PANEL_LABELS.right, outline: sideRing, holes: [],
+      frame: { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+    }));
+
+    // ---- ceiling
+    const arcPts = (cx, cy, r, a0, a1) => {
+      const n = Math.max(8, Math.ceil((Math.abs(a1 - a0) * r) / 0.6));
+      const out = [];
+      for (let i = 0; i <= n; i++) {
+        const a = a0 + ((a1 - a0) * i) / n;
+        out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+      }
+      return out;
+    };
+    // The boss round the pin hole bulges past the box's front and side faces:
+    // the hole sits half a board from both, and needs more meat than that.
+    const yL = t / 2 + Math.sqrt(bossM * bossM - xp * xp);
+    const xF = xp + Math.sqrt(bossM * bossM - (t / 2) ** 2);
+    const aL = Math.atan2(yL - t / 2, -xp);
+    const aF = Math.atan2(-t / 2, xF - xp) + 2 * Math.PI;
+    const bossL = arcPts(xp, t / 2, bossM, aL, aF);           // (0, yL) round to (xF, 0)
+    const bossR = bossL.map(([x, y]) => [L - x, y]).reverse(); // (L - xF, 0) round to (L, yL)
+    panels.push(normalisePanel({
+      id: 'ceiling', label: PANEL_LABELS.ceiling,
+      outline: dedupe([
+        [0, yE], ...bossL, [xB, 0], [xB, yC0], [L - xB, yC0], [L - xB, 0],
+        ...bossR, [L, yE], [L - t, yE],
+        ...edgeRun([L - t, yE], [L - t, W - t], forWalk(cF, yE, W - t), t),
+        ...edgeRun([L - t, W - t], [t, W - t], forWalk(bX, L - t, t), t),
+        ...edgeRun([t, W - t], [t, yE], forWalk(cF, W - t, yE), t),
+        [t, yE],
+      ]),
+      holes: [
+        ellipse(xp, t / 2, holeR, holeR, 40),
+        ellipse(L - xp, t / 2, holeR, holeR, 40),
+        ...bX.map((f) => shrinkRect(f.s, yR, f.e - f.s, t, fit)),
+      ],
+      frame: { origin: [0, 0, zS], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+
+    // ---- inner arch board (the crown's front)
+    panels.push(normalisePanel({
+      id: 'rib', label: PANEL_LABELS.rib,
+      outline: dedupe([
+        ...edgeRun([t, zS], [L - t, zS], forWalk(bX, t, L - t), t),
+        ...inset.slice().reverse(),
+      ]),
+      holes: [],
+      frame: { origin: [0, yR, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] },
+    }));
+
+    // ---- doors
+    const doorH = zC - gT - zB0;           // the door's straight part, below the notch
+    const nR = Math.max(4, Math.min(9, L * 0.04, doorH * 0.2));
+    const zK = zB0 + doorH * 0.5;          // finger notch, halfway up the free edge
+    const zTop = keelZ(keel, xc);
+    const zN = zS + gT;                    // top of the hinge notch
+    const xN = keel.R - Math.sqrt(Math.max(0, keel.R ** 2 - gT ** 2));
+    const archDown = [
+      [xN, zN],
+      ...keelPath(keel, 0, { to: xc }).filter(([, z]) => z > zN + 1e-6),
+    ].reverse();                            // (xc, zTop) down to (xN, zN)
+    const leftDoor = dedupe([
+      ...edgeRun([0, zB0], [xc, zB0], [{ s: xp - pinH / 2, e: xp + pinH / 2 }], t),
+      ...edgeRun([xc, zB0], [xc, zTop],
+        [{ s: zK - zB0 - nR, e: zK - zB0 + nR }], -nR, { arc: true }),
+      ...archDown,
+      [notchW, zN], [notchW, zC - gT],
+      ...edgeRun([notchW, zC - gT], [0, zC - gT],
+        [{ s: notchW - xp - pinH / 2, e: notchW - xp + pinH / 2 }], t + gT),
+      [0, zC - gT],
+    ]);
+    const doorFrame = { origin: [0, 0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] };
+    panels.push(normalisePanel({
+      id: 'doorLeft', label: PANEL_LABELS.doorLeft, outline: leftDoor, holes: [],
+      hinge: { axis: 'v', u: xp, n: -t / 2, sign: -1 }, frame: doorFrame,
+    }));
+    panels.push(normalisePanel({
+      id: 'doorRight', label: PANEL_LABELS.doorRight, outline: mirror(leftDoor, L), holes: [],
+      hinge: { axis: 'v', u: L - xp, n: -t / 2, sign: 1 }, frame: doorFrame,
+    }));
+
+    // ---- roof strip, developed flat: u along the curve, v across (y - yF)
+    // Its front edge stays behind the doors' tails: just above the hinge notch
+    // the arch-top of a door still reaches round behind its pin as it opens.
+    const yF = ys;
+    const st = archStrip(keel, t);
+    const wS = W - yF;
+    const lh = livingHinge(st.length, wS, st.zones, {
+      pitch: Math.max(1.2, 0.5 * t), slot: 0.5, bridge: Math.max(2.5, t), period: 22,
+    });
+    const notchesOn = (edge, flip) => lh.notches
+      .filter((q) => q.edge === edge)
+      .map((q) => {
+        const s = flip ? st.length - q.s : q.s;
+        return { s: s - q.w / 2, e: s + q.w / 2 };
+      })
+      .sort((a, b) => a.s - b.s);
+    const edgeDepth = lh.notches.length ? lh.notches[0].depth : 0;
+    // The curve the strip's mid-plane follows, for the 3D view to bend it on.
+    const path = [];
+    const breaks = [0, ...st.zones.flat(), st.length].sort((a, b) => a - b);
+    for (let i = 0; i + 1 < breaks.length; i++) {
+      const [a, b] = [breaks[i], breaks[i + 1]];
+      const inBend = st.zones.some(([z0, z1]) => a >= z0 - 1e-9 && b <= z1 + 1e-9);
+      const n = inBend ? Math.max(2, Math.ceil((b - a) / 0.5)) : 1;
+      for (let j = i === 0 ? 0 : 1; j <= n; j++) {
+        const s = a + ((b - a) * j) / n;
+        const q = st.at(s);
+        path.push([s, q.x, q.z, q.nx, q.nz]);
+      }
+    }
+    panels.push(normalisePanel({
+      id: 'roof', label: PANEL_LABELS.roof,
+      outline: dedupe([
+        ...edgeRun([0, 0], [st.length, 0], notchesOn(0, false), -edgeDepth),
+        ...edgeRun([st.length, 0], [st.length, wS], [], 0),
+        ...edgeRun([st.length, wS], [0, wS], notchesOn(1, true), -edgeDepth),
+        ...edgeRun([0, wS], [0, 0], [], 0),
+      ]),
+      holes: lh.holes,
+      noDecor: true,
+      bend: { y0: yF, path },
+      frame: { origin: [0, yF, zS], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+
+    mihrabInfo = {
+      keel, zS, zC, rise, riseWant, mb, ys, yC0, yF, yR, yE, xB, xp, holeR, bossM, notchW, gT,
+      door: { w: xc, h: zTop - zB0, straight: doorH, notchR: nR },
+      roof: { length: st.length, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones },
+      overall: { l: L + 2 * mb, w: W + 2 * mb, h: H },
+      riseClamped: riseWant > rise + 0.01,
+      roundClamped: keel ? keel.R < Rwant - 0.01 : true,
+    };
+  }
+
   // ---- kerf compensation --------------------------------------------------
   const k = Math.max(0, p.kerf) / 2;
   for (const pan of panels) {
@@ -1385,7 +1665,9 @@ export function buildBox(input = {}) {
   const drawerIn = almariInfo?.drawer?.inner ?? null;
   const inner = almari
     ? (drawerIn ? { l: drawerIn.l, w: drawerIn.w, h: drawerIn.h } : null)
-    : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, wallH - floorZ - t) };
+    : mihrab
+      ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, mihrabInfo.zC - t) }
+      : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, wallH - floorZ - t) };
   const askedIn = measuredInside
     ? { l: p.length, w: p.width, h: p.height } : null;
   const near = (a, b) => Math.abs(a - b) <= 0.002;
@@ -1416,7 +1698,9 @@ export function buildBox(input = {}) {
     params: { ...p, measure: 'outside', thickness: t, length: L, width: W, height: H },
     derived: {
       dims,
-      wallH, floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
+      // The mihrab's walls stop at the spring line; above it is the crown.
+      wallH: mihrab ? mihrabInfo.zS : wallH,
+      floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       lid: lidInfo,
       vFeats, xFeats, yFeats,
       divCount: divOK ? divCount : 0, divBase, divH, divFeats,
@@ -1438,6 +1722,7 @@ export function buildBox(input = {}) {
       screwShort: wantScrew && screwRoom
         && screwZs.length < Math.max(1, Math.min(4, Math.round(p.screwsPerEdge ?? 2))),
       almari: almariInfo,
+      mihrab: mihrabInfo,
     },
     panels,
   };

@@ -156,7 +156,16 @@ export class View3D {
     // would otherwise keep an intrinsic size of w*dpr CSS pixels and overflow the
     // pane, which also throws the projected dimension overlay out of register.
     this.renderer.setSize(w, h);
-    this.camera.aspect = w / h;
+    // On a phone the stage is ~250 px tall and the buttons along its top and
+    // the camera strip along its bottom cover a third of it, so a tall box
+    // ends up behind them. There, frame into the band between the two: the
+    // camera's full frame is that band, and the drawn window reaches past it.
+    const short = h < 560;
+    const top = short ? Math.round(Math.min(56, h * 0.16)) : 0;
+    const bottom = short ? Math.round(Math.min(92, h * 0.26)) : 0;
+    this.camera.aspect = w / (h - top - bottom);
+    if (top || bottom) this.camera.setViewOffset(w, h - top - bottom, 0, -top, w, h);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
 
@@ -164,9 +173,11 @@ export class View3D {
     this.raf = requestAnimationFrame(this.animate);
     this.controls.update();
     this.updateDims();
-    for (const { pivot, sign } of this.lidGroups || []) {
-      const target = this.lidOpen ? sign * 105 * DEG : 0;
-      pivot.rotation.x += (target - pivot.rotation.x) * 0.18;
+    // Lids turn about their own x (the hinge runs along the panel); the
+    // mihrab's doors turn about their own y, a vertical pin line.
+    for (const { pivot, sign, axis = 'x', angle = 105 } of this.lidGroups || []) {
+      const target = this.lidOpen ? sign * angle * DEG : 0;
+      pivot.rotation[axis] += (target - pivot.rotation[axis]) * 0.18;
     }
     // A lift-off lid has nothing to swing on, so opening the box raises it
     // straight up instead - the motion you would actually make.
@@ -290,6 +301,12 @@ export class View3D {
     const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(opts.burn || '#3a2a1c') });
 
     for (const panel of box.panels) {
+      // A kerf-bent strip is drawn bent. It is never a face to decorate, so it
+      // is not pickable either.
+      if (panel.bend) {
+        this.root.add(this.bentPanel(panel, t, [faceMat, sideMat], lineMat));
+        continue;
+      }
       const group = new THREE.Group();
       group.applyMatrix4(View3D.panelMatrix(panel));
 
@@ -338,6 +355,26 @@ export class View3D {
         plane.position.set(o.x + o.w / 2, o.y + o.h / 2, lift);
         if (o.rot) plane.rotation.z = -o.rot * DEG;
         group.add(plane);
+      }
+
+      if (panel.hinge && panel.hinge.axis === 'v') {
+        // A door: the pin line runs along the panel's v (world z), through the
+        // middle of the board, at u = hinge.u.
+        const px = panel.hinge.u - panel.originShift[0];
+        const pz = panel.hinge.n ?? 0;
+        const inner = new THREE.Group();
+        inner.position.set(-px, 0, -pz);
+        inner.add(...group.children);
+        const pivot = new THREE.Group();
+        pivot.position.set(px, 0, pz);
+        pivot.add(inner);
+        const outer = new THREE.Group();
+        outer.applyMatrix4(View3D.panelMatrix(panel));
+        outer.add(pivot);
+        this.lidGroups.push({ pivot, sign: panel.hinge.sign, axis: 'y', angle: 100 });
+        this.root.add(outer);
+        this.meshes.push(mesh);
+        continue;
       }
 
       if (panel.hinge) {
@@ -392,9 +429,55 @@ export class View3D {
     this.root.position.set(-L / 2, -W / 2, 0);
     this.ground.position.z = -0.05;
     this.boxHeight = box.params.height;
+    this.boxL = L;
+    this.boxW = W;
     this.controls.target.set(0, 0, box.params.height / 2);
     this.boxSize = Math.max(L, W, box.params.height);
-    if (!this._framed) { this.frame(); this._framed = true; }
+    // Reframe on the first build, and when the style or the scale changes a
+    // lot (a mihrab is three times the default tray) - but not on every
+    // slider step, which would yank the camera about while dragging.
+    const frameKey = `${box.params.style}|${Math.round(Math.log(this.boxSize) * 3)}`;
+    if (!this._framed || frameKey !== this._frameKey) { this.frame(); this._framed = true; }
+    this._frameKey = frameKey;
+  }
+
+  /**
+   * A flat panel bent along `panel.bend.path`: rows of [s, x, z, nx, nz], the
+   * board's mid-plane in box X/Z with its outward normal, by arc length s.
+   * The flat shape is extruded exactly as every other panel, then each vertex
+   * is moved onto the curve - the kerf slots are dense wherever it bends, so
+   * the triangulation never spans a curved stretch with one flat triangle.
+   */
+  bentPanel(panel, t, mats, lineMat) {
+    const { path, y0 } = panel.bend;
+    const shapes = ringsToShapes([panel.outline, ...panel.holes]);
+    const geom = new THREE.ExtrudeGeometry(shapes, { depth: t, bevelEnabled: false, curveSegments: 1 });
+    geom.translate(0, 0, -t);
+    const pos = geom.attributes.position;
+    const [su, sv] = panel.originShift;
+    let j = 0;
+    const sample = (s) => {
+      while (j > 0 && path[j][0] > s) j--;
+      while (j < path.length - 2 && path[j + 1][0] < s) j++;
+      const a = path[j];
+      const b = path[Math.min(j + 1, path.length - 1)];
+      const f = b[0] > a[0] ? Math.min(1, Math.max(0, (s - a[0]) / (b[0] - a[0]))) : 0;
+      const L = (k) => a[k] + (b[k] - a[k]) * f;
+      return [L(1), L(2), L(3), L(4)];
+    };
+    for (let i = 0; i < pos.count; i++) {
+      const s = pos.getX(i) + su;
+      const v = pos.getY(i) + sv;
+      const d = pos.getZ(i) + t / 2;          // 0 at the mid-plane, +t/2 outside
+      const [x, z, nx, nz] = sample(s);
+      pos.setXYZ(i, x + nx * d, y0 + v, z + nz * d);
+    }
+    geom.computeVertexNormals();
+    const mesh = new THREE.Mesh(geom, mats);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    void lineMat;
+    return mesh;
   }
 
   /**
@@ -514,8 +597,23 @@ export class View3D {
     }
   }
 
+  /**
+   * How far back the camera has to sit, along a direction of length `k`, for
+   * the whole box to fit the stage. The fixed 2.5 x the largest side was set on
+   * a desktop stage; on a phone the stage is short, and a tall box (a mihrab is
+   * 260 mm high) had its top and its base cut off. So: never nearer than that,
+   * but further back when the box's bounding sphere would not fit.
+   */
+  fitDistance(base, k = 1) {
+    const r = 0.5 * Math.hypot(this.boxL || 150, this.boxW || 150, this.boxHeight || 150);
+    const vh = this.camera.fov * Math.PI / 360;
+    const hh = Math.atan(Math.tan(vh) * this.camera.aspect);
+    const need = (r / Math.sin(Math.min(vh, hh))) * 1.08;
+    return Math.max(base, need / k);
+  }
+
   frame() {
-    const d = (this.boxSize || 150) * 2.5;
+    const d = this.fitDistance((this.boxSize || 150) * 2.5, Math.hypot(0.6, 0.75, 0.55));
     this.camera.position.set(d * 0.6, -d * 0.75, d * 0.55);
     this.controls.update();
   }
@@ -523,7 +621,7 @@ export class View3D {
   setLidOpen(v) { this.lidOpen = v; }
 
   setView(name) {
-    const d = (this.boxSize || 150) * 2.6;
+    const d = this.fitDistance((this.boxSize || 150) * 2.6);
     const h = (this.boxSize || 150) * 0.4;
     const map = {
       persp: [d * 0.6, -d * 0.75, d * 0.55],

@@ -85,6 +85,7 @@ const ctx = {
 function lidBtnLabel() {
   const almari = state.params.style === 'almari';
   if (almari) return state.lidOpen ? 'Push them back in' : 'Pull the drawers out';
+  if (state.params.style === 'mihrab') return state.lidOpen ? 'Close the doors' : 'Open the doors';
   return state.lidOpen ? 'Close the box' : 'Open the box';
 }
 
@@ -413,7 +414,10 @@ function boxNote(files) {
   // dialog - change one and the SVG dialog and the WhatsApp message disagree
   // about the same box.
   const a = box.derived.almari;
-  const size = box.derived.lid
+  const mi = box.derived.mihrab;
+  const size = mi
+    ? `${rnd(mi.overall.l, 1)} x ${rnd(mi.overall.w, 1)} x ${p.height} mm on its base`
+    : box.derived.lid
     ? `${rnd(box.derived.lid.outerL, 1)} x ${rnd(box.derived.lid.outerW, 1)} `
       + `x ${p.height} mm overall`
     : a && a.outerW > p.width

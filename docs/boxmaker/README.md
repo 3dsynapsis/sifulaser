@@ -91,3 +91,38 @@ dalam setiap laci.
   berlabel "inside".
 
 Ujian: `npm test` dalam projek asal (bahagian "inside dimensions").
+
+### Gaya Mihrab (kotak gerbang lunas, pintu berkembar)
+
+**Dibuat terus di sini pada 16 Oktober 2026 dan BELUM dipindahkan ke projek
+asal.** Pindahkan dahulu sebelum menjalankan "Cara kemas kini", atau gaya ini
+hilang senyap.
+
+Bentuk depan ialah gerbang lunas (keel arch, "bentuk mihrab"): dua sisi tegak,
+bahu melengkung, larian lurus ke puncak yang dibulatkan sedikit. Pintu berkembar
+bergerbang di depan, berpusing keluar pada pin kayu segi empat - pin bawah ke
+dalam papan tapak, pin atas ke dalam bucu siling. Di atas siling, mahkota
+berongga: gerbang dalam, gerbang belakang, dan bumbung sekeping papan 3 mm yang
+dipotong living hinge (kerf) supaya boleh dibengkokkan.
+
+- `src/geom/arch.js` — **baharu**, modul tulen. `solveKeel` (tangen sepunya
+  bulatan bahu dan bulatan puncak), `keelPath` (garisan offset), `keelZ`,
+  `strip` (panjang jalur bumbung pada garis tengah papan, zon lentur, titik dan
+  normal), `livingHinge` (baris potongan berselang dengan jambatan).
+- `src/geom/box.js` — `style: 'mihrab'`; panel `plinth`, `ceiling`, `doorLeft`,
+  `doorRight`, `rib`, `roof` (+ `back`, `left`, `right`). Pintu membawa
+  `hinge: { axis: 'v', u, n, sign }`; bumbung membawa `bend: { y0, path }` dan
+  `noDecor`. Gaya lain tidak berubah (dibandingkan output 30 kes).
+- `src/view3d.js` — pintu berpusing pada paksi tegak; bumbung dilukis bengkok
+  (`bentPanel`); kamera dibingkai semula bila gaya/skala berubah, berundur bila
+  kotak tidak muat pentas, dan di telefon membingkai di antara butang atas dan
+  jalur kamera bawah.
+- `src/ui.js` — kad "Mihrab", `mihrabRows` (tinggi gerbang, bulat bahu, tepi
+  tapak, butang saiz biasa), preset corak memotong pintu ("Doors" / "Doors +
+  walls"), jalur 2D tanpa bumbung, langkah pasang, Joints tanpa skru.
+- `src/main.js` — label butang "Open the doors", nota export.
+
+Ujian: `node scripts/test-boxmaker-mihrab.mjs` (dari akar repo) — memasang
+semua panel dalam grid voksel 0.5 mm (0.1 mm di sekitar engsel), memastikan
+tiada panel bertindih, setiap lubang terisi, dan setiap pintu berpusing 0-100°
+tanpa melanggar.
