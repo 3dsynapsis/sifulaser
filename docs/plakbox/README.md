@@ -9,10 +9,19 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
 
 ## Dua bahagian
 
-1. **Tapak - cetak 3D, output STL.** (Siap.) Satu jasad pepejal; infill
-   ditetapkan dalam Bambu Studio, bukan di sini. Ada alur keliling untuk
-   dinding akrilik, poket cetek untuk tapak plak, dan tepi bertingkat pilihan.
-   Dahulu tapak ini dibuat daripada MDF yang dipotong laser berlapis-lapis.
+1. **Tapak - cetak 3D, output STL.** (Siap.) Pepejal; infill ditetapkan dalam
+   Bambu Studio, bukan di sini. Ada alur keliling untuk dinding akrilik dan
+   poket cetek untuk tapak plak. Dahulu tapak ini dibuat daripada MDF yang
+   dipotong laser berlapis-lapis. Lima jenis, semuanya boleh dicetak TANPA
+   SUPPORT (diuji: tiada segitiga menghadap ke bawah lebih landai dari 45°):
+
+   | Jenis | Rupa | Kenapa boleh dicetak tanpa support |
+   |---|---|---|
+   | Standard | Blok, tingkat kecil di tepi atas | Mengecil ke atas |
+   | Terapung | Papan + kaki tersorok (garis bayang, rupa "melayang") | Bawah papan diserong 45°; atau dua bahagian (papan + kaki) dilekat |
+   | Serong | Sisi condong, lebar di bawah; semua sisi atau depan sahaja | Mengecil ke atas |
+   | Klasik | Lengkung S (ogee Rom) di tepi atas, macam tapak trofi kayu | Kedua-dua lengkung berundur ke atas |
+   | Dua Tingkat | Tingkat bawah lebar (ruang plat nama), tingkat atas kecil | Mengecil ke atas |
 2. **Kotak akrilik jernih - potong laser, output SVG.** (Bahagian 2, belum.)
    Lima keping tanpa tanggam, dicantum hujung ke hujung dan sambungannya
    ditutup selotip (tiada chloroform). Saiz setiap keping sudah dikira dan
@@ -27,8 +36,14 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 ## Fail
 
 - `src/geom/base.js` - geometri tulen (tiada DOM): `buildPlakBox()`,
-  `heightfieldMesh()`, `trianglesToStl()`. Tapak ialah medan tinggi atas grid
-  segi empat tak seragam, jadi mesh tertutup tepat tanpa CSG.
+  `profileOf()`, `buildBody()`, `trianglesToStl()`. Jasad = permukaan atas
+  (medan tinggi atas grid segi empat tak seragam: alur, poket) + kulit sisi
+  (satu cincin bagi setiap titik PROFIL tepi, dengan titik bahagi yang sama
+  dengan grid atas) + muka bawah (grid yang sama). Jenis tapak hanya profil
+  yang berbeza. Mesh tertutup tepat tanpa CSG.
+- `bibir` (rim) diukur dari tepi PERMUKAAN ATAS; profil boleh terkeluar di luar
+  itu (Standard, Serong, Klasik, Dua Tingkat) atau masuk ke dalam (kaki
+  Terapung).
 - `src/view3d.js` - pratonton three.js: tapak (segitiga yang sama dengan STL),
   akrilik lutsinar dengan selotip, plak sebagai kotak sempadan.
 - `src/main.js` - panel tetapan, ringkasan, export, cara pasang.
