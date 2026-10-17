@@ -1,7 +1,18 @@
-// Gambar tile untuk tiga alat 3D di halaman utama: Box Maker, Stand Nama, Tag.
-// Guna Chrome sedia ada melalui DevTools Protocol - tiada pakej baru.
+// Gambar tile untuk lima alat 3D di halaman utama: Box Maker, Stand Nama, Tag,
+// Rehal, Cake Topper. Guna Chrome sedia ada melalui DevTools Protocol - tiada
+// pakej baru.
 //
 //   node scripts/tile-shots.mjs <folder-output> [nama ...]
+//
+// Rehal dan Cake Topper ditembak daripada salinan VENDORED dalam docs/ (yang
+// sama sifulaser.com hidangkan), bukan pelayan dev alat itu:
+//
+//   cd docs && python3 -m http.server 8765      # di terminal lain
+//   node scripts/tile-shots.mjs docs/images/tools rehal topper
+//
+// TILE_BASE=http://127.0.0.1:8765 menembak KESEMUANYA dari docs/. Di luar
+// Windows (contohnya container Claude Code), TILE_CHROME menunjuk ke Chrome atau
+// Chromium yang ada, dan WebGL berjalan atas SwiftShader.
 //
 // Beza dengan scripts/blog-screenshots.mjs, dan sebabnya:
 //
@@ -17,11 +28,20 @@
 
 import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+const WIN = process.platform === 'win32'
+const CHROME = process.env.TILE_CHROME
+  || (WIN ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/opt/pw-browsers/chromium')
 const PORT = 9334
-const PROFILE = 'C:\\Users\\badru\\AppData\\Local\\Temp\\claude-tile-profile'
+const PROFILE = WIN
+  ? 'C:\\Users\\badru\\AppData\\Local\\Temp\\claude-tile-profile'
+  : join(tmpdir(), 'claude-tile-profile')
+// Salinan docs/ yang dihidangkan secara tempatan. Rehal dan Topper sentiasa dari
+// sini; tiga yang lain hanya bila TILE_BASE ditetapkan.
+const DOCS = (process.env.TILE_BASE || 'http://127.0.0.1:8765').replace(/\/$/, '')
 
 // Lebar gambar akhir. Well sebuah tile ialah 128 px, jadi 384 memberi 3x - cukup
 // tajam untuk skrin retina, dan jauh lebih ringan daripada 512 yang dicuba
@@ -76,6 +96,16 @@ const click = (label) => `(() => {
   if (!hit) return 'tak jumpa: ' + want;
   hit.click();
   return 'klik: ' + (hit.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 40);
+})()`
+
+/** Pilih satu nilai pada <select> yang memegangnya, walaupun kumpulannya tertutup. */
+const choose = (value) => `(() => {
+  const want = ${JSON.stringify(value)};
+  const sel = [...document.querySelectorAll('select')].find((e) => [...e.options].some((o) => o.value === want));
+  if (!sel) return 'tak jumpa pilihan: ' + want;
+  sel.value = want;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  return 'pilih: ' + want;
 })()`
 
 /** Segi empat 3:2 terbesar yang muat di tengah #stage3d, dalam piksel CSS. */
@@ -152,6 +182,7 @@ const TOWEBP = (dataUrl, q) => `(async () => {
 const SHOTS = [
   {
     name: 'boxmaker',
+    dir: 'boxmaker',
     url: 'http://localhost:5178',
     key: 'box-maker.project.v1',
     // BUKAN gaya 'open' yang lalai. Dulang terbuka pada 116 px hanyalah segi
@@ -161,6 +192,7 @@ const SHOTS = [
   },
   {
     name: 'stand',
+    dir: 'stand',
     url: 'http://localhost:5181',
     key: 'stand-maker.project.v1',
     // Lalai: silhouette, FAZRIN / ABD RAHMAN, blue-highway, 165 x 55 mm.
@@ -168,10 +200,26 @@ const SHOTS = [
   },
   {
     name: 'tag',
+    dir: 'tag',
     url: 'http://localhost:5185',
     key: 'tag-maker.project.v1',
     // Lalai: bentuk tag, 50 x 90 mm, slot stadium. Muka hadapan.
     setup: [],
+  },
+  {
+    name: 'rehal',
+    dir: 'rehal',
+    // Lalai: 330 x 190 mm, corak Khatam Tenang, nama di panel belakang. Quran
+    // lutsinar disembunyikan: pada 128 px ia hanya kabus di atas corak, dan
+    // coraklah yang menjadikan rehal ini boleh dikenali.
+    setup: [click('Tunjuk Quran')],
+  },
+  {
+    name: 'topper',
+    dir: 'topper',
+    // Lalai: Happy Birthday Aisyah, Falcata. Mirror gold, kerana itulah topper
+    // yang paling kerap dijual - dan emas terbaca pada tile, kayu pucat tidak.
+    setup: [choose('mirror-gold')],
   },
 ]
 
@@ -232,12 +280,17 @@ const main = async () => {
     '--no-first-run',
     '--disable-features=Translate',
     '--use-gl=angle',
+    // Tiada GPU di container: WebGL atas SwiftShader. root pula perlu tanpa sandbox.
+    ...(WIN ? [] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
+    ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []),
     'about:blank',
   ], { stdio: 'ignore' })
 
   const browser = await Cdp.open(await chromeReady())
 
-  for (const shot of shots) {
+  for (const s0 of shots) {
+    const url = process.env.TILE_BASE || !s0.url ? `${DOCS}/${s0.dir}/` : s0.url
+    const shot = { ...s0, url }
     const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' })
     const { sessionId } = await browser.send('Target.attachToTarget', { targetId, flatten: true })
     await browser.send('Page.enable', {}, sessionId)
@@ -250,7 +303,7 @@ const main = async () => {
     // terakhir sesiapa pun yang membuka alat itu, bukan tetapannya yang lalai -
     // dan itu berlaku betul-betul semasa skrip ini ditulis.
     await browser.send('Storage.clearDataForOrigin', {
-      origin: shot.url, storageTypes: 'local_storage,indexeddb,cache_storage,websql',
+      origin: new URL(shot.url).origin, storageTypes: 'local_storage,indexeddb,cache_storage,websql',
     }, sessionId)
 
     await browser.send('Page.navigate', { url: shot.url }, sessionId)

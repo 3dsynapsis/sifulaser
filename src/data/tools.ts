@@ -177,7 +177,7 @@ export const TOOLS: ToolEntry[] = [
     variant: 'art',
     // SVG dijana oleh `node scripts/thumb-tray.mjs` daripada buildTray() sebenar
     // dalam docs/tray/src: pandangan atas dulang dengan petak tak seragam.
-    // Tidak boleh jadi basi seperti tiga foto 3D.
+    // Tidak boleh jadi basi seperti foto 3D.
     art: '/images/tools/tray.svg',
     keywords: [
       'dulang',
@@ -213,9 +213,10 @@ export const TOOLS: ToolEntry[] = [
     href: '#/rehal',
     group: 'idea',
     variant: 'art',
-    // SVG dijana oleh `node tools/thumb.mjs` alat itu sendiri daripada geometri
-    // sebenar, jadi ia tidak boleh jadi basi seperti tiga foto 3D di atas.
-    art: '/images/tools/rehal.svg',
+    // FOTO 3D, 17 Oktober 2026, dari salinan docs/rehal - sama amaran seperti
+    // Box Maker di atas. Ambil semula dengan
+    // `node scripts/tile-shots.mjs docs/images/tools rehal`.
+    art: '/images/tools/rehal.webp',
     keywords: [
       'quran',
       'al-quran',
@@ -238,7 +239,8 @@ export const TOOLS: ToolEntry[] = [
     href: '#/topper',
     group: 'idea',
     variant: 'art',
-    art: '/images/tools/topper.svg',
+    // FOTO 3D, 17 Oktober 2026, Mirror gold - sama amaran seperti Box Maker.
+    art: '/images/tools/topper.webp',
     keywords: ['kek', 'cake', 'birthday', 'akrilik', 'pancang', 'harijadi', 'stl', 'cetak 3d', '3d print'],
     Icon: CakeSlice,
   },

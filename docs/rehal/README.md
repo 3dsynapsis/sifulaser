@@ -55,7 +55,11 @@ dibuang.
 
 ## Gambar tile
 
-`docs/images/tools/rehal.svg` dijana oleh `25_Rehal Generator/tools/thumb.mjs`
-daripada geometri sebenar, jadi ia tidak boleh jadi basi. Jana semula dengan:
+Sejak 17 Oktober 2026 tile ini ialah FOTO 3D, `docs/images/tools/rehal.webp`,
+diambil daripada salinan dalam `docs/rehal` oleh `scripts/tile-shots.mjs` -
+bos mahu ia nampak seperti Box Maker dan Stand Nama, bukan lukisan rata.
+`rehal.svg` yang dijana oleh `25_Rehal Generator/tools/thumb.mjs` tidak lagi
+dipakai. Foto boleh jadi basi; ambil semula selepas apa-apa perubahan rupa:
 
-    node tools/thumb.mjs "<...>/7_SifuLaser/docs/images/tools/rehal.svg"
+    cd docs && python3 -m http.server 8765      # terminal lain
+    node scripts/tile-shots.mjs docs/images/tools rehal
