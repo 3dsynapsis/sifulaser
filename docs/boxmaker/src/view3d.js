@@ -423,20 +423,30 @@ export class View3D {
 
     this.setupDims(box);
 
-    // Centre the box on the origin and drop it onto the ground plane.
+    // Centre the box on the origin and drop it onto the ground plane. A mihrab
+    // lying on its back turns so its back face (y = W) is the floor and the arch
+    // points at the camera: box (x, y, z) -> (L - x, H - z, W - y), centred.
     const L = box.params.length;
     const W = box.params.width;
-    this.root.position.set(-L / 2, -W / 2, 0);
+    const H = box.params.height;
+    const lie = !!box.derived.mihrab?.lying;
+    if (lie) {
+      this.root.rotation.set(-Math.PI / 2, 0, Math.PI, 'ZYX');
+      this.root.position.set(L / 2, H / 2, W);
+    } else {
+      this.root.rotation.set(0, 0, 0, 'XYZ');
+      this.root.position.set(-L / 2, -W / 2, 0);
+    }
     this.ground.position.z = -0.05;
-    this.boxHeight = box.params.height;
+    this.boxHeight = lie ? W : H;
     this.boxL = L;
-    this.boxW = W;
-    this.controls.target.set(0, 0, box.params.height / 2);
-    this.boxSize = Math.max(L, W, box.params.height);
+    this.boxW = lie ? H : W;
+    this.controls.target.set(0, 0, this.boxHeight / 2);
+    this.boxSize = Math.max(L, W, H);
     // Reframe on the first build, and when the style or the scale changes a
     // lot (a mihrab is three times the default tray) - but not on every
     // slider step, which would yank the camera about while dragging.
-    const frameKey = `${box.params.style}|${Math.round(Math.log(this.boxSize) * 3)}`;
+    const frameKey = `${box.params.style}|${lie}|${Math.round(Math.log(this.boxSize) * 3)}`;
     if (!this._framed || frameKey !== this._frameKey) { this.frame(); this._framed = true; }
     this._frameKey = frameKey;
   }
@@ -490,8 +500,11 @@ export class View3D {
    */
   setupDims(box) {
     const { length: L, width: W, height: H } = box.params;
-    const P = (x, y, z) => [x - L / 2, y - W / 2, z];
-    const unit = (v) => {
+    // In the box's own axes, then turned the way build() turns the model.
+    const lie = !!box.derived.mihrab?.lying;
+    const P = lie ? (x, y, z) => [L / 2 - x, H / 2 - z, W - y] : (x, y, z) => [x - L / 2, y - W / 2, z];
+    const unit = (v0) => {
+      const v = lie ? [-v0[0], -v0[2], -v0[1]] : v0;
       const m = Math.hypot(v[0], v[1], v[2]) || 1;
       return [v[0] / m, v[1] / m, v[2] / m];
     };

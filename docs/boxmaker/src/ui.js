@@ -931,6 +931,28 @@ function mihrabRows(p, ctx) {
   return [
     mihrabResized ? h('p', { class: 'note' },
       'Size changed to 200 × 120 × 260 mm: the box was too low for an arch.') : null,
+    h('div', { class: 'field' },
+      h('label', {}, 'Position'),
+      segmented([
+        { id: false, label: 'Standing', hint: 'Upright on its base, the doors at the front.' },
+        { id: true, label: 'Lying', hint: 'On its back, the doors on top - opened like a lid.' },
+      ], p.mihrabLie === true, (v) => { setParam('mihrabLie', v); clampDecor(); ctx.refresh(); })),
+    d.lying ? h('p', { class: 'hint' },
+      `Lying on its back, base plate included, it is ${rnd(d.overall.l, 1)} wide, `
+      + `${rnd(d.overall.w, 1)} long and ${rnd(d.overall.h, 1)} mm high. The base plate `
+      + 'stops flush with the back, so the back, the walls and the roof all lie flat '
+      + 'on the table.') : null,
+    h('div', { class: 'field' },
+      h('label', {}, 'Arch carving'),
+      segmented([
+        { id: false, label: 'Plain', hint: 'The inner arch above the doors is left plain.' },
+        { id: true, label: 'Carved layer', hint: 'A second arch board with a pattern cut through it, glued on the inner arch.' },
+      ], p.mihrabCarve === true, (v) => { setCarve(v, ctx); })),
+    d.carve ? h('p', { class: 'hint' },
+      'An extra arch board sits on the inner arch, a few mm in from its edge. The '
+      + 'pattern is cut through it and the plain arch behind shows through, so it '
+      + 'reads as carving when the doors open. Change the pattern under Pattern, or '
+      + 'in 2D Design on Arch carving.') : null,
     numberRow('Arch height (% of length)', p.archRise ?? 50, {
       min: 25, max: 90, step: 1,
       onInput: (v) => { setParam('archRise', Math.round(v)); clampDecor(); ctx.refresh(); },
@@ -971,6 +993,32 @@ function mihrabRows(p, ctx) {
       + 'the inner arch and the back, and glue it down - plywood or falcata, not MDF '
       + 'or acrylic, which crack instead of bending.'),
   ];
+}
+
+/**
+ * Turn the carving layer on or off. On, it gets the pattern the doors have -
+ * a plain board would be nothing to look at - or Star 12 when they have none.
+ */
+function setCarve(on, ctx) {
+  const before = getBox();
+  const want = activePreset(before);
+  let keep = null;
+  for (const p of before.panels) {
+    const o = decorFor(p).find((x) => x.preset);
+    if (o) { keep = { motif: o.motif, strut: o.strut, angle: o.angle }; break; }
+  }
+  setParam('mihrabCarve', on);
+  const panel = on && getBox().panels.find((q) => q.id === 'ribFace');
+  if (panel && !decorFor(panel).some((x) => x.type === 'pattern')) {
+    update((s) => {
+      const o = makeObject('pattern', panel, {
+        pattern: want === 'none' ? 'bintang12' : want, preset: true, ...(keep || {}),
+      });
+      if (o.fit) (s.decor.ribFace ||= []).push(o);
+    }, { history: false });
+  }
+  clampDecor();
+  ctx.refresh();
 }
 
 /** The cabinet everybody actually pictures when they say almari laci. */
@@ -1198,7 +1246,12 @@ function dimensionRows(p, ctx) {
       ], dims.measure, (id) => { setMeasure(id); clampDecor(); ctx.refresh(); })),
     ...(p.style === 'round'
       ? [dimRow('Diameter', 'length', ctx), dimRow('Height', 'height', ctx)]
-      : [dimRow('Length', 'length', ctx), dimRow('Width', 'width', ctx), dimRow('Height', 'height', ctx)]),
+      // A mihrab on its back: the arch's height is now its length along the
+      // table, and its depth is how high it stands. Same numbers, new names.
+      : p.style === 'mihrab' && p.mihrabLie === true
+        ? [dimRow('Width', 'length', ctx), dimRow('Length, base to arch tip', 'height', ctx),
+          dimRow('Height lying down', 'width', ctx)]
+        : [dimRow('Length', 'length', ctx), dimRow('Width', 'width', ctx), dimRow('Height', 'height', ctx)]),
     h('div', { class: 'stat dims-other' },
       h('span', {}, inside
         ? (drawer ? 'Cabinet outside' : 'Outside')
@@ -1605,7 +1658,8 @@ let presetFaces = 'walls';
 
 // The mihrab's doors are its face - the jali in a mosque window is in the
 // doors, not the walls - so there the choice is doors, or doors and walls.
-const DOOR_IDS = ['doorLeft', 'doorRight'];
+// The carving layer above the doors, when there is one, goes with them.
+const DOOR_IDS = ['doorLeft', 'doorRight', 'ribFace'];
 const MIHRAB_WALLS = ['back', 'left', 'right'];
 
 const presetTargets = (box, faces) => {
@@ -1630,6 +1684,12 @@ function activePreset(box) {
 
 function applyPreset(id, faces, ctx) {
   const box = getBox();
+  // Switching which faces it is cut on keeps the size that was set for it.
+  let keepSize = null;
+  for (const p of box.panels) {
+    const o = decorFor(p).find((x) => x.preset && x.pattern === id);
+    if (o) { keepSize = { motif: o.motif, strut: o.strut, angle: o.angle }; break; }
+  }
   update((s) => {
     for (const p of box.panels) {
       const list = s.decor[p.id];
@@ -1642,8 +1702,8 @@ function applyPreset(id, faces, ctx) {
     }
     if (id === 'none') return;
     for (const p of presetTargets(box, faces)) {
-      const o = makeObject('pattern', p, { pattern: id, preset: true });
-      if (o.fit) s.decor[p.id].push(o); // no room for a pattern on this face
+      const o = makeObject('pattern', p, { pattern: id, preset: true, ...(keepSize || {}) });
+      if (o.fit) (s.decor[p.id] ||= []).push(o); // no room for a pattern on this face
     }
   });
   ctx.refresh();
@@ -1675,6 +1735,7 @@ function patternPresets(mat, ctx) {
           if (active !== 'none') applyPreset(active, f, ctx);
           else ctx.refresh();
         })) : null,
+    active !== 'none' ? presetSizeRows(box, ctx) : null,
     h('p', { class: 'hint' }, round
       ? 'Tap a pattern to cut it through the lid. The wall is a living hinge, and a '
         + 'pattern through it would break the bend.'
@@ -1683,8 +1744,41 @@ function patternPresets(mat, ctx) {
         ? 'Tap a pattern to cut it through both doors, the way a mosque window is. It follows the arch and keeps clear of the hinge pins by itself.'
         : 'Tap a pattern to cut it through the walls. It keeps clear of the joints and slots by itself.')
       : (mihrab && presetFaces === 'walls' ? 'Cut through both doors' : 'Cut through every wall')
-        + ', clear of the joints. To change the size or angle, or to leave room '
-        + 'for a logo, open 2D Design and click the pattern.'));
+        + ', clear of the joints. Size and bar width here change every face at once. '
+        + 'For one face alone, the angle, or room for a logo, open 2D Design and '
+        + 'tap the pattern.'));
+}
+
+/**
+ * Size and bar width for every preset pattern at once. The same two sliders
+ * live on each pattern in 2D Design, one face at a time; here they move the
+ * whole set, so the stars on both doors and every wall stay the same size.
+ */
+function presetSizeRows(box, ctx) {
+  const objs = [];
+  for (const p of box.panels) for (const o of decorFor(p)) if (o.preset) objs.push(o);
+  if (!objs.length) return null;
+  const first = objs[0];
+  const strut = first.strut;
+  const motif = Math.round(first.motif || 30);
+  const t = box.params.thickness;
+  const setAll = (patch) => {
+    update((s) => {
+      for (const p of box.panels) for (const o of s.decor[p.id] || []) if (o.preset) Object.assign(o, patch);
+    });
+    ctx.refresh();
+  };
+  return h('div', {},
+    numberRow('Pattern size (mm)', motif, {
+      min: Math.max(10, Math.ceil(strut * 6)), max: 150, step: 1,
+      onInput: (v) => setAll({ motif: Math.round(v) }),
+    }),
+    numberRow('Bar width (mm)', strut, {
+      min: 1, max: 8, step: 0.1,
+      onInput: (v) => setAll({ strut: Math.round(v * 10) / 10 }),
+    }),
+    strut < t ? h('p', { class: 'warn' },
+      `Bars thinner than the ${t} mm board can warp or snap when handled.`) : null);
 }
 
 const thumbCache = new Map();
@@ -1906,6 +2000,23 @@ const STEPS = [
       + 'strip slowly over it and the back, kerf cuts on the inside of the bend, '
       + 'and glue it along both arches and onto the tops of the walls.',
     only: ['mihrab'],
+  },
+  {
+    t: 'The carving layer',
+    d: 'Glue the Arch carving onto the front face of the inner arch, ideally before '
+      + 'you stand it in: straight edges level, so both sit on the ceiling, and the '
+      + 'same margin all round the curve. Weigh it down flat until dry - the bars '
+      + 'are fragile until they are glued.',
+    only: ['mihrab'],
+    when: (p) => p.mihrabCarve === true,
+  },
+  {
+    t: 'Lying down',
+    d: "Built the same way, except the base plate stops flush with the back: the "
+      + "back's tabs sit in open notches in its edge rather than slots - glue them. "
+      + 'Lay it on its back and the doors open upwards, like a lid.',
+    only: ['mihrab'],
+    when: (p) => p.mihrabLie === true,
   },
   {
     t: 'Lay them out',

@@ -90,6 +90,8 @@ export const DEFAULTS = {
   archRise: 50,      // arch height above the spring line, % of the length
   archRound: 55,     // shoulder radius, % of half the length - how round
   plinthMargin: 8,   // how far the base plate stands out round the box, mm
+  mihrabCarve: false, // a second arch board glued on the inner arch, to carve
+  mihrabLie: false,   // lying on its back, doors up: the base is flush behind
 
   // ---- Round (cylinder) -------------------------------------------------
   // Length is the diameter; width follows it. plinthMargin and lidSlack are
@@ -117,7 +119,7 @@ export const PANEL_ORDER = [
   // Mihrab. 'back', 'left' and 'right' are reused; the roof strip has a decor
   // list only so a stray write cannot throw - the UI never offers it, because
   // anything cut through a living hinge breaks it.
-  'plinth', 'ceiling', 'doorLeft', 'doorRight', 'rib', 'roof',
+  'plinth', 'ceiling', 'doorLeft', 'doorRight', 'rib', 'roof', 'ribFace',
   // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
   // for decoration, for the same reason as the mihrab's roof.
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
@@ -144,7 +146,7 @@ export const PANEL_LABELS = {
   d4Right: 'D4 right', d4Base: 'D4 base',
   up1: 'Upright 1', up2: 'Upright 2',
   plinth: 'Base', ceiling: 'Ceiling', doorLeft: 'Door left', doorRight: 'Door right',
-  rib: 'Arch inner', roof: 'Roof (flex)',
+  rib: 'Arch inner', roof: 'Roof (flex)', ribFace: 'Arch carving',
   floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
@@ -1499,12 +1501,22 @@ export function buildBox(input = {}) {
       yE + 0.5, W - t - 0.5);
     const o = { slits };
 
-    // ---- base plate
+    // ---- base plate. Lying on its back the box rests on the back panel, so
+    // the plate stops flush with it there and the back's tenons drop into open
+    // notches in its edge instead of closed mortises.
+    const lie = p.mihrabLie === true;
     panels.push(normalisePanel({
       id: 'plinth', label: PANEL_LABELS.plinth,
-      outline: rect(0, 0, L + 2 * mb, W + 2 * mb),
+      outline: lie
+        ? dedupe([
+          [0, 0], [L + 2 * mb, 0], [L + 2 * mb, W + mb],
+          ...edgeRun([L + 2 * mb, W + mb], [0, W + mb],
+            forWalk(snug(bX.map((f) => ({ s: f.s + mb, e: f.e + mb }))), L + 2 * mb, 0), -t),
+          [0, W + mb],
+        ])
+        : rect(0, 0, L + 2 * mb, W + 2 * mb),
       holes: [
-        ...bX.map((f) => shrinkRect(f.s + mb, W - t + mb, f.e - f.s, t, fit)),
+        ...(lie ? [] : bX.map((f) => shrinkRect(f.s + mb, W - t + mb, f.e - f.s, t, fit))),
         ...sF.map((f) => shrinkRect(mb, f.s + mb, t, f.e - f.s, fit)),
         ...sF.map((f) => shrinkRect(L - t + mb, f.s + mb, t, f.e - f.s, fit)),
         ellipse(xp + mb, t / 2 + mb, holeR, holeR, 40),
@@ -1591,6 +1603,20 @@ export function buildBox(input = {}) {
       frame: { origin: [0, yR, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] },
     }));
 
+    // ---- carving layer: an arch board glued on the inner arch, inset a little
+    // so it reads as a framed panel. Whatever pattern goes on it is cut
+    // through, with the plain inner arch showing behind - relief, not a hole.
+    const carveM = Math.max(2, 0.7 * t);
+    if (p.mihrabCarve === true) {
+      const carve = keelPath(keel, t + carveM);
+      panels.push(normalisePanel({
+        id: 'ribFace', label: PANEL_LABELS.ribFace,
+        outline: dedupe([[t + carveM, zS], [L - t - carveM, zS], ...carve.slice(1, -1).reverse()]),
+        holes: [],
+        frame: { origin: [0, yC0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] },
+      }));
+    }
+
     // ---- doors
     const doorH = zC - gT - zB0;           // the door's straight part, below the notch
     const nR = Math.max(4, Math.min(9, L * 0.04, doorH * 0.2));
@@ -1670,7 +1696,11 @@ export function buildBox(input = {}) {
       keel, zS, zC, rise, riseWant, mb, ys, yC0, yF, yR, yE, xB, xp, holeR, bossM, notchW, gT,
       door: { w: xc, h: zTop - zB0, straight: doorH, notchR: nR },
       roof: { length: st.length, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones },
-      overall: { l: L + 2 * mb, w: W + 2 * mb, h: H },
+      overall: lie
+        ? { l: L + 2 * mb, w: H, h: W + mb }      // lying: H is now its length
+        : { l: L + 2 * mb, w: W + 2 * mb, h: H },
+      lying: lie,
+      carve: p.mihrabCarve === true,
       riseClamped: riseWant > rise + 0.01,
       roundClamped: keel ? keel.R < Rwant - 0.01 : true,
     };

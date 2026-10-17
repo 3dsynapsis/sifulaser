@@ -20,6 +20,12 @@
 //   * bumbung           - panjang jalur = panjang garis tengah gerbang; jalur
 //                         yang dibengkokkan duduk di atas gerbang dalam dan
 //                         belakang tanpa menembusi mana-mana panel.
+//   * lapisan ukiran    - papan gerbang kedua melekat pada muka depan gerbang
+//                         dalam, duduk atas siling, di bawah bumbung, dan pintu
+//                         masih berpusing tanpa menyentuhnya.
+//   * baring            - tapak berhenti rata dengan belakang; tanon belakang
+//                         masuk takuk terbuka; belakang, dinding, bumbung dan
+//                         tapak semuanya mencecah satah y = W (meja).
 //   * input teruk       - kotak kecil, nisbah ekstrem, papan tebal: tak campak.
 
 import path from 'node:path';
@@ -150,9 +156,71 @@ function testBox(params, { swing = true, fine = false } = {}) {
     }
   }
 
-  // ---- bumbung: panjang = garis tengah gerbang
   const k = m.keel;
   const t = box.params.thickness;
+  const W = box.params.width;
+  const ownAt = (x, y, z) => {
+    const [i, j, kk] = grid.cell(x, y, z);
+    const o = grid.own[grid.idx(i, j, kk)];
+    return o >= 0 ? (order[o]?.id ?? 'roof') : null;
+  };
+
+  // ---- lapisan ukiran
+  const face = box.panels.find((p) => p.id === 'ribFace');
+  check(`${tag}: lapisan ukiran ikut pilihan`, !!face === (params.mihrabCarve === true) && m.carve === !!face);
+  if (face) {
+    let behind = 0; let below = 0; let own = 0; let n = 0;
+    const L = box.params.length;
+    for (let x = L * 0.3; x <= L * 0.7; x += L * 0.05) {
+      const zTop = Math.max(...keelPath(k, t + 3, { step: 0.5 }).filter((q) => Math.abs(q[0] - x) < 1).map((q) => q[1]));
+      for (let z = m.zS + 1; z < Math.min(zTop, m.zS + 20); z += 4) {
+        n++;
+        if (ownAt(x, m.yC0 + t / 2, z) === 'ribFace') own++;
+        if (ownAt(x, m.yC0 + t + 0.6, z) === 'rib') behind++;
+      }
+      if (ownAt(x, m.yC0 + t / 2, m.zS - 0.6) === 'ceiling') below++;
+    }
+    check(`${tag}: lapisan ukiran di tempatnya`, n > 0 && own === n, `${own}/${n}`);
+    check(`${tag}: lapisan ukiran melekat pada gerbang dalam`, behind === n, `${behind}/${n}`);
+    check(`${tag}: lapisan ukiran duduk atas siling`, below >= 8, `${below}`);
+  }
+
+  // ---- baring
+  const plinth = box.panels.find((p) => p.id === 'plinth');
+  const maxY = (p) => {
+    const s = panelSolid(p, null, 0);
+    return s.hi[1];
+  };
+  check(`${tag}: maklumat baring`, m.lying === (params.mihrabLie === true));
+  if (m.lying) {
+    check(`${tag}: tapak rata dengan belakang`, Math.abs(maxY(plinth) - W) < 1e-6, `${maxY(plinth)}`);
+    for (const id of ['back', 'left', 'right']) {
+      const q = box.panels.find((p) => p.id === id);
+      check(`${tag}: ${id} mencecah meja`, Math.abs(maxY(q) - W) < 1e-6, `${maxY(q)}`);
+    }
+    check(`${tag}: bumbung mencecah meja`, Math.abs(m.yF + roof.size.h - W) < 1e-6);
+    // Takuk terbuka di tepi belakang tapak: setiap satu diisi tanon belakang.
+    const back = box.panels.find((p) => p.id === 'back');
+    const tenons = back.outlineNominal
+      .map(([u, v]) => [box.params.length - (u + back.originShift[0]), v + back.originShift[1]])
+      .filter(([, v]) => v < 0.5 * t);
+    check(`${tag}: belakang ada tanon ke tapak`, tenons.length >= 4);
+    const xs = [...new Set(tenons.map(([x]) => Math.round(x * 10) / 10))].sort((a, b) => a - b);
+    let filled = 0; let slots = 0;
+    for (let i = 0; i + 1 < xs.length; i += 2) {
+      slots++;
+      if (ownAt((xs[i] + xs[i + 1]) / 2, W - t / 2, t / 2) === 'back') filled++;
+    }
+    check(`${tag}: tanon belakang dalam takuk tapak`, slots > 0 && filled === slots, `${filled}/${slots}`);
+    check(`${tag}: tapak tiada mortis belakang`, plinth.holesNominal.every((hh) => {
+      const cy = hh.reduce((a, q) => a + q[1], 0) / hh.length + plinth.originShift[1] - m.mb;
+      return cy < W - t;
+    }));
+  } else {
+    check(`${tag}: tapak berdiri lebih di belakang`, Math.abs(maxY(plinth) - (W + m.mb)) < 1e-6);
+  }
+
+  // ---- bumbung: panjang = garis tengah gerbang
   const mid = keelPath(k, t / 2, { step: 0.2 });
   let len = 0;
   for (let i = 1; i < mid.length; i++) len += Math.hypot(mid[i][0] - mid[i - 1][0], mid[i][1] - mid[i - 1][1]);
@@ -179,11 +247,18 @@ testBox({ length: 200, width: 120, height: 260, thickness: 2.6, kerf: 0.2 }, { f
 testBox({ length: 120, width: 80, height: 160, archRise: 90, archRound: 95, fit: 0.2, lidGap: 0.6 }, { fine: true });
 testBox({ length: 100, width: 76, height: 50 });                       // kotak lalai: had mesti bertindak
 testBox({ length: 400, width: 60, height: 300, archRise: 25 }, { swing: false });
+// Lapisan ukiran dan baring.
+testBox({ length: 200, width: 120, height: 260, mihrabCarve: true }, { fine: true });
+testBox({ length: 180, width: 110, height: 240, thickness: 5.2, kerf: 0.25, mihrabCarve: true }, { fine: true });
+testBox({ length: 200, width: 120, height: 260, mihrabLie: true });
+testBox({ length: 150, width: 90, height: 220, thickness: 2.6, mihrabLie: true, mihrabCarve: true, archRise: 70 });
+testBox({ length: 300, width: 180, height: 380, mihrabLie: true, plinthMargin: 20 });
 
 // Input teruk: tak campak, dan ukuran yang keluar masih kotak.
 for (const bad of [
   { length: 0, width: 0, height: 0 }, { archRise: 1000, archRound: -50 }, { archRise: 'x' },
   { plinthMargin: -3 }, { thickness: 12, length: 90 }, { thickness: 0.5 },
+  { mihrabLie: 'x', mihrabCarve: 1 }, { mihrabLie: true, mihrabCarve: true, length: 0, height: 0 },
 ]) {
   let ok = true;
   try {

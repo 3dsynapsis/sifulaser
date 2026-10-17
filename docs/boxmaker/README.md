@@ -127,6 +127,31 @@ semua panel dalam grid voksel 0.5 mm (0.1 mm di sekitar engsel), memastikan
 tiada panel bertindih, setiap lubang terisi, dan setiap pintu berpusing 0-100°
 tanpa melanggar.
 
+### Mihrab: lapisan ukiran, baring, saiz corak sekali gus
+
+**Ditambah terus di sini pada 17 Oktober 2026 dan BELUM dipindahkan ke projek
+asal.**
+
+- **Lapisan ukiran** (`mihrabCarve`, panel `ribFace` "Arch carving") — papan
+  gerbang kedua dilekat pada muka depan gerbang dalam, di atas siling, masuk
+  `max(2, 0.7t)` mm dari tepi gerbang. Corak dipotong tembus padanya dan gerbang
+  dalam yang kosong kelihatan di belakang, jadi ia terbaca sebagai ukiran bila
+  pintu dibuka. Bila dihidupkan ia terus mendapat corak pintu (atau Star 12),
+  dan preset "Doors" kini termasuk lapisan ini.
+- **Baring** (`mihrabLie`) — kotak yang sama, berbaring atas belakangnya dengan
+  pintu di atas (dibuka seperti tudung). Tapak berhenti rata dengan belakang;
+  tanon belakang masuk takuk terbuka di tepi tapak, bukan mortis. Paparan 3D
+  memusingkan model (gerbang menghadap kamera) dan medan saiz dinamakan semula:
+  Width / Length, base to arch tip / Height lying down.
+- **Saiz corak sekali gus** — Overall → Pattern ada "Pattern size (mm)" dan
+  "Bar width (mm)" yang menukar setiap corak preset serentak. Bertukar Doors /
+  Doors + walls kini mengekalkan saiz itu (dahulu ia kembali ke lalai).
+
+Ujian ditambah dalam `scripts/test-boxmaker-mihrab.mjs`: lapisan ukiran
+melekat pada gerbang dalam dan duduk atas siling, pintu masih berpusing tanpa
+menyentuhnya; dalam mod baring tapak, belakang, dinding dan bumbung semuanya
+mencecah satah meja dan setiap takuk tapak diisi tanon belakang.
+
 ### Bahan Falcata 2.6 mm
 
 Ditambah terus di sini pada 17 Oktober 2026 (`src/store.js`, `MATERIALS`:
