@@ -131,7 +131,10 @@ button { font-family: inherit; }
 .tool {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   border: 0; background: transparent; color: var(--muted);
-  font: 500 10px/1 inherit; padding: 9px 2px; border-radius: 8px; cursor: pointer;
+  /* Not "font: 500 10px/1 inherit" - inherit cannot sit in the shorthand, the
+     browser drops the whole declaration, and the labels came out 13 px. */
+  font-family: inherit; font-size: 10px; font-weight: 500; line-height: 1;
+  padding: 9px 2px; border-radius: 8px; cursor: pointer;
 }
 .tool span { font-size: 17px; line-height: 1; }
 .tool:hover { background: var(--surface-2); color: var(--text); }
@@ -305,7 +308,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .seg { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .seg button {
   flex: 1; border: 0; background: var(--surface); color: var(--muted);
-  font: 500 12px/1 inherit; padding: 8px 4px; cursor: pointer; white-space: nowrap;
+  font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1;
+  padding: 8px 4px; cursor: pointer; white-space: nowrap;
 }
 .seg button + button { border-left: 1px solid var(--line-strong); }
 .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
@@ -476,6 +480,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
    preview on top at the full width of the screen, settings in a scrolling
    panel underneath - and give the top bar two rows so nothing collides.
    Nothing here touches the tablet (900px) or desktop layout. */
+@keyframes hint-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Touch screens of any width (a landscape phone is wider than 640 px): the
+   segmented choices were 31 px tall there, under a fingertip. */
+@media (pointer: coarse) {
+  .seg button { min-height: 38px; }
+}
+
 @media (max-width: 640px) {
   /* top bar: brand and view tabs share row one, the buttons take row two. */
   .topbar {
@@ -531,6 +543,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   /* Seven tools have to fit a 390 px phone without hiding Delete off the end. */
   .tool { flex: none; min-width: 48px; padding: 7px 2px; }
   .tool-spacer { flex: 1 0 8px; }
+  /* Under 380 px seven 48 px tools do not fit and Delete went off the end. */
+  @media (max-width: 380px) {
+    .tools { gap: 0; padding: 4px 4px; }
+    .tool { min-width: 40px; }
+    .tool-spacer { flex: 1 0 2px; }
+  }
 
   .stage {
     flex: 5 1 0;
@@ -564,6 +582,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
     top: 56px; bottom: auto; left: 8px; transform: none;
     max-width: calc(100% - 16px); font-size: 11px; padding: 5px 10px;
   }
+  /* ... and it does not stay: on a stage this small it sits over the box and
+     its dimension labels, so it says its piece and fades. */
+  .stage-hint.show { animation: hint-fade 4.5s forwards; }
 
   .inspector {
     flex: 4 1 0;

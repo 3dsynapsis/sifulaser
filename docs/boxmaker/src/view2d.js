@@ -66,7 +66,14 @@ export class View2D {
     if (!this.panel) return;
     const cw = this.container.clientWidth || 1;
     const ch = this.container.clientHeight || 1;
-    const pad = 40;
+    // On a phone the stage is ~250 px tall and the backdrop buttons along its
+    // top and the face strip along its bottom cover a third of it - a tall
+    // panel (a mihrab door) had its foot behind the strip. Fit into the band
+    // between them there, with a smaller margin.
+    const short = ch < 560;
+    const pad = short ? 14 : 40;
+    const top = short ? Math.min(52, ch * 0.16) : 0;
+    const bottom = short ? Math.min(96, ch * 0.28) : 0;
     if (this.fitPending) {
       // Switching tabs fast enough measures the container before layout, so
       // cw can be 1 and the padding then exceeds it. An unclamped fit goes
@@ -75,9 +82,10 @@ export class View2D {
       // millimetre of usable space and leave fitPending set, so the next paint
       // - by which time the container has a real width - fits properly.
       const usable = Math.max(1, cw - pad * 2);
-      const usableH = Math.max(1, ch - pad * 2);
+      const usableH = Math.max(1, ch - pad * 2 - top - bottom);
       this.zoom = Math.min(usable / this.panel.size.w, usableH / this.panel.size.h);
-      this.pan = { x: this.panel.size.w / 2, y: this.panel.size.h / 2 };
+      // Centre the panel in that band rather than in the whole stage.
+      this.pan = { x: this.panel.size.w / 2, y: this.panel.size.h / 2 + (bottom - top) / 2 / this.zoom };
       // Only call the fit done once the measurement it was based on was real.
       if (cw > pad * 2 && ch > pad * 2) this.fitPending = false;
     }
