@@ -103,7 +103,10 @@ function refresh(opts = {}) {
   els.stage3d.hidden = state.view !== '3d';
   els.stage2d.hidden = state.view !== '2d';
   els.tools.hidden = state.view !== '2d';
-  els.lidBtn.hidden = !(state.view === '3d' && state.params.style !== 'open');
+  // Nothing moves on an open box - or on a round one made without its lid.
+  const still = state.params.style === 'open'
+    || (state.params.style === 'round' && state.params.roundLid === false);
+  els.lidBtn.hidden = !(state.view === '3d' && !still);
   els.backdrop.hidden = state.view !== '3d';
   els.stage.dataset.backdrop = state.backdrop;
   renderBackdrop(els.backdrop, (id) => {
@@ -415,7 +418,10 @@ function boxNote(files) {
   // about the same box.
   const a = box.derived.almari;
   const mi = box.derived.mihrab;
-  const size = mi
+  const ro = box.derived.round;
+  const size = ro
+    ? `Ø ${p.length} x ${p.height} mm (base Ø ${rnd(ro.overall.d, 1)} mm)`
+    : mi
     ? `${rnd(mi.overall.l, 1)} x ${rnd(mi.overall.w, 1)} x ${p.height} mm on its base`
     : box.derived.lid
     ? `${rnd(box.derived.lid.outerL, 1)} x ${rnd(box.derived.lid.outerW, 1)} `

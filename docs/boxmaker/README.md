@@ -131,3 +131,28 @@ tanpa melanggar.
 
 Ditambah terus di sini pada 17 Oktober 2026 (`src/store.js`, `MATERIALS`:
 `falcata26`, kerf 0.2 seperti Falcata 3 mm). BELUM dipindahkan ke projek asal.
+
+### Gaya Bulat (kotak silinder)
+
+**Dibuat terus di sini pada 17 Oktober 2026 dan BELUM dipindahkan ke projek
+asal.**
+
+Dinding ialah jalur living hinge (kerf sepanjang jalur) yang dibengkokkan jadi
+silinder; kedua hujungnya bertemu dengan dovetail (lebar di hujung, jadi tidak
+tertarik keluar ikut lilitan). Lebih daripada 560 mm, dinding dipotong beberapa
+jalur, setiap sambungan dovetail yang sama. Dinding berdiri dalam alur: cakera
+lantai di dalam, cincin di luar, kedua-duanya di atas cakera tapak. Penutup =
+cakera selebar tapak + cakera palam di bawahnya (kelonggaran `lidSlack`).
+
+- `src/geom/box.js` — `style: 'round'`, `roundLid`; panel `plinth`, `floorDisc`,
+  `ring`, `wall` (+ `wall2`..`wall6`), `lidTop`, `lidPlug`. Length = diameter,
+  width ikut length. Dinding: `bend: { plane: 'xy', z0, path }`.
+- `src/view3d.js` — `bentPanel` kini dua satah ('xz' bumbung mihrab, 'xy'
+  dinding bulat); garisan ukuran Ø dan tinggi.
+- `src/ui.js` — kad "Bulat", `roundRows` (penutup, tepi tapak, kelonggaran,
+  saiz biasa Ø 120 × 90), medan Diameter, preset corak pada penutup sahaja,
+  langkah pasang.
+- `src/main.js` — butang buka disorok bila tiada penutup; nota export.
+
+Ujian: `node scripts/test-boxmaker-round.mjs`. Alat voksel dikongsi dengan
+ujian Mihrab dalam `scripts/lib/boxmaker-voxel.mjs`.

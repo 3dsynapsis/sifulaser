@@ -442,14 +442,17 @@ export class View3D {
   }
 
   /**
-   * A flat panel bent along `panel.bend.path`: rows of [s, x, z, nx, nz], the
-   * board's mid-plane in box X/Z with its outward normal, by arc length s.
+   * A flat panel bent along `panel.bend.path`: rows of [s, a, b, na, nb], the
+   * board's mid-plane with its outward normal, by arc length s. `plane` says
+   * which two box axes (a, b) are: 'xz' for the mihrab's roof, whose width
+   * runs along Y from y0; 'xy' for a round box's wall, whose height runs up Z
+   * from z0.
    * The flat shape is extruded exactly as every other panel, then each vertex
    * is moved onto the curve - the kerf slots are dense wherever it bends, so
    * the triangulation never spans a curved stretch with one flat triangle.
    */
   bentPanel(panel, t, mats, lineMat) {
-    const { path, y0 } = panel.bend;
+    const { path, y0 = 0, z0 = 0, plane = 'xz' } = panel.bend;
     const shapes = ringsToShapes([panel.outline, ...panel.holes]);
     const geom = new THREE.ExtrudeGeometry(shapes, { depth: t, bevelEnabled: false, curveSegments: 1 });
     geom.translate(0, 0, -t);
@@ -469,8 +472,9 @@ export class View3D {
       const s = pos.getX(i) + su;
       const v = pos.getY(i) + sv;
       const d = pos.getZ(i) + t / 2;          // 0 at the mid-plane, +t/2 outside
-      const [x, z, nx, nz] = sample(s);
-      pos.setXYZ(i, x + nx * d, y0 + v, z + nz * d);
+      const [a, b, na, nb] = sample(s);
+      if (plane === 'xy') pos.setXYZ(i, a + na * d, b + nb * d, z0 + v);
+      else pos.setXYZ(i, a + na * d, y0 + v, b + nb * d);
     }
     geom.computeVertexNormals();
     const mesh = new THREE.Mesh(geom, mats);
@@ -505,7 +509,22 @@ export class View3D {
     // dimensioned on a closed cabinet, so the lines stay on the cabinet and are
     // labelled as what they are.
     const tag = dm && dm.measure === 'inside' && !inBox ? ' outside' : '';
-    if (inBox) {
+    if (box.derived.round) {
+      // A drum has no corners to hang witness lines on: one diameter across the
+      // top through the centre, and the height up the right-hand side.
+      const R = L / 2;
+      const ro = box.derived.round;
+      const zTop = ro.lid ? H : H;
+      this.dims = inBox
+        ? [
+          { label: `Ø ${fmtMm(dm.inner.l)} inside`, a: P(t, R, zTop), b: P(L - t, R, zTop), dir: unit([0, 0, 1]) },
+          { label: `${fmtMm(dm.inner.h)} inside`, a: P(L, R, 2 * t), b: P(L, R, 2 * t + dm.inner.h), dir: unit([1, 0, 0]) },
+        ]
+        : [
+          { label: `Ø ${fmtMm(L)}`, a: P(0, R, zTop), b: P(L, R, zTop), dir: unit([0, 0, 1]) },
+          { label: fmtMm(H), a: P(L, R, 0), b: P(L, R, H), dir: unit([1, 0, 0]) },
+        ];
+    } else if (inBox) {
       const z0 = box.derived.floorZ + t;
       const z1 = box.derived.wallH;
       this.dims = [

@@ -29,12 +29,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(here, '..', 'docs', 'boxmaker', 'src', 'geom');
 const { buildBox } = await import(pathToFileURL(path.join(SRC, 'box.js')).href);
 const { keelPath, strip } = await import(pathToFileURL(path.join(SRC, 'arch.js')).href);
-const { offsetPolygon } = await import(pathToFileURL(path.join(SRC, 'path.js')).href);
-
-// Setiap panel dikecilkan sedikit sebelum diisi: sendi sengaja muat ketat
-// (interference fit, hingga 0.125 mm sebelah), dan itu bukan pertembungan.
-// Pertembungan sebenar - tanon tanpa lubang, pintu melanggar - jauh lebih besar.
-const ERODE = 0.15;
+const {
+  area, selfIntersects, gridOver, panelSolid, fill, fillBend,
+} = await import(pathToFileURL(path.join(here, 'lib', 'boxmaker-voxel.mjs')).href);
 
 let passed = 0;
 let failed = 0;
@@ -45,204 +42,11 @@ function check(name, cond, detail = '') {
   if (fails.length < 80) fails.push(`${name}${detail ? ` - ${detail}` : ''}`);
 }
 
-// ---- cincin ------------------------------------------------------------------
-const area = (r) => {
-  let a = 0;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += r[j][0] * r[i][1] - r[i][0] * r[j][1];
-  return a / 2;
-};
-function selfIntersects(r) {
-  const n = r.length;
-  const seg = (i) => [r[i], r[(i + 1) % n]];
-  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  for (let i = 0; i < n; i++) {
-    const [a, b] = seg(i);
-    for (let j = i + 2; j < n; j++) {
-      if (i === 0 && j === n - 1) continue;
-      const [c, d] = seg(j);
-      if (Math.max(a[0], b[0]) < Math.min(c[0], d[0]) || Math.max(c[0], d[0]) < Math.min(a[0], b[0])
-        || Math.max(a[1], b[1]) < Math.min(c[1], d[1]) || Math.max(c[1], d[1]) < Math.min(a[1], b[1])) continue;
-      const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d);
-      if (((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9))
-        && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9))) return [i, j];
-    }
-  }
-  return null;
-}
-
-// ---- titik dalam poligon (dengan indeks baris imbasan) -----------------------
-function rasterTester(rings) {
-  // Untuk setiap baris y: senarai x persilangan semua cincin -> genap/ganjil.
-  const edges = [];
-  let y0 = Infinity, y1 = -Infinity;
-  for (const r of rings) {
-    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
-      const a = r[j], b = r[i];
-      if (a[1] === b[1]) continue;
-      edges.push(a[1] < b[1] ? [a, b] : [b, a]);
-      y0 = Math.min(y0, a[1], b[1]);
-      y1 = Math.max(y1, a[1], b[1]);
-    }
-  }
-  const cache = new Map();
-  const row = (y) => {
-    let xs = cache.get(y);
-    if (xs) return xs;
-    xs = [];
-    for (const [a, b] of edges) {
-      if (y >= a[1] && y < b[1]) xs.push(a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0]));
-    }
-    xs.sort((p, q) => p - q);
-    cache.set(y, xs);
-    return xs;
-  };
-  return (x, y) => {
-    if (y < y0 || y > y1) return false;
-    const xs = row(y);
-    let inside = false;
-    for (const v of xs) { if (v > x) break; inside = !inside; }
-    return inside;
-  };
-}
-
-// ---- grid voksel -------------------------------------------------------------
 const RES = 0.5;
 function makeGrid(box) {
   const m = box.derived.mihrab;
   return gridOver([-m.mb - 4, -m.mb - 4, -1],
     [box.params.length + m.mb + 4, box.params.width + m.mb + 4, box.params.height + 5], [RES, RES, RES]);
-}
-
-/** Grid voksel atas kotak [lo, hi], resolusi r = [rx, ry, rz]. */
-function gridOver(lo, hi, r) {
-  // Dianjak sedikit supaya tengah voksel tidak jatuh tepat di tepi papan.
-  const x0 = lo[0] + 0.0137, y0 = lo[1] + 0.0291, z0 = lo[2] + 0.0173;
-  const nx = Math.ceil((hi[0] - lo[0]) / r[0]);
-  const ny = Math.ceil((hi[1] - lo[1]) / r[1]);
-  const nz = Math.ceil((hi[2] - lo[2]) / r[2]);
-  return {
-    x0, y0, z0, nx, ny, nz, r,
-    own: new Int8Array(nx * ny * nz).fill(-1),
-    idx: (i, j, k) => (k * ny + j) * nx + i,
-    center: (i, j, k) => [x0 + (i + 0.5) * r[0], y0 + (j + 0.5) * r[1], z0 + (k + 0.5) * r[2]],
-    cell: (x, y, z) => [Math.floor((x - x0) / r[0]), Math.floor((y - y0) / r[1]), Math.floor((z - z0) / r[2])],
-  };
-}
-
-/** Panel -> fungsi dalam(x, y, z) dalam koordinat dunia, dan kotak sempadannya. */
-function panelSolid(panel, rot = null, erode = ERODE) {
-  const { origin, U, V, N } = panel.frame;
-  const [su, sv] = panel.originShift;
-  const t = panel.thickness;
-  const inRing = rasterTester([offsetPolygon(panel.outlineNominal, -erode),
-    ...panel.holesNominal.map((h) => offsetPolygon(h, erode))]);
-  // dunia -> tempatan: u = (p - o).U - su, v = (p - o).V - sv, n = (p - o).N
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  let toLocal = (p) => {
-    const d = [p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]];
-    return [dot(d, U) - su, dot(d, V) - sv, dot(d, N)];
-  };
-  if (rot) {
-    // Putaran pintu: tentang paksi selari V melalui (u = hinge.u, n = hinge.n).
-    const { u: hu, n: hn } = panel.hinge;
-    const c = Math.cos(-rot), s = Math.sin(-rot);
-    const base = toLocal;
-    toLocal = (p) => {
-      const [u, v, n] = base(p);
-      const du = u + su - hu, dn = n - hn;
-      // Songsang putaran three.js tentang y: x' = x c + z s, z' = -x s + z c
-      return [du * c + dn * s + hu - su, v, -du * s + dn * c + hn];
-    };
-  }
-  const inside = (p) => {
-    const [u, v, n] = toLocal(p);
-    return n < -erode && n > -t + erode && inRing(u, v);
-  };
-  // Kotak sempadan dunia dari bucu kotak tempatan (dengan putaran jika ada).
-  const corners = [];
-  const W = panel.size.w, H = panel.size.h;
-  for (const u of [0, W]) for (const v of [0, H]) for (const n of [0, -t]) {
-    let uu = u + su, nn = n;
-    if (rot) {
-      const { u: hu, n: hn } = panel.hinge;
-      const du = uu - hu, dn = nn - hn;
-      const c = Math.cos(rot), s = Math.sin(rot);
-      uu = du * c + dn * s + hu;
-      nn = -du * s + dn * c + hn;
-    }
-    const vv = v + sv;
-    corners.push([0, 1, 2].map((k) => origin[k] + U[k] * uu + V[k] * vv + N[k] * nn));
-  }
-  const lo = [0, 1, 2].map((k) => Math.min(...corners.map((q) => q[k])));
-  const hi = [0, 1, 2].map((k) => Math.max(...corners.map((q) => q[k])));
-  return { inside, lo, hi };
-}
-
-/** Isi voksel panel; pulangkan senarai pertembungan [voksel, pemilik lama]. */
-function fill(grid, solid, id, { write = true, against = null } = {}) {
-  const [i0, j0, k0] = grid.cell(...solid.lo).map((v) => Math.max(0, v));
-  const [i1, j1, k1] = grid.cell(...solid.hi);
-  const clash = new Map();
-  for (let k = k0; k <= Math.min(k1, grid.nz - 1); k++) {
-    for (let j = j0; j <= Math.min(j1, grid.ny - 1); j++) {
-      for (let i = i0; i <= Math.min(i1, grid.nx - 1); i++) {
-        const c = grid.center(i, j, k);
-        if (!solid.inside(c)) continue;
-        const at = grid.idx(i, j, k);
-        const was = grid.own[at];
-        if (was >= 0 && (!against || against.has(was))) clash.set(was, (clash.get(was) || 0) + 1);
-        if (write && was < 0) grid.own[at] = id;
-      }
-    }
-  }
-  return clash;
-}
-
-/** Bumbung: sampel ke hadapan dari (s, v, d) ke dunia. */
-function fillRoof(grid, panel, id, step = 0.25, erode = ERODE) {
-  const { path: P, y0 } = panel.bend;
-  const t = panel.thickness;
-  const inRing = rasterTester([offsetPolygon(panel.outlineNominal, -erode),
-    ...panel.holesNominal.map((h) => offsetPolygon(h, erode))]);
-  const [su, sv] = panel.originShift;
-  const clash = new Map();
-  let j = 0;
-  const at = (s) => {
-    while (j > 0 && P[j][0] > s) j--;
-    while (j < P.length - 2 && P[j + 1][0] < s) j++;
-    const a = P[j], b = P[j + 1];
-    const f = Math.min(1, Math.max(0, (s - a[0]) / (b[0] - a[0])));
-    return [1, 2, 3, 4].map((q) => a[q] + (b[q] - a[q]) * f);
-  };
-  const seen = new Set();
-  const inGrid = (p) => p[0] > grid.x0 && p[1] > grid.y0 && p[2] > grid.z0
-    && p[0] < grid.x0 + grid.nx * grid.r[0] && p[1] < grid.y0 + grid.ny * grid.r[1]
-    && p[2] < grid.z0 + grid.nz * grid.r[2];
-  for (let s = 0.1; s < panel.size.w; s += step) {
-    const [x, z, nx, nz] = at(s + su);
-    if (!inGrid([x, y0 + 1, z]) && !inGrid([x, grid.y0 + 0.01, z])) continue;
-    for (let v = 0.1; v < panel.size.h; v += step) {
-      if (!inRing(s, v)) continue;
-      for (const f of [0.2, 0.5, 0.8]) {
-        const d = t / 2 - f * t;              // +t/2 luar .. -t/2 dalam
-        const p = [x + nx * d, y0 + v + sv, z + nz * d];
-        if (!inGrid(p)) continue;
-        const [ci, cj, ck] = grid.cell(...p);
-        const key = grid.idx(ci, cj, ck);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        // Hanya voksel yang tengahnya benar-benar dalam papan.
-        const c = grid.center(ci, cj, ck);
-        const dx = c[0] - x, dz = c[2] - z;
-        const depth = dx * nx + dz * nz;
-        if (Math.abs(depth) > t / 2 - erode) continue;
-        const was = grid.own[key];
-        if (was >= 0) clash.set(was, (clash.get(was) || 0) + 1);
-        else grid.own[key] = id;
-      }
-    }
-  }
-  return clash;
 }
 
 // ---- satu kotak --------------------------------------------------------------
@@ -282,7 +86,7 @@ function testBox(params, { swing = true, fine = false } = {}) {
       worst && `${worst[1]} voksel dalam ${order[worst[0]].id}`);
   });
   const roofId = order.length;
-  const rc = fillRoof(grid, roof, roofId);
+  const rc = fillBend(grid, roof, roofId);
   const rw = [...rc.entries()].sort((a, b) => b[1] - a[1])[0];
   check(`${tag}: bumbung tidak menembusi panel lain`, rc.size === 0,
     rw && `${rw[1]} voksel dalam ${order[rw[0]].id}`);
@@ -327,7 +131,7 @@ function testBox(params, { swing = true, fine = false } = {}) {
       const fx0 = ax < box.params.length / 2 ? ax - 5 : ax - 9;
       const fg = gridOver([fx0, -8, -0.5], [fx0 + 14, 10, box.params.height + 1], [0.1, 0.1, 1]);
       fixed.forEach((p, i) => fill(fg, panelSolid(p, null, 0.03), i));
-      fillRoof(fg, roof, roofId, 0.06, 0.03);
+      fillBend(fg, roof, roofId, 0.06, 0.03);
       let badF = null;
       for (let deg = 5; deg <= 100; deg += 5) {
         const rot = d.hinge.sign * deg * Math.PI / 180;

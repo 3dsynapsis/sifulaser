@@ -22,6 +22,11 @@
 //     stands proud of the box, up into a ceiling board at the spring line. The
 //     arch above the ceiling is a hollow crown - an inner arch board, the back,
 //     and a kerf-bent roof strip glued over both.
+//   * round - a cylinder. The wall is one kerf-bent strip (several, joined by
+//     dovetails, when it would not fit a 600 mm sheet) standing in a round
+//     groove: a floor disc inside it, a ring outside it, both on a base plate.
+//     The lid is a disc with a smaller disc glued under it that plugs into the
+//     wall, so it lifts straight off.
 //   * dividers - interior panels standing on the floor, tenoned through the walls
 //     the same way the floor is. They stop short of the rim so the compartments
 //     stay easy to reach into and a lid never lands on them. Four compartments
@@ -44,7 +49,7 @@ import {
 import { solveKeel, keelPath, keelZ, strip as archStrip, livingHinge } from './arch.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari' | 'mihrab'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari' | 'mihrab' | 'round'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -85,6 +90,11 @@ export const DEFAULTS = {
   archRise: 50,      // arch height above the spring line, % of the length
   archRound: 55,     // shoulder radius, % of half the length - how round
   plinthMargin: 8,   // how far the base plate stands out round the box, mm
+
+  // ---- Round (cylinder) -------------------------------------------------
+  // Length is the diameter; width follows it. plinthMargin and lidSlack are
+  // shared with the styles above.
+  roundLid: true,
 };
 
 export const PANEL_ORDER = [
@@ -108,6 +118,9 @@ export const PANEL_ORDER = [
   // list only so a stray write cannot throw - the UI never offers it, because
   // anything cut through a living hinge breaks it.
   'plinth', 'ceiling', 'doorLeft', 'doorRight', 'rib', 'roof',
+  // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
+  // for decoration, for the same reason as the mihrab's roof.
+  'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
 ];
 
 export const PANEL_LABELS = {
@@ -132,7 +145,13 @@ export const PANEL_LABELS = {
   up1: 'Upright 1', up2: 'Upright 2',
   plinth: 'Base', ceiling: 'Ceiling', doorLeft: 'Door left', doorRight: 'Door right',
   rib: 'Arch inner', roof: 'Roof (flex)',
+  floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
+  wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
+  wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
 };
+
+/** Least height a round box can be: base, a wall worth bending, and the lid. */
+const roundMinH = (t, lid) => t + Math.max(20, 6 * t) + (lid ? t : 0);
 
 /**
  * Least height a mihrab can be: the base, a door tall enough to be one, the
@@ -375,6 +394,16 @@ export function dimMap(input = {}) {
       z: { k: tingkat, c: tingkat * (2 * t + ct) + (tingkat - 1) * t + floor + 2 * t },
     };
   }
+  if (p.style === 'round') {
+    // Inside: wall to wall across, floor disc to the lid's plug (or to the rim).
+    const lid = p.roundLid !== false;
+    return {
+      what: 'box',
+      x: { k: 1, c: 2 * t },
+      y: { k: 1, c: 2 * t },
+      z: { k: 1, c: lid ? 4 * t : 2 * t },
+    };
+  }
   if (p.style === 'mihrab') {
     // Inside: wall to wall, door to back, base to ceiling. The arch above the
     // ceiling is a hollow crown, not storage. Its rise is a share of the
@@ -423,9 +452,12 @@ export function buildBox(input = {}) {
   const measuredInside = p.measure === 'inside';
   const want = measuredInside ? outsideFor(p, p) : p;
   const mihrab = p.style === 'mihrab';
-  const L = Math.max(t * 8, mihrab ? 40 : 0, want.length);
-  const W = Math.max(t * 8, mihrab ? 40 : 0, want.width);
-  const H = Math.max(mihrab ? mihrabMinH(t) : t * 6, want.height);
+  const round = p.style === 'round';
+  const L = Math.max(t * 8, mihrab ? 40 : 0, round ? Math.max(50, 16 * t) : 0, want.length);
+  // A round box is as wide as it is long: Length is its diameter.
+  const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0, want.width);
+  const H = Math.max(mihrab ? mihrabMinH(t) : round ? roundMinH(t, p.roundLid !== false) : t * 6,
+    want.height);
   const lidded = p.style === 'lidded';
   const double = p.style === 'double';
   // A lid that lifts clean off, so the walls stop a board short and the lid's own
@@ -501,7 +533,7 @@ export function buildBox(input = {}) {
   const divCross = divCount === 4;
   // Dividers and drawers want the same interior, and the combination cannot be
   // assembled - the drawer would have to pass through the divider.
-  const divOK = !almari && !mihrab && divCount > 0
+  const divOK = !almari && !mihrab && !round && divCount > 0
     && divH > Math.max(6, t * 3)
     && Math.min(L, W) > 8 * t;
   // A divider only stands square if it is pinned in more than one place, so its
@@ -541,7 +573,7 @@ export function buildBox(input = {}) {
   // screw never lands on a tab, and there are only ever as many as asked for.
   // The mihrab has no front wall and only two jointed corners, glued - its
   // doors are what comes apart.
-  const wantScrew = p.joint === 'screw' && !mihrab;
+  const wantScrew = p.joint === 'screw' && !mihrab && !round;
   const nutPocketL = pocketDepth(t);
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
@@ -653,7 +685,7 @@ export function buildBox(input = {}) {
   // side walls and boards carry a different set of joints. Rather than fork the
   // corner-joint maths in here with a mode flag, this style writes its own small
   // local builders, the way the lift-off lid already does.
-  if (!almari && !mihrab) {
+  if (!almari && !mihrab && !round) {
     for (const id of ['front', 'back']) {
       const g = buildWall();
       panels.push(normalisePanel({
@@ -725,14 +757,14 @@ export function buildBox(input = {}) {
     return { outline: dedupe(pts), holes };
   };
 
-  if (!almari && !mihrab) {
+  if (!almari && !mihrab && !round) {
     const g = buildSide((y) => W - y);
     panels.push(normalisePanel({
       id: 'left', label: PANEL_LABELS.left, outline: g.outline, holes: g.holes,
       frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
   }
-  if (!almari && !mihrab) {
+  if (!almari && !mihrab && !round) {
     const g = buildSide((y) => y);
     panels.push(normalisePanel({
       id: 'right', label: PANEL_LABELS.right, outline: g.outline, holes: g.holes,
@@ -741,7 +773,7 @@ export function buildBox(input = {}) {
   }
 
   // ---- bottom -------------------------------------------------------------
-  if (!almari && !mihrab) {
+  if (!almari && !mihrab && !round) {
     const x0 = t;
     const x1 = L - t;
     const y0 = t;
@@ -1644,6 +1676,118 @@ export function buildBox(input = {}) {
     };
   }
 
+  // ---- round: a cylinder ---------------------------------------------------
+  // Centred on (R, R) so the box still spans x, y in [0, L]. From the bottom:
+  //
+  //   base plate  z 0..t, radius R + margin.
+  //   floor disc  z t..2t, radius R - t: the wall wraps round its edge.
+  //   ring        z t..2t, the same outside radius as the base, its hole a
+  //               hair over R. Floor disc and ring are the two sides of a
+  //               groove the wall stands in, which is what makes it round.
+  //   wall        one strip, kerf-cut over its whole length so it bends, its
+  //               two ends dovetailed together at the back. Past a 600 mm sheet
+  //               it is cut as several strips, every seam the same dovetail.
+  //   lid         a disc as wide as the base, and under it a plug disc that
+  //               fits inside the wall with `lidSlack` all round.
+  let roundInfo = null;
+  if (round) {
+    const num = (v, d) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d);
+    const lid = p.roundLid !== false;
+    const mb = Math.max(2.5 * t, num(p.plinthMargin, DEFAULTS.plinthMargin));
+    const slack = Math.max(0.05, num(p.lidSlack, DEFAULTS.lidSlack));
+    const R = L / 2;
+    const hW = H - t - (lid ? t : 0);      // the wall, standing on the base plate
+    const circle = (r) => ellipse(R, R, r, r, Math.max(64, Math.ceil((2 * Math.PI * r) / 1.2)));
+    const flat = (z) => ({ origin: [0, 0, z], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+
+    panels.push(normalisePanel({
+      id: 'plinth', label: PANEL_LABELS.plinth, outline: circle(R + mb), holes: [], frame: flat(t),
+    }));
+    panels.push(normalisePanel({
+      id: 'floorDisc', label: PANEL_LABELS.floorDisc, outline: circle(R - t), holes: [], frame: flat(2 * t),
+    }));
+    panels.push(normalisePanel({
+      id: 'ring', label: PANEL_LABELS.ring, outline: circle(R + mb), holes: [circle(R + 0.15)],
+      frame: flat(2 * t),
+    }));
+
+    // ---- wall
+    const Rm = R - t / 2;                   // mid-plane: the length that survives the bend
+    const S = 2 * Math.PI * Rm;
+    const nSeg = Math.min(6, Math.max(1, Math.ceil(S / 560)));
+    const segL = S / nSeg;
+    // Dovetails across the seam, one per band up the wall. Wider at the tip,
+    // so a seam pressed together cannot pull apart round the circumference.
+    const nd = Math.max(2, Math.round(hW / (2 * m)));
+    const band = hW / nd;
+    const dd = Math.max(2 * t, 6);
+    const w0 = band * 0.42;
+    const w1 = Math.min(band * 0.64, w0 + dd * 0.6);
+    const pitch = Math.min(2.5, Math.max(1.2, Rm * 0.04));
+    const lh = livingHinge(segL, hW, [[3 + pitch, segL - dd - 2 - pitch]], {
+      pitch, slot: 0.5, bridge: Math.max(2.5, t), period: 22, endClear: 0,
+    });
+    const edgeDepth = lh.notches.length ? lh.notches[0].depth : 0;
+    const bottomN = lh.notches.filter((q) => q.edge === 0)
+      .map((q) => ({ s: q.s - q.w / 2, e: q.s + q.w / 2 }));
+    const topN = lh.notches.filter((q) => q.edge === 1)
+      .map((q) => ({ s: segL - q.s - q.w / 2, e: segL - q.s + q.w / 2 }))
+      .sort((a, b) => a.s - b.s);
+    const right = [];                       // up the right end: dovetail sockets
+    for (let k = 0; k < nd; k++) {
+      const vk = (k + 0.5) * band;
+      const a = (w0 - fit) / 2;
+      const b = (w1 - fit) / 2;
+      right.push([segL, vk - a], [segL - dd, vk - b], [segL - dd, vk + b], [segL, vk + a]);
+    }
+    const left = [];                        // down the left end: dovetail tails
+    for (let k = nd - 1; k >= 0; k--) {
+      const vk = (k + 0.5) * band;
+      left.push([0, vk + w0 / 2], [-dd, vk + w1 / 2], [-dd, vk - w1 / 2], [0, vk - w0 / 2]);
+    }
+    const wallRing = dedupe([
+      ...edgeRun([0, 0], [segL, 0], bottomN, -edgeDepth),
+      [segL, 0], ...right,
+      ...edgeRun([segL, hW], [0, hW], topN, -edgeDepth),
+      [0, hW], ...left,
+    ]);
+    // Seams at the back, strips laid on anticlockwise seen from above.
+    const theta0 = Math.PI / 2;
+    for (let i = 0; i < nSeg; i++) {
+      const path = [];
+      const a0 = theta0 + (i * segL) / Rm;
+      for (let s = -dd - 1; s <= segL + 1.0001; s += Math.min(1, pitch / 2)) {
+        const th = a0 + s / Rm;
+        path.push([s, R + Rm * Math.cos(th), R + Rm * Math.sin(th), Math.cos(th), Math.sin(th)]);
+      }
+      const id = i === 0 ? 'wall' : `wall${i + 1}`;
+      panels.push(normalisePanel({
+        id, label: nSeg === 1 ? PANEL_LABELS.wall : `Wall ${i + 1}/${nSeg} (flex)`,
+        outline: wallRing, holes: lh.holes, noDecor: true,
+        bend: { plane: 'xy', z0: t, path },
+        frame: flat(t),
+      }));
+    }
+
+    // ---- lid
+    if (lid) {
+      const lift = Math.max(20, hW * 0.45);
+      panels.push(normalisePanel({
+        id: 'lidTop', label: PANEL_LABELS.lidTop, outline: circle(R + mb), holes: [], lift, frame: flat(H),
+      }));
+      panels.push(normalisePanel({
+        id: 'lidPlug', label: PANEL_LABELS.lidPlug, outline: circle(R - t - slack), holes: [], lift,
+        frame: flat(H - t),
+      }));
+    }
+
+    roundInfo = {
+      R, mb, hW, lid, slack, dd, w0, w1, nd,
+      wall: { length: S, segments: nSeg, segL, rows: lh.rows, pitch, height: hW },
+      overall: { d: 2 * (R + mb), h: H },
+    };
+  }
+
   // ---- kerf compensation --------------------------------------------------
   const k = Math.max(0, p.kerf) / 2;
   for (const pan of panels) {
@@ -1667,6 +1811,8 @@ export function buildBox(input = {}) {
     ? (drawerIn ? { l: drawerIn.l, w: drawerIn.w, h: drawerIn.h } : null)
     : mihrab
       ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, mihrabInfo.zC - t) }
+      : round
+        ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, H - (roundInfo.lid ? 4 : 2) * t) }
       : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, wallH - floorZ - t) };
   const askedIn = measuredInside
     ? { l: p.length, w: p.width, h: p.height } : null;
@@ -1699,7 +1845,7 @@ export function buildBox(input = {}) {
     derived: {
       dims,
       // The mihrab's walls stop at the spring line; above it is the crown.
-      wallH: mihrab ? mihrabInfo.zS : wallH,
+      wallH: mihrab ? mihrabInfo.zS : round ? t + roundInfo.hW : wallH,
       floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       lid: lidInfo,
       vFeats, xFeats, yFeats,
@@ -1723,6 +1869,7 @@ export function buildBox(input = {}) {
         && screwZs.length < Math.max(1, Math.min(4, Math.round(p.screwsPerEdge ?? 2))),
       almari: almariInfo,
       mihrab: mihrabInfo,
+      round: roundInfo,
     },
     panels,
   };

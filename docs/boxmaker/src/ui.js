@@ -117,6 +117,7 @@ function boxThumb(style, base) {
 
   if (style === 'almari') return almariThumb(c);
   if (style === 'mihrab') return mihrabThumb(c);
+  if (style === 'round') return roundThumb(c);
 
   // top rim diamond, its inner opening, and the floor sitting below it
   const T = [48, 26]; const R = [80, 40]; const F = [48, 54]; const L = [16, 40];
@@ -195,6 +196,31 @@ function boxThumb(style, base) {
   </g>
   ${leafFront}
   ${liftOff}
+</svg>`;
+}
+
+/** A drum: base, the wall with a hint of its kerf cuts, and the lid lifted off. */
+function roundThumb(c) {
+  const cx = 48; const rx = 26; const ry = 8;
+  const top = 34; const bot = 60;
+  const kerf = Array.from({ length: 11 }, (_, i) => {
+    const x = cx - rx + 4 + i * ((2 * rx - 8) / 10);
+    return `<path d="M${x.toFixed(1)} ${top + 3}V${bot - 3}" stroke="${c.edge}" stroke-width=".5" opacity=".35"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 96 74" aria-hidden="true">
+  <ellipse cx="${cx}" cy="${bot + 2}" rx="${rx + 6}" ry="${ry + 2}" fill="${c.right}"/>
+  <ellipse cx="${cx}" cy="${bot}" rx="${rx + 6}" ry="${ry + 2}" fill="${c.rim}"/>
+  <path d="M${cx - rx} ${top}V${bot}A${rx} ${ry} 0 0 0 ${cx + rx} ${bot}V${top}Z" fill="${c.left}"/>
+  ${kerf}
+  <ellipse cx="${cx}" cy="${top}" rx="${rx}" ry="${ry}" fill="${c.inner}"/>
+  <ellipse cx="${cx}" cy="${top + 4}" rx="${rx - 3}" ry="${ry - 2}" fill="${c.floor}" opacity=".7"/>
+  <ellipse cx="${cx}" cy="${top - 18}" rx="${rx + 6}" ry="${ry + 2}" fill="${c.right}"/>
+  <ellipse cx="${cx}" cy="${top - 20}" rx="${rx + 6}" ry="${ry + 2}" fill="${c.lid}"/>
+  <g fill="none" stroke="${c.edge}" stroke-width=".9" opacity=".8">
+    <path d="M${cx - rx} ${top}V${bot}A${rx} ${ry} 0 0 0 ${cx + rx} ${bot}V${top}"/>
+    <ellipse cx="${cx}" cy="${top}" rx="${rx}" ry="${ry}"/>
+    <ellipse cx="${cx}" cy="${top - 20}" rx="${rx + 6}" ry="${ry + 2}"/>
+  </g>
 </svg>`;
 }
 
@@ -428,6 +454,13 @@ const STYLES = [
       + 'open at the front on wooden pins, on a base plate. The arched roof is '
       + 'one strip of 3 mm board, kerf-cut so it bends over the arch.',
   },
+  {
+    id: 'round',
+    label: 'Bulat',
+    hint: 'Round box. The wall is a kerf-cut strip bent into a circle and '
+      + 'dovetailed shut, standing in a groove on a base plate; the lid plugs '
+      + 'into the top and lifts off. Length is the diameter.',
+  },
 ];
 
 const DIVIDERS = [
@@ -604,15 +637,17 @@ function overallInspector(root, ctx) {
       label))),
     ...(p.style === 'shoebox' ? liftOffRows(p, ctx)
       : p.style === 'almari' ? drawerRows(p, ctx)
-        : p.style === 'mihrab' ? mihrabRows(p, ctx) : [])));
+        : p.style === 'mihrab' ? mihrabRows(p, ctx)
+          : p.style === 'round' ? roundRows(p, ctx) : [])));
 
   // Straight after the style: this is where everyone looks first.
-  root.append(patternPresets(mat, ctx));
+  const presets = patternPresets(mat, ctx);
+  if (presets) root.append(presets);
 
   // Dividers and drawers want the same interior, and the pair cannot be
   // assembled - the geometry already refuses it, so the control should not be
   // sitting there offering.
-  if (p.style !== 'almari' && p.style !== 'mihrab') root.append(group('Divider', true,
+  if (!['almari', 'mihrab', 'round'].includes(p.style)) root.append(group('Divider', true,
     h('div', { class: 'cards' }, DIVIDERS.map(({ id, label, hint }) =>
       h('button', {
         class: 'card', type: 'button',
@@ -676,12 +711,15 @@ function overallInspector(root, ctx) {
 
   const fitTicks = ['Looser', 'Loose', 'Standard', 'Tight', 'Tighter'];
   const d = getBox().derived;
-  const screwOn = p.joint === 'screw' && p.style !== 'mihrab';
+  const screwOn = p.joint === 'screw' && p.style !== 'mihrab' && p.style !== 'round';
   root.append(group('Joints', false,
     p.style === 'mihrab' ? h('p', { class: 'hint' },
       'The mihrab is glued: its two back corners are finger joints, and the doors '
       + 'are what comes apart. The screw joint is for the four-walled styles.') : null,
-    p.style === 'mihrab' ? null : h('div', { class: 'field' },
+    p.style === 'round' ? h('p', { class: 'hint' },
+      'A round box has no corners: its wall is held by the groove it stands in and '
+      + 'by the dovetails at the seam, glued. The screw joint is for the four-walled styles.') : null,
+    p.style === 'mihrab' || p.style === 'round' ? null : h('div', { class: 'field' },
       h('label', {}, 'Corner joint'),
       h('div', { class: 'seg' }, [
         ['standard', 'Standard'], ['screw', 'Screw'],
@@ -831,6 +869,56 @@ function pickStyle(id) {
   }, { geometry: true });
   mihrabResized = squat;
   clampDecor();
+}
+
+/** A round box people actually picture: a hand-sized drum. */
+const ROUND_SIZE = { length: 120, width: 120, height: 90 };
+
+/** Lid, base, and what the wall strip comes to. */
+function roundRows(p, ctx) {
+  const d = getBox().derived.round;
+  if (!d) return [];
+  const cab = getBox().params;
+  const isStock = Math.abs(cab.length - ROUND_SIZE.length) < 0.01
+    && Math.abs(cab.height - ROUND_SIZE.height) < 0.01;
+  const strips = d.wall.segments;
+  return [
+    h('div', { class: 'field' },
+      h('label', {}, 'Lid'),
+      segmented([{ id: true, label: 'Lift-off lid' }, { id: false, label: 'Open' }],
+        p.roundLid !== false, (v) => { setParam('roundLid', v); clampDecor(); ctx.refresh(); })),
+    numberRow('Base margin (mm)', p.plinthMargin ?? 8, {
+      min: 5, max: 40, step: 0.5,
+      onInput: (v) => { setParam('plinthMargin', v); clampDecor(); ctx.refresh(); },
+    }),
+    d.lid ? numberRow('Lid clearance (mm)', p.lidSlack ?? 0.4, {
+      min: 0.1, max: 1.5, step: 0.05,
+      onInput: (v) => { setParam('lidSlack', v); ctx.refresh(); },
+    }) : null,
+    h('button', {
+      class: 'ghost', type: 'button', style: 'width:100%',
+      onclick: () => {
+        update((s) => {
+          Object.assign(s.params, s.params.measure === 'inside'
+            ? insideOf({ ...s.params, measure: 'outside' }, ROUND_SIZE) : ROUND_SIZE);
+        }, { geometry: true });
+        clampDecor();
+        ctx.refresh();
+      },
+    }, isStock ? 'Saiz bulat biasa ✓' : 'Saiz bulat biasa · Ø 120 × 90 mm'),
+    h('p', { class: 'hint' },
+      strips === 1
+        ? `The wall is one strip ${rnd(d.wall.length, 1)} × ${rnd(d.wall.height, 1)} mm `
+          + `with ${d.wall.rows} rows of kerf cuts. Its two ends dovetail together at the back.`
+        : `The wall is ${strips} strips, each ${rnd(d.wall.segL, 1)} × ${rnd(d.wall.height, 1)} mm `
+          + '- one would not fit a 600 mm sheet. Every seam is the same dovetail.'),
+    h('p', { class: 'hint' },
+      'Bend the wall slowly round the floor disc, press the dovetails home and drop it '
+      + 'into the groove. Plywood or falcata - MDF and acrylic crack instead of bending.'),
+    d.lid ? h('p', { class: 'hint' },
+      `The lid is as wide as the base, ${rnd(d.overall.d, 1)} mm across; its plug sits `
+      + `${rnd(d.slack, 2)} mm inside the wall all round.`) : null,
+  ];
 }
 
 /** Arch shape, base plate and what the doors measure. */
@@ -1108,9 +1196,9 @@ function dimensionRows(p, ctx) {
           hint: 'The clear space for whatever goes in it.',
         },
       ], dims.measure, (id) => { setMeasure(id); clampDecor(); ctx.refresh(); })),
-    dimRow('Length', 'length', ctx),
-    dimRow('Width', 'width', ctx),
-    dimRow('Height', 'height', ctx),
+    ...(p.style === 'round'
+      ? [dimRow('Diameter', 'length', ctx), dimRow('Height', 'height', ctx)]
+      : [dimRow('Length', 'length', ctx), dimRow('Width', 'width', ctx), dimRow('Height', 'height', ctx)]),
     h('div', { class: 'stat dims-other' },
       h('span', {}, inside
         ? (drawer ? 'Cabinet outside' : 'Outside')
@@ -1175,7 +1263,12 @@ function dimRow(label, key, ctx) {
     max,
     step: 1,
     onInput: (v) => {
-      setParam(key, clamp(v, min, max));
+      // A round box's width follows its diameter, so switching to another
+      // style afterwards finds a square rather than a stale width.
+      const val = clamp(v, min, max);
+      if (p.style === 'round' && key === 'length') {
+        update((s) => { s.params.length = val; s.params.width = val; }, { geometry: true });
+      } else setParam(key, val);
       clampDecor();
       ctx.refresh();
     },
@@ -1202,6 +1295,11 @@ function summaryRows() {
     // further down, because there the inside that matters is the drawer's.
     !box.derived.almari && box.derived.dims.inner
       ? h('div', { class: 'stat' }, h('span', {}, 'Inside'), h('b', {}, mm3(box.derived.dims.inner)))
+      : null,
+    box.derived.round
+      ? h('div', { class: 'stat' },
+        h('span', {}, 'On its base'),
+        h('b', {}, `Ø ${rnd(box.derived.round.overall.d, 1)} x ${rnd(box.params.height, 1)} mm`))
       : null,
     box.derived.mihrab
       ? h('div', { class: 'stat' },
@@ -1511,6 +1609,9 @@ const DOOR_IDS = ['doorLeft', 'doorRight'];
 const MIHRAB_WALLS = ['back', 'left', 'right'];
 
 const presetTargets = (box, faces) => {
+  // A round box's wall is a living hinge - a pattern through it would break
+  // the bend - so the lid is the face.
+  if (box.params.style === 'round') return box.panels.filter((p) => p.id === 'lidTop');
   const mihrab = box.params.style === 'mihrab';
   const ids = mihrab
     ? (faces === 'all' ? [...DOOR_IDS, ...MIHRAB_WALLS] : DOOR_IDS)
@@ -1552,7 +1653,9 @@ function patternPresets(mat, ctx) {
   const box = getBox();
   const active = activePreset(box);
   const mihrab = box.params.style === 'mihrab';
-  const hasLid = mihrab || box.panels.some((p) => LID_IDS.includes(p.id));
+  const round = box.params.style === 'round';
+  if (round && !box.panels.some((p) => p.id === 'lidTop')) return null; // nothing to cut it on
+  const hasLid = !round && (mihrab || box.panels.some((p) => LID_IDS.includes(p.id)));
   if (!hasLid) presetFaces = 'walls';
   const card = (id, label, art) => h('button', {
     class: 'card', type: 'button', 'aria-pressed': String(active === id),
@@ -1572,7 +1675,10 @@ function patternPresets(mat, ctx) {
           if (active !== 'none') applyPreset(active, f, ctx);
           else ctx.refresh();
         })) : null,
-    h('p', { class: 'hint' }, active === 'none'
+    h('p', { class: 'hint' }, round
+      ? 'Tap a pattern to cut it through the lid. The wall is a living hinge, and a '
+        + 'pattern through it would break the bend.'
+      : active === 'none'
       ? (mihrab
         ? 'Tap a pattern to cut it through both doors, the way a mosque window is. It follows the arch and keeps clear of the hinge pins by itself.'
         : 'Tap a pattern to cut it through the walls. It keeps clear of the joints and slots by itself.')
@@ -1691,7 +1797,10 @@ export function fillExportDialog(dlg, box) {
   // exception: the screw joint's fingers stand proud at the back.
   const a = box.derived.almari;
   const mi = box.derived.mihrab;
-  const outer = mi
+  const ro = box.derived.round;
+  const outer = ro
+    ? `Ø ${box.params.length} × ${box.params.height} mm (base Ø ${rnd(ro.overall.d, 1)} mm)`
+    : mi
     ? `${rnd(mi.overall.l, 1)} × ${rnd(mi.overall.w, 1)} × ${box.params.height} mm on its base`
     : box.derived.lid
     ? `${rnd(box.derived.lid.outerL, 1)} × ${rnd(box.derived.lid.outerW, 1)} × ${box.params.height} mm overall`
@@ -1737,13 +1846,39 @@ const STEPS = [
   {
     t: 'Lay them out',
     d: 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.',
-    skip: ['almari', 'mihrab'],
+    skip: ['almari', 'mihrab', 'round'],
   },
   {
     t: 'Lay them out',
     d: 'The base plate, the arched back, two side walls, the ceiling, the inner '
       + 'arch, two doors, and the long kerf-cut roof strip.',
     only: ['mihrab'],
+  },
+  {
+    t: 'Lay them out',
+    d: 'The base plate, the floor disc, the ring, the wall strip (or strips), and '
+      + 'the two lid discs if you made the lid.',
+    only: ['round'],
+  },
+  {
+    t: 'Glue the groove',
+    d: 'Glue the floor disc and the ring onto the base plate, centred - the gap '
+      + 'between them is the groove the wall stands in. Let it set before the wall goes in.',
+    only: ['round'],
+  },
+  {
+    t: 'Bend the wall',
+    d: 'Kerf cuts on the inside. Roll it slowly round the floor disc rather than '
+      + 'forcing it into a circle in the air, press the dovetails together at the '
+      + 'back, and glue the seam. Then push the whole wall down into the groove.',
+    only: ['round'],
+  },
+  {
+    t: 'The lid',
+    d: 'Glue the plug disc to the underside of the lid disc, dead centre. It locates '
+      + 'the lid inside the wall, so the lid lifts straight off and drops back on.',
+    only: ['round'],
+    when: (p) => p.roundLid !== false,
   },
   {
     t: 'Back and sides into the base',
@@ -1782,12 +1917,12 @@ const STEPS = [
   {
     t: 'Floor into the front wall',
     d: 'The slitted tenons push through the mortises. They should click, not fight.',
-    skip: ['almari', 'mihrab'],
+    skip: ['almari', 'mihrab', 'round'],
   },
   {
     t: 'Add a side wall',
     d: 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.',
-    skip: ['almari', 'mihrab'],
+    skip: ['almari', 'mihrab', 'round'],
   },
   {
     t: 'Bottom into a side wall',
@@ -1808,14 +1943,14 @@ const STEPS = [
     d: 'Drop an M3 nut into each pocket before you close that corner up. Once '
       + 'the box is together you cannot reach them. They stay put on their own - '
       + 'the pocket is cut to the nut, not to a gap.',
-    skip: ['mihrab'],
+    skip: ['mihrab', 'round'],
   },
   {
     t: 'Dividers before the far walls',
     d: 'Stand the long divider in the front wall mortises, drop the crossing one '
       + 'onto it, then bring the side walls in over their tenons. Once the box is '
       + 'closed they cannot go in.',
-    skip: ['almari', 'mihrab'],
+    skip: ['almari', 'mihrab', 'round'],
   },
   {
     t: 'Lid pins first',
@@ -1826,7 +1961,7 @@ const STEPS = [
   {
     t: 'Close it up',
     d: 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.',
-    skip: ['almari', 'mihrab'],
+    skip: ['almari', 'mihrab', 'round'],
   },
   {
     t: 'Top drops in last',
