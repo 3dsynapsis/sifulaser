@@ -26,6 +26,12 @@
 //   * baring            - tapak berhenti rata dengan belakang; tanon belakang
 //                         masuk takuk terbuka; belakang, dinding, bumbung dan
 //                         tapak semuanya mencecah satah y = W (meja).
+//   * KUNCI             - cangkuk, selak, pasak mihrab: setiap bahagian dipasang
+//                         tanpa bertindih dan setiap lubangnya terisi; terkunci,
+//                         setiap pintu tersekat dalam 4 darjah pertama; gerakan buka kunci
+//                         tidak melanggar apa-apa; selepas dibuka, setiap pintu
+//                         (dengan bahagian kuncinya) berpusing 0-100 darjah tanpa
+//                         menyentuh pintu satu lagi, kunci, atau badan kotak.
 //   * input teruk       - kotak kecil, nisbah ekstrem, papan tebal: tak campak.
 
 import path from 'node:path';
@@ -49,10 +55,79 @@ function check(name, cond, detail = '') {
 }
 
 const RES = 0.5;
+
+// ---- jasad bergerak (kunci) -------------------------------------------------
+/** Jasad yang dialih: fwd memetakan kedudukan asal ke baharu, inv sebaliknya. */
+function moved(solid, { fwd, inv }) {
+  const cs = [];
+  for (const x of [solid.lo[0], solid.hi[0]]) for (const y of [solid.lo[1], solid.hi[1]])
+    for (const z of [solid.lo[2], solid.hi[2]]) cs.push(fwd([x, y, z]));
+  return {
+    inside: (q) => solid.inside(inv(q)),
+    lo: [0, 1, 2].map((k) => Math.min(...cs.map((c) => c[k]))),
+    hi: [0, 1, 2].map((k) => Math.max(...cs.map((c) => c[k]))),
+  };
+}
+const ID = { fwd: (q) => q, inv: (q) => q };
+const then = (a, b) => ({ fwd: (q) => b.fwd(a.fwd(q)), inv: (q) => a.inv(b.inv(q)) });
+/** Putaran tentang paksi (unit) melalui titik, Rodrigues. */
+function spin(at, axis, ang) {
+  const n = Math.hypot(...axis);
+  const k = axis.map((v) => v / n);
+  const rot = (q, a) => {
+    const v = [q[0] - at[0], q[1] - at[1], q[2] - at[2]];
+    const c = Math.cos(a), s = Math.sin(a);
+    const kv = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
+    const x = [k[1] * v[2] - k[2] * v[1], k[2] * v[0] - k[0] * v[2], k[0] * v[1] - k[1] * v[0]];
+    return [0, 1, 2].map((i) => at[i] + v[i] * c + x[i] * s + k[i] * kv * (1 - c));
+  };
+  return { fwd: (q) => rot(q, ang), inv: (q) => rot(q, -ang) };
+}
+const shiftBy = (d) => ({ fwd: (q) => [q[0] + d[0], q[1] + d[1], q[2] + d[2]], inv: (q) => [q[0] - d[0], q[1] - d[1], q[2] - d[2]] });
+/** Kedudukan bahagian kunci pada kemajuan p (0 terkunci, 1 terbuka) - sama seperti view3d. */
+function lockPose(panel, p) {
+  const m = panel.lockMove;
+  if (!m) return ID;
+  if (m.turn) return spin(m.turn.at, m.turn.axis, (m.turn.angle * Math.PI / 180) * p);
+  const pts = [[0, 0, 0], ...m.path];
+  const n = pts.length - 1;
+  const s = Math.min(n - 1e-9, Math.max(0, p * n));
+  const i = Math.floor(s), f = s - i;
+  return shiftBy([0, 1, 2].map((k) => pts[i][k] + (pts[i + 1][k] - pts[i][k]) * f));
+}
+/** Putaran pintu (dan apa yang dibawanya) tentang paksi pinnya, darjah. */
+function doorSwing(door, deg) {
+  const { origin: o, U, N } = door.frame;
+  const at = [0, 1, 2].map((k) => o[k] + U[k] * door.hinge.u + N[k] * door.hinge.n);
+  return spin(at, [0, 0, 1], door.hinge.sign * deg * Math.PI / 180);
+}
+/** Bilangan titik sampel di dalam kedua-dua jasad, dalam pertindihan kotak sempadan. */
+function overlap(a, b, step = 0.4) {
+  const lo = [0, 1, 2].map((k) => Math.max(a.lo[k], b.lo[k]));
+  const hi = [0, 1, 2].map((k) => Math.min(a.hi[k], b.hi[k]));
+  if (lo.some((v, k) => v > hi[k])) return 0;
+  let n = 0;
+  for (let x = lo[0] + 0.013; x <= hi[0]; x += step) {
+    for (let y = lo[1] + 0.029; y <= hi[1]; y += step) {
+      for (let z = lo[2] + 0.017; z <= hi[2]; z += step) {
+        const q = [x, y, z];
+        if (a.inside(q) && b.inside(q)) n++;
+      }
+    }
+  }
+  return n;
+}
 function makeGrid(box) {
   const m = box.derived.mihrab;
-  return gridOver([-m.mb - 4, -m.mb - 4, -1],
-    [box.params.length + m.mb + 4, box.params.width + m.mb + 4, box.params.height + 5], [RES, RES, RES]);
+  // Kunci berdiri di hadapan pintu, kadang-kadang lebih jauh dari tepi tapak.
+  const lo = [-m.mb - 4, -m.mb - 4, -1];
+  const hi = [box.params.length + m.mb + 4, box.params.width + m.mb + 4, box.params.height + 5];
+  for (const p of box.panels) {
+    if (p.bend) continue;
+    const s = panelSolid(p);
+    for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], s.lo[k] - 2); hi[k] = Math.max(hi[k], s.hi[k] + 2); }
+  }
+  return gridOver(lo, hi, [RES, RES, RES]);
 }
 
 // ---- satu kotak --------------------------------------------------------------
@@ -81,10 +156,11 @@ function testBox(params, { swing = true, fine = false } = {}) {
 
   // ---- pasang dalam 3D
   const grid = makeGrid(box);
-  const fixed = box.panels.filter((p) => !p.hinge && !p.bend);
+  const fixed = box.panels.filter((p) => !p.hinge && !p.bend && !p.attach && !p.lockMove);
   const doors = box.panels.filter((p) => p.hinge);
   const roof = box.panels.find((p) => p.bend);
-  const order = [...fixed, ...doors];
+  const lockParts = box.panels.filter((p) => p.attach || p.lockMove);
+  const order = [...fixed, ...doors, ...lockParts];
   order.forEach((p, i) => {
     const clash = fill(grid, panelSolid(p), i);
     const worst = [...clash.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -110,6 +186,90 @@ function testBox(params, { swing = true, fine = false } = {}) {
       check(`${tag}: ${p.id} lubang ${hi} terisi`, own >= 0 && order[own]?.id !== p.id,
         own >= 0 ? `dituntut ${order[own]?.id ?? 'bumbung'}` : 'kosong');
     });
+  }
+
+  // ---- kunci
+  const kind = m.lock?.kind || 'notch';
+  check(`${tag}: jenis kunci`, kind === (['hook', 'bolt', 'pin'].includes(params.mihrabLock) ? params.mihrabLock : 'notch'));
+  if (kind !== 'notch') {
+    check(`${tag}: kunci ada bahagian`, lockParts.length >= 3, lockParts.map((p) => p.id).join(','));
+    // Setiap lubang kunci terisi: lubang pada pintu dan pada bahagian kunci
+    // (kecuali alur tombol selak, yang tombolnya hanya di satu hujung).
+    for (const p of [...doors, ...lockParts]) {
+      if (p.id === 'boltCover' || p.id === 'lockPin') continue; // alur tombol; tingkap gerbang
+      p.holesNominal.forEach((hh, hi) => {
+        const cx = hh.reduce((a, q) => a + q[0], 0) / hh.length;
+        const cy = hh.reduce((a, q) => a + q[1], 0) / hh.length;
+        const { origin, U, V, N } = p.frame;
+        const u = cx + p.originShift[0], v = cy + p.originShift[1], n = -p.thickness / 2;
+        const w = [0, 1, 2].map((k) => origin[k] + U[k] * u + V[k] * v + N[k] * n);
+        const [i, j, kk] = grid.cell(...w);
+        const own = grid.own[grid.idx(i, j, kk)];
+        check(`${tag}: ${p.id} lubang kunci ${hi} terisi`, own >= 0 && order[own]?.id !== p.id,
+          own >= 0 ? `dituntut ${order[own]?.id ?? 'bumbung'}` : 'kosong');
+      });
+    }
+    const solidOf = (p) => panelSolid(p);
+    const assembly = (d, pl) => [d, ...lockParts.filter((q) => q.attach === d.id)]
+      .map((q) => ({ q, s: moved(solidOf(q), lockPose(q, q.attach ? pl : 0)) }));
+    const loose = (pl) => lockParts.filter((q) => !q.attach).map((q) => ({ q, s: moved(solidOf(q), lockPose(q, pl)) }));
+    const hits = (mov, obs) => {
+      for (const a of mov) for (const b of obs) {
+        const n = overlap(a.s, b.s);
+        if (n) return `${a.q.id} dalam ${b.q.id} (${n})`;
+      }
+      return null;
+    };
+    const fixedS = fixed.map((q) => ({ q, s: solidOf(q) }));
+    // Terkunci: setiap pintu tersekat dalam 4 darjah pertama. Disapu dengan
+    // langkah kecil - pada 6 darjah sekali gus cangkuk sudah melompat melepasi
+    // penutup pin, dan pose akhir sahaja tidak bertindih dengan apa-apa.
+    for (const d of doors) {
+      const other = doors.find((x) => x !== d);
+      let hit = null;
+      for (let deg = 0.25; deg <= 4 && !hit; deg += 0.25) {
+        const mov = assembly(d, 0).map(({ q, s }) => ({ q, s: moved(s, doorSwing(d, deg)) }));
+        hit = hits(mov, [...assembly(other, 0), ...loose(0)]);
+      }
+      check(`${tag}: terkunci - ${d.id} tersekat`, !!hit);
+    }
+    // Gerakan buka kunci: bahagian yang bergerak tidak melanggar apa-apa.
+    const movers = lockParts.filter((q) => q.lockMove);
+    const still = [...fixedS, ...doors.map((q) => ({ q, s: solidOf(q) })),
+      ...lockParts.filter((q) => !q.lockMove).map((q) => ({ q, s: solidOf(q) }))];
+    // Langkah ikut jarak: tiada titik bahagian bergerak lebih 0.5 mm setiap
+    // langkah, atau pasak yang ditarik jauh melompat terus melepasi telinga.
+    const travel = Math.max(...movers.map((q) => {
+      const mv = q.lockMove;
+      if (mv.turn) return (mv.turn.angle * Math.PI / 180) * Math.max(q.size.w, q.size.h) * 1.5;
+      let len = 0;
+      [[0, 0, 0], ...mv.path].forEach((w, i, a) => { if (i) len += Math.hypot(...w.map((v, k) => v - a[i - 1][k])); });
+      return len;
+    }));
+    const nStep = Math.max(24, Math.ceil(travel / 0.5));
+    let badMove = null;
+    for (let i = 1; i <= nStep && !badMove; i++) {
+      const mov = movers.map((q) => ({ q, s: moved(solidOf(q), lockPose(q, i / nStep)) }));
+      badMove = hits(mov, still);
+      if (badMove) badMove = `p=${(i / nStep).toFixed(3)}: ${badMove}`;
+    }
+    check(`${tag}: buka kunci tanpa melanggar`, !badMove, badMove);
+    // Dibuka: setiap pintu dengan bahagiannya berpusing 0-100 darjah, bebas.
+    for (const d of doors) {
+      const other = doors.find((x) => x !== d);
+      const obs = [...fixedS, ...assembly(other, 1), ...loose(1)];
+      let bad = null;
+      for (let deg = 5; deg <= 100 && !bad; deg += 5) {
+        const mov = assembly(d, 1).filter(({ q }) => q !== d)
+          .map(({ q, s }) => ({ q, s: moved(s, doorSwing(d, deg)) }));
+        // Pintu itu sendiri lawan badan kotak sudah diuji di bawah; di sini
+        // pintu lawan pintu satu lagi dan kunci, bahagian kunci lawan semua.
+        const doorS = { q: d, s: moved(solidOf(d), doorSwing(d, deg)) };
+        bad = hits(mov, obs) || hits([doorS], [...assembly(other, 1), ...loose(1)]);
+        if (bad) bad = `${deg}°: ${bad}`;
+      }
+      check(`${tag}: dibuka - ${d.id} berpusing bebas`, !bad, bad);
+    }
   }
 
   // ---- pintu berpusing
@@ -247,6 +407,14 @@ testBox({ length: 200, width: 120, height: 260, thickness: 2.6, kerf: 0.2 }, { f
 testBox({ length: 120, width: 80, height: 160, archRise: 90, archRound: 95, fit: 0.2, lidGap: 0.6 }, { fine: true });
 testBox({ length: 100, width: 76, height: 50 });                       // kotak lalai: had mesti bertindak
 testBox({ length: 400, width: 60, height: 300, archRise: 25 }, { swing: false });
+// Kunci: tiga jenis, tiga papan, kotak kecil.
+for (const lock of ['hook', 'bolt', 'pin']) {
+  testBox({ length: 200, width: 120, height: 260, mihrabLock: lock }, { swing: false });
+  testBox({ length: 180, width: 110, height: 240, thickness: 5.2, kerf: 0.25, mihrabLock: lock }, { swing: false });
+  testBox({ length: 120, width: 80, height: 160, thickness: 2.6, fit: 0.2, lidGap: 0.6, mihrabLock: lock }, { swing: false });
+  testBox({ length: 400, width: 120, height: 300, mihrabLock: lock }, { swing: false }); // kunci dibesarkan
+}
+testBox({ length: 200, width: 120, height: 260, mihrabLock: 'pin', mihrabCarve: true, mihrabLie: true }, { fine: true });
 // Lapisan ukiran dan baring.
 testBox({ length: 200, width: 120, height: 260, mihrabCarve: true }, { fine: true });
 testBox({ length: 180, width: 110, height: 240, thickness: 5.2, kerf: 0.25, mihrabCarve: true }, { fine: true });
@@ -259,6 +427,8 @@ for (const bad of [
   { length: 0, width: 0, height: 0 }, { archRise: 1000, archRound: -50 }, { archRise: 'x' },
   { plinthMargin: -3 }, { thickness: 12, length: 90 }, { thickness: 0.5 },
   { mihrabLie: 'x', mihrabCarve: 1 }, { mihrabLie: true, mihrabCarve: true, length: 0, height: 0 },
+  { mihrabLock: 'x' }, { mihrabLock: 'pin', length: 0, width: 0, height: 0 }, { mihrabLock: 'hook', thickness: 12, length: 90 },
+  { mihrabLock: 'bolt', thickness: 0.5 },
 ]) {
   let ok = true;
   try {

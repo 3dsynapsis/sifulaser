@@ -152,6 +152,43 @@ melekat pada gerbang dalam dan duduk atas siling, pintu masih berpusing tanpa
 menyentuhnya; dalam mod baring tapak, belakang, dinding dan bumbung semuanya
 mencecah satah meja dan setiap takuk tapak diisi tanon belakang.
 
+### Mihrab: kunci pintu (Cangkuk, Selak, Pasak mihrab)
+
+**Ditambah terus di sini pada 17 Oktober 2026 dan BELUM dipindahkan ke projek
+asal.** `mihrabLock`: `'notch'` (lubang jari, lalai - sama seperti dahulu),
+`'hook'`, `'bolt'`, `'pin'`. Fungsi `mihrabLock()` dalam `src/geom/box.js`.
+
+Kancing pusing biasa pada satu pintu TIDAK mengunci dua pintu yang sama-sama
+dibuka keluar: pintu yang membawa kancing itu masih boleh dibuka dahulu. Jadi
+ketiga-tiga kunci di sini mengikat kedua-dua pintu:
+
+- **Cangkuk** (`hook`, `hookCap`, `hookPin`, `catchPin`, `catchCap`) - cangkuk
+  berpusing pada pin di pintu kiri, jarinya jatuh atas pin berpenutup di pintu
+  kanan. Muka dalam jari ialah lengkok berpusat pada pin cangkuk, jadi bila
+  diangkat suku pusingan ia tidak menekan pin tangkapan.
+- **Selak** (`boltGuide`, `boltCover`, `bolt`, `boltPeg`, `boltKnob`,
+  `boltKeeper`, `keeperCover`) - selak meluncur dalam pemandu di pintu kiri ke
+  penangkap di pintu kanan; tombol pada pin melalui alur pada penutup pemandu.
+- **Pasak mihrab** (`earLeft`, `earRight`, `lockPin`) - setiap pintu ada
+  telinga bertanon menembusi pintu; mihrab kecil berkaki dua (rupa kotak itu
+  sendiri, bertingkap) dijatuhkan melalui kedua-dua telinga.
+
+Bahagian pada pintu membawa `attach: 'doorLeft' | 'doorRight'` (berpusing
+bersama pintu dalam 3D), bahagian yang bergerak membawa `lockMove`
+(`turn` atau `path`, koordinat kotak). `src/view3d.js` membuka kunci dahulu
+(~0.8 s, ikut masa) sebelum pintu berpusing, dan menguncinya semula selepas
+pintu tertutup. Saiz rupa kunci membesar dengan lebar kotak (hingga 2.2x pada
+308 mm ke atas); kelegaan dan pegangan tidak. Kad pilihan kunci dalam
+`src/ui.js` dilukis daripada geometri kunci sebenar (pandangan depan).
+
+Ujian dalam `scripts/test-boxmaker-mihrab.mjs`: semua bahagian dipasang tanpa
+bertindih dan setiap lubang kunci terisi; terkunci, setiap pintu tersekat
+dalam 4 darjah pertama; gerakan buka kunci (langkah <= 0.5 mm) tidak
+melanggar; selepas dibuka setiap pintu dengan bahagiannya berpusing 0-100
+darjah tanpa menyentuh pintu satu lagi, kunci atau badan kotak. Mutasi
+(penutup pin terlalu kecil, selak tidak masuk penangkap, pasak tidak diangkat,
+jari cangkuk terlalu rapat) semuanya ditangkap.
+
 ### Bahan Falcata 2.6 mm
 
 Ditambah terus di sini pada 17 Oktober 2026 (`src/store.js`, `MATERIALS`:

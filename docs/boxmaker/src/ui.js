@@ -6,7 +6,7 @@ import {
   setMeasure,
 } from './store.js';
 import * as gallery from './designs.js';
-import { PANEL_LABELS, SCREW, dimMap, insideOf } from './geom/box.js';
+import { PANEL_LABELS, SCREW, dimMap, insideOf, buildBox } from './geom/box.js';
 import {
   makeObject, PROCESSES, objectRings, measureText, patternInfo, patternFitKey,
 } from './geom/decor.js';
@@ -637,7 +637,7 @@ function overallInspector(root, ctx) {
       label))),
     ...(p.style === 'shoebox' ? liftOffRows(p, ctx)
       : p.style === 'almari' ? drawerRows(p, ctx)
-        : p.style === 'mihrab' ? mihrabRows(p, ctx)
+        : p.style === 'mihrab' ? mihrabRows(p, ctx, mat)
           : p.style === 'round' ? roundRows(p, ctx) : [])));
 
   // Straight after the style: this is where everyone looks first.
@@ -922,7 +922,73 @@ function roundRows(p, ctx) {
 }
 
 /** Arch shape, base plate and what the doors measure. */
-function mihrabRows(p, ctx) {
+// The door locks, with what each one is for. All three hold BOTH doors; the
+// finger hole holds nothing and is there for the box that needs no lock.
+const MIHRAB_LOCKS = [
+  { id: 'notch', label: 'Finger hole', hint: 'A round notch to pull the doors by. No lock.' },
+  { id: 'hook', label: 'Hook', hint: 'Cangkuk: a hook on the left door drops over a capped pin on the right. Neat.' },
+  { id: 'bolt', label: 'Sliding bolt', hint: 'Selak: a bolt slides from a guide on the left door into a keeper on the right. Minimal.' },
+  { id: 'pin', label: 'Mihrab pin', hint: 'Pasak: a little mihrab with two legs drops through an ear on each door. Grand.' },
+];
+
+/**
+ * Card art for a lock, drawn from the lock the box would actually get: the
+ * two doors' meeting edges and every lock part, seen from the front, nearer
+ * parts over further ones. Built from the same params as the box on screen,
+ * so it is that box's lock at that board's thickness.
+ */
+const lockArtCache = new Map();
+function lockThumb(kind, params, base) {
+  const key = `${kind}|${base}|${params.thickness}|${params.length}|${params.height}|${params.width}|${params.archRise}|${params.lidGap}|${params.fit}`;
+  if (lockArtCache.has(key)) return lockArtCache.get(key);
+  const box = buildBox({ ...params, mihrabLock: kind });
+  const m = box.derived.mihrab;
+  const L = box.params.length;
+  const zK = m.door.lockZ;
+  const parts = box.panels.filter((q) => q.id === 'doorLeft' || q.id === 'doorRight' || q.attach || q.lockMove);
+  // Front view: world (x, z) of each ring; a part seen edge-on (an ear, a
+  // pin) becomes the rectangle it covers.
+  const world = (q, [u, v], n = 0) => {
+    const { origin: o, U, V, N } = q.frame;
+    const uu = u + q.originShift[0];
+    const vv = v + q.originShift[1];
+    return [0, 1, 2].map((k) => o[k] + U[k] * uu + V[k] * vv + N[k] * n);
+  };
+  const view = (q) => {
+    const t = q.thickness;
+    const flat = Math.abs(q.frame.N[1]) > 0.9;
+    const rings = [q.outline, ...q.holes].map((r) => r.map((pt) => world(q, pt)));
+    if (flat) return { y: rings[0][0][1] - q.frame.N[1] * t / 2, rings: rings.map((r) => r.map(([x, , z]) => [x, z])) };
+    const all = [...q.outline.map((pt) => world(q, pt, 0)), ...q.outline.map((pt) => world(q, pt, -t))];
+    const xs = all.map((w) => w[0]); const zs = all.map((w) => w[2]); const ys = all.map((w) => w[1]);
+    const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+    return { y: (Math.min(...ys) + Math.max(...ys)) / 2, rings: [[[x0, z0], [x1, z0], [x1, z1], [x0, z1]]] };
+  };
+  const views = parts.map((q) => ({ q, ...view(q) })).sort((a, b) => b.y - a.y);
+  // Window: 3:2 round the lock, or round the finger hole.
+  // The pin stands tall: from its leg tips a board below the ears to the
+  // point of its arch, all of it in the window.
+  const tk = box.params.thickness;
+  const pinLo = zK - tk;
+  const pinHi = zK + tk + (m.lock.size?.[1] || 0);
+  const span = kind === 'notch' ? 6 * m.door.notchR
+    : kind === 'pin' ? Math.max(2.4 * m.lock.size[0], 2 * (pinHi - pinLo + 8))
+      : kind === 'bolt' ? 1.5 * (m.lock.travel + m.lock.length) : 2.6 * m.lock.reach;
+  const cz = kind === 'pin' ? (pinLo + pinHi) / 2 : zK;
+  const W = Math.max(span, 30); const H = W * (46 / 92);
+  const vx = L / 2 - W / 2; const vz = cz + H / 2;
+  const c = { door: shade(base, -0.1), part: shade(base, 0.22), edge: shade(base, -0.62) };
+  const d = (rings) => rings.map((r) => `M${r.map(([x, z]) => `${(x - vx).toFixed(2)} ${(vz - z).toFixed(2)}`).join('L')}Z`).join('');
+  const paths = views.map(({ q, rings }) => {
+    const fill = q.hinge ? c.door : c.part;
+    return `<path d="${d(rings)}" fill="${fill}" fill-rule="evenodd" stroke="${c.edge}" stroke-width="${(W / 92 * 0.9).toFixed(3)}" stroke-linejoin="round"/>`;
+  }).join('');
+  const art = `<svg viewBox="0 0 ${W.toFixed(2)} ${H.toFixed(2)}" aria-hidden="true">${paths}</svg>`;
+  lockArtCache.set(key, art);
+  return art;
+}
+
+function mihrabRows(p, ctx, mat) {
   const d = getBox().derived.mihrab;
   if (!d) return [];
   const cab = getBox().params;
@@ -948,6 +1014,14 @@ function mihrabRows(p, ctx) {
         { id: false, label: 'Plain', hint: 'The inner arch above the doors is left plain.' },
         { id: true, label: 'Carved layer', hint: 'A second arch board with a pattern cut through it, glued on the inner arch.' },
       ], p.mihrabCarve === true, (v) => { setCarve(v, ctx); })),
+    h('div', { class: 'field' },
+      h('label', {}, 'Door lock'),
+      h('div', { class: 'cards lock-cards' }, MIHRAB_LOCKS.map((k) => h('button', {
+        class: 'card', type: 'button', title: k.hint,
+        'aria-pressed': String((p.mihrabLock || 'notch') === k.id),
+        onclick: () => { setParam('mihrabLock', k.id); clampDecor(); ctx.refresh(); },
+      }, h('span', { class: 'art', html: lockThumb(k.id, getBox().params, mat.color) }), k.label)))),
+    h('p', { class: 'hint' }, lockHint(d)),
     d.carve ? h('p', { class: 'hint' },
       'An extra arch board sits on the inner arch, a few mm in from its edge. The '
       + 'pattern is cut through it and the plain arch behind shows through, so it '
@@ -1019,6 +1093,29 @@ function setCarve(on, ctx) {
   }
   clampDecor();
   ctx.refresh();
+}
+
+/** What the chosen lock is, how to work it, and what it is cut as. */
+function lockHint(d) {
+  const k = d.lock;
+  if (k.kind === 'hook') {
+    return 'Cangkuk. The hook turns on a pin through the left door and its finger drops '
+      + 'over a capped pin on the right door, so neither door can open. Lift it a '
+      + 'quarter turn to open. Five small parts; the pins are pressed into square '
+      + 'holes, the hook turns on its round one.';
+  }
+  if (k.kind === 'bolt') {
+    return `Selak. Slide the knob right and the bolt shoots ${rnd(k.engage, 1)} mm into the `
+      + 'keeper on the right door; slide it back to open. Guide and keeper are glued '
+      + 'on, each a spacer with a cover over it - the bolt runs between them.';
+  }
+  if (k.kind === 'pin') {
+    return `Pasak mihrab. A ${rnd(k.size[0], 1)} × ${rnd(k.size[1], 1)} mm mihrab with two `
+      + 'legs drops through an ear on each door. Lift it out to open. The ears are '
+      + 'tenoned through the doors and glued. Lying down, only friction holds the pin.';
+  }
+  return 'A round finger hole between the doors to pull them by. Pick a lock to keep '
+    + 'them shut.';
 }
 
 /** The cabinet everybody actually pictures when they say almari laci. */
@@ -2000,6 +2097,34 @@ const STEPS = [
       + 'strip slowly over it and the back, kerf cuts on the inside of the bend, '
       + 'and glue it along both arches and onto the tops of the walls.',
     only: ['mihrab'],
+  },
+  {
+    t: 'The hook',
+    d: 'Press the hook pin through the square hole in the left door from the front, '
+      + 'hang the hook on it - it turns on its round hole - and press the star cap '
+      + "on the pin's end. Press the catch pin into the right door the same way and "
+      + 'cap it with the round cap. Shut both doors and drop the hook over the catch '
+      + 'pin. Glue nothing that turns.',
+    only: ['mihrab'],
+    when: (p) => p.mihrabLock === 'hook',
+  },
+  {
+    t: 'The sliding bolt',
+    d: 'Glue the bolt guide on the left door with its open end flush with the door '
+      + "edge, and the keeper on the right door the same way, level with it. Lay the "
+      + "bolt in the guide's channel and glue the cover over the guide - not onto the "
+      + "bolt. Push the knob pin through the cover's slot into the bolt and press the "
+      + 'knob on. Glue the keeper cover on last.',
+    only: ['mihrab'],
+    when: (p) => p.mihrabLock === 'bolt',
+  },
+  {
+    t: 'The ears and the mihrab pin',
+    d: "Push each ear's tenon through the slot in its door from the front, flat side "
+      + 'up, and glue it. Closed, the two ears meet at the gap with their square holes '
+      + "level. Drop the mihrab pin's legs through both holes to lock.",
+    only: ['mihrab'],
+    when: (p) => p.mihrabLock === 'pin',
   },
   {
     t: 'The carving layer',

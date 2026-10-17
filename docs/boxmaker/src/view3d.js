@@ -175,8 +175,24 @@ export class View3D {
     this.updateDims();
     // Lids turn about their own x (the hinge runs along the panel); the
     // mihrab's doors turn about their own y, a vertical pin line.
+    // A locked mihrab unlocks first - the hook lifts, the bolt draws back, the
+    // pin comes out - and only then do the doors swing. Closing runs the other
+    // way: doors shut, then it locks.
+    // Timed, not per frame: about 0.8 s whatever the frame rate.
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - (this._lockT ?? now)) / 1000);
+    this._lockT = now;
+    const locks = this.lockMovers || [];
+    if (locks.length) {
+      const shut = (this.lidGroups || []).every(({ pivot, axis = 'x' }) => Math.abs(pivot.rotation[axis]) < 0.02);
+      const want = this.lidOpen ? 1 : (shut ? 0 : 1);
+      const step = dt / 0.8;
+      this.lockP = want > this.lockP ? Math.min(want, this.lockP + step) : Math.max(want, this.lockP - step);
+      for (const m of locks) View3D.applyLockMove(m, View3D.ease(this.lockP));
+    }
+    const free = !locks.length || this.lockP >= 1;
     for (const { pivot, sign, axis = 'x', angle = 105 } of this.lidGroups || []) {
-      const target = this.lidOpen ? sign * angle * DEG : 0;
+      const target = this.lidOpen && free ? sign * angle * DEG : 0;
       pivot.rotation[axis] += (target - pivot.rotation[axis]) * 0.18;
     }
     // A lift-off lid has nothing to swing on, so opening the box raises it
@@ -275,6 +291,10 @@ export class View3D {
     this.lidGroups = [];
     this.liftGroups = [];
     this.slideGroups = [];
+    this.lockMovers = [];
+    this.lockP ??= 0;
+    const doors = {};
+    const lockParts = [];
 
     const t = box.params.thickness;
     const color = new THREE.Color(opts.color || '#d8b483');
@@ -357,6 +377,12 @@ export class View3D {
         group.add(plane);
       }
 
+      // A lock part: placed after the doors it rides on (second pass below).
+      if (panel.attach || panel.lockMove) {
+        lockParts.push({ panel, group });
+        continue;
+      }
+
       if (panel.hinge && panel.hinge.axis === 'v') {
         // A door: the pin line runs along the panel's v (world z), through the
         // middle of the board, at u = hinge.u.
@@ -372,6 +398,7 @@ export class View3D {
         outer.applyMatrix4(View3D.panelMatrix(panel));
         outer.add(pivot);
         this.lidGroups.push({ pivot, sign: panel.hinge.sign, axis: 'y', angle: 100 });
+        doors[panel.id] = { inner, matrix: View3D.panelMatrix(panel) };
         this.root.add(outer);
         this.meshes.push(mesh);
         continue;
@@ -421,6 +448,28 @@ export class View3D {
       this.meshes.push(mesh);
     }
 
+    // Lock parts. One on a door sits in a wrapper that undoes the door's own
+    // placement, so inside it the coordinates are the box's - while the door
+    // is shut. As the door turns, all of it turns with the door. The part
+    // that moves to unlock gets one more group to move.
+    for (const { panel, group } of lockParts) {
+      const wrap = new THREE.Group();
+      let host = this.root;
+      const d = panel.attach && doors[panel.attach];
+      if (d) {
+        wrap.applyMatrix4(d.matrix.clone().invert());
+        host = d.inner;
+      }
+      const mover = new THREE.Group();
+      mover.add(group);
+      wrap.add(mover);
+      host.add(wrap);
+      if (panel.lockMove) {
+        this.lockMovers.push({ node: mover, move: panel.lockMove });
+        View3D.applyLockMove(this.lockMovers[this.lockMovers.length - 1], View3D.ease(this.lockP));
+      }
+    }
+
     this.setupDims(box);
 
     // Centre the box on the origin and drop it onto the ground plane. A mihrab
@@ -449,6 +498,32 @@ export class View3D {
     const frameKey = `${box.params.style}|${lie}|${Math.round(Math.log(this.boxSize) * 3)}`;
     if (!this._framed || frameKey !== this._frameKey) { this.frame(); this._framed = true; }
     this._frameKey = frameKey;
+  }
+
+  /**
+   * Put a lock part where it is at progress p: 0 locked, 1 open. `turn` is a
+   * rotation about an axis through a point; `path` runs through waypoints
+   * (offsets from where the part is cut to sit), one equal share of p each.
+   */
+  static ease(p) { return p * p * (3 - 2 * p); }
+
+  static applyLockMove({ node, move }, p) {
+    if (move.turn) {
+      const { at, axis, angle } = move.turn;
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...axis).normalize(), angle * DEG * p);
+      const a = new THREE.Vector3(...at);
+      node.quaternion.copy(q);
+      node.position.copy(a).sub(a.clone().applyQuaternion(q));
+      return;
+    }
+    const pts = [[0, 0, 0], ...(move.path || [])];
+    const n = pts.length - 1;
+    if (!n) return;
+    const sIdx = Math.min(n - 1e-9, Math.max(0, p * n));
+    const i = Math.floor(sIdx);
+    const f = sIdx - i;
+    const [a, b] = [pts[i], pts[i + 1]];
+    node.position.set(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f);
   }
 
   /**

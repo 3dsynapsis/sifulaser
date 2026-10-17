@@ -44,7 +44,7 @@
 
 import {
   sub, len as vlen, norm, dedupe, bbox, translate,
-  offsetPolygon, ellipse, rect,
+  offsetPolygon, ellipse, rect, roundedRect,
 } from './path.js';
 import { solveKeel, keelPath, keelZ, strip as archStrip, livingHinge } from './arch.js';
 
@@ -92,6 +92,7 @@ export const DEFAULTS = {
   plinthMargin: 8,   // how far the base plate stands out round the box, mm
   mihrabCarve: false, // a second arch board glued on the inner arch, to carve
   mihrabLie: false,   // lying on its back, doors up: the base is flush behind
+  mihrabLock: 'notch', // 'notch' finger hole | 'hook' | 'bolt' | 'pin'
 
   // ---- Round (cylinder) -------------------------------------------------
   // Length is the diameter; width follows it. plinthMargin and lidSlack are
@@ -120,6 +121,9 @@ export const PANEL_ORDER = [
   // list only so a stray write cannot throw - the UI never offers it, because
   // anything cut through a living hinge breaks it.
   'plinth', 'ceiling', 'doorLeft', 'doorRight', 'rib', 'roof', 'ribFace',
+  'hook', 'hookCap', 'hookPin', 'catchPin', 'catchCap',
+  'boltGuide', 'boltCover', 'bolt', 'boltPeg', 'boltKnob', 'boltKeeper', 'keeperCover',
+  'earLeft', 'earRight', 'lockPin',
   // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
   // for decoration, for the same reason as the mihrab's roof.
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
@@ -147,6 +151,10 @@ export const PANEL_LABELS = {
   up1: 'Upright 1', up2: 'Upright 2',
   plinth: 'Base', ceiling: 'Ceiling', doorLeft: 'Door left', doorRight: 'Door right',
   rib: 'Arch inner', roof: 'Roof (flex)', ribFace: 'Arch carving',
+  hook: 'Hook', hookCap: 'Hook cap', hookPin: 'Hook pin', catchPin: 'Catch pin', catchCap: 'Catch cap',
+  boltGuide: 'Bolt guide', boltCover: 'Bolt cover', bolt: 'Bolt', boltPeg: 'Knob pin',
+  boltKnob: 'Knob', boltKeeper: 'Bolt keeper', keeperCover: 'Keeper cover',
+  earLeft: 'Lock ear left', earRight: 'Lock ear right', lockPin: 'Mihrab pin',
   floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
@@ -445,6 +453,212 @@ export function insideOf(params, outside) {
 }
 
 /** Build every panel for the given parameters. */
+/**
+ * The mihrab's door lock, if it has one instead of a finger hole. Three kinds,
+ * all cut from the same board and all holding BOTH doors - which is the catch
+ * with double doors that both swing out: a plain turn button on one door only
+ * makes you open that door first. Each of these ties the two doors together so
+ * that neither can move without the other, and together they cannot move at
+ * all (their free edges would have to part, or turn against each other).
+ *
+ *   hook  Cangkuk. A hook turns on a pin on the left door; its finger drops
+ *         over a capped pin on the right door. Lift it a quarter turn to open.
+ *         The finger's inside is an arc about the hook's own pin, so it swings
+ *         clear of the catch pin however tight the fit.
+ *   bolt  Selak. A bolt slides in a guide on the left door into a keeper on the
+ *         right; a knob on a pin through a slot in the guide's cover moves it.
+ *   pin   Pasak mihrab. Each door carries an ear tenoned through it; a little
+ *         mihrab with two legs drops through both ears. Lift it out to open.
+ *
+ * Coordinates are the box's: x across, y from the door face forwards is
+ * negative, z up. Parts on a door carry `attach` (they turn with it) and the
+ * part that moves to unlock carries `lockMove` in box coordinates: `turn`
+ * about an axis through a point, or `path`, waypoints from where it sits.
+ */
+function mihrabLock(kind, { t, fit, g, L, xc, zK }) {
+  const out = { leftHoles: [], rightHoles: [], parts: [], info: { kind } };
+  if (kind === 'notch') return out;
+  const cl = Math.max(0.2, fit);
+  // A lock sized for a 140 mm front looks like a toy on a 300 mm one. Its
+  // looks grow with the box; its clearances and what holds it do not.
+  const sc = Math.min(2.2, Math.max(1, L / 140));
+  // A board standing in front of the doors, y from y0 to y0 + t.
+  const front = (y0) => ({ origin: [0, y0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
+  // A square pin pressed into a square hole, and the round hole it turns in.
+  const press = (cx, cz) => shrinkRect(cx - t / 2, cz - t / 2, t, t, fit);
+  const turnR = Math.SQRT1_2 * t + cl;
+  // A t x t pin running along y from y0, length n boards.
+  const pinAlongY = (id, cx, cz, y0, n, extra = {}) => ({
+    id, outline: rect(0, 0, n * t, t), holes: [],
+    frame: { origin: [cx + t / 2, y0, cz - t / 2], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+    ...extra,
+  });
+  const star = (cx, cz, r, k = 8, inner = 0.74) => {
+    const pts = [];
+    for (let i = 0; i < 2 * k; i++) {
+      const a = Math.PI / 2 + (i * Math.PI) / k;
+      const rr = i % 2 ? r * inner : r;
+      pts.push([cx + rr * Math.cos(a), cz + rr * Math.sin(a)]);
+    }
+    return pts;
+  };
+  const arc = (cx, cz, r, a0, a1, step = 0.5) => {
+    const n = Math.max(6, Math.ceil((Math.abs(a1 - a0) * r) / step));
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + ((a1 - a0) * i) / n;
+      pts.push([cx + r * Math.cos(a), cz + r * Math.sin(a)]);
+    }
+    return pts;
+  };
+
+  if (kind === 'hook') {
+    const fw = Math.max(3, t) * sc;               // finger, beyond the catch pin
+    const fd = t / 2 + Math.max(1, 0.4 * t) * sc; // how far it reaches below the pin's centre
+    const zA = zK + t / 2 + cl;                   // underside of the arm, just over the catch pin
+    const aw = Math.max(4, 1.3 * t) * sc;
+    // The boss round the hook's pin is as tall as the arm, so the arm's top
+    // runs straight off it.
+    const RB = Math.max(turnR + Math.max(1.5, 0.5 * t), zA - zK + aw);
+    const e = Math.max(RB + 1.5, 2.6 * t * sc);   // hook pin, in from the left door's edge
+    const e2 = Math.max(6, 2 * t) * sc;           // catch pin, in from the right door's edge
+    const xh = xc - e;
+    const xq = L - xc + e2;
+    // Finger's inner face: an arc about the hook's pin, clear of the catch
+    // pin's far corners - so lifting the hook never presses on the pin.
+    const rI = Math.hypot(xq + t / 2 - xh, t / 2) + cl;
+    const rO = rI + fw;
+    const aU = Math.asin((zA - zK) / RB);
+    const aIt = Math.asin(Math.min(0.99, (zA - zK) / rI));
+    const aIb = -Math.asin(Math.min(0.99, fd / rI));
+    const aOb = -Math.asin(Math.min(0.99, fd / rO));
+    const aOt = Math.asin(Math.min(0.99, RB / rO));
+    const hookRing = dedupe([
+      ...arc(xh, zK, RB, Math.PI / 2, 2 * Math.PI + aU),        // boss: top, round the left, up to the arm
+      ...arc(xh, zK, rI, aIt, aIb),                               // under the arm, then the finger's inside
+      ...arc(xh, zK, rO, aOb, aOt),                               // finger's outside, up to the arm's top
+    ]);
+    out.parts.push({
+      id: 'hook', outline: hookRing, holes: [ellipse(xh, zK, turnR, turnR, 32)],
+      frame: front(-t), attach: 'doorLeft',
+      lockMove: { turn: { at: [xh, 0, zK], axis: [0, -1, 0], angle: 90 } },
+    });
+    out.parts.push({ id: 'hookCap', outline: star(xh, zK, Math.max(0.8 * RB, turnR + 2)), holes: [press(xh, zK)],
+      frame: front(-2 * t), attach: 'doorLeft' });
+    out.parts.push(pinAlongY('hookPin', xh, zK, -2 * t, 3, { attach: 'doorLeft' }));
+    // The catch cap is what keeps the hook from lifting off the door forwards:
+    // it has to overlap the arm and the finger, not just the pin.
+    const rc = Math.max(t / 2 + cl + 2, 0.9 * t + 1.2, fw + t / 2);
+    out.parts.push({ id: 'catchCap', outline: ellipse(xq, zK, rc, rc, 40), holes: [press(xq, zK)],
+      frame: front(-2 * t), attach: 'doorRight' });
+    out.parts.push(pinAlongY('catchPin', xq, zK, -2 * t, 3, { attach: 'doorRight' }));
+    out.leftHoles.push(press(xh, zK));
+    out.rightHoles.push(press(xq, zK));
+    Object.assign(out.info, { pivot: [xh, zK], catch: [xq, zK], reach: rO });
+    return out;
+  }
+
+  if (kind === 'bolt') {
+    const hb = Math.max(6, 2 * t) * sc;           // bolt height
+    const rw = Math.max(4, 1.4 * t) * sc;         // rail above and below it
+    const ek = Math.max(6, 2 * t);                // how far it goes into the keeper
+    const tr = ek + 2 * g + 1;                    // travel: clear of the gap by 1 mm
+    const lb = Math.max(26, 8 * t) * sc;
+    const zc0 = zK - hb / 2 - cl;
+    const zc1 = zK + hb / 2 + cl;
+    const zs0 = zc0 - rw;
+    const zs1 = zc1 + rw;
+    const xb0 = xc - 1 - lb + tr;                 // bolt, shot
+    const xch = xc - 1 - lb - cl;                 // end of the channel
+    const xg0 = xch - rw;
+    const xu = xc - 1 - lb + 0.35 * lb;           // knob, drawn back
+    const rr = Math.min(2, rw / 2);
+    out.parts.push({ id: 'boltGuide', attach: 'doorLeft', frame: front(-t), holes: [],
+      outline: [[xg0, zs0], [xc, zs0], [xc, zc0], [xch, zc0], [xch, zc1], [xc, zc1], [xc, zs1], [xg0, zs1]] });
+    const sw = t / 2 + cl;
+    out.parts.push({ id: 'boltCover', attach: 'doorLeft', frame: front(-2 * t),
+      outline: roundedRect(xg0, zs0, xc - xg0, zs1 - zs0, rr),
+      holes: [roundedRect(xu - sw, zK - sw, tr + 2 * sw, 2 * sw, sw - 0.01)] });
+    const slide = { path: [[-tr, 0, 0]] };
+    out.parts.push({ id: 'bolt', attach: 'doorLeft', frame: front(-t), lockMove: slide,
+      outline: roundedRect(xb0, zK - hb / 2, lb, hb, Math.min(1.5, hb / 4)), holes: [press(xu + tr, zK)] });
+    out.parts.push(pinAlongY('boltPeg', xu + tr, zK, -3 * t, 3, { attach: 'doorLeft', lockMove: slide }));
+    const rk = Math.max(4.5, 1.6 * t) * sc;
+    out.parts.push({ id: 'boltKnob', attach: 'doorLeft', frame: front(-3 * t), lockMove: slide,
+      outline: ellipse(xu + tr, zK, rk, rk, 40), holes: [press(xu + tr, zK)] });
+    const x0 = L - xc;
+    const x1 = x0 + ek + 0.5 + rw;
+    out.parts.push({ id: 'boltKeeper', attach: 'doorRight', frame: front(-t), holes: [],
+      outline: [[x0, zs0], [x1, zs0], [x1, zs1], [x0, zs1], [x0, zc1], [x1 - rw, zc1], [x1 - rw, zc0], [x0, zc0]] });
+    out.parts.push({ id: 'keeperCover', attach: 'doorRight', frame: front(-2 * t),
+      outline: roundedRect(x0, zs0, x1 - x0, zs1 - zs0, rr), holes: [] });
+    Object.assign(out.info, { travel: tr, engage: ek, knob: [xu + tr, zK], length: lb });
+    return out;
+  }
+
+  // pin: two ears and a mihrab with two legs
+  const sh = t + 2 * cl;
+  const D = Math.max(12, 4 * t) * sc;             // how far the ears stand out
+  const yh = D / 2;
+  const dh = Math.max(5, 1.8 * t) * sc;           // hole, in from the door's edge
+  const we = Math.max(16, 5 * t) * sc;            // ear length along the door
+  const mt = Math.max(3, t);                      // tenon, in from each end
+  const rr = Math.min(3, D / 3);
+  const corner = (cx, cy, a0) => arc(cx, cy, rr, a0, a0 + Math.PI / 2, 0.4);
+  const earL = dedupe([
+    ...corner(xc - we + rr, -D + rr, Math.PI),
+    ...corner(xc - rr, -D + rr, Math.PI * 1.5),
+    [xc, 0], [xc - mt, 0], [xc - mt, t], [xc - we + mt, t], [xc - we + mt, 0], [xc - we, 0],
+  ]);
+  const flipX = (ring) => ring.map(([x, y]) => [L - x, y]).reverse();
+  const earFrame = { origin: [0, 0, zK + t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] };
+  const holeL = rect(xc - dh - sh / 2, -yh - sh / 2, sh, sh);
+  out.parts.push({ id: 'earLeft', attach: 'doorLeft', frame: earFrame, outline: earL, holes: [holeL] });
+  out.parts.push({ id: 'earRight', attach: 'doorRight', frame: earFrame, outline: flipX(earL), holes: [flipX(holeL)] });
+  const mortise = shrinkRect(xc - we + mt, zK, we - 2 * mt, t, fit);
+  out.leftHoles.push(mortise);
+  out.rightHoles.push(flipX(mortise));
+
+  // The mihrab: a band on top of the ears, a keel arch above it with an arch
+  // window, and two legs down through the ears and a board below them.
+  const xl = xc - dh;
+  const xr = L - xc + dh;
+  const z0 = zK + t;
+  const wc = xr - xl + t + 2 * Math.max(3, t) * sc;
+  const hbnd = Math.max(3, t) * sc;
+  const hc = Math.max(1.3 * wc, hbnd + 16);
+  const dw = Math.max(2.2, 0.8 * t) * Math.sqrt(sc); // frame round the arch window
+  // The box's own outline in small: straight sides, round shoulders, a keel
+  // point. The apex has to stay round enough to be offset by the window frame.
+  const ra = Math.max(1.5, 0.5 * t, dw + 0.8);
+  const zSp = z0 + hbnd + 0.3 * (hc - hbnd);
+  const k = solveKeel({ L: wc, zS: zSp, H: z0 + hc, R: wc * 0.46, ra })
+    || solveKeel({ L: wc, zS: zSp, H: z0 + hc, R: Math.max(wc * 0.32, ra + 1), ra, minSlope: 0 });
+  const xa = L / 2 - wc / 2;
+  const top = keelPath(k, 0, { step: 0.4 }).map(([x, z]) => [x + xa, z]);
+  const zT = zK - t;                              // leg tips, a board below the ears
+  const clip = dedupe([
+    [xl - t / 2, zT], [xl + t / 2, zT], [xl + t / 2, z0], [xr - t / 2, z0],
+    [xr - t / 2, zT], [xr + t / 2, zT], [xr + t / 2, z0], [xa + wc, z0],
+    ...top.slice().reverse(),
+    [xa, z0], [xl - t / 2, z0],
+  ]);
+  // Window: the same outline a frame's width in, down to the band.
+  const win = k.H - z0 - hbnd > dw + 6 && k.R > dw + 1
+    ? [...keelPath(k, dw, { step: 0.4 }).map(([x, z]) => [x + xa, z]),
+      [xa + wc - dw, z0 + hbnd], [xa + dw, z0 + hbnd]]
+    : null;
+  const lift = 2 * t + 1.5;
+  out.parts.push({
+    id: 'lockPin', frame: front(-yh - t / 2), outline: clip, holes: win ? [win] : [],
+    // Up out of the ears, then away: a door sweeps everything within its own
+    // width of its hinge, so the pin is set down well clear in front.
+    lockMove: { path: [[0, 0, lift], [0, -(L / 2 + D + wc / 2 + 6), lift], [0, -(L / 2 + D + wc / 2 + 6), -zT]] },
+  });
+  Object.assign(out.info, { ears: { depth: D, length: we }, legs: [xl, xr], lift, size: [wc, hc] });
+  return out;
+}
+
 export function buildBox(input = {}) {
   const p = { ...DEFAULTS, ...input };
   const t = Math.max(0.5, p.thickness);
@@ -1628,10 +1842,11 @@ export function buildBox(input = {}) {
       [xN, zN],
       ...keelPath(keel, 0, { to: xc }).filter(([, z]) => z > zN + 1e-6),
     ].reverse();                            // (xc, zTop) down to (xN, zN)
+    const lockKind = ['hook', 'bolt', 'pin'].includes(p.mihrabLock) ? p.mihrabLock : 'notch';
     const leftDoor = dedupe([
       ...edgeRun([0, zB0], [xc, zB0], [{ s: xp - pinH / 2, e: xp + pinH / 2 }], t),
       ...edgeRun([xc, zB0], [xc, zTop],
-        [{ s: zK - zB0 - nR, e: zK - zB0 + nR }], -nR, { arc: true }),
+        lockKind === 'notch' ? [{ s: zK - zB0 - nR, e: zK - zB0 + nR }] : [], -nR, { arc: true }),
       ...archDown,
       [notchW, zN], [notchW, zC - gT],
       ...edgeRun([notchW, zC - gT], [0, zC - gT],
@@ -1639,14 +1854,16 @@ export function buildBox(input = {}) {
       [0, zC - gT],
     ]);
     const doorFrame = { origin: [0, 0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] };
+    const lock = mihrabLock(lockKind, { t, fit, g, L, xc, zK, doorFrame });
     panels.push(normalisePanel({
-      id: 'doorLeft', label: PANEL_LABELS.doorLeft, outline: leftDoor, holes: [],
+      id: 'doorLeft', label: PANEL_LABELS.doorLeft, outline: leftDoor, holes: lock.leftHoles,
       hinge: { axis: 'v', u: xp, n: -t / 2, sign: -1 }, frame: doorFrame,
     }));
     panels.push(normalisePanel({
-      id: 'doorRight', label: PANEL_LABELS.doorRight, outline: mirror(leftDoor, L), holes: [],
+      id: 'doorRight', label: PANEL_LABELS.doorRight, outline: mirror(leftDoor, L), holes: lock.rightHoles,
       hinge: { axis: 'v', u: L - xp, n: -t / 2, sign: 1 }, frame: doorFrame,
     }));
+    for (const q of lock.parts) panels.push(normalisePanel({ ...q, label: PANEL_LABELS[q.id], noDecor: true }));
 
     // ---- roof strip, developed flat: u along the curve, v across (y - yF)
     // Its front edge stays behind the doors' tails: just above the hinge notch
@@ -1694,7 +1911,8 @@ export function buildBox(input = {}) {
 
     mihrabInfo = {
       keel, zS, zC, rise, riseWant, mb, ys, yC0, yF, yR, yE, xB, xp, holeR, bossM, notchW, gT,
-      door: { w: xc, h: zTop - zB0, straight: doorH, notchR: nR },
+      door: { w: xc, h: zTop - zB0, straight: doorH, notchR: nR, lockZ: zK },
+      lock: lock.info,
       roof: { length: st.length, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones },
       overall: lie
         ? { l: L + 2 * mb, w: H, h: W + mb }      // lying: H is now its length
