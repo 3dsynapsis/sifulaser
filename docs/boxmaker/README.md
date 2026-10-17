@@ -169,6 +169,8 @@ ketiga-tiga kunci di sini mengikat kedua-dua pintu:
 - **Selak** (`boltGuide`, `boltCover`, `bolt`, `boltPeg`, `boltKnob`,
   `boltKeeper`, `keeperCover`) - selak meluncur dalam pemandu di pintu kiri ke
   penangkap di pintu kanan; tombol pada pin melalui alur pada penutup pemandu.
+  Alur itu bersegi (jejari bucu 2x kelegaan): pin tombol segi empat, dan alur
+  berhujung bulat menyekat bucunya di hujung gerakan.
 - **Pasak mihrab** (`earLeft`, `earRight`, `lockPin`) - setiap pintu ada
   telinga bertanon menembusi pintu; mihrab kecil berkaki dua (rupa kotak itu
   sendiri, bertingkap) dijatuhkan melalui kedua-dua telinga.
@@ -187,7 +189,7 @@ dalam 4 darjah pertama; gerakan buka kunci (langkah <= 0.5 mm) tidak
 melanggar; selepas dibuka setiap pintu dengan bahagiannya berpusing 0-100
 darjah tanpa menyentuh pintu satu lagi, kunci atau badan kotak. Mutasi
 (penutup pin terlalu kecil, selak tidak masuk penangkap, pasak tidak diangkat,
-jari cangkuk terlalu rapat) semuanya ditangkap.
+jari cangkuk terlalu rapat, alur selak berhujung bulat) semuanya ditangkap.
 
 ### Bahan Falcata 2.6 mm
 

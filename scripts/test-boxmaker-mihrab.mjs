@@ -209,6 +209,29 @@ function testBox(params, { swing = true, fine = false } = {}) {
           own >= 0 ? `dituntut ${order[own]?.id ?? 'bumbung'}` : 'kosong');
       });
     }
+    // Selak: bucu pin tombol (segi empat) dalam alur penutup, di kedua-dua
+    // hujung gerakan - tepat, bukan voksel; pada papan 3 mm pergeseran di
+    // hujung alur bulat hanya sepersepuluh milimeter.
+    if (kind === 'bolt') {
+      const cover = lockParts.find((q) => q.id === 'boltCover');
+      const slot = cover.holesNominal[0].map(([u, v]) => [u + cover.originShift[0], v + cover.originShift[1]]);
+      const pip = ([x, y], r) => {
+        let c = false;
+        for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+          if ((r[i][1] > y) !== (r[j][1] > y) && x < ((r[j][0] - r[i][0]) * (y - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
+        }
+        return c;
+      };
+      const [kx, kz] = m.lock.knob;
+      let out = 0;
+      for (const dx of [0, -m.lock.travel]) {
+        for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+          const hp = box.params.thickness / 2;
+          if (!pip([kx + dx + sx * hp, kz + sz * hp], slot)) out++;
+        }
+      }
+      check(`${tag}: pin tombol muat dalam alur di kedua-dua hujung`, out === 0, `${out} bucu di luar`);
+    }
     const solidOf = (p) => panelSolid(p);
     const assembly = (d, pl) => [d, ...lockParts.filter((q) => q.attach === d.id)]
       .map((q) => ({ q, s: moved(solidOf(q), lockPose(q, q.attach ? pl : 0)) }));

@@ -575,10 +575,12 @@ function mihrabLock(kind, { t, fit, g, L, xc, zK }) {
     const rr = Math.min(2, rw / 2);
     out.parts.push({ id: 'boltGuide', attach: 'doorLeft', frame: front(-t), holes: [],
       outline: [[xg0, zs0], [xc, zs0], [xc, zc0], [xch, zc0], [xch, zc1], [xc, zc1], [xc, zs1], [xg0, zs1]] });
+    // The knob's pin is square, so the slot is too: its corners rounded by
+    // no more than twice the clearance, or the pin's corners catch at the ends.
     const sw = t / 2 + cl;
     out.parts.push({ id: 'boltCover', attach: 'doorLeft', frame: front(-2 * t),
       outline: roundedRect(xg0, zs0, xc - xg0, zs1 - zs0, rr),
-      holes: [roundedRect(xu - sw, zK - sw, tr + 2 * sw, 2 * sw, sw - 0.01)] });
+      holes: [roundedRect(xu - sw, zK - sw, tr + 2 * sw, 2 * sw, 2 * cl)] });
     const slide = { path: [[-tr, 0, 0]] };
     out.parts.push({ id: 'bolt', attach: 'doorLeft', frame: front(-t), lockMove: slide,
       outline: roundedRect(xb0, zK - hb / 2, lb, hb, Math.min(1.5, hb / 4)), holes: [press(xu + tr, zK)] });
