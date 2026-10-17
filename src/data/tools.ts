@@ -175,10 +175,10 @@ export const TOOLS: ToolEntry[] = [
     href: '#/tray',
     group: 'idea',
     variant: 'art',
-    // SVG dijana oleh `node scripts/thumb-tray.mjs` daripada buildTray() sebenar
-    // dalam docs/tray/src: pandangan atas dulang dengan petak tak seragam.
-    // Tidak boleh jadi basi seperti foto 3D.
-    art: '/images/tools/tray.svg',
+    // FOTO 3D, 17 Oktober 2026, dari docs/tray (laser cut lalai, 6 petak) -
+    // sama amaran seperti Box Maker. Ambil semula dengan
+    // `node scripts/tile-shots.mjs docs/images/tools tray`.
+    art: '/images/tools/tray.webp',
     keywords: [
       'dulang',
       'tray',
@@ -270,9 +270,9 @@ export const TOOLS: ToolEntry[] = [
     href: '#/plakbox',
     group: 'idea',
     variant: 'art',
-    // SVG dijana oleh `node scripts/thumb-plakbox.mjs` daripada buildPlakBox()
-    // sebenar dalam docs/plakbox/src: pandangan depan tapak, plak dan akrilik.
-    art: '/images/tools/plakbox.svg',
+    // FOTO 3D, 17 Oktober 2026, dari docs/plakbox - sama amaran seperti Box
+    // Maker. Ambil semula dengan `node scripts/tile-shots.mjs docs/images/tools plakbox`.
+    art: '/images/tools/plakbox.webp',
     keywords: [
       'plak',
       'plaque',

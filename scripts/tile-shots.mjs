@@ -1,14 +1,14 @@
-// Gambar tile untuk lima alat 3D di halaman utama: Box Maker, Stand Nama, Tag,
-// Rehal, Cake Topper. Guna Chrome sedia ada melalui DevTools Protocol - tiada
-// pakej baru.
+// Gambar tile untuk tujuh alat 3D di halaman utama: Box Maker, Stand Nama, Tag,
+// Rehal, Cake Topper, Tray Organizer, Plak Box. Guna Chrome sedia ada melalui
+// DevTools Protocol - tiada pakej baru.
 //
 //   node scripts/tile-shots.mjs <folder-output> [nama ...]
 //
-// Rehal dan Cake Topper ditembak daripada salinan VENDORED dalam docs/ (yang
-// sama sifulaser.com hidangkan), bukan pelayan dev alat itu:
+// Rehal, Cake Topper, Tray dan Plak Box ditembak daripada salinan dalam docs/
+// (yang sama sifulaser.com hidangkan), bukan pelayan dev alat itu:
 //
 //   cd docs && python3 -m http.server 8765      # di terminal lain
-//   node scripts/tile-shots.mjs docs/images/tools rehal topper
+//   node scripts/tile-shots.mjs docs/images/tools rehal topper tray plakbox
 //
 // TILE_BASE=http://127.0.0.1:8765 menembak KESEMUANYA dari docs/. Di luar
 // Windows (contohnya container Claude Code), TILE_CHROME menunjuk ke Chrome atau
@@ -66,7 +66,7 @@ const DSF = 2
 const STRIP = `(() => {
   const kill = [
     '#stage3d > svg', '#backdropPick', '#stageHint', '#lidBtn',
-    '#faces', '#sides', '#warnings',
+    '#faces', '#sides', '#warnings', '#frameBtn', '#liftBtn',
   ];
   let n = 0;
   for (const sel of kill) {
@@ -220,6 +220,19 @@ const SHOTS = [
     // Lalai: Happy Birthday Aisyah, Falcata. Mirror gold, kerana itulah topper
     // yang paling kerap dijual - dan emas terbaca pada tile, kayu pucat tidak.
     setup: [choose('mirror-gold')],
+  },
+  {
+    name: 'tray',
+    dir: 'tray',
+    // Lalai: laser cut, 220 x 160 x 45 mm, 6 petak. Tiada sumber di luar repo -
+    // alat ini memang tinggal dalam docs/tray.
+    setup: [],
+  },
+  {
+    name: 'plakbox',
+    dir: 'plakbox',
+    // Lalai: tapak Standard, plak 230 x 80 x 310 mm dalam kotak akrilik 3 mm.
+    setup: [],
   },
 ]
 

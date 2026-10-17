@@ -2,8 +2,9 @@
 // semula di sini - jadi alur dan poket yang kelihatan ialah yang dicetak.
 // Kotak akrilik dan plak ialah gambaran: akrilik dari saiz keping yang dikira
 // (cantum hujung ke hujung, atas menindih dinding), plak sebagai kotak
-// sempadannya sahaja - kecuali jenis slot, yang plaknya sekeping akrilik
-// tegak terbenam dalam slot di tengah. Rangka renderer, lampu dan garis
+// sempadannya yang samar dengan plak biasa dilukis di dalamnya (papan kayu atas
+// blok, plat emas berukir) supaya ia terbaca sebagai plak - kecuali jenis slot,
+// yang plaknya sekeping akrilik tegak terbenam dalam slot di tengah. Rangka renderer, lampu dan garis
 // dimensi disalin daripada Tray Organizer.
 //
 // ANGKAT. Kotak akrilik ialah satu kumpulan yang dinaikkan sejauh separuh
@@ -170,6 +171,57 @@ export class View3D {
     return new THREE.Mesh(g, mat);
   }
 
+  /**
+   * Plak cenderahati biasa yang memenuhi kotak sempadan: blok tapak sedalam
+   * kotak, papan kayu tegak di tengah, plat emas di mukanya dengan lambang dan
+   * baris "tulisan" berukir. Muka menghadap -y, ke arah kamera.
+   */
+  static plaque(x0, y0, x1, y1, z0, z1) {
+    const g = new THREE.Group();
+    const W = x1 - x0;
+    const D = y1 - y0;
+    const H = z1 - z0;
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6b4428, roughness: 0.55 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x3f2616, roughness: 0.6 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xe0b85a, roughness: 0.35, metalness: 0.25 });
+    const ink = new THREE.MeshStandardMaterial({ color: 0x4a3218, roughness: 0.7 });
+    const add = (m) => { m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+    // Blok tapak: sedalam kotak, sedikit masuk dari tepi.
+    const hb = Math.min(Math.max(H * 0.1, 6), 30);
+    const inX = Math.min(W * 0.04, 6);
+    add(View3D.box(x0 + inX, y0, z0, x1 - inX, y1, z0 + hb, dark));
+    // Papan tegak di tengah kedalaman.
+    const tb = Math.min(Math.max(D * 0.25, 6), 20);
+    const yc = (y0 + y1) / 2;
+    const yf = yc - tb / 2;                 // muka depan papan
+    add(View3D.box(x0, yf, z0 + hb, x1, yc + tb / 2, z1, wood));
+    // Plat emas, menonjol 0.8 mm.
+    const bh = H - hb;
+    const px0 = x0 + W * 0.1;
+    const px1 = x1 - W * 0.1;
+    const pz0 = z0 + hb + bh * 0.1;
+    const pz1 = z1 - bh * 0.08;
+    add(View3D.box(px0, yf - 0.8, pz0, px1, yf, pz1, gold));
+    // Ukiran: lambang bulat, tajuk, dua baris, garis tandatangan.
+    const pw = px1 - px0;
+    const ph = pz1 - pz0;
+    const cx = (px0 + px1) / 2;
+    const yi = yf - 1.0;
+    const bar = (w, zc, hh) => add(View3D.box(cx - w / 2, yi, zc - hh / 2, cx + w / 2, yf - 0.8, zc + hh / 2, ink));
+    const r = Math.min(pw, ph) * 0.13;
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.3, 40), ink);
+    disc.position.set(cx, yi + 0.05, pz1 - ph * 0.2);
+    add(disc);
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.72, r * 0.72, 0.4, 40), gold);
+    ring.position.set(cx, yi - 0.05, pz1 - ph * 0.2);
+    add(ring);
+    bar(pw * 0.66, pz1 - ph * 0.44, ph * 0.065);
+    bar(pw * 0.5, pz1 - ph * 0.58, ph * 0.03);
+    bar(pw * 0.42, pz1 - ph * 0.66, ph * 0.03);
+    bar(pw * 0.3, pz0 + ph * 0.12, ph * 0.02);
+    return g;
+  }
+
   /** show: 'siap' (dipasang) atau 'tapak' (tapak sahaja - apa yang dicetak). */
   build(model, opts = {}) {
     const pale = opts.backdrop !== 'dark';
@@ -228,18 +280,22 @@ export class View3D {
       // Bila diangkat: keluar sepenuhnya dari slot, dengan sedikit ruang.
       this.sheetMover = { obj: sheet, dist: d.slot.depth + Math.max(12, p.plakH * 0.05) };
     } else if (show !== 'tapak') {
-      // Plak: kotak sempadan sahaja - bentuk sebenarnya bukan urusan alat ini.
+      // Plak: kotak sempadannya ialah yang alat ini tahu - saiz luar yang
+      // diisi pengguna - jadi ia kekal, samar. Di dalamnya plak biasa sebagai
+      // gambaran sahaja: bentuk sebenar bukan urusan alat ini, tetapi kotak
+      // kosong tidak terbaca sebagai plak langsung.
       const k = d.plak;
+      const z0 = d.plakZ;
       const plakMat = new THREE.MeshStandardMaterial({
-        color: 0xd9bf8c, roughness: 0.8, transparent: true, opacity: 0.55,
+        color: 0xd9bf8c, roughness: 0.8, transparent: true, opacity: 0.12, depthWrite: false,
       });
-      const plak = View3D.box(k.x0, k.y0, d.plakZ, k.x1, k.y1, d.plakZ + p.plakH, plakMat);
-      plak.castShadow = true;
+      const plak = View3D.box(k.x0, k.y0, z0, k.x1, k.y1, z0 + p.plakH, plakMat);
       this.root.add(plak);
       this.root.add(new THREE.LineSegments(
         new THREE.EdgesGeometry(plak.geometry),
-        new THREE.LineBasicMaterial({ color: 0x8a6a3a, transparent: true, opacity: 0.7 }),
+        new THREE.LineBasicMaterial({ color: 0x8a6a3a, transparent: true, opacity: 0.5 }),
       ));
+      this.root.add(View3D.plaque(k.x0, k.y0, k.x1, k.y1, z0, z0 + p.plakH));
     }
 
     if (show !== 'tapak') {

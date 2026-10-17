@@ -55,8 +55,9 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
   (Standard, Serong, Klasik, Dua Tingkat). Jenis "Terapung" (kaki tersorok)
   dibuang pada 16 Oktober 2026 kerana tidak stabil untuk kotak yang tinggi.
 - `src/view3d.js` - pratonton three.js: tapak (segitiga yang sama dengan STL),
-  akrilik lutsinar dengan selotip, plak sebagai kotak sempadan (atau plak
-  akrilik sekeping tegak dalam slot). Butang "Angkat kotak" di atas pentas
+  akrilik lutsinar dengan selotip, plak sebagai kotak sempadan yang samar
+  dengan plak biasa dilukis di dalamnya - papan kayu, plat emas berukir,
+  gambaran sahaja (atau plak akrilik sekeping tegak dalam slot). Butang "Angkat kotak" di atas pentas
   menganimasikan kotak naik dari alur (jenis slot: plak pun keluar dari slot)
   dan turun semula - konsep yang sama dengan "Open the box" dalam Box Maker.
   Ia menggantikan tab "Akrilik diangkat".
@@ -66,4 +67,7 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 ## Ujian
 
     node scripts/test-plakbox.mjs       # mesh tertutup, isipadu, saiz akrilik muat alur
-    node scripts/thumb-plakbox.mjs      # jana semula docs/images/tools/plakbox.svg
+
+Gambar tile `docs/images/tools/plakbox.webp` ialah foto 3D alat ini sendiri -
+ambil semula dengan `node scripts/tile-shots.mjs docs/images/tools plakbox`
+(lihat `docs/images/tools/README.md`).

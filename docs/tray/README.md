@@ -62,14 +62,14 @@ Jalankan kedua-duanya sebelum setiap commit yang menyentuh geometri.
 
 ## Gambar tile
 
-```bash
-node scripts/thumb-tray.mjs
-```
+`docs/images/tools/tray.webp` ialah foto 3D alat ini sendiri (laser cut lalai,
+6 petak), sejak 17 Oktober 2026 - dahulu SVG pandangan atas yang dijana. Foto
+boleh jadi basi; ambil semula selepas apa-apa perubahan rupa:
 
-Menulis `docs/images/tools/tray.svg` daripada `buildTray()` sebenar - pandangan
-atas dulang dengan petak tak seragam. Dijana, bukan dilukis, atas sebab yang
-sama seperti tujuh tile lain: gambar yang dibuat daripada output alat tidak
-boleh hanyut daripada alat.
+```bash
+cd docs && python3 -m http.server 8765      # terminal lain
+node scripts/tile-shots.mjs docs/images/tools tray
+```
 
 ## Kandungan
 
