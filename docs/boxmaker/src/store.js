@@ -8,6 +8,7 @@ import { refitPattern } from './geom/decor.js';
 // `grain`: which procedural board surface the 3D preview paints on the faces.
 export const MATERIALS = [
   { id: 'custom', name: 'Custom material', t: 3, color: '#d2b48c', kerf: 0.2, char: true, grain: 'wood' },
+  { id: 'falcata26', name: 'Falcata', t: 2.6, color: '#efe3c6', kerf: 0.2, char: true, grain: 'wood' },
   { id: 'falcata3', name: 'Falcata', t: 3, color: '#efe3c6', kerf: 0.2, char: true, grain: 'wood' },
   { id: 'falcata52', name: 'Falcata', t: 5.2, color: '#efe3c6', kerf: 0.25, char: true, grain: 'wood' },
   { id: 'basswood', name: 'Basswood', t: 3, color: '#e6d2a8', kerf: 0.2, char: true, grain: 'wood' },

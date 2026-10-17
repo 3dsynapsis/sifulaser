@@ -371,6 +371,7 @@ testBox({ length: 200, width: 120, height: 260, kerf: 0, fit: 0 });
 testBox({ length: 150, width: 90, height: 220, archRise: 70, archRound: 80 });
 testBox({ length: 300, width: 180, height: 380, archRise: 35, archRound: 30, plinthMargin: 20 });
 testBox({ length: 180, width: 110, height: 240, thickness: 5.2, kerf: 0.25 }, { fine: true });
+testBox({ length: 200, width: 120, height: 260, thickness: 2.6, kerf: 0.2 }, { fine: true }); // Falcata 2.6
 testBox({ length: 120, width: 80, height: 160, archRise: 90, archRound: 95, fit: 0.2, lidGap: 0.6 }, { fine: true });
 testBox({ length: 100, width: 76, height: 50 });                       // kotak lalai: had mesti bertindak
 testBox({ length: 400, width: 60, height: 300, archRise: 25 }, { swing: false });

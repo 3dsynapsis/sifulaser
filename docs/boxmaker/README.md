@@ -126,3 +126,8 @@ Ujian: `node scripts/test-boxmaker-mihrab.mjs` (dari akar repo) — memasang
 semua panel dalam grid voksel 0.5 mm (0.1 mm di sekitar engsel), memastikan
 tiada panel bertindih, setiap lubang terisi, dan setiap pintu berpusing 0-100°
 tanpa melanggar.
+
+### Bahan Falcata 2.6 mm
+
+Ditambah terus di sini pada 17 Oktober 2026 (`src/store.js`, `MATERIALS`:
+`falcata26`, kerf 0.2 seperti Falcata 3 mm). BELUM dipindahkan ke projek asal.
