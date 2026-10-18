@@ -1846,12 +1846,16 @@ export function buildBox(input = {}) {
     const nR = Math.max(4, Math.min(9, L * 0.04, doorH * 0.2));
     const zK = zB0 + doorH * 0.5;          // finger notch, halfway up the free edge
     const zTop = keelZ(keel, xc);
-    const zN = zS + gT;                    // top of the hinge notch
-    const xN = keel.R - Math.sqrt(Math.max(0, keel.R ** 2 - gT ** 2));
-    const archDown = [
-      [xN, zN],
-      ...keelPath(keel, 0, { to: xc }).filter(([, z]) => z > zN + 1e-6),
-    ].reverse();                            // (xc, zTop) down to (xN, zN)
+    // The hinge notch is OPEN TO THE TOP: the arch stops at the notch's inner
+    // side and the door drops straight down from there. It used to be a pocket
+    // roofed over by the door's own arch, open only at the door's outer edge,
+    // and the ceiling corner sitting in the door's plane could not reach it
+    // from anywhere - the ceiling goes on last, from above, and met 9 to 25 mm
+    // of door on the way down (a customer cut it out with a knife, October
+    // 2026). What it costs is a slot at each door's outer shoulder, as wide as
+    // the notch.
+    const archDown = keelPath(keel, 0, { from: notchW, to: xc })
+      .reverse();                           // (xc, zTop) down to (notchW, arch)
     const lockKind = ['hook', 'bolt', 'pin'].includes(p.mihrabLock) ? p.mihrabLock : 'notch';
     // Both pins get rounded tips: a lead-in, so a hole only has to come down
     // NEAR its pin to find it. The ceiling goes on over two of them at once,
@@ -1862,7 +1866,7 @@ export function buildBox(input = {}) {
       ...edgeRun([xc, zB0], [xc, zTop],
         lockKind === 'notch' ? [{ s: zK - zB0 - nR, e: zK - zB0 + nR }] : [], -nR, { arc: true }),
       ...archDown,
-      [notchW, zN], [notchW, zC - gT],
+      [notchW, zC - gT],
       ...edgeRun([notchW, zC - gT], [0, zC - gT],
         [{ s: notchW - xp - pinH / 2, e: notchW - xp + pinH / 2, opts: lead }], t + gT),
       [0, zC - gT],
@@ -1927,8 +1931,9 @@ export function buildBox(input = {}) {
       keel, zS, zC, rise, riseWant, mb, ys, yC0, yF, yR, yE, xB, xp, holeR, bossM, notchW, gT,
       door: { w: xc, h: zTop - zB0, straight: doorH, notchR: nR, lockZ: zK },
       // The play round a door, face by face, for the inspector to say out loud.
-      // Each is the distance between two boards on the finished box.
-      clear: { gap: g, top: gT, side: notchW - xB, foot: g, middle: 2 * g },
+      // Each is the distance between two boards on the finished box. Nothing
+      // above the ceiling corner: the notch is open to the top.
+      clear: { gap: g, below: gT, side: notchW - xB, foot: g, middle: 2 * g, slot: notchW },
       lock: lock.info,
       roof: { length: st.length, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones },
       overall: lie

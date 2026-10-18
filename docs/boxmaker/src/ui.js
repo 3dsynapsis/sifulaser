@@ -1059,12 +1059,13 @@ function mihrabRows(p, ctx, mat) {
       onInput: (v) => { setParam('doorGap', v); clampDecor(); ctx.refresh(); },
     }),
     h('p', { class: 'hint' },
-      `Each door has ${rnd(d.clear.top, 2)} mm above and below the ceiling `
-      + `corner it turns under, ${rnd(d.clear.side, 2)} mm beside it, `
-      + `${rnd(d.clear.foot, 2)} mm at its foot and ${rnd(d.clear.middle, 2)} mm `
-      + 'between the two doors. The ceiling goes on last, down over both door '
-      + 'pins and into both notches at once - if it will not go, raise this '
-      + 'rather than paring the notches with a knife.'),
+      'The ceiling corner that holds each top pin drops into a slot open to the '
+      + `top of the door, ${rnd(d.clear.slot, 1)} mm wide at its outer shoulder. `
+      + `It has ${rnd(d.clear.side, 2)} mm beside it and ${rnd(d.clear.below, 2)} mm `
+      + `under it; each door has ${rnd(d.clear.foot, 2)} mm at its foot, and the `
+      + `two doors ${rnd(d.clear.middle, 2)} mm between them. If the ceiling will `
+      + 'not go down over both pins, raise this rather than paring the slots with '
+      + 'a knife.'),
     d.carve ? h('p', { class: 'hint' },
       'An extra arch board sits on the inner arch, a few mm in from its edge. The '
       + 'pattern is cut through it and the plain arch behind shows through, so it '
@@ -2130,8 +2131,9 @@ const STEPS = [
   {
     t: 'Ceiling goes on last',
     d: 'Hook its back tabs into the slots in the back, then lower the front: the '
-      + 'side tabs drop into the notches on top of the walls and the two corner '
-      + 'holes go down over the door pins. Glue the tabs, not the pins.',
+      + 'side tabs drop into the notches on top of the walls, and the two front '
+      + 'corners drop into the slots at the top of the doors, their holes going '
+      + 'down over the door pins. Glue the tabs, not the pins.',
     only: ['mihrab'],
   },
   {

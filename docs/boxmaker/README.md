@@ -238,4 +238,15 @@ Mihrab: takuk pintu memberi bucu siling hanya 0.3 mm di atas dan bawah dan
 - `scripts/test-boxmaker-mihrab.mjs` — semakan lebar pintu kini membaca
   `doorGap`.
 
-Ujian: `npm test` dalam projek asal (bahagian "mihrab door gap" dan "lid gap").
+Kemudian pada hari yang sama, puncanya yang sebenar: takuk itu ialah **poket
+yang bertutup di atas oleh gerbang pintu sendiri** (9 hingga 25 mm kayu), terbuka
+hanya ke tepi luar pintu, sedangkan bucu siling duduk dalam satah pintu. Siling
+dipasang terakhir dari atas, jadi ia tidak boleh turun langsung - berapa pun
+ruangnya. Kini takuk **terbuka ke atas**: gerbang pintu berhenti di sisi dalam
+takuk (`keelPath(..., { from: notchW })`), dan setiap pintu ada alur selebar
+takuk di bahu luarnya. Langkah pasang "Ceiling goes on last" disemak semula.
+
+Ujian: `npm test` dalam projek asal (bahagian "the ceiling can come straight
+down", "mihrab door gap" dan "lid gap"). Ujian voksel dalam
+`scripts/test-boxmaker-mihrab.mjs` menyemak pertindihan dan pusingan pintu
+sahaja, bukan laluan pemasangan - sebab itu masalah ini terlepas.
