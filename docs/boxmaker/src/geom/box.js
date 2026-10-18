@@ -130,6 +130,7 @@ export const PANEL_ORDER = [
   'hook', 'hookCap', 'hookPin', 'catchPin', 'catchCap',
   'boltGuide', 'boltCover', 'bolt', 'boltPeg', 'boltKnob', 'boltKeeper', 'keeperCover',
   'earLeft', 'earRight', 'lockPin',
+  'shoulderLeft', 'shoulderRight',
   // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
   // for decoration, for the same reason as the mihrab's roof.
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
@@ -161,6 +162,7 @@ export const PANEL_LABELS = {
   boltGuide: 'Bolt guide', boltCover: 'Bolt cover', bolt: 'Bolt', boltPeg: 'Knob pin',
   boltKnob: 'Knob', boltKeeper: 'Bolt keeper', keeperCover: 'Keeper cover',
   earLeft: 'Lock ear left', earRight: 'Lock ear right', lockPin: 'Mihrab pin',
+  shoulderLeft: 'Shoulder left', shoulderRight: 'Shoulder right',
   floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
@@ -1706,7 +1708,10 @@ export function buildBox(input = {}) {
     const ys = t / 2 + tail + 0.4;         // side walls start behind the tail's swing
     const cD = 0.5;
     const yC0 = t + cD;                    // ceiling front edge, just behind the doors
-    const xB = t + Math.max(4, 1.3 * t);   // the ceiling corner that carries the pin
+    // The ceiling corner that carries the pin: only as wide as the boss round
+    // the pin hole needs. It sits in the door's plane, so its width is the width
+    // of the slot cut in each door's shoulder - every millimetre here shows.
+    const xB = xp + bossM + Math.max(0.3, 0.1 * t);
     const yE = yC0 + 2 * t;                // ... and how far back it runs over the wall
     // Door notch that the corner lives in. The same play at its side as above
     // and below: three faces of one board, and the tightest one is what binds.
@@ -1856,6 +1861,41 @@ export function buildBox(input = {}) {
     // the notch.
     const archDown = keelPath(keel, 0, { from: notchW, to: xc })
       .reverse();                           // (xc, zTop) down to (notchW, arch)
+
+    // The shoulder piece: what the slot took out of the arch, cut as its own
+    // part and glued back into the slot once the ceiling is on, so the arch
+    // reads whole again. It sits gT above the ceiling corner, the same play as
+    // under it, and it is glued to the DOOR only - it turns with the door.
+    //
+    // Edge glue on 3 mm board holds next to nothing, so the piece is keyed in
+    // with a dovetail on its inner edge: the dovetail stops it sliding out
+    // sideways, the glue only has to stop it falling out of the face.
+    const zW = keelZ(keel, notchW);                     // arch height at the slot's inner side
+    const zSb = zS + gT;                                // shoulder bottom, clear of the corner
+    const xSb = keel.R - Math.sqrt(Math.max(0, keel.R ** 2 - gT ** 2)); // where the arch meets it
+    const hS = zW - zSb;                                // the shoulder's inner edge
+    const dvD = Math.min(3, Math.max(1.2, 0.6 * t));    // dovetail depth into the door
+    const dvN = Math.min(4, Math.max(1.6, 0.35 * hS));  // its neck, at the slot edge
+    const dvW = dvN + 0.8 * dvD;                        // and its head, inside the door
+    const dvZ = zSb + hS / 2;
+    const hasShoulder = hS > 2;
+    const hasDovetail = hasShoulder && hS >= dvW + 2;
+    const socket = hasDovetail
+      ? [[notchW, dvZ + dvN / 2], [notchW + dvD, dvZ + dvW / 2],
+        [notchW + dvD, dvZ - dvW / 2], [notchW, dvZ - dvN / 2]]
+      : [];
+    const shoulder = hasShoulder
+      ? dedupe([
+        [xSb, zSb], [notchW, zSb],
+        ...socket.slice().reverse(),
+        [notchW, zW],
+        // Not clipped at xSb: there the arch is near vertical, and a point
+        // interpolated onto it can land below zSb and cross the bottom edge.
+        // Keep only samples strictly above the bottom and close back to it.
+        ...keelPath(keel, 0, { to: notchW })
+          .filter(([x, z]) => z > zSb + 1e-6 && x < notchW - 1e-6).reverse(),
+      ])
+      : null;
     const lockKind = ['hook', 'bolt', 'pin'].includes(p.mihrabLock) ? p.mihrabLock : 'notch';
     // Both pins get rounded tips: a lead-in, so a hole only has to come down
     // NEAR its pin to find it. The ceiling goes on over two of them at once,
@@ -1866,6 +1906,7 @@ export function buildBox(input = {}) {
       ...edgeRun([xc, zB0], [xc, zTop],
         lockKind === 'notch' ? [{ s: zK - zB0 - nR, e: zK - zB0 + nR }] : [], -nR, { arc: true }),
       ...archDown,
+      ...socket,
       [notchW, zC - gT],
       ...edgeRun([notchW, zC - gT], [0, zC - gT],
         [{ s: notchW - xp - pinH / 2, e: notchW - xp + pinH / 2, opts: lead }], t + gT),
@@ -1882,6 +1923,16 @@ export function buildBox(input = {}) {
       hinge: { axis: 'v', u: L - xp, n: -t / 2, sign: 1 }, frame: doorFrame,
     }));
     for (const q of lock.parts) panels.push(normalisePanel({ ...q, label: PANEL_LABELS[q.id], noDecor: true }));
+    if (shoulder) {
+      panels.push(normalisePanel({
+        id: 'shoulderLeft', label: PANEL_LABELS.shoulderLeft, outline: shoulder, holes: [],
+        frame: doorFrame, attach: 'doorLeft', noDecor: true,
+      }));
+      panels.push(normalisePanel({
+        id: 'shoulderRight', label: PANEL_LABELS.shoulderRight, outline: mirror(shoulder, L),
+        holes: [], frame: doorFrame, attach: 'doorRight', noDecor: true,
+      }));
+    }
 
     // ---- roof strip, developed flat: u along the curve, v across (y - yF)
     // Its front edge stays behind the doors' tails: just above the hinge notch
@@ -1934,6 +1985,7 @@ export function buildBox(input = {}) {
       // Each is the distance between two boards on the finished box. Nothing
       // above the ceiling corner: the notch is open to the top.
       clear: { gap: g, below: gT, side: notchW - xB, foot: g, middle: 2 * g, slot: notchW },
+      shoulder: shoulder ? { above: gT, height: hS, dovetail: hasDovetail } : null,
       lock: lock.info,
       roof: { length: st.length, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones },
       overall: lie

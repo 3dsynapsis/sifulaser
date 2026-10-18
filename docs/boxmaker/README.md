@@ -246,7 +246,18 @@ ruangnya. Kini takuk **terbuka ke atas**: gerbang pintu berhenti di sisi dalam
 takuk (`keelPath(..., { from: notchW })`), dan setiap pintu ada alur selebar
 takuk di bahu luarnya. Langkah pasang "Ceiling goes on last" disemak semula.
 
+Bos tidak suka alur penuh itu, jadi ia dikecilkan dan ditutup semula (pilihan 3):
+
+- Bucu siling dikecilkan kepada saiz yang cukup untuk memegang pin sahaja
+  (`xB = xp + bossM + ...`), jadi alur di bahu pintu 5.6 mm, bukan 7.6 mm.
+- Kepingan yang dipotong itu menjadi part sendiri, `shoulderLeft` /
+  `shoulderRight` (`attach` pada pintu masing-masing, `noDecor`). Selepas
+  siling dipasang, ia ditekan semula ke dalam alur dan digam pada pintu sahaja.
+  Ia duduk 0.6 mm di atas bucu siling, dan dikunci dengan dovetail supaya tidak
+  tergelincir keluar ke tepi. Langkah pasang "Glue the shoulders back" ditambah.
+
 Ujian: `npm test` dalam projek asal (bahagian "the ceiling can come straight
-down", "mihrab door gap" dan "lid gap"). Ujian voksel dalam
+down", "the shoulder piece makes the arch whole again", "mihrab door gap" dan
+"lid gap"). Ujian voksel dalam
 `scripts/test-boxmaker-mihrab.mjs` menyemak pertindihan dan pusingan pintu
 sahaja, bukan laluan pemasangan - sebab itu masalah ini terlepas.

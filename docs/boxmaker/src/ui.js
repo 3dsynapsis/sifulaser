@@ -1060,12 +1060,16 @@ function mihrabRows(p, ctx, mat) {
     }),
     h('p', { class: 'hint' },
       'The ceiling corner that holds each top pin drops into a slot open to the '
-      + `top of the door, ${rnd(d.clear.slot, 1)} mm wide at its outer shoulder. `
-      + `It has ${rnd(d.clear.side, 2)} mm beside it and ${rnd(d.clear.below, 2)} mm `
-      + `under it; each door has ${rnd(d.clear.foot, 2)} mm at its foot, and the `
-      + `two doors ${rnd(d.clear.middle, 2)} mm between them. If the ceiling will `
-      + 'not go down over both pins, raise this rather than paring the slots with '
-      + 'a knife.'),
+      + `top of the door, ${rnd(d.clear.slot, 1)} mm wide at its outer shoulder`
+      + (d.shoulder
+        ? ', and a small shoulder piece is glued back into the slot afterwards so '
+          + 'the arch is whole again. '
+        : '. ')
+      + `The corner has ${rnd(d.clear.side, 2)} mm beside it and `
+      + `${rnd(d.clear.below, 2)} mm above and below; each door has `
+      + `${rnd(d.clear.foot, 2)} mm at its foot, and the two doors `
+      + `${rnd(d.clear.middle, 2)} mm between them. If the ceiling will not go down `
+      + 'over both pins, raise this rather than paring the slots with a knife.'),
     d.carve ? h('p', { class: 'hint' },
       'An extra arch board sits on the inner arch, a few mm in from its edge. The '
       + 'pattern is cut through it and the plain arch behind shows through, so it '
@@ -2134,6 +2138,13 @@ const STEPS = [
       + 'side tabs drop into the notches on top of the walls, and the two front '
       + 'corners drop into the slots at the top of the doors, their holes going '
       + 'down over the door pins. Glue the tabs, not the pins.',
+    only: ['mihrab'],
+  },
+  {
+    t: 'Glue the shoulders back',
+    d: 'Press each small shoulder piece into the slot at the top of its door, '
+      + 'dovetail first, so the arch is whole again. Glue it to the door only - '
+      + 'never to the ceiling corner underneath it, or the door will not open.',
     only: ['mihrab'],
   },
   {
