@@ -315,6 +315,15 @@ export class View3D {
     const sideMat = new THREE.MeshStandardMaterial({
       color: edge, roughness: opts.charred ? 0.95 : 0.4, metalness: 0.0,
     });
+    // A backing board - the layer a cut-through layer is glued over - drawn a
+    // good deal darker, as it is stained or papered in the box this is drawn
+    // from: the fretwork in front reads by that contrast, not by its holes.
+    const backMat = faceMat.clone();
+    backMat.color = grain ? new THREE.Color(0x6e5a48) : color.clone().multiplyScalar(0.55);
+    // A board set one layer back behind windows (a door's jali): a little
+    // darker, which is all the shadow of the window frame in front gives it.
+    const recessMat = faceMat.clone();
+    recessMat.color = grain ? new THREE.Color(0xc4b29e) : color.clone().multiplyScalar(0.82);
     const burnMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(opts.burn || '#3a2a1c'), roughness: 0.95,
     });
@@ -338,7 +347,7 @@ export class View3D {
 
       const geom = new THREE.ExtrudeGeometry(shapes, { depth: t, bevelEnabled: false });
       geom.translate(0, 0, -t);
-      const mesh = new THREE.Mesh(geom, [faceMat, sideMat]);
+      const mesh = new THREE.Mesh(geom, [panel.shade === 'backing' ? backMat : panel.shade === 'recess' ? recessMat : faceMat, sideMat]);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.userData.panelId = panel.id;

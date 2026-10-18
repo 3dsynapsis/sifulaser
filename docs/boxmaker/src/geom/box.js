@@ -54,7 +54,8 @@ import {
 } from './path.js';
 import { solveKeel, keelPath, keelZ, strip as archStrip, livingHinge } from './arch.js';
 import {
-  patternHoles, insetRing, clipToConvex, ringDistance, ringArea, PATTERNS,
+  patternHoles, insetRing, clipToConvex, ringDistance, ringArea, PATTERNS, defaultMotif,
+  angleRange,
 } from './pattern.js';
 
 export const DEFAULTS = {
@@ -114,6 +115,8 @@ export const DEFAULTS = {
   m2Frame: 10,          // the frame band round the front, % of the length
   m2Tympanum: 'sunburst', // over the doors: 'sunburst' | a pattern id | 'plain'
   m2Side: 'khatim8',    // the side lattice: a pattern id | 'plain'
+  m2Door: 'bintang12',  // the jali behind each door's windows: a pattern id | 'plain'
+  m2DoorPrint: true,    // tall windows in the doors' middle column, for prints
 
   // ---- Round (cylinder) -------------------------------------------------
   // Length is the diameter; width follows it. plinthMargin and lidSlack are
@@ -149,6 +152,7 @@ export const PANEL_ORDER = [
   // Mihrab 2.0. The doors, the lock parts, 'back', 'left', 'right', 'bottom',
   // 'ceiling' and the dividers are reused.
   'frame', 'facade', 'medallion', 'doorStop', 'latticeLeft', 'latticeRight',
+  'jaliLeft', 'jaliRight',
   // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
   // for decoration, for the same reason as the mihrab's roof.
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
@@ -183,6 +187,7 @@ export const PANEL_LABELS = {
   shoulderLeft: 'Shoulder left', shoulderRight: 'Shoulder right',
   frame: 'Front frame', facade: 'Front board', medallion: 'Medallion', doorStop: 'Door stop',
   latticeLeft: 'Lattice left', latticeRight: 'Lattice right',
+  jaliLeft: 'Door jali left', jaliRight: 'Door jali right',
   floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
@@ -221,9 +226,13 @@ function m2Sizes(p, t, L) {
   const e = Math.max(0, holeR + Math.max(1.2, 0.4 * t) - t / 2);
   const r = Math.max(2, t);
   const s = Math.max(2, 0.8 * t);
-  const aOut = 2 * t + Math.max(1.5, 0.6 * t);
+  // Thin rails either side of the chain, as on the box this is drawn from.
+  // The side walls' tenons and the roof's tabs go through the front board
+  // only where the frame is solid over them - between two quatrefoils - so
+  // the chain has to be wide enough for its links to clear them there.
+  const aOut = Math.max(2, 0.8 * t);
   const aIn = Math.max(2, 0.8 * t);
-  const qMin = Math.max(6, 2 * t);
+  const qMin = Math.max(6, 2 * t, (2 * t + 1.5 - aOut) / 0.35);
   const pct = Math.min(16, Math.max(6, numOr(p.m2Frame, DEFAULTS.m2Frame)));
   const B = Math.max(aOut + qMin + aIn, (pct / 100) * L);
   const Rm = Math.max(6, Math.min(30, 0.07 * L));
@@ -499,15 +508,15 @@ export function dimMap(input = {}) {
     };
   }
   if (p.style === 'mihrab2') {
-    // Inside: side wall to side wall, the back of the doors to the back, the
-    // floor to the ceiling. The frame band below, the transom and the arch
+    // Inside: side wall to side wall, the back of the doors' jali to the back,
+    // the floor to the ceiling. The frame band below, the transom and the arch
     // above are all outside it - and all scale with the OUTSIDE length.
     const Lout = p.measure === 'inside' ? p.length + 4 * t : p.length;
     const z = m2Sizes(p, t, Lout);
     return {
       what: 'box',
       x: { k: 1, c: 4 * t },
-      y: { k: 1, c: 4 * t + z.e },
+      y: { k: 1, c: 5 * t + z.e },
       z: { k: 1, c: z.rise + z.Tb + 2 * z.r + z.B },
     };
   }
@@ -992,7 +1001,7 @@ export function buildBox(input = {}) {
   const m2 = mihrab2 ? m2Sizes(p, t, L) : null;
   // A round box is as wide as it is long: Length is its diameter.
   const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0,
-    mihrab2 ? 4 * t + m2.e + Math.max(24, 8 * t) : 0, want.width);
+    mihrab2 ? 5 * t + m2.e + Math.max(24, 8 * t) : 0, want.width);
   const H = Math.max(mihrab ? mihrabMinH(t)
     : mihrab2 ? m2.B + 2 * m2.r + m2.Tb + m2.door + m2.riseMin
       : round ? roundMinH(t, p.roundLid !== false) : t * 6,
@@ -2311,53 +2320,62 @@ export function buildBox(input = {}) {
     };
   }
 
-  // ---- Mihrab 2.0: a flat-topped box behind a two-layer mihrab front -----
+  // ---- Mihrab 2.0: a mihrab-shaped box, two layers on every face ---------
+  // Built the way the laser-cut mihrab boxes it was drawn from are: a
+  // SANDWICH. The face and the back are the same mihrab outline; between
+  // them stand the side walls up to the spring line, and one kerf-bent strip
+  // roofs the arch from wall to wall - so the arch is a crown with depth, not
+  // a cut-out standing over a flat-topped box. Face, back and roof leave a
+  // board's lip all round, the way the face of the box in the photos does.
+  //
   // X across, Y from the face of the front frame (y = 0) back, Z up.
   //
-  //   frame     y 0..t. The face: the mihrab outline, a band of quatrefoils
-  //             all round it, the door opening a reveal wider than the board
-  //             behind, a transom, and the arch over it cut as a sunburst.
-  //   front     y t..2t, the same outline, solid but for the door opening and
-  //             the mortises the side walls tenon into. Behind the sunburst it
-  //             is the backing: coloured film or a print goes between the two.
-  //   doors     y 2t+e..3t+e. Plain rectangles standing BEHIND the front, so
-  //             the board and the frame step down to them twice; each turns
-  //             on two square pins at the edge of the opening, down into the
-  //             floor and up into the ceiling, and swings out through it.
-  //   body      side walls at x t..2t and L-2t..L-t, a lattice panel glued on
-  //             each so they finish flush with the front's edges; the back;
-  //             a floor level with the foot of the opening and the ceiling -
-  //             the flat top - level with its head, a door stop under it.
+  //   frame     y 0..t. The face's top layer, cut through: a chain of
+  //             quatrefoils round the outline and across the transom, the
+  //             door opening a reveal wider than the board behind, and the
+  //             arch cut as a sunburst.
+  //   front     y t..2t, the same outline: the backing. Solid but for the door
+  //             opening, the mortises for the side walls and the slots for the
+  //             roof's tabs - so coloured film or a print goes between the two.
+  //   doors     two layers too: the door, a grid of windows, and glued behind
+  //             it a jali board with a rosette cut in each window - or left
+  //             solid behind the tall windows, for a print. Each door turns on
+  //             two square pins at the edge of the opening, down into the
+  //             floor and up into the ceiling.
+  //   body      side walls at x t..2t and L-2t..L-t, a lattice glued on each,
+  //             flush with the face and the back; a floor at the foot of the
+  //             opening; a ceiling at its head, its side tenons sliding down
+  //             open channels in the walls, a door stop under it; the back.
+  //   roof      the kerf-bent strip, tabbed into slots in the face and the back.
   //   medallion a rosette glued over the foot of the sunburst.
   //
-  // Above the ceiling there is only the front: the transom and the arch.
-  //
-  // The joints are drawn for one order: the body; the doors onto their floor
-  // pins; the ceiling straight down onto their top pins - the doors stop
-  // below it, so nothing is in its way, which is what the first mihrab had to
-  // learn the hard way; and the front, its two layers glued together first,
-  // pushed on last over the side walls' tenons.
+  // The joints are drawn for one order: the walls on the floor; the doors on
+  // their floor pins; the ceiling straight down onto their top pins (nothing
+  // of a door is above it); the back pushed on from behind; the roof bent on
+  // and slid back into the back's slots; the face - its two layers glued
+  // together first - pushed on from the front last of all.
   let m2Info = null;
   if (mihrab2) {
     const { pinH: pH, holeR, e, r, s, aOut, aIn, B, q, Rm, Tb, door: dMin, riseMin } = m2;
     const g = Math.max(0.1, numOr(p.doorGap, DEFAULTS.doorGap));
     const riseWant = m2.rise;
     const rise = Math.max(riseMin, Math.min(riseWant, H - (B + 2 * r + Tb + dMin)));
-    const zS = H - rise;          // spring line, and the top of the transom
+    const zS = H - rise;          // spring line: the top of the side walls and the transom
     const zO1 = zS - Tb - r;      // head of the door opening: the underside of the ceiling
-    const Hb = zO1 + t;           // the body's flat top
+    const Hb = zO1 + t;           // top of the ceiling
     const xo = B + r;             // the opening, in from each side and up from the bottom
     const zF = xo - t;            // the floor board: its top is the opening's foot
     const yD = 2 * t + e;         // the doors' faces
     const yP = yD + t / 2;        // and their pins
+    const yB = W - t;             // the back's inner face
     const mirror = (ring, span) => ring.map(([u, v]) => [span - u, v]).reverse();
     const front = (y0) => ({ origin: [0, y0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
     const run = (a, b) => keep(featureLayout(b - a, m).map((f) => ({ s: f.s + a, e: f.e + a })),
       a + 0.5, b - 0.5);
+    const shade = 'backing';      // the 3D view draws backing boards darker
 
-    // ---- the outline. Its point is only an edge - never bent, unlike the
-    // first mihrab's roof - so it can be sharp; its shoulders have to stay
-    // round all the way in through the frame band.
+    // ---- the outline. Its point is only an edge, so it can be sharp; its
+    // shoulders have to stay round all the way in through the frame band.
     const ra = Math.max(3, t);
     const Rwant = (Math.min(98, Math.max(10, numOr(p.archRound, DEFAULTS.archRound))) / 100) * (L / 2);
     const Rmin = B + 2 * s + 2;
@@ -2371,12 +2389,55 @@ export function buildBox(input = {}) {
         .sort((a, b) => ringArea(b) - ringArea(a))[0] || null
       : null;
 
-    // ---- the quatrefoil band, down its middle line from the bottom-right
-    // corner, round the arch and back along the bottom. The two corners, the
-    // point of the arch and the middle of the bottom each get a quatrefoil of
-    // their own and the rest are spread evenly between them: two never crowd
-    // round a corner, and the band is the same on both sides.
+    // ---- the roof: a board in from the outline all round, its outer face
+    // flush with the side walls'. Its point is as round as a kerf-cut strip
+    // will bend (the first mihrab's apex); everywhere else it is the outline
+    // exactly, a board in, so the face's lip is the same all the way round.
+    const raR = Math.max(keel.ra - t, Math.max(10, 3.3 * t));
+    const Lr = L - 2 * t;
+    const czR = keel.C2[1] + (keel.ra - t - raR) / keel.n[1];
+    const R1 = keel.R - t;
+    const C1r = [R1, zS];
+    const C2r = [Lr / 2, czR];
+    const T1r = [C1r[0] + R1 * keel.n[0], C1r[1] + R1 * keel.n[1]];
+    const T2r = [C2r[0] + raR * keel.n[0], C2r[1] + raR * keel.n[1]];
+    const kr = T2r[0] > T1r[0] + 0.5
+      ? {
+        L: Lr, zS, H: czR + raR, R: R1, ra: raR, C1: C1r, C2: C2r, n: keel.n,
+        phi: keel.phi, slope: keel.slope, line: Math.hypot(T2r[0] - T1r[0], T2r[1] - T1r[1]),
+      }
+      : solveKeel({ L: Lr, zS, H: czR + raR, R: R1, ra: raR, minSlope: 0 });
+    const st = archStrip(kr, t);
+    const S = st.length;
+    const wS = yB - 2 * t;        // the roof, face to back
+    const lh = livingHinge(S, wS, st.zones, {
+      pitch: Math.max(1.2, 0.5 * t), slot: 0.5, bridge: Math.max(2.5, t), period: 22,
+    });
+    // ---- the frame's chain: quatrefoils down the band's middle line, a small
+    // link cut between each two, so it reads as one chain rather than a row
+    // of holes. Corners, the point of the arch and the middle of the bottom
+    // each get a quatrefoil of their own, the rest spread evenly between: two
+    // never crowd round a corner, and the band is the same on both sides.
+    const lk = Math.max(2.5, 0.3 * q);            // a link's length
+    const wl = Math.max(1.5, 0.3 * q);            // and its width
+    const P = q + 2 * s + lk;
+    const capsule = (cx, cy, len, w, ang) => {
+      const out = [];
+      const h = Math.max(0, len - w) / 2;
+      const rr = w / 2;
+      for (let i = 0; i <= 12; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 12;
+        out.push([h + rr * Math.cos(a), rr * Math.sin(a)]);
+      }
+      for (let i = 0; i <= 12; i++) {
+        const a = Math.PI / 2 + (i * Math.PI) / 12;
+        out.push([-h + rr * Math.cos(a), rr * Math.sin(a)]);
+      }
+      const [c, sn] = [Math.cos(ang), Math.sin(ang)];
+      return out.map(([x, y]) => [cx + x * c - y * sn, cy + x * sn + y * c]);
+    };
     const chain = [];
+    const gaps = [];              // the solid wood between two quatrefoils
     const midD = aOut + q / 2;
     const mid = q >= 3 ? insetRing(face, midD) : null;
     if (mid) {
@@ -2388,30 +2449,67 @@ export function buildBox(input = {}) {
       for (let i = 1; i < path.length; i++) {
         cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
       }
-      const S = cum[cum.length - 1];
+      const SL = cum[cum.length - 1];
       const at = (sv) => {
-        const u = ((sv % S) + S) % S;
+        const u = ((sv % SL) + SL) % SL;
         let i = 1;
         while (i < cum.length - 1 && cum[i] < u) i++;
         const k = (u - cum[i - 1]) / Math.max(1e-12, cum[i] - cum[i - 1]);
         return [path[i - 1][0] + k * (path[i][0] - path[i - 1][0]),
           path[i - 1][1] + k * (path[i][1] - path[i - 1][1])];
       };
+      const angAt = (sv) => {
+        const p0 = at(sv - 0.5);
+        const p1 = at(sv + 0.5);
+        return Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+      };
       let iTop = 0;
       for (let i = 0; i < path.length; i++) if (path[i][1] > path[iTop][1]) iTop = i;
       const iBL = nearest(path.slice(0, -1), [midD, midD]);
-      const anchors = [0, cum[iTop], cum[iBL], (cum[iBL] + S) / 2, S];
-      const P = q + 1.3 * s;
+      const anchors = [0, cum[iTop], cum[iBL], (cum[iBL] + SL) / 2, SL];
+      const at4 = [];
       for (let j = 0; j + 1 < anchors.length; j++) {
         const [a, b] = [anchors[j], anchors[j + 1]];
         if (b - a < P) continue;
         const k = Math.floor((b - a) / P);
-        for (let i = 0; i < k; i++) {
-          const sv = a + ((b - a) * i) / k;
-          const [x, z] = at(sv);
-          const p0 = at(sv - 0.5);
-          const p1 = at(sv + 0.5);
-          chain.push(foil(x, z, 4, q / 2, q / 3.5, Math.atan2(p1[1] - p0[1], p1[0] - p0[0])));
+        for (let i = 0; i < k; i++) at4.push(a + ((b - a) * i) / k);
+      }
+      for (let i = 0; i < at4.length; i++) {
+        const sv = at4[i];
+        const [x, z] = at(sv);
+        chain.push(foil(x, z, 4, q / 2, q / 3.5, angAt(sv)));
+        // The link to the next one, half way along the line between them -
+        // where the band is straight enough for one.
+        const nx = i + 1 < at4.length ? at4[i + 1] : at4[0] + SL;
+        const gap = nx - sv - q;
+        const ga = angAt((sv + nx) / 2);
+        gaps.push({ p: at((sv + nx) / 2), out: [Math.sin(ga), -Math.cos(ga)], len: gap });
+        if (gap >= lk + 2 * s - 1e-9) {
+          const sm = (sv + nx) / 2;
+          const [mx, mz] = at(sm);
+          chain.push(capsule(mx, mz, lk, wl, angAt(sm)));
+        }
+      }
+    }
+    // ... and the same chain across the transom, each side of the medallion.
+    const qT = Math.min(q, Tb - 2 * aIn);
+    if (qT >= 4) {
+      const zT0 = zS - Tb / 2;
+      const xL = B + aIn + qT / 2;
+      const xR = L / 2 - (Rm + s + qT / 2);
+      const PT = qT + 2 * s + Math.max(2.5, 0.45 * qT);
+      if (xR >= xL) {
+        const n = Math.floor((xR - xL) / PT) + 1;
+        const xs = n === 1 ? [xL] : Array.from({ length: n }, (_, i) => xL + ((xR - xL) * i) / (n - 1));
+        for (const side of [1, -1]) {
+          xs.forEach((x0, i) => {
+            const x = side > 0 ? x0 : L - x0;
+            chain.push(foil(x, zT0, 4, qT / 2, qT / 3.5, 0));
+            if (i + 1 < xs.length && xs[i + 1] - x0 - qT >= Math.max(2.5, 0.45 * qT) + 2 * s - 1e-9) {
+              const xm = (x0 + xs[i + 1]) / 2;
+              chain.push(capsule(side > 0 ? xm : L - xm, zT0, Math.max(2.5, 0.45 * qT), Math.max(1.5, 0.3 * qT), 0));
+            }
+          });
         }
       }
     }
@@ -2439,20 +2537,83 @@ export function buildBox(input = {}) {
         { pattern: fill, strut: s, kerf: 0, avoid: [hub] }).rings, tym, s);
     }
 
+    // ---- the roof's tabs: on its two straight runs only - flat there, so a
+    // tab is a plain rectangle and so is its slot - and only in a gap of the
+    // chain, under solid frame. A gap's middle, moved out to the roof's
+    // mid-plane, is found on the strip by its nearest point.
+    const tabsAt = [];
+    const tabW = Math.max(6, 2 * t);
+    // Found on the left run and mirrored onto the right, so the two halves
+    // match to the last decimal and one set of slots serves face and back.
+    const runsOn = [[st.sArc + lh.pitch + 1, st.sArc + st.sLine - lh.pitch - 1]];
+    for (const gp of gaps) {
+      if (gp.p[1] < zS + 1 || gp.p[0] > L / 2) continue;
+      const w0 = Math.min(tabW, gp.len - 3);
+      if (w0 < 4) continue;
+      const tgt = [gp.p[0] + gp.out[0] * (midD - 1.5 * t) - t, gp.p[1] + gp.out[1] * (midD - 1.5 * t)];
+      for (const [lo, hi] of runsOn) {
+        let best = null;
+        for (let sv = lo; sv <= hi; sv += 0.1) {
+          const pq = st.at(sv);
+          const d = Math.hypot(pq.x - tgt[0], pq.z - tgt[1]);
+          if (!best || d < best.d) best = { sv, d };
+        }
+        if (best && best.d < 0.2 && best.sv - w0 / 2 >= lo && best.sv + w0 / 2 <= hi) {
+          tabsAt.push({ c: best.sv, w: w0 }, { c: S - best.sv, w: w0 });
+        }
+      }
+    }
+    tabsAt.sort((a, b) => a.c - b.c);
+    const roofEdge = (edge, flip) => [
+      ...lh.notches.filter((q2) => q2.edge === edge).map((q2) => {
+        const c = flip ? S - q2.s : q2.s;
+        return { s: c - q2.w / 2, e: c + q2.w / 2, depth: -q2.depth };
+      }),
+      ...tabsAt.map(({ c: c0, w }) => {
+        const c = flip ? S - c0 : c0;
+        return { s: c - w / 2, e: c + w / 2, depth: t };
+      }),
+    ].sort((a, b) => a.s - b.s);
+    // Where a tab goes through a board standing across it: its slot, in that
+    // board's (x, z), a hair tight like every other mortise.
+    const tabSlots = tabsAt.map(({ c, w }) => {
+      const pa = st.at(c - 0.5);
+      const pb = st.at(c + 0.5);
+      const pc = st.at(c);
+      const l = Math.hypot(pb.x - pa.x, pb.z - pa.z);
+      const [tx, tz] = [(pb.x - pa.x) / l, (pb.z - pa.z) / l];
+      const hl = w / 2 - fit / 2;
+      const hw = t / 2 - fit / 2;
+      const [cx, cz] = [pc.x + t, pc.z];
+      return toCCW([
+        [cx - tx * hl - pc.nx * hw, cz - tz * hl - pc.nz * hw],
+        [cx + tx * hl - pc.nx * hw, cz + tz * hl - pc.nz * hw],
+        [cx + tx * hl + pc.nx * hw, cz + tz * hl + pc.nz * hw],
+        [cx - tx * hl + pc.nx * hw, cz - tz * hl + pc.nz * hw],
+      ]);
+    });
+
     // ---- joints
-    const fY = run(2 * t, W - t);         // floor and ceiling into the side walls
+    const fY = run(2 * t, yB);            // floor and ceiling into the side walls
     const fX = run(2 * t, L - 2 * t);     // ... and into the back
-    const fZ = run(0, Hb);                // the side walls into the front board
-    const vF = featureLayout(Hb - t, m);  // back to sides, below the ceiling's band
+    // The side walls into the face (and the back): one tenon in each gap of
+    // the chain up the straight side, so solid frame covers every one.
+    let fZ = gaps
+      .filter((gp) => Math.abs(gp.p[0] - (L - midD)) < 1e-6 && gp.len - 3 >= 3)
+      .map((gp) => ({ s: gp.p[1] - (gp.len - 3) / 2, e: gp.p[1] + (gp.len - 3) / 2 }))
+      .filter((f) => f.s >= 1 && f.e <= zS - 1)
+      .sort((a, b) => a.s - b.s);
+    if (fZ.length < 2) fZ = run(0, zS);
     const o = { slits };
 
-    // ---- doors: plain, each a door gap in from the opening all round
+    // ---- doors, each a door gap in from the opening all round
     const x0 = xo + g;              // the hinge edge
     const xc = L / 2 - g;           // the free edge
     const xp = x0 + t / 2;          // the pin line
     const zB = xo + g;
     const zT = zO1 - g;
     const doorH = zT - zB;
+    const Wd = xc - x0;
     const nR = Math.max(4, Math.min(9, L * 0.04, doorH * 0.2));
     const zK = zB + doorH / 2;      // finger notch or lock, halfway up
     const asked = ['hook', 'bolt', 'pin'].includes(p.mihrabLock) ? p.mihrabLock : 'notch';
@@ -2485,14 +2646,87 @@ export function buildBox(input = {}) {
       ...edgeRun([xc, zT], [x0, zT], [{ s: xc - xp - pH / 2, e: xc - xp + pH / 2, opts: lead }], t + g),
       [x0, zT],
     ]);
+
+    // The door's grid of windows. A solid rail runs across both doors at the
+    // lock - everything of the lock that touches a door lands on wood - and
+    // the windows fill the rest, as near square as the door allows. With
+    // three columns the middle one's windows join into a tall one each side
+    // of the rail, for a print.
+    const sw = Math.max(4, 1.4 * t);
+    const nc = Wd >= 70 ? 3 : Wd >= 36 ? 2 : 1;
+    const cw = (Wd - (nc + 1) * sw) / nc;
+    const lockZ = [];
+    const zOf = (q2) => {
+      const { origin: o2, U, V, N } = q2.frame;
+      return q2.outline.flatMap(([u, v]) => [0, -t].map((d) => o2[2] + U[2] * u + V[2] * v + N[2] * d));
+    };
+    for (const q2 of lock.parts) if (q2.attach) lockZ.push(...zOf(q2));
+    for (const h of [...lock.leftHoles, ...lock.rightHoles]) lockZ.push(...h.map(([, z]) => z));
+    if (lockKind === 'notch') lockZ.push(zK - nR, zK + nR);
+    const zL0 = Math.min(zK - sw, ...lockZ) - sw / 2;
+    const zL1 = Math.max(zK + sw, ...lockZ) + sw / 2;
+    const doorPrint = p.m2DoorPrint !== false;
+    const windows = [];
+    const rowsOf = (z0, z1, outerTop) => {
+      const h = z1 - z0;
+      if (!(cw > 6) || h < 8) return;
+      const nr = Math.max(1, Math.round((h + sw) / (cw + sw)));
+      const ch = (h - (nr - 1) * sw) / nr;
+      for (let j = 0; j < nc; j++) {
+        const wx0 = x0 + sw + j * (cw + sw);
+        // Three rows or more keep the one farthest from the rail square.
+        const tall = doorPrint && nc === 3 && j === 1 && nr >= 2;
+        const keepOuter = nr >= 3;
+        for (let i = 0; i < nr; i++) {
+          const wz0 = z0 + i * (ch + sw);
+          const outer = outerTop ? i === nr - 1 : i === 0;
+          if (tall && !(outer && keepOuter)) continue;
+          windows.push({ x: wx0, z: wz0, w: cw, h: ch, print: false });
+        }
+        if (tall) {
+          const tz0 = outerTop || !keepOuter ? z0 : z0 + ch + sw;
+          const tz1 = !outerTop || !keepOuter ? z1 : z1 - ch - sw;
+          windows.push({ x: wx0, z: tz0, w: cw, h: tz1 - tz0, print: true });
+        }
+      }
+    };
+    rowsOf(zB + sw, zL0, false);
+    rowsOf(zL1, zT - sw, true);
+    const rc = Math.min(1.5, sw / 3);
+    const windowRings = windows.map((w) => roundedRect(w.x, w.z, w.w, w.h, rc));
+    const doorPat = p.m2Door === 'plain' ? 'plain'
+      : PATTERNS.some((d) => d.id === p.m2Door) ? p.m2Door : DEFAULTS.m2Door;
+    const sj = Math.max(1.4, 0.5 * t);   // the jali's own struts, finer than the frame's
+    // One rosette to a window, centred, at the pattern's widest contact
+    // angle: a small star with petals radiating to the window's edges.
+    const jaliAngle = doorPat === 'plain' ? null : angleRange(doorPat)[1];
+    const jali = doorPat === 'plain' ? [] : windows.filter((w) => !w.print).flatMap((w) =>
+      patternHoles({ x: w.x, y: w.z, w: w.w, h: w.h }, {
+        pattern: doorPat, strut: sj, kerf: 0, minHole: 1.2, angle: jaliAngle,
+        motif: 1.1 * Math.min(w.w, w.h),
+      }).rings);
+    const jaliPlate = rect(x0 + 0.5, zB + 0.5, Wd - 1, doorH - 1);
+
     panels.push(normalisePanel({
-      id: 'doorLeft', label: PANEL_LABELS.doorLeft, outline: leftDoor, holes: lock.leftHoles,
+      id: 'doorLeft', label: PANEL_LABELS.doorLeft, outline: leftDoor,
+      holes: [...windowRings, ...lock.leftHoles],
       hinge: { axis: 'v', u: xp, n: -t / 2, sign: -1, angle: swing }, frame: front(yD),
     }));
     panels.push(normalisePanel({
-      id: 'doorRight', label: PANEL_LABELS.doorRight, outline: mirror(leftDoor, L), holes: lock.rightHoles,
+      id: 'doorRight', label: PANEL_LABELS.doorRight, outline: mirror(leftDoor, L),
+      holes: [...windowRings.map((w) => mirror(w, L)), ...lock.rightHoles],
       hinge: { axis: 'v', u: L - xp, n: -t / 2, sign: 1, angle: swing }, frame: front(yD),
     }));
+    panels.push(normalisePanel({
+      id: 'jaliLeft', label: PANEL_LABELS.jaliLeft, shade: 'recess', outline: jaliPlate, holes: jali,
+      frame: front(yD + t), attach: 'doorLeft', noDecor: true,
+    }));
+    panels.push(normalisePanel({
+      id: 'jaliRight', label: PANEL_LABELS.jaliRight, shade: 'recess', outline: mirror(jaliPlate, L),
+      holes: jali.map((h) => mirror(h, L)),
+      frame: front(yD + t), attach: 'doorRight', noDecor: true,
+    }));
+
     // The face's two layers after the doors: the doors are what people
     // decorate, so they come first on the 2D tab strip and the cut sheet.
     panels.push(normalisePanel({
@@ -2501,11 +2735,12 @@ export function buildBox(input = {}) {
       frame: front(0),
     }));
     panels.push(normalisePanel({
-      id: 'facade', label: PANEL_LABELS.facade, outline: face,
+      id: 'facade', label: PANEL_LABELS.facade, outline: face, shade,
       holes: [
         rect(xo, xo, L - 2 * xo, zO1 - xo),
         ...fZ.map((f) => shrinkRect(t, f.s, t, f.e - f.s, fit)),
         ...fZ.map((f) => shrinkRect(L - 2 * t, f.s, t, f.e - f.s, fit)),
+        ...tabSlots,
       ],
       frame: front(t),
     }));
@@ -2522,110 +2757,102 @@ export function buildBox(input = {}) {
     // ---- dividers: the long one behind the doors' meeting line, tenoned
     // into the back and down into the floor; the cross one over it, tenoned
     // into the side walls. Both stand clear of the door stop.
-    const ySt = yD + t + Math.min(0.3, g / 2);  // the stop's face, a hair behind the shut doors
+    const ySt = yD + 2 * t + Math.min(0.3, g / 2);  // the stop: a hair behind the shut doors' jali
     const dCount = p.divider === 2 || p.divider === 4 ? p.divider : 0;
     const dBase = xo;
     const dHt = (zO1 - dBase) * divFrac;
     const yFront = ySt + t + g;
-    const yMid = (yD + W) / 2;
+    const yMid = (yD + 2 * t + yB) / 2;
     const dOK = dCount > 0 && dHt > Math.max(6, 3 * t)
-      && W - t - yFront > 4 * t + 8 && L - 4 * t > 8 * t;
+      && yB - yFront > 4 * t + 8 && L - 4 * t > 8 * t;
     const dCross = dOK && dCount === 4;
     const dFeats = dOK ? featureLayout(dHt, Math.max(2, Math.min(m, dHt / 6))) : [];
-    const dbF = dOK ? run(yFront, W - t) : [];
+    const dbF = dOK ? run(yFront, yB) : [];
     const slotW = Math.max(0.3, t - fit);
 
-    // ---- back and side walls
+    // ---- the back: the same outline as the face, every tenon into it
+    // Laid out in x like everything else, then turned to the back's own
+    // u = L - x: it is seen from behind.
     panels.push(normalisePanel({
-      id: 'back', label: PANEL_LABELS.back,
-      outline: dedupe([
-        ...edgeRun([2 * t, 0], [L - 2 * t, 0], [], 0),
-        ...edgeRun([L - 2 * t, 0], [L - 2 * t, Hb], vF, t),
-        ...edgeRun([L - 2 * t, Hb], [2 * t, Hb], forWalk(snug(fX), L - 2 * t, 2 * t), -t),
-        ...edgeRun([2 * t, Hb], [2 * t, 0], flipFeatures(vF, Hb), t),
-      ]),
+      id: 'back', label: PANEL_LABELS.back, outline: mirror(face, L),
       holes: [
+        ...fZ.map((f) => shrinkRect(t, f.s, t, f.e - f.s, fit)),
+        ...fZ.map((f) => shrinkRect(L - 2 * t, f.s, t, f.e - f.s, fit)),
         ...fX.map((f) => shrinkRect(f.s, zF, f.e - f.s, t, fit)),
+        ...fX.map((f) => shrinkRect(f.s, Hb - t, f.e - f.s, t, fit)),
         ...dFeats.map((f) => shrinkRect(L / 2 - t / 2, dBase + f.s, t, f.e - f.s, fit)),
-      ],
+        ...tabSlots,
+      ].map((h) => mirror(h, L)),
       frame: { origin: [L, W, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] },
     }));
+
+    // ---- side walls, face to back and up to the spring line. The ceiling's
+    // tenons slide down open channels from their tops; the lattice covers them.
+    const chanD = zS - (Hb - t);
     const sideRing = dedupe([
-      ...edgeRun([2 * t, 0], [W, 0], [], 0),
-      ...edgeRun([W, 0], [W, Hb], vF, -t),
-      ...edgeRun([W, Hb], [2 * t, Hb], forWalk(snug(fY), W, 2 * t), -t),
-      ...edgeRun([2 * t, Hb], [2 * t, 0], forWalk(fZ, Hb, 0), t),
+      ...edgeRun([2 * t, 0], [yB, 0], [], 0),
+      ...edgeRun([yB, 0], [yB, zS], fZ, t),
+      ...edgeRun([yB, zS], [2 * t, zS], forWalk(fY, yB, 2 * t), -chanD),
+      ...edgeRun([2 * t, zS], [2 * t, 0], forWalk(fZ, zS, 0), t),
     ]);
     const sideHoles = [
       ...fY.map((f) => shrinkRect(f.s, zF, f.e - f.s, t, fit)),
       ...(dCross ? dFeats.map((f) => shrinkRect(yMid - t / 2, dBase + f.s, t, f.e - f.s, fit)) : []),
     ];
     panels.push(normalisePanel({
-      id: 'left', label: PANEL_LABELS.left,
+      id: 'left', label: PANEL_LABELS.left, shade,
       outline: mirror(sideRing, W), holes: sideHoles.map((h) => mirror(h, W)),
       frame: { origin: [t, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
     panels.push(normalisePanel({
-      id: 'right', label: PANEL_LABELS.right, outline: sideRing, holes: sideHoles,
+      id: 'right', label: PANEL_LABELS.right, outline: sideRing, holes: sideHoles, shade,
       frame: { origin: [L - t, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
     }));
 
-    // ---- side lattice: a panel glued on each side wall, a margin in from
-    // its edges, with an arched window of jali cut through it.
-    const M = Math.max(5, 1.5 * t + 2);
-    const ou0 = 2 * t + M;
-    const ou1 = W - M;
-    const ov0 = M;
-    const ov1 = Hb - M;
-    let lattice = null;
-    if (ou1 - ou0 > 4 * M && ov1 - ov0 > 4 * M) {
-      const bw = Math.max(5, 0.12 * Math.min(ou1 - ou0, ov1 - ov0));
-      const [wx0, wx1, wz0, wz1] = [ou0 + bw, ou1 - bw, ov0 + bw, ov1 - bw];
-      const ww = wx1 - wx0;
-      const riseW = Math.min(0.55 * ww, 0.5 * (wz1 - wz0));
-      const kw = solveKeel({ L: ww, zS: wz1 - riseW, H: wz1, R: 0.32 * ww, ra: Math.max(1.5, 0.5 * t) })
-        || solveKeel({ L: ww, zS: wz1 - riseW, H: wz1, R: 0.2 * ww, ra: 1, minSlope: 0 });
-      const win = kw
-        ? dedupe([[wx0, wz0], [wx1, wz0],
-          ...keelPath(kw, 0, { step: 1 }).reverse().map(([x, z]) => [x + wx0, z])])
-        : rect(wx0, wz0, ww, wz1 - wz0);
-      const pat = p.m2Side === 'plain' ? 'plain'
-        : PATTERNS.some((d) => d.id === p.m2Side) ? p.m2Side : DEFAULTS.m2Side;
-      const holes = pat === 'plain' ? [win]
-        : holesInWindow(patternHoles({ x: wx0, y: wz0, w: ww, h: wz1 - wz0 },
-          { pattern: pat, strut: s, kerf: 0 }).rings, win, s);
-      const plate = rect(ou0, ov0, ou1 - ou0, ov1 - ov0);
-      panels.push(normalisePanel({
-        id: 'latticeLeft', label: PANEL_LABELS.latticeLeft, noDecor: true,
-        outline: mirror(plate, W), holes: holes.map((h) => mirror(h, W)),
-        frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
-      }));
-      panels.push(normalisePanel({
-        id: 'latticeRight', label: PANEL_LABELS.latticeRight, noDecor: true, outline: plate, holes,
-        frame: { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
-      }));
-      lattice = { pattern: pat, holes: holes.length, margin: M, window: [ww, wz1 - wz0] };
+    // ---- side lattice: the whole side, face to back and foot to spring,
+    // flush with both, a girih cut through it over the wall behind.
+    const sidePat = p.m2Side === 'plain' ? 'plain'
+      : PATTERNS.some((d) => d.id === p.m2Side) ? p.m2Side : DEFAULTS.m2Side;
+    const bw = Math.max(4, 1.5 * s);
+    const plate = rect(2 * t, 0, wS, zS);
+    const win = { x: 2 * t + bw, y: bw, w: wS - 2 * bw, h: zS - 2 * bw };
+    let latHoles = [];
+    if (win.w > 10 && win.h > 10) {
+      latHoles = sidePat === 'plain'
+        ? [roundedRect(win.x, win.y, win.w, win.h, Math.min(3, bw))]
+        : patternHoles(win, {
+          pattern: sidePat, strut: s, kerf: 0,
+          motif: Math.max(defaultMotif(sidePat, win.w, s), win.w / 2.2),
+        }).rings;
     }
+    panels.push(normalisePanel({
+      id: 'latticeLeft', label: PANEL_LABELS.latticeLeft, noDecor: true,
+      outline: mirror(plate, W), holes: latHoles.map((h) => mirror(h, W)),
+      frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
+    }));
+    panels.push(normalisePanel({
+      id: 'latticeRight', label: PANEL_LABELS.latticeRight, noDecor: true, outline: plate, holes: latHoles,
+      frame: { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+    }));
 
-    // ---- floor and ceiling. Neither tenons into the front: it goes on last
-    // and is glued to their edges, held square by the side walls' tenons.
+    // ---- floor and ceiling. Neither tenons into the face: it goes on last
+    // and is glued to their edges. The ceiling has no slits on its tenons -
+    // they slide down channels, they are not pressed into mortises.
     const pins = [ellipse(xp, yP, holeR, holeR, 40), ellipse(L - xp, yP, holeR, holeR, 40)];
     const xs0 = xp + 0.75 * t + g;  // the stop starts past the swing of a door's hinge corner
     const hs = Math.max(2 * t, 6);
     const stF = run(xs0, L - xs0);
     const flat = (tenon) => dedupe([
       ...edgeRun([2 * t, 2 * t], [L - 2 * t, 2 * t], [], 0),
-      ...edgeRun([L - 2 * t, 2 * t], [L - 2 * t, W - t], forWalk(fY, 2 * t, W - t), t, tenon),
-      ...edgeRun([L - 2 * t, W - t], [2 * t, W - t], forWalk(fX, L - 2 * t, 2 * t), t, tenon),
-      ...edgeRun([2 * t, W - t], [2 * t, 2 * t], forWalk(fY, W - t, 2 * t), t, tenon),
+      ...edgeRun([L - 2 * t, 2 * t], [L - 2 * t, yB], forWalk(fY, 2 * t, yB), t, tenon),
+      ...edgeRun([L - 2 * t, yB], [2 * t, yB], forWalk(fX, L - 2 * t, 2 * t), t, tenon),
+      ...edgeRun([2 * t, yB], [2 * t, 2 * t], forWalk(fY, yB, 2 * t), t, tenon),
     ]);
     panels.push(normalisePanel({
       id: 'bottom', label: PANEL_LABELS.bottom, outline: flat(o),
       holes: [...pins, ...dbF.map((f) => shrinkRect(L / 2 - t / 2, f.s, t, f.e - f.s, fit))],
       frame: { origin: [0, 0, xo], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
     }));
-    // The ceiling's tenons drop into open notches in the tops of the walls,
-    // so it goes straight down - and they carry no slits, being only dropped in.
     panels.push(normalisePanel({
       id: 'ceiling', label: PANEL_LABELS.ceiling, outline: flat({}),
       holes: [...pins, ...stF.map((f) => shrinkRect(f.s, ySt, f.e - f.s, t, fit))],
@@ -2642,14 +2869,42 @@ export function buildBox(input = {}) {
       frame: front(ySt),
     }));
 
+    // ---- the roof strip, developed flat: u along the curve, v from the face
+    // back. The 3D view bends it on the path of its mid-plane.
+    const path = [];
+    const breaks = [0, ...st.zones.flat(), S].sort((a, b) => a - b);
+    for (let i = 0; i + 1 < breaks.length; i++) {
+      const [a, b] = [breaks[i], breaks[i + 1]];
+      const inBend = st.zones.some(([z0, z1]) => a >= z0 - 1e-9 && b <= z1 + 1e-9);
+      const n = inBend ? Math.max(2, Math.ceil((b - a) / 0.5)) : 1;
+      for (let j = i === 0 ? 0 : 1; j <= n; j++) {
+        const sv = a + ((b - a) * j) / n;
+        const q2 = st.at(sv);
+        path.push([sv, q2.x + t, q2.z, q2.nx, q2.nz]);
+      }
+    }
+    panels.push(normalisePanel({
+      id: 'roof', label: PANEL_LABELS.roof,
+      outline: dedupe([
+        ...edgeRun([0, 0], [S, 0], roofEdge(0, false), 0),
+        ...edgeRun([S, 0], [S, wS], [], 0),
+        ...edgeRun([S, wS], [0, wS], roofEdge(1, true), 0),
+        ...edgeRun([0, wS], [0, 0], [], 0),
+      ]),
+      holes: lh.holes,
+      noDecor: true,
+      bend: { y0: 2 * t, path },
+      frame: { origin: [0, 2 * t, zS], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+
     if (dOK) {
       panels.push(normalisePanel({
         id: 'divLength', label: PANEL_LABELS.divLength,
         outline: dedupe([
-          ...edgeRun([yFront, 0], [W - t, 0], forWalk(dbF, yFront, W - t), t),
-          ...edgeRun([W - t, 0], [W - t, dHt], dFeats, t),
-          ...edgeRun([W - t, dHt], [yFront, dHt],
-            dCross ? [{ s: W - t - yMid - slotW / 2, e: W - t - yMid + slotW / 2 }] : [], -dHt / 2),
+          ...edgeRun([yFront, 0], [yB, 0], forWalk(dbF, yFront, yB), t),
+          ...edgeRun([yB, 0], [yB, dHt], dFeats, t),
+          ...edgeRun([yB, dHt], [yFront, dHt],
+            dCross ? [{ s: yB - yMid - slotW / 2, e: yB - yMid + slotW / 2 }] : [], -dHt / 2),
           [yFront, dHt],
         ]),
         holes: [],
@@ -2677,16 +2932,25 @@ export function buildBox(input = {}) {
     }
 
     m2Info = {
-      keel, zS, zO1, Hb, xo, zF, yD, yP, xp, ySt, xs0, rise, riseWant, B, r, e, s, aOut, aIn, q, Tb, Rm,
-      door: { w: xc - x0, h: doorH, lockZ: zK, notchR: nR, swing },
-      clear: { gap: g, behind: e, middle: 2 * g, stop: ySt - yD - t },
+      keel, roofKeel: kr, zS, zO1, Hb, xo, zF, yD, yP, xp, ySt, xs0, yB, rise, riseWant,
+      B, r, e, s, aOut, aIn, q, Tb, Rm,
+      door: {
+        w: Wd, h: doorH, lockZ: zK, notchR: nR, swing,
+        windows: windows.length, prints: windows.filter((w) => w.print).length, rail: [zL0, zL1],
+        jali: doorPat,
+      },
+      clear: { gap: g, behind: e, middle: 2 * g, stop: ySt - yD - 2 * t },
       lock: lock.info,
       quatrefoils: chain.length,
       tympanum: { fill, panes: panes.length, burst },
-      lattice,
-      inner: { l: L - 4 * t, w: W - yD - 2 * t, h: zO1 - xo },
+      lattice: { pattern: sidePat, holes: latHoles.length },
+      roof: {
+        length: S, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones, tabs: tabsAt.length,
+        apex: raR, lip: t,
+      },
+      inner: { l: L - 4 * t, w: yB - yD - 2 * t, h: zO1 - xo },
       cell: dOK
-        ? { count: dCount, l: (L - 5 * t) / 2, w: dCross ? (W - yD) / 2 - 1.5 * t : W - yD - 2 * t }
+        ? { count: dCount, l: (L - 5 * t) / 2, w: dCross ? yMid - t / 2 - yD - 2 * t : yB - yD - 2 * t }
         : null,
       divider: dOK ? { count: dCount, height: dHt, front: yFront, mid: yMid } : null,
       overall: { l: L, w: W, h: H },

@@ -252,17 +252,17 @@ function mihrabThumb(c) {
 }
 
 /**
- * Mihrab 2.0, square-on: the arched front with its quatrefoil band, the
- * sunburst over two plain doors and the medallion between them - and, behind,
- * the flat-topped body showing past the side, which is what tells it from the
- * first mihrab at a glance.
+ * Mihrab 2.0, square-on with its depth showing: the arched front with its
+ * quatrefoil chain, the sunburst and the medallion over two windowed doors -
+ * and behind it the same arch again, the roof bent between them, which is
+ * what tells it from the first mihrab at a glance.
  */
 function mihrab2Thumb(c) {
-  const x0 = 24; const x1 = 64; const base = 68; const spring = 30; const top = 6;
+  const x0 = 22; const x1 = 62; const base = 68; const spring = 30; const top = 6;
   const mid = (x0 + x1) / 2;
-  const arch = (a, b, sp, tp, bot) => `M${a} ${bot}V${sp}`
-    + `C${a} ${sp - 10} ${a + 8} ${sp - 14} ${mid - 2} ${tp + 3}`
-    + `Q${mid} ${tp} ${mid + 2} ${tp + 3}`
+  const arch = (a, b, sp, tp, bot, m = mid) => `M${a} ${bot}V${sp}`
+    + `C${a} ${sp - 10} ${a + 8} ${sp - 14} ${m - 2} ${tp + 3}`
+    + `Q${m} ${tp} ${m + 2} ${tp + 3}`
     + `C${b - 8} ${sp - 14} ${b} ${sp - 10} ${b} ${sp}V${bot}Z`;
   const fan = [];
   for (let i = 1; i < 8; i++) {
@@ -270,16 +270,23 @@ function mihrab2Thumb(c) {
     fan.push(`M${(mid + 3.4 * Math.cos(a)).toFixed(2)} ${(spring + 4 - 3.4 * Math.sin(a)).toFixed(2)}`
       + `L${(mid + 15 * Math.cos(a)).toFixed(2)} ${(spring + 4 - 15 * Math.sin(a)).toFixed(2)}`);
   }
+  const win = [];
+  for (const dx of [0, 1, 2]) {
+    for (const dy of [0, 1, 3, 4]) {
+      win.push(`<rect x="${x0 + 7.5 + dx * 4.4 + (dx > 0 ? 0 : 0)}" y="${spring + 9.5 + dy * 4.6}" width="3" height="3.2" fill="${c.inner}" opacity=".75"/>`);
+      win.push(`<rect x="${x1 - 10.5 - dx * 4.4}" y="${spring + 9.5 + dy * 4.6}" width="3" height="3.2" fill="${c.inner}" opacity=".75"/>`);
+    }
+  }
   return `<svg viewBox="0 0 96 74" aria-hidden="true">
-  <polygon points="${P([[x1, 38], [x1 + 15, 32], [x1 + 15, base - 6], [x1, base]])}" fill="${c.right}"/>
-  <polygon points="${P([[x1 - 3, 38], [x1, 38], [x1 + 15, 32], [x1 + 12, 32]])}" fill="${c.lid}"/>
+  <path d="${arch(x0 + 14, x1 + 14, spring - 6, top - 6, base - 6, mid + 14)}" fill="${c.right}"/>
+  <polygon points="${P([[x1, base], [x1 + 14, base - 6], [x1 + 14, spring - 6], [x1, spring]])}" fill="${c.right}"/>
   <path d="${arch(x0, x1, spring, top, base)}" fill="${c.left}" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round"/>
-  <path d="${arch(x0 + 2.6, x1 - 2.6, spring, top + 3.4, base - 2.6)}" fill="none" stroke="${c.edge}" stroke-width="1.5" stroke-dasharray="1.3 1.5" opacity=".55"/>
+  <path d="${arch(x0 + 2.6, x1 - 2.6, spring, top + 3.4, base - 2.6)}" fill="none" stroke="${c.edge}" stroke-width="1.6" stroke-dasharray="1.4 1.4" opacity=".55"/>
   <path d="M${x0 + 5} ${spring + 4}H${x1 - 5}" stroke="${c.edge}" stroke-width=".8" opacity=".7"/>
   <path d="${fan.join('')}" stroke="${c.edge}" stroke-width=".8" opacity=".6"/>
   <rect x="${x0 + 6}" y="${spring + 8}" width="${x1 - x0 - 12}" height="${base - spring - 14}" fill="${c.rim}" stroke="${c.edge}" stroke-width=".8"/>
+  ${win.join('')}
   <path d="M${mid} ${spring + 8}V${base - 6}" stroke="${c.edge}" stroke-width=".9"/>
-  <rect x="${mid - 3}" y="${(spring + base) / 2}" width="6" height="2" rx="1" fill="${c.edge}" opacity=".6"/>
   <circle cx="${mid}" cy="${spring + 4}" r="3" fill="${c.lid}" stroke="${c.edge}" stroke-width=".8"/>
 </svg>`;
 }
@@ -491,10 +498,10 @@ const STYLES = [
   {
     id: 'mihrab2',
     label: 'Mihrab 2.0',
-    hint: 'A flat-topped box behind a two-layer mihrab front: a frame with a band '
-      + 'of quatrefoils and a sunburst over the doors, glued on a solid board - put '
-      + 'coloured film or a print between them. Plain doors on wooden pins, a '
-      + 'medallion, lattice on both sides, and four compartments inside.',
+    hint: 'Mihrab-shaped box built like the ones sold in shops: the same arch front '
+      + 'and back, a kerf-bent roof over the arch, and two layers on every face - a '
+      + 'quatrefoil chain and a sunburst over a dark backing, doors with windows over '
+      + 'a rosette jali, a girih lattice on each side. Four compartments inside.',
   },
   {
     id: 'round',
@@ -773,9 +780,8 @@ function overallInspector(root, ctx) {
       'The mihrab is glued: its two back corners are finger joints, and the doors '
       + 'are what comes apart. The screw joint is for the four-walled styles.') : null,
     p.style === 'mihrab2' ? h('p', { class: 'hint' },
-      'Mihrab 2.0 is glued: finger joints at the two back corners, tenons everywhere '
-      + 'else, and the doors are what comes apart. The screw joint is for the '
-      + 'four-walled styles.') : null,
+      'Mihrab 2.0 is glued: every board is tenoned into the next, and the doors are '
+      + 'what comes apart. The screw joint is for the four-walled styles.') : null,
     p.style === 'round' ? h('p', { class: 'hint' },
       'A round box has no corners: its wall is held by the groove it stands in and '
       + 'by the dovetails at the seam, glued. The screw joint is for the four-walled styles.') : null,
@@ -1180,7 +1186,7 @@ function mihrabRows(p, ctx, mat) {
 }
 
 /** The stock Mihrab 2.0: room for real doors under a transom and an arch. */
-const MIHRAB2_SIZE = { length: 200, width: 140, height: 300 };
+const MIHRAB2_SIZE = { length: 200, width: 100, height: 280 };
 
 /** A labelled drop-down. */
 function pickRow(label, value, options, onPick) {
@@ -1204,17 +1210,27 @@ function mihrab2Rows(p, ctx, mat) {
   ];
   const sides = [
     ...PATTERNS.map((x) => ({ id: x.id, label: x.name })),
-    { id: 'plain', label: 'Open arch' },
+    { id: 'plain', label: 'Open panel' },
+  ];
+  const jalis = [
+    ...PATTERNS.map((x) => ({ id: x.id, label: x.name })),
+    { id: 'plain', label: 'Plain - a print in every window' },
   ];
   return [
     mihrabResized ? h('p', { class: 'note' },
-      'Size changed to 200 × 140 × 300 mm: the box was too low for an arch over its doors.') : null,
+      'Size changed to 200 × 100 × 280 mm: the box was too low for an arch over its doors.') : null,
     h('p', { class: 'hint' },
-      'Two layers make the face. The front frame is cut through - quatrefoils all '
-      + 'round, the pattern over the doors - and glued on the solid front board, so '
-      + 'whatever goes between them shows through: coloured film, a printed '
-      + 'design, or just the board in another colour.'),
+      'Every face is two layers: a cut-through layer glued over a solid one. Stain '
+      + 'the backing boards dark (the 3D view shows them so), or put coloured film or '
+      + 'printed paper between the layers - it shows through every opening.'),
     pickRow('Over the doors', d.tympanum.fill, fills, (v) => set('m2Tympanum', v)),
+    pickRow('Door jali', d.door.jali, jalis, (v) => set('m2Door', v)),
+    h('div', { class: 'field' },
+      h('label', {}, 'Tall window in each door'),
+      segmented([
+        { id: true, label: 'For a print', hint: 'The middle windows join into a tall one with no jali behind, for a printed panel.' },
+        { id: false, label: 'All jali', hint: 'Every window has its rosette.' },
+      ], p.m2DoorPrint !== false, (v) => set('m2DoorPrint', v))),
     pickRow('Side lattice', d.lattice ? d.lattice.pattern : (p.m2Side || 'khatim8'), sides,
       (v) => set('m2Side', v)),
     numberRow('Frame band (% of length)', p.m2Frame ?? 10, {
@@ -1222,9 +1238,10 @@ function mihrab2Rows(p, ctx, mat) {
       onInput: (v) => set('m2Frame', v),
     }),
     h('p', { class: 'hint' },
-      `The band is ${rnd(d.B, 1)} mm wide with ${d.quatrefoils} quatrefoils; the `
-      + `opening in the frame is ${rnd(d.r, 1)} mm wider all round than the one in `
-      + 'the board behind, so the doors sit two steps in.'
+      `The band is ${rnd(d.B, 1)} mm wide, a chain of quatrefoils and links; the side `
+      + 'walls\' tenons and the roof\'s tabs go through the backing only between two '
+      + 'quatrefoils, so the frame hides every one. The frame\'s opening is '
+      + `${rnd(d.r, 1)} mm wider all round than the backing's.`
       + (d.tympanum.fill === 'sunburst' && d.tympanum.burst
         ? ` The sunburst has ${d.tympanum.burst.rays} rays round a ${rnd(2 * d.Rm, 1)} mm medallion.`
         : '')),
@@ -1249,8 +1266,8 @@ function mihrab2Rows(p, ctx, mat) {
       + `other door by ${rnd(d.clear.middle, 2)} mm. They stand ${rnd(d.clear.behind, 1)} mm `
       + 'behind the front board, so there is wood in front of every pin hole, and '
       + `they open to about ${Math.round(d.door.swing)}°, where the frame stops them. `
-      + 'Shut, they rest on the door stop under the ceiling. Nothing of a door is '
-      + 'above the ceiling, so the ceiling goes straight down onto both top pins.'),
+      + 'Shut, their jali rests on the door stop under the ceiling. Nothing of a door '
+      + 'is above the ceiling, so the ceiling goes straight down onto both top pins.'),
     numberRow('Arch height (% of length)', p.archRise ?? 50, {
       min: 25, max: 90, step: 1,
       onInput: (v) => set('archRise', Math.round(v)),
@@ -1279,11 +1296,17 @@ function mihrab2Rows(p, ctx, mat) {
         clampDecor();
         ctx.refresh();
       },
-    }, isStock ? 'Saiz Mihrab 2.0 biasa ✓' : 'Saiz Mihrab 2.0 biasa · 200 × 140 × 300 mm'),
+    }, isStock ? 'Saiz Mihrab 2.0 biasa ✓' : 'Saiz Mihrab 2.0 biasa · 200 × 100 × 280 mm'),
     h('p', { class: 'hint' },
-      `Each door is ${rnd(d.door.w, 1)} × ${rnd(d.door.h, 1)} mm and turns on two square `
-      + 'pins: one down into the floor, one up into the ceiling. The body\'s flat top '
-      + `is ${rnd(d.Hb, 1)} mm up; above it stands only the face - the transom and the arch.`),
+      `Each door is ${rnd(d.door.w, 1)} × ${rnd(d.door.h, 1)} mm with ${d.door.windows} `
+      + 'windows, a solid rail across the middle for the lock, and a jali board glued '
+      + 'behind it. It turns on two square pins: one down into the floor, one up into '
+      + 'the ceiling.'),
+    h('p', { class: 'hint' },
+      `The roof is one strip ${rnd(d.roof.length, 1)} × ${rnd(d.roof.width, 1)} mm with `
+      + `${d.roof.rows} rows of kerf cuts where it bends, and ${d.roof.tabs} tabs on each `
+      + 'edge into the face and the back. Plywood or falcata - MDF and acrylic crack '
+      + 'instead of bending.'),
   ];
 }
 
@@ -2039,6 +2062,9 @@ function applyPreset(id, faces, ctx) {
 
 function patternPresets(mat, ctx) {
   const box = getBox();
+  // Mihrab 2.0's doors are windows over a jali and its sides a lattice
+  // already: its patterns are chosen in its own rows, not cut over the top.
+  if (box.params.style === 'mihrab2') return null;
   const active = activePreset(box);
   const mihrab = box.params.style === 'mihrab' || box.params.style === 'mihrab2';
   const round = box.params.style === 'round';
@@ -2281,32 +2307,28 @@ const STEPS = [
   },
   {
     t: 'Lay them out',
-    d: 'The two layers of the face (the front frame and the front board), two '
-      + 'doors, the medallion, the back, two side walls and their two lattice '
-      + 'panels, the floor, the ceiling with its door stop, and the dividers.',
+    d: 'The face (the front frame and the front board), the back, two side walls and '
+      + 'their two lattices, the floor, the ceiling and its door stop, two doors and '
+      + 'their two jali boards, the long kerf-cut roof strip, the medallion, and the '
+      + 'dividers.',
     only: ['mihrab2'],
   },
   {
-    t: 'The two layers of the face',
-    d: 'Glue the front frame onto the front board, outlines flush all round. '
-      + 'Coloured film, a print or patterned paper goes between them first - the '
-      + 'board is solid, so whatever is there shows through every pane of the '
-      + 'sunburst and every quatrefoil. Weigh it flat until it is dry.',
+    t: 'Glue the layers first',
+    d: 'The front frame onto the front board, outlines flush; each lattice onto the '
+      + 'outside of its side wall, flush with its front and back edges; each jali board '
+      + 'onto the back of its door, half a millimetre in from the door\'s edges. Film, '
+      + 'prints or patterned paper go in between before you glue - the tall door '
+      + 'windows are made for a printed panel. Weigh them flat until dry.',
     only: ['mihrab2'],
   },
   {
-    t: 'Floor, back and one side',
-    d: "Push the floor's slitted tenons into one side wall and the back, and close "
-      + "that back corner - the back's fingers lock into the side wall's back edge.",
+    t: 'Floor, dividers and the side walls',
+    d: "Push the floor's slitted tenons into one side wall. Stand the long divider "
+      + 'in the slots in the floor; with four spaces drop the cross divider over it, '
+      + 'its tenons into the side wall. Then bring the second side wall in over every '
+      + 'tenon at once.',
     only: ['mihrab2'],
-  },
-  {
-    t: 'Dividers before the second side',
-    d: 'Stand the long divider in the slots in the floor and the back. With four '
-      + 'spaces, drop the cross divider over it, its tenons into the side wall. Then '
-      + 'bring the second side wall in over every tenon at once.',
-    only: ['mihrab2'],
-    when: (p) => p.divider === 2 || p.divider === 4,
   },
   {
     t: 'Doors before the ceiling',
@@ -2318,23 +2340,35 @@ const STEPS = [
   {
     t: 'Ceiling straight down',
     d: 'Glue the door stop into the slots under the ceiling first. Then lower the '
-      + 'ceiling flat: its tabs drop into the notches on top of the walls and the '
-      + 'back, its two front holes go down over the door pins, and the stop slides '
-      + 'down just behind the shut doors. Glue the tabs, never the pins.',
+      + "ceiling flat: its side tenons slide down the channels in the walls' tops until "
+      + 'they sit at the bottom, its two front holes go down over the door pins, and '
+      + 'the stop passes just behind the doors. Glue the tenons, never the pins.',
+    only: ['mihrab2'],
+  },
+  {
+    t: 'The back',
+    d: 'Push the back on from behind over every tenon at once - the side walls\', the '
+      + "floor's, the ceiling's and the long divider's - and glue it.",
+    only: ['mihrab2'],
+  },
+  {
+    t: 'The roof',
+    d: 'Bend the strip slowly over the arch, kerf cuts on the inside, its two ends '
+      + "standing on the side walls' tops. Slide it back so its back tabs go into "
+      + 'the slots in the back, and glue it along the walls and the back.',
     only: ['mihrab2'],
   },
   {
     t: 'The face goes on last',
-    d: "Push the glued face straight onto the side walls' front tenons until it sits "
-      + 'against the floor and the ceiling, and glue it there. The doors are behind '
-      + 'it and swing out through the opening.',
+    d: "Push the face straight on from the front, over the side walls' tenons and the "
+      + "roof's front tabs, until it sits against everything, and glue it. The doors "
+      + 'are behind it and swing out through the opening.',
     only: ['mihrab2'],
   },
   {
-    t: 'Medallion and lattice',
-    d: 'Glue the medallion over the foot of the sunburst, centred on the transom. '
-      + 'Glue a lattice panel onto each side wall with the same margin all round, '
-      + 'its arch at the top. Paint the medallion gold first if you want it to shine.',
+    t: 'The medallion',
+    d: 'Glue it on the transom, centred at the foot of the sunburst. Paint it gold '
+      + 'first if you want it to shine.',
     only: ['mihrab2'],
   },
   {

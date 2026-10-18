@@ -265,52 +265,65 @@ sahaja, bukan laluan pemasangan - sebab itu masalah ini terlepas.
 ### Gaya Mihrab 2.0 (depan dua lapis)
 
 Diminta Bos pada 18 Oktober 2026 berdasarkan gambar kotak mihrab yang dijual di
-pasaran: ambil kelebihannya, terutama depan dua lapis. Gaya baharu
-`style: 'mihrab2'`, kad "Mihrab 2.0". Mihrab yang asal tidak berubah.
+pasaran: ambil kelebihannya, terutama dua lapis. Gaya baharu `style: 'mihrab2'`,
+kad "Mihrab 2.0"; Mihrab yang asal tidak berubah. Versi pertama (muka depan
+tinggi di hadapan badan berbumbung rata) diganti pada hari yang sama - lihat
+semakan kedua di bawah. Yang kekal dari versi pertama:
 
-- **Depan dua lapis.** `frame` ("Front frame") dipotong tembus dan digam pada
-  `facade` ("Front board"), papan padu di belakangnya. Filem berwarna, cetakan
-  atau kertas bercorak diletak di antara keduanya dan kelihatan melalui setiap
-  petak sunburst dan setiap quatrefoil.
-- **Jalur quatrefoil** mengelilingi bentuk gerbang (`m2Frame`, % panjang, asal
-  10). Dua bucu bawah, puncak gerbang dan tengah bawah masing-masing ada satu
-  quatrefoil, jadi jalur itu simetri dan tidak bersesak di bucu. Rel luarnya
-  cukup lebar untuk menutup hujung tanon dinding sisi di papan depan.
-- **Di atas pintu** (`m2Tympanum`): `'sunburst'` (asal - jejari, satu gelang,
-  hab untuk medalion), mana-mana corak Islamik, atau `'plain'` (terbuka untuk
-  cetakan atau kaligrafi). Di bawahnya ada transom tempat medalion duduk.
-- **Pintu segi empat** di belakang papan depan: `doorGap` (0.6 mm) dari bukaan
-  di semua sisi, dan bukaan bingkai lebih besar lagi setebal papan, jadi pintu
-  nampak masuk dua langkah. Pin persegi ke lantai dan ke siling. Tiada bahagian
-  pintu di atas siling, jadi siling terus turun ke atas kedua-dua pin - masalah
-  takuk Mihrab asal tidak wujud di sini. Pintu terbuka kira-kira 95° (bingkai
-  yang menahannya; `hinge.angle`, dan `src/view3d.js` kini mengikutnya), dan
-  bila tertutup bersandar pada `doorStop` di bawah siling.
-- **Medalion** (`medallion`) - roset berlekuk dengan bintang khatam dipotong
-  tembus, digam di kaki sunburst. Cat emas.
-- **Kekisi sisi** (`latticeLeft`, `latticeRight`, `m2Side`) - panel digam pada
-  setiap dinding sisi, tingkap gerbang berisi corak (asal Star 8 Khatim) atau
-  `'plain'` (gerbang terbuka). Rata dengan tepi papan depan.
-- **Badan bumbung rata.** Lantai setinggi kaki bukaan, siling setinggi
-  kepalanya; dinding sisi bertanon ke papan depan. Di atas siling hanya ada
-  muka depan: transom dan gerbang.
-- **Empat ruang.** Pembahagi panjang di belakang garis pertemuan pintu
-  (bertanon ke belakang dan lantai), pembahagi lintang bertindih separuh dan
-  bertanon ke dinding sisi. Memilih Mihrab 2.0 menetapkan 4 ruang dan kunci
-  Cangkuk jika belum dipilih.
-- **Kunci** sama seperti Mihrab, tetapi saiznya kini menyesuaikan diri supaya
-  muat dalam bukaan - semasa dikunci, dibuka dan pintu dihayun. Kalau tidak
-  muat langsung (papan tebal, kotak kecil), kunci seterusnya dipasang (Selak /
-  Pasak -> Cangkuk -> lubang jari) dan panel memberi amaran
-  (`derived.mihrab2.lock.wanted`). Mihrab asal tidak terkesan.
-- `src/geom/pattern.js` - `clipToConvex()` baharu untuk memotong corak ke
-  tingkap gerbang.
+- **Tympanum** di atas pintu (`m2Tympanum`): `'sunburst'` (asal), mana-mana corak
+  Islamik, atau `'plain'` (terbuka untuk cetakan atau kaligrafi), atas transom.
+- **Pintu** di belakang papan depan, `doorGap` (0.6 mm) dari bukaan di semua
+  sisi, pin persegi ke lantai dan siling, terbuka kira-kira 95° (bingkai yang
+  menahannya; `hinge.angle`, diikut oleh `src/view3d.js`). Tiada bahagian pintu
+  di atas siling, jadi siling terus turun ke atas pin.
+- **Medalion** (`medallion`), roset berlekuk dengan bintang khatam, atas transom.
+- **Kunci** sama seperti Mihrab, saiznya menyesuaikan diri supaya muat dalam
+  bukaan semasa dikunci, dibuka dan pintu dihayun; kalau tidak muat langsung,
+  kunci seterusnya dipasang (Selak / Pasak -> Cangkuk -> lubang jari) dengan
+  amaran (`derived.mihrab2.lock.wanted`).
+- **Empat ruang** - memilih Mihrab 2.0 menetapkan 4 ruang dan Cangkuk.
+- `src/geom/pattern.js` - `clipToConvex()` baharu.
 
-Ujian (`npm test` dalam projek asal, bahagian "mihrab 2.0"): setiap pasangan
-part tidak berkongsi kayu (36 kotak), laluan pemasangan mengikut langkah
-(siling turun lurus, muka ditolak dari depan paling akhir), hayunan pintu
-bersama kuncinya (1544 kedudukan), ruang pintu dan pin diukur, dua lapis
-sejajar dan tanon tersembunyi, saiz dalam diukur, dan kawalan negatif untuk
-setiap jenis semakan. Ujian mutasi: 20 cara rosak yang munasabah, kesemuanya
-ditangkap. Disemak silang dengan alat voksel `scripts/lib/boxmaker-voxel.mjs`
-(pintu tertutup, 30°, 60° dan terbuka penuh): bersih.
+### Mihrab 2.0, semakan kedua (18 Oktober 2026)
+
+Bos tidak suka versi pertama: gerbang di atas hanya sekeping papan tercacak
+tanpa apa-apa di belakangnya, dan dua lapisnya nampak pelik (satu plat
+berlubang di seluruh muka, pintu kosong). Dikaji semula daripada 9 gambar
+kotak rujukan dan cara kabinet bergerbang dibuat. Kotak itu dibina seperti
+**sandwich**, dan dua lapis dipakai pada setiap muka, bukan satu plat:
+
+- **Badan sandwich.** `back` kini bentuk mihrab penuh, sama dengan muka depan.
+  Dinding sisi naik hingga kaki gerbang, dan satu jalur kerf lentur (`roof`,
+  seperti Mihrab asal) membumbungi gerbang dari dinding ke dinding, bertab ke
+  dalam slot di papan depan dan belakang. Muka dan belakang tersembul satu
+  tebal papan di sekeliling bumbung. Hujung gerbang bumbung sebulat yang boleh
+  dilentur (jejari luar sekurang-kurangnya `max(10, 3.3t)`); bucu muka kekal
+  tajam.
+- **Pintu dua lapis.** Setiap pintu ada grid tingkap (3 lajur), rel padu di
+  tengah untuk kunci, dan papan jali (`jaliLeft`, `jaliRight`) digam di
+  belakangnya dengan satu roset di setiap tingkap (`m2Door`, asal `bintang12`
+  pada sudut sentuhan terbesar - bintang kecil dengan kelopak memancar).
+  Tingkap tengah bercantum menjadi tingkap panjang untuk cetakan
+  (`m2DoorPrint`).
+- **Rantai quatrefoil.** Rel luar dan dalam nipis (`max(2, 0.8t)`), quatrefoil
+  lebih besar dengan penyambung kecil di antaranya, dan rantai yang sama
+  merentas transom. Tanon dinding sisi dan tab bumbung diletak **dalam celah
+  rantai sahaja**, di bawah kayu bingkai yang padu, jadi semuanya tersorok
+  walaupun rel luar nipis.
+- **Sisi.** Kekisi girih penuh dari muka ke belakang dan dari kaki ke kaki
+  gerbang, rata dengan tepi kedua-dua papan.
+- **3D.** Papan sandar (`shade: 'backing'` - papan depan, dinding sisi)
+  dipapar gelap dan papan jali (`'recess'`) sedikit gelap, supaya lapisan
+  hadapan terbaca seperti dalam gambar.
+- Siling kini masuk dari atas melalui saluran terbuka di bahagian atas dinding
+  sisi (ditutup oleh kekisi), dan belakang ditolak masuk dari belakang.
+  Langkah pasang ditulis semula. Kumpulan "Pattern" disembunyikan untuk gaya
+  ini - coraknya dipilih dalam baris Mihrab 2.0 sendiri.
+- Saiz standard kini 200 × 100 × 280 mm (perkadaran kotak dalam gambar).
+
+Ujian (bahagian "mihrab 2.0", `npm test` projek asal): bumbung lentur
+disampel dalam 3D terhadap setiap papan; empat laluan pemasangan (siling
+turun, belakang dari belakang, bumbung, muka dari depan); hayunan pintu
+bersama jali dan kunci; lubang jali hanya di belakang tingkap; tanon dan slot
+tersorok di bawah bingkai; bibir bumbung satu papan; saiz dalam diukur.
+Ujian mutasi: 25 cara rosak yang munasabah, kesemuanya ditangkap.
