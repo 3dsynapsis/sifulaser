@@ -397,7 +397,9 @@ export class View3D {
         const outer = new THREE.Group();
         outer.applyMatrix4(View3D.panelMatrix(panel));
         outer.add(pivot);
-        this.lidGroups.push({ pivot, sign: panel.hinge.sign, axis: 'y', angle: 100 });
+        // A door opens as far as its own stop allows (Mihrab 2.0's frame stops
+        // its doors a little past square), or to 100 degrees.
+        this.lidGroups.push({ pivot, sign: panel.hinge.sign, axis: 'y', angle: panel.hinge.angle ?? 100 });
         doors[panel.id] = { inner, matrix: View3D.panelMatrix(panel) };
         this.root.add(outer);
         this.meshes.push(mesh);

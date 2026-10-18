@@ -117,6 +117,7 @@ function boxThumb(style, base) {
 
   if (style === 'almari') return almariThumb(c);
   if (style === 'mihrab') return mihrabThumb(c);
+  if (style === 'mihrab2') return mihrab2Thumb(c);
   if (style === 'round') return roundThumb(c);
 
   // top rim diamond, its inner opening, and the floor sitting below it
@@ -247,6 +248,39 @@ function mihrabThumb(c) {
   <circle cx="${mid - 3}" cy="${(spring + base) / 2}" r="1.4" fill="${c.edge}" opacity=".6"/>
   <circle cx="${mid + 3}" cy="${(spring + base) / 2}" r="1.4" fill="${c.edge}" opacity=".6"/>
   <path d="${arch(0)}" fill="none" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round" opacity=".85"/>
+</svg>`;
+}
+
+/**
+ * Mihrab 2.0, square-on: the arched front with its quatrefoil band, the
+ * sunburst over two plain doors and the medallion between them - and, behind,
+ * the flat-topped body showing past the side, which is what tells it from the
+ * first mihrab at a glance.
+ */
+function mihrab2Thumb(c) {
+  const x0 = 24; const x1 = 64; const base = 68; const spring = 30; const top = 6;
+  const mid = (x0 + x1) / 2;
+  const arch = (a, b, sp, tp, bot) => `M${a} ${bot}V${sp}`
+    + `C${a} ${sp - 10} ${a + 8} ${sp - 14} ${mid - 2} ${tp + 3}`
+    + `Q${mid} ${tp} ${mid + 2} ${tp + 3}`
+    + `C${b - 8} ${sp - 14} ${b} ${sp - 10} ${b} ${sp}V${bot}Z`;
+  const fan = [];
+  for (let i = 1; i < 8; i++) {
+    const a = Math.PI - (i * Math.PI) / 8;
+    fan.push(`M${(mid + 3.4 * Math.cos(a)).toFixed(2)} ${(spring + 4 - 3.4 * Math.sin(a)).toFixed(2)}`
+      + `L${(mid + 15 * Math.cos(a)).toFixed(2)} ${(spring + 4 - 15 * Math.sin(a)).toFixed(2)}`);
+  }
+  return `<svg viewBox="0 0 96 74" aria-hidden="true">
+  <polygon points="${P([[x1, 38], [x1 + 15, 32], [x1 + 15, base - 6], [x1, base]])}" fill="${c.right}"/>
+  <polygon points="${P([[x1 - 3, 38], [x1, 38], [x1 + 15, 32], [x1 + 12, 32]])}" fill="${c.lid}"/>
+  <path d="${arch(x0, x1, spring, top, base)}" fill="${c.left}" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round"/>
+  <path d="${arch(x0 + 2.6, x1 - 2.6, spring, top + 3.4, base - 2.6)}" fill="none" stroke="${c.edge}" stroke-width="1.5" stroke-dasharray="1.3 1.5" opacity=".55"/>
+  <path d="M${x0 + 5} ${spring + 4}H${x1 - 5}" stroke="${c.edge}" stroke-width=".8" opacity=".7"/>
+  <path d="${fan.join('')}" stroke="${c.edge}" stroke-width=".8" opacity=".6"/>
+  <rect x="${x0 + 6}" y="${spring + 8}" width="${x1 - x0 - 12}" height="${base - spring - 14}" fill="${c.rim}" stroke="${c.edge}" stroke-width=".8"/>
+  <path d="M${mid} ${spring + 8}V${base - 6}" stroke="${c.edge}" stroke-width=".9"/>
+  <rect x="${mid - 3}" y="${(spring + base) / 2}" width="6" height="2" rx="1" fill="${c.edge}" opacity=".6"/>
+  <circle cx="${mid}" cy="${spring + 4}" r="3" fill="${c.lid}" stroke="${c.edge}" stroke-width=".8"/>
 </svg>`;
 }
 
@@ -455,6 +489,14 @@ const STYLES = [
       + 'one strip of 3 mm board, kerf-cut so it bends over the arch.',
   },
   {
+    id: 'mihrab2',
+    label: 'Mihrab 2.0',
+    hint: 'A flat-topped box behind a two-layer mihrab front: a frame with a band '
+      + 'of quatrefoils and a sunburst over the doors, glued on a solid board - put '
+      + 'coloured film or a print between them. Plain doors on wooden pins, a '
+      + 'medallion, lattice on both sides, and four compartments inside.',
+  },
+  {
     id: 'round',
     label: 'Bulat',
     hint: 'Round box. The wall is a kerf-cut strip bent into a circle and '
@@ -638,6 +680,7 @@ function overallInspector(root, ctx) {
     ...(p.style === 'shoebox' ? liftOffRows(p, ctx)
       : p.style === 'almari' ? drawerRows(p, ctx)
         : p.style === 'mihrab' ? mihrabRows(p, ctx, mat)
+          : p.style === 'mihrab2' ? mihrab2Rows(p, ctx, mat)
           : p.style === 'round' ? roundRows(p, ctx)
             : p.style === 'lidded' || p.style === 'double' ? lidGapRows(p, ctx) : [])));
 
@@ -662,8 +705,12 @@ function overallInspector(root, ctx) {
       min: 20, max: 100, step: 5,
       onInput: (v) => { setParam('dividerHeight', Math.round(v)); ctx.refresh(); },
     }) : null),
-    h('p', { class: 'hint' },
-      'Dividers tenon through the walls the same way the floor does, and the '
+    h('p', { class: 'hint' }, p.style === 'mihrab2'
+      ? 'Behind the doors: the long divider runs back from the doors\' meeting '
+        + 'line, so each door opens on its own side, tenoned into the back and down '
+        + 'into the floor. With four spaces the cross divider half-laps over it and '
+        + 'tenons into both side walls. Both stand clear of the door stop.'
+      : 'Dividers tenon through the walls the same way the floor does, and the '
       + 'four-space pair half-laps in the middle so it locks itself square. '
       + 'Keeping them short of the rim leaves room to reach in, and a lid closes '
       + 'over them rather than onto them.')));
@@ -720,15 +767,19 @@ function overallInspector(root, ctx) {
 
   const fitTicks = ['Looser', 'Loose', 'Standard', 'Tight', 'Tighter'];
   const d = getBox().derived;
-  const screwOn = p.joint === 'screw' && p.style !== 'mihrab' && p.style !== 'round';
+  const screwOn = p.joint === 'screw' && !['mihrab', 'mihrab2', 'round'].includes(p.style);
   root.append(group('Joints', false,
     p.style === 'mihrab' ? h('p', { class: 'hint' },
       'The mihrab is glued: its two back corners are finger joints, and the doors '
       + 'are what comes apart. The screw joint is for the four-walled styles.') : null,
+    p.style === 'mihrab2' ? h('p', { class: 'hint' },
+      'Mihrab 2.0 is glued: finger joints at the two back corners, tenons everywhere '
+      + 'else, and the doors are what comes apart. The screw joint is for the '
+      + 'four-walled styles.') : null,
     p.style === 'round' ? h('p', { class: 'hint' },
       'A round box has no corners: its wall is held by the groove it stands in and '
       + 'by the dovetails at the seam, glued. The screw joint is for the four-walled styles.') : null,
-    p.style === 'mihrab' || p.style === 'round' ? null : h('div', { class: 'field' },
+    ['mihrab', 'mihrab2', 'round'].includes(p.style) ? null : h('div', { class: 'field' },
       h('label', {}, 'Corner joint'),
       h('div', { class: 'seg' }, [
         ['standard', 'Standard'], ['screw', 'Screw'],
@@ -868,12 +919,23 @@ const MIHRAB_SIZE = { length: 200, width: 120, height: 260 };
 let mihrabResized = false;
 function pickStyle(id) {
   const b = getBox().params;
-  const squat = id === 'mihrab' && state.params.style !== 'mihrab' && b.height < b.length * 0.9;
+  const was = state.params.style;
+  // Mihrab 2.0 carries its doors under an arch AND a transom, so it wants
+  // more height for its length than the first one does.
+  const stock = id === 'mihrab2' ? MIHRAB2_SIZE : MIHRAB_SIZE;
+  const squat = (id === 'mihrab' || id === 'mihrab2') && was !== id
+    && b.height < b.length * (id === 'mihrab2' ? 1.2 : 0.9);
   update((s) => {
     s.params.style = id;
     if (squat) {
       Object.assign(s.params, s.params.measure === 'inside'
-        ? insideOf({ ...s.params, measure: 'outside' }, MIHRAB_SIZE) : MIHRAB_SIZE);
+        ? insideOf({ ...s.params, measure: 'outside' }, stock) : stock);
+    }
+    // Mihrab 2.0 comes the way the box it was drawn from comes: four
+    // compartments behind the doors, and a hook holding them shut.
+    if (id === 'mihrab2' && was !== 'mihrab2') {
+      if (!s.params.divider) s.params.divider = 4;
+      if ((s.params.mihrabLock || 'notch') === 'notch') s.params.mihrabLock = 'hook';
     }
   }, { geometry: true });
   mihrabResized = squat;
@@ -948,10 +1010,10 @@ const MIHRAB_LOCKS = [
  */
 const lockArtCache = new Map();
 function lockThumb(kind, params, base) {
-  const key = `${kind}|${base}|${params.thickness}|${params.length}|${params.height}|${params.width}|${params.archRise}|${params.doorGap}|${params.fit}`;
+  const key = `${kind}|${base}|${params.style}|${params.thickness}|${params.length}|${params.height}|${params.width}|${params.archRise}|${params.doorGap}|${params.fit}|${params.m2Frame}`;
   if (lockArtCache.has(key)) return lockArtCache.get(key);
   const box = buildBox({ ...params, mihrabLock: kind });
-  const m = box.derived.mihrab;
+  const m = box.derived.mihrab || box.derived.mihrab2;
   const L = box.params.length;
   const zK = m.door.lockZ;
   const parts = box.panels.filter((q) => q.id === 'doorLeft' || q.id === 'doorRight' || q.attach || q.lockMove);
@@ -1117,6 +1179,114 @@ function mihrabRows(p, ctx, mat) {
   ];
 }
 
+/** The stock Mihrab 2.0: room for real doors under a transom and an arch. */
+const MIHRAB2_SIZE = { length: 200, width: 140, height: 300 };
+
+/** A labelled drop-down. */
+function pickRow(label, value, options, onPick) {
+  return h('div', { class: 'field' }, h('label', {}, label),
+    h('select', { onchange: (e) => onPick(e.target.value) }, options.map((o) =>
+      h('option', { value: o.id, ...(o.id === value ? { selected: true } : {}) }, o.label))));
+}
+
+/** Two layers, the frame band, the sunburst, the lattice, the doors. */
+function mihrab2Rows(p, ctx, mat) {
+  const d = getBox().derived.mihrab2;
+  if (!d) return [];
+  const cab = getBox().params;
+  const isStock = ['length', 'width', 'height']
+    .every((k) => Math.abs(cab[k] - MIHRAB2_SIZE[k]) < 0.01);
+  const set = (k, v) => { setParam(k, v); clampDecor(); ctx.refresh(); };
+  const fills = [
+    { id: 'sunburst', label: 'Sunburst' },
+    ...PATTERNS.map((x) => ({ id: x.id, label: x.name })),
+    { id: 'plain', label: 'Open - for a print or calligraphy' },
+  ];
+  const sides = [
+    ...PATTERNS.map((x) => ({ id: x.id, label: x.name })),
+    { id: 'plain', label: 'Open arch' },
+  ];
+  return [
+    mihrabResized ? h('p', { class: 'note' },
+      'Size changed to 200 × 140 × 300 mm: the box was too low for an arch over its doors.') : null,
+    h('p', { class: 'hint' },
+      'Two layers make the face. The front frame is cut through - quatrefoils all '
+      + 'round, the pattern over the doors - and glued on the solid front board, so '
+      + 'whatever goes between them shows through: coloured film, a printed '
+      + 'design, or just the board in another colour.'),
+    pickRow('Over the doors', d.tympanum.fill, fills, (v) => set('m2Tympanum', v)),
+    pickRow('Side lattice', d.lattice ? d.lattice.pattern : (p.m2Side || 'khatim8'), sides,
+      (v) => set('m2Side', v)),
+    numberRow('Frame band (% of length)', p.m2Frame ?? 10, {
+      min: 6, max: 16, step: 0.5,
+      onInput: (v) => set('m2Frame', v),
+    }),
+    h('p', { class: 'hint' },
+      `The band is ${rnd(d.B, 1)} mm wide with ${d.quatrefoils} quatrefoils; the `
+      + `opening in the frame is ${rnd(d.r, 1)} mm wider all round than the one in `
+      + 'the board behind, so the doors sit two steps in.'
+      + (d.tympanum.fill === 'sunburst' && d.tympanum.burst
+        ? ` The sunburst has ${d.tympanum.burst.rays} rays round a ${rnd(2 * d.Rm, 1)} mm medallion.`
+        : '')),
+    h('div', { class: 'field' },
+      h('label', {}, 'Door lock'),
+      h('div', { class: 'cards lock-cards' }, MIHRAB_LOCKS.map((k) => h('button', {
+        class: 'card', type: 'button', title: k.hint,
+        'aria-pressed': String((p.mihrabLock || 'notch') === k.id),
+        onclick: () => set('mihrabLock', k.id),
+      }, h('span', { class: 'art', html: lockThumb(k.id, getBox().params, mat.color) }), k.label)))),
+    d.lock.wanted ? h('p', { class: 'warn' },
+      `No room for the ${lockName(d.lock.wanted)} in this door opening - it would `
+      + `catch the front as the doors open - so the doors get the ${lockName(d.lock.kind)}. `
+      + 'A bigger box, a narrower frame band or thinner board makes room for it.') : null,
+    h('p', { class: 'hint' }, lockHint(d)),
+    numberRow('Door gap (mm)', p.doorGap ?? 0.6, {
+      min: 0.2, max: 2, step: 0.05,
+      onInput: (v) => set('doorGap', v),
+    }),
+    h('p', { class: 'hint' },
+      `Each door clears the opening by ${rnd(d.clear.gap, 2)} mm all round and the `
+      + `other door by ${rnd(d.clear.middle, 2)} mm. They stand ${rnd(d.clear.behind, 1)} mm `
+      + 'behind the front board, so there is wood in front of every pin hole, and '
+      + `they open to about ${Math.round(d.door.swing)}°, where the frame stops them. `
+      + 'Shut, they rest on the door stop under the ceiling. Nothing of a door is '
+      + 'above the ceiling, so the ceiling goes straight down onto both top pins.'),
+    numberRow('Arch height (% of length)', p.archRise ?? 50, {
+      min: 25, max: 90, step: 1,
+      onInput: (v) => set('archRise', Math.round(v)),
+    }),
+    numberRow('Shoulder roundness (%)', p.archRound ?? 55, {
+      min: 20, max: 95, step: 1,
+      onInput: (v) => set('archRound', Math.round(v)),
+    }),
+    d.riseClamped ? h('p', { class: 'warn' },
+      `The arch is ${rnd(d.rise, 1)} mm high, not ${rnd(d.riseWant, 1)}: the doors `
+      + 'need room below it. Make the box taller for a higher arch.') : null,
+    d.roundClamped ? h('p', { class: 'hint' },
+      `Shoulders held at ${rnd(d.keel.R, 1)} mm radius - any rounder and they `
+      + 'would stand taller than the point of the arch.') : null,
+    d.roundRaised ? h('p', { class: 'hint' },
+      `Shoulders kept at ${rnd(d.keel.R, 1)} mm radius, round enough for the frame `
+      + 'band to follow them.') : null,
+    h('button', {
+      class: 'ghost', type: 'button', style: 'width:100%',
+      onclick: () => {
+        update((s) => {
+          Object.assign(s.params, s.params.measure === 'inside'
+            ? insideOf({ ...s.params, measure: 'outside' }, MIHRAB2_SIZE) : MIHRAB2_SIZE);
+        }, { geometry: true });
+        mihrabResized = false;
+        clampDecor();
+        ctx.refresh();
+      },
+    }, isStock ? 'Saiz Mihrab 2.0 biasa ✓' : 'Saiz Mihrab 2.0 biasa · 200 × 140 × 300 mm'),
+    h('p', { class: 'hint' },
+      `Each door is ${rnd(d.door.w, 1)} × ${rnd(d.door.h, 1)} mm and turns on two square `
+      + 'pins: one down into the floor, one up into the ceiling. The body\'s flat top '
+      + `is ${rnd(d.Hb, 1)} mm up; above it stands only the face - the transom and the arch.`),
+  ];
+}
+
 /**
  * Turn the carving layer on or off. On, it gets the pattern the doors have -
  * a plain board would be nothing to look at - or Star 12 when they have none.
@@ -1142,6 +1312,9 @@ function setCarve(on, ctx) {
   clampDecor();
   ctx.refresh();
 }
+
+/** A lock's name as the cards give it, in lower case for a sentence. */
+const lockName = (id) => (MIHRAB_LOCKS.find((k) => k.id === id)?.label || id).toLowerCase();
 
 /** What the chosen lock is, how to work it, and what it is cut as. */
 function lockHint(d) {
@@ -1428,6 +1601,9 @@ function dimensionRows(p, ctx) {
     ? (drawer
       ? 'Inside each drawer: wall to wall, front to back, and from the drawer\'s '
         + 'floor up to its rim. Every drawer is the same size. '
+      : p.style === 'mihrab2'
+        ? 'Inside: side wall to side wall, the back of the shut doors to the back, '
+          + 'and the floor up to the ceiling - what fits behind the doors. '
       : 'Inside: the clear space wall to wall, and from the floor up to the rim'
         + (p.style === 'open' ? '. ' : ', which is where the lid sits. '))
       + 'Type the size of what goes in and add 2-3 mm each way so it slides in '
@@ -1435,9 +1611,14 @@ function dimensionRows(p, ctx) {
       + 'stays; the box grows around it.'
     : (drawer
       ? 'Outside: across the front, front to back, and floor to the top. '
+      : p.style === 'mihrab2'
+        ? 'Outside: the space the finished box takes up, the arch included. '
       : 'Outside: the space the finished box takes up, including the lid. ')
-      + 'Boxing something? Switch to Inside and type its size instead - the '
-      + 'walls take two board thicknesses off whatever is typed here.'));
+      + (p.style === 'mihrab2'
+        ? 'Boxing something? Switch to Inside and type its size instead - the front, '
+          + 'the frame band and the arch over the doors all take their share of the outside.'
+        : 'Boxing something? Switch to Inside and type its size instead - the '
+          + 'walls take two board thicknesses off whatever is typed here.')));
   return rows;
 }
 
@@ -1811,9 +1992,11 @@ const presetTargets = (box, faces) => {
   // A round box's wall is a living hinge - a pattern through it would break
   // the bend - so the lid is the face.
   if (box.params.style === 'round') return box.panels.filter((p) => p.id === 'lidTop');
-  const mihrab = box.params.style === 'mihrab';
+  const mihrab = box.params.style === 'mihrab' || box.params.style === 'mihrab2';
+  // Mihrab 2.0's side walls already wear their lattice: the back is the wall.
+  const walls = box.params.style === 'mihrab2' ? ['back'] : MIHRAB_WALLS;
   const ids = mihrab
-    ? (faces === 'all' ? [...DOOR_IDS, ...MIHRAB_WALLS] : DOOR_IDS)
+    ? (faces === 'all' ? [...DOOR_IDS, ...walls] : DOOR_IDS)
     : faces === 'all' ? [...WALL_IDS, ...LID_IDS] : WALL_IDS;
   return box.panels.filter((p) => ids.includes(p.id));
 };
@@ -1857,7 +2040,7 @@ function applyPreset(id, faces, ctx) {
 function patternPresets(mat, ctx) {
   const box = getBox();
   const active = activePreset(box);
-  const mihrab = box.params.style === 'mihrab';
+  const mihrab = box.params.style === 'mihrab' || box.params.style === 'mihrab2';
   const round = box.params.style === 'round';
   if (round && !box.panels.some((p) => p.id === 'lidTop')) return null; // nothing to cut it on
   const hasLid = !round && (mihrab || box.panels.some((p) => LID_IDS.includes(p.id)));
@@ -1886,7 +2069,10 @@ function patternPresets(mat, ctx) {
         + 'pattern through it would break the bend.'
       : active === 'none'
       ? (mihrab
-        ? 'Tap a pattern to cut it through both doors, the way a mosque window is. It follows the arch and keeps clear of the hinge pins by itself.'
+        ? 'Tap a pattern to cut it through both doors, the way a mosque window is. '
+          + (box.params.style === 'mihrab2'
+            ? 'It keeps clear of the hinge pins and the lock by itself.'
+            : 'It follows the arch and keeps clear of the hinge pins by itself.')
         : 'Tap a pattern to cut it through the walls. It keeps clear of the joints and slots by itself.')
       : (mihrab && presetFaces === 'walls' ? 'Cut through both doors' : 'Cut through every wall')
         + ', clear of the joints. Size and bar width here change every face at once. '
@@ -2085,13 +2271,71 @@ const STEPS = [
   {
     t: 'Lay them out',
     d: 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.',
-    skip: ['almari', 'mihrab', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
   },
   {
     t: 'Lay them out',
     d: 'The base plate, the arched back, two side walls, the ceiling, the inner '
       + 'arch, two doors, and the long kerf-cut roof strip.',
     only: ['mihrab'],
+  },
+  {
+    t: 'Lay them out',
+    d: 'The two layers of the face (the front frame and the front board), two '
+      + 'doors, the medallion, the back, two side walls and their two lattice '
+      + 'panels, the floor, the ceiling with its door stop, and the dividers.',
+    only: ['mihrab2'],
+  },
+  {
+    t: 'The two layers of the face',
+    d: 'Glue the front frame onto the front board, outlines flush all round. '
+      + 'Coloured film, a print or patterned paper goes between them first - the '
+      + 'board is solid, so whatever is there shows through every pane of the '
+      + 'sunburst and every quatrefoil. Weigh it flat until it is dry.',
+    only: ['mihrab2'],
+  },
+  {
+    t: 'Floor, back and one side',
+    d: "Push the floor's slitted tenons into one side wall and the back, and close "
+      + "that back corner - the back's fingers lock into the side wall's back edge.",
+    only: ['mihrab2'],
+  },
+  {
+    t: 'Dividers before the second side',
+    d: 'Stand the long divider in the slots in the floor and the back. With four '
+      + 'spaces, drop the cross divider over it, its tenons into the side wall. Then '
+      + 'bring the second side wall in over every tenon at once.',
+    only: ['mihrab2'],
+    when: (p) => p.divider === 2 || p.divider === 4,
+  },
+  {
+    t: 'Doors before the ceiling',
+    d: "Drop each door's bottom pin into its hole at the front corner of the floor "
+      + 'and stand it up, shut. The ceiling holds the top pins, so it goes on after '
+      + 'the doors, not before.',
+    only: ['mihrab2'],
+  },
+  {
+    t: 'Ceiling straight down',
+    d: 'Glue the door stop into the slots under the ceiling first. Then lower the '
+      + 'ceiling flat: its tabs drop into the notches on top of the walls and the '
+      + 'back, its two front holes go down over the door pins, and the stop slides '
+      + 'down just behind the shut doors. Glue the tabs, never the pins.',
+    only: ['mihrab2'],
+  },
+  {
+    t: 'The face goes on last',
+    d: "Push the glued face straight onto the side walls' front tenons until it sits "
+      + 'against the floor and the ceiling, and glue it there. The doors are behind '
+      + 'it and swing out through the opening.',
+    only: ['mihrab2'],
+  },
+  {
+    t: 'Medallion and lattice',
+    d: 'Glue the medallion over the foot of the sunburst, centred on the transom. '
+      + 'Glue a lattice panel onto each side wall with the same margin all round, '
+      + 'its arch at the top. Paint the medallion gold first if you want it to shine.',
+    only: ['mihrab2'],
   },
   {
     t: 'Lay them out',
@@ -2161,7 +2405,7 @@ const STEPS = [
       + "on the pin's end. Press the catch pin into the right door the same way and "
       + 'cap it with the round cap. Shut both doors and drop the hook over the catch '
       + 'pin. Glue nothing that turns.',
-    only: ['mihrab'],
+    only: ['mihrab', 'mihrab2'],
     when: (p) => p.mihrabLock === 'hook',
   },
   {
@@ -2171,7 +2415,7 @@ const STEPS = [
       + "bolt in the guide's channel and glue the cover over the guide - not onto the "
       + "bolt. Push the knob pin through the cover's slot into the bolt and press the "
       + 'knob on. Glue the keeper cover on last.',
-    only: ['mihrab'],
+    only: ['mihrab', 'mihrab2'],
     when: (p) => p.mihrabLock === 'bolt',
   },
   {
@@ -2179,7 +2423,7 @@ const STEPS = [
     d: "Push each ear's tenon through the slot in its door from the front, flat side "
       + 'up, and glue it. Closed, the two ears meet at the gap with their square holes '
       + "level. Drop the mihrab pin's legs through both holes to lock.",
-    only: ['mihrab'],
+    only: ['mihrab', 'mihrab2'],
     when: (p) => p.mihrabLock === 'pin',
   },
   {
@@ -2209,12 +2453,12 @@ const STEPS = [
   {
     t: 'Floor into the front wall',
     d: 'The slitted tenons push through the mortises. They should click, not fight.',
-    skip: ['almari', 'mihrab', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
   },
   {
     t: 'Add a side wall',
     d: 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.',
-    skip: ['almari', 'mihrab', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
   },
   {
     t: 'Bottom into a side wall',
@@ -2235,14 +2479,14 @@ const STEPS = [
     d: 'Drop an M3 nut into each pocket before you close that corner up. Once '
       + 'the box is together you cannot reach them. They stay put on their own - '
       + 'the pocket is cut to the nut, not to a gap.',
-    skip: ['mihrab', 'round'],
+    skip: ['mihrab', 'mihrab2', 'round'],
   },
   {
     t: 'Dividers before the far walls',
     d: 'Stand the long divider in the front wall mortises, drop the crossing one '
       + 'onto it, then bring the side walls in over their tenons. Once the box is '
       + 'closed they cannot go in.',
-    skip: ['almari', 'mihrab', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
   },
   {
     t: 'Lid pins first',
@@ -2253,7 +2497,7 @@ const STEPS = [
   {
     t: 'Close it up',
     d: 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.',
-    skip: ['almari', 'mihrab', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
   },
   {
     t: 'Top drops in last',

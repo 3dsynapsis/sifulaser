@@ -277,7 +277,11 @@ export function clampDecor() {
   // cabinet has no front panel at all, so 'front' would leave the face still
   // invalid - reads fall back to panels[0] while every inspector write goes to
   // decor['front'], and the user's decoration lands where they cannot see it.
-  if (!b.panels.some((p) => p.id === state.face)) state.face = b.panels[0].id;
+  // Nor to a part nobody may decorate - Mihrab 2.0's cut-through frame, a
+  // lattice - which has no tab to come back from.
+  if (!b.panels.some((p) => p.id === state.face && !p.noDecor)) {
+    state.face = (b.panels.find((p) => !p.noDecor) || b.panels[0]).id;
+  }
   for (const p of b.panels) {
     for (const o of state.decor[p.id] || []) {
       refitPattern(o, p);

@@ -338,6 +338,24 @@ function clipHalfPlane(ring, nx, ny, c) {
   return result;
 }
 
+/**
+ * Clip a simple CCW ring to a convex CCW polygon - an arched window, say. A
+ * concave ring can come back in several pieces, each a ring of its own.
+ */
+export function clipToConvex(ring, convex) {
+  let parts = [ring];
+  for (let i = 0; i < convex.length && parts.length; i++) {
+    const a = convex[i], b = convex[(i + 1) % convex.length];
+    const nx = a[1] - b[1], ny = b[0] - a[0];   // inward: left of a -> b
+    const L = Math.hypot(nx, ny);
+    if (L < 1e-12) continue;
+    const next = [];
+    for (const r of parts) next.push(...clipHalfPlane(r, nx / L, ny / L, (nx * a[0] + ny * a[1]) / L));
+    parts = next;
+  }
+  return parts;
+}
+
 function clipToRect(ring, x0, y0, x1, y1) {
   let parts = [ring];
   for (const [nx, ny, c] of [[1, 0, x0], [-1, 0, -x1], [0, 1, y0], [0, -1, -y1]]) {

@@ -85,7 +85,7 @@ const ctx = {
 function lidBtnLabel() {
   const almari = state.params.style === 'almari';
   if (almari) return state.lidOpen ? 'Push them back in' : 'Pull the drawers out';
-  if (state.params.style === 'mihrab') return state.lidOpen ? 'Close the doors' : 'Open the doors';
+  if (state.params.style === 'mihrab' || state.params.style === 'mihrab2') return state.lidOpen ? 'Close the doors' : 'Open the doors';
   return state.lidOpen ? 'Close the box' : 'Open the box';
 }
 

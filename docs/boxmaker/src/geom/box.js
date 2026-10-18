@@ -22,6 +22,12 @@
 //     stands proud of the box, up into a ceiling board at the spring line. The
 //     arch above the ceiling is a hollow crown - an inner arch board, the back,
 //     and a kerf-bent roof strip glued over both.
+//   * mihrab2 - Mihrab 2.0: a flat-topped box behind a two-layer mihrab front.
+//     A cut-through frame (quatrefoil band, sunburst over the doors) is glued
+//     on a solid front board, with room for coloured film or a print between.
+//     Plain doors stand behind the opening on pins into the floor and the
+//     ceiling, a lattice panel is glued on each side, and a medallion sits at
+//     the foot of the sunburst.
 //   * round - a cylinder. The wall is one kerf-bent strip (several, joined by
 //     dovetails, when it would not fit a 600 mm sheet) standing in a round
 //     groove: a floor disc inside it, a ring outside it, both on a base plate.
@@ -44,12 +50,15 @@
 
 import {
   sub, len as vlen, norm, dedupe, bbox, translate,
-  offsetPolygon, ellipse, rect, roundedRect,
+  offsetPolygon, ellipse, rect, roundedRect, toCCW,
 } from './path.js';
 import { solveKeel, keelPath, keelZ, strip as archStrip, livingHinge } from './arch.js';
+import {
+  patternHoles, insetRing, clipToConvex, ringDistance, ringArea, PATTERNS,
+} from './pattern.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari' | 'mihrab' | 'round'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -100,6 +109,12 @@ export const DEFAULTS = {
   mihrabLie: false,   // lying on its back, doors up: the base is flush behind
   mihrabLock: 'notch', // 'notch' finger hole | 'hook' | 'bolt' | 'pin'
 
+  // ---- Mihrab 2.0 (two-layer front). archRise, archRound, doorGap,
+  // mihrabLock and the dividers are shared with the styles above.
+  m2Frame: 10,          // the frame band round the front, % of the length
+  m2Tympanum: 'sunburst', // over the doors: 'sunburst' | a pattern id | 'plain'
+  m2Side: 'khatim8',    // the side lattice: a pattern id | 'plain'
+
   // ---- Round (cylinder) -------------------------------------------------
   // Length is the diameter; width follows it. plinthMargin and lidSlack are
   // shared with the styles above.
@@ -131,6 +146,9 @@ export const PANEL_ORDER = [
   'boltGuide', 'boltCover', 'bolt', 'boltPeg', 'boltKnob', 'boltKeeper', 'keeperCover',
   'earLeft', 'earRight', 'lockPin',
   'shoulderLeft', 'shoulderRight',
+  // Mihrab 2.0. The doors, the lock parts, 'back', 'left', 'right', 'bottom',
+  // 'ceiling' and the dividers are reused.
+  'frame', 'facade', 'medallion', 'doorStop', 'latticeLeft', 'latticeRight',
   // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
   // for decoration, for the same reason as the mihrab's roof.
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
@@ -163,6 +181,8 @@ export const PANEL_LABELS = {
   boltKnob: 'Knob', boltKeeper: 'Bolt keeper', keeperCover: 'Keeper cover',
   earLeft: 'Lock ear left', earRight: 'Lock ear right', lockPin: 'Mihrab pin',
   shoulderLeft: 'Shoulder left', shoulderRight: 'Shoulder right',
+  frame: 'Front frame', facade: 'Front board', medallion: 'Medallion', doorStop: 'Door stop',
+  latticeLeft: 'Lattice left', latticeRight: 'Lattice right',
   floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
@@ -176,6 +196,49 @@ const roundMinH = (t, lid) => t + Math.max(20, 6 * t) + (lid ? t : 0);
  * ceiling, and an arch with room for its apex curve.
  */
 const mihrabMinH = (t) => t + Math.max(30, 10 * t) + Math.max(10, 3.3 * t) + 2 * t;
+
+/** A number, or the default when the field is empty or nonsense. */
+const numOr = (v, d) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d);
+
+/**
+ * Mihrab 2.0's proportions, from the board and the front's width. One place,
+ * because dimMap (inside <-> outside) and buildBox have to agree on every one.
+ *
+ *   e     how far the doors stand behind the front board. Their pins are on
+ *         their mid-plane, and the floor and ceiling stop at the back of the
+ *         front board, so the pin holes need this much wood in front of them.
+ *   r     the reveal: the frame's opening is this much wider all round than
+ *         the board's behind it, so the doors read as set into a frame.
+ *   s     the strut, the wood left between two cut-outs.
+ *   B     the frame band round the front: an outer rail wide enough to hide
+ *         the side walls' tenons, the quatrefoils, an inner rail.
+ *   Rm    the medallion; Tb, the transom it sits on.
+ */
+function m2Sizes(p, t, L) {
+  const fit = Number.isFinite(p.fit) ? p.fit : DEFAULTS.fit;
+  const pinH = t * 0.65;
+  const holeR = Math.hypot(pinH, t) / 2 + 2 * Math.max(0.1, fit);
+  const e = Math.max(0, holeR + Math.max(1.2, 0.4 * t) - t / 2);
+  const r = Math.max(2, t);
+  const s = Math.max(2, 0.8 * t);
+  const aOut = 2 * t + Math.max(1.5, 0.6 * t);
+  const aIn = Math.max(2, 0.8 * t);
+  const qMin = Math.max(6, 2 * t);
+  const pct = Math.min(16, Math.max(6, numOr(p.m2Frame, DEFAULTS.m2Frame)));
+  const B = Math.max(aOut + qMin + aIn, (pct / 100) * L);
+  const Rm = Math.max(6, Math.min(30, 0.07 * L));
+  const Tb = Rm + Math.max(1, s / 2);
+  const door = Math.max(30, 10 * t);
+  const riseMin = 1.6 * B + Rm + 2 * s;
+  const pctRise = Math.min(95, Math.max(15, numOr(p.archRise, DEFAULTS.archRise)));
+  return {
+    pinH, holeR, e, r, s, aOut, aIn, B, q: B - aOut - aIn, Rm, Tb, door, riseMin,
+    rise: Math.max(riseMin, (pctRise / 100) * L),
+  };
+}
+
+/** Least front a Mihrab 2.0 can have: two frame bands and two doors. */
+const m2MinL = (p, t) => 2 * (m2Sizes(p, t, 0).B + Math.max(2, t) + 2) + 2 * Math.max(16, 5 * t);
 
 /**
  * M3, and only M3 - one screw, one nut, one drill bit to own.
@@ -435,6 +498,19 @@ export function dimMap(input = {}) {
       z: { k: 1, c: 2 * t + rise },
     };
   }
+  if (p.style === 'mihrab2') {
+    // Inside: side wall to side wall, the back of the doors to the back, the
+    // floor to the ceiling. The frame band below, the transom and the arch
+    // above are all outside it - and all scale with the OUTSIDE length.
+    const Lout = p.measure === 'inside' ? p.length + 4 * t : p.length;
+    const z = m2Sizes(p, t, Lout);
+    return {
+      what: 'box',
+      x: { k: 1, c: 4 * t },
+      y: { k: 1, c: 4 * t + z.e },
+      z: { k: 1, c: z.rise + z.Tb + 2 * z.r + z.B },
+    };
+  }
   const lid = p.style === 'lidded' || p.style === 'double' || p.style === 'shoebox';
   return {
     what: 'box',
@@ -483,13 +559,103 @@ export function insideOf(params, outside) {
  * part that moves to unlock carries `lockMove` in box coordinates: `turn`
  * about an axis through a point, or `path`, waypoints from where it sits.
  */
-function mihrabLock(kind, { t, fit, g, L, xc, zK }) {
+function mihrabLock(kind, opts) {
+  // A lock sized for a 140 mm front looks like a toy on a 300 mm one. Its
+  // looks grow with the box; its clearances and what holds it do not.
+  let sc = Math.min(2.2, Math.max(1, opts.L / 140));
+  let out = mihrabLockAt(kind, opts, sc);
+  if (!opts.room || kind === 'notch') return out;
+  // Mihrab 2.0's doors sit behind a front with an opening in it, and every
+  // part on them has to stay inside that opening - locked, unlocked, and
+  // swinging out through it. Where the opening is tight, the lock shrinks;
+  // but only so far. A bolt's travel and a pin's play do not shrink with it,
+  // and below these the parts would cut through each other.
+  const { t, g } = opts;
+  const cl = Math.max(0.2, opts.fit);
+  const least = {
+    hook: 0.5,
+    pin: 0.6,
+    bolt: ((Math.max(6, 2 * t) + 2 * g + 1 + t / 2 + cl - 1) / 0.65 + 2) / Math.max(26, 8 * t),
+  }[kind];
+  while (sc > least && !lockFits(out, opts.room, t)) {
+    sc = Math.max(least, sc * 0.95);
+    out = mihrabLockAt(kind, opts, sc);
+  }
+  if (lockFits(out, opts.room, t)) {
+    out.info.scale = sc;
+    return out;
+  }
+  // Still too big for the opening: the next lock down, and say so.
+  const next = mihrabLock(kind === 'hook' ? 'notch' : 'hook', opts);
+  next.info.wanted = opts.wanted ?? kind;
+  return next;
+}
+
+/**
+ * Does every lock part stay inside room = { x0, x1, z0, z1 }, seen from the
+ * front? Both faces of every board count, and a hook is checked turned up to
+ * open as well as down.
+ *
+ * room.swing, when given, also turns the parts with their door: about the
+ * left door's pin line (px, py), out to `deg`, they must keep `clear` from
+ * every `solid` - [x, y0, y1], wood left of x between y0 and y1 (the front
+ * board and the frame beside the opening). The right door's parts are
+ * mirrored onto the left door to be checked the same way.
+ */
+function lockFits(out, room, t) {
+  const sw = room.swing;
+  if (sw) {
+    for (const q of out.parts) {
+      if (!q.attach) continue;
+      const { origin: o, U, V, N } = q.frame;
+      const flip = q.attach === 'doorRight';
+      for (const [u, v] of q.outline) {
+        for (const d of [0, -t]) {
+          const x0 = o[0] + U[0] * u + V[0] * v + N[0] * d;
+          const y = o[1] + U[1] * u + V[1] * v + N[1] * d;
+          const uu = (flip ? sw.L - x0 : x0) - sw.px;
+          const nn = sw.py - y;
+          for (let deg = 2; deg <= sw.deg; deg += 2) {
+            const a = (deg * Math.PI) / 180;
+            const x = sw.px + uu * Math.cos(a) - nn * Math.sin(a);
+            const yy = sw.py - (uu * Math.sin(a) + nn * Math.cos(a));
+            for (const [sx, s0, s1] of sw.solid) {
+              if (x < sx + sw.clear && yy > s0 - sw.clear && yy < s1 + sw.clear) return false;
+            }
+          }
+        }
+      }
+    }
+  }
+  for (const q of out.parts) {
+    const { origin: o, U, V, N } = q.frame;
+    const turn = q.lockMove?.turn;
+    for (const [u, v] of q.outline) {
+      for (const d of [0, -t]) {
+        let x = o[0] + U[0] * u + V[0] * v + N[0] * d;
+        let z = o[2] + U[2] * u + V[2] * v + N[2] * d;
+        const pts = [[x, z]];
+        // Lifted out of its ears, a mihrab pin is still in the opening.
+        const lift = q.lockMove?.path?.[0];
+        if (lift) pts.push([x + lift[0], z + lift[2]]);
+        if (turn) {
+          // A quarter turn about -y lifts the finger: (dx, dz) -> (-dz, dx).
+          const [cx, , cz] = turn.at;
+          pts.push([cx - (z - cz), cz + (x - cx)]);
+        }
+        for ([x, z] of pts) {
+          if (x < room.x0 || x > room.x1 || z < room.z0 || z > room.z1) return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function mihrabLockAt(kind, { t, fit, g, L, xc, zK }, sc) {
   const out = { leftHoles: [], rightHoles: [], parts: [], info: { kind } };
   if (kind === 'notch') return out;
   const cl = Math.max(0.2, fit);
-  // A lock sized for a 140 mm front looks like a toy on a 300 mm one. Its
-  // looks grow with the box; its clearances and what holds it do not.
-  const sc = Math.min(2.2, Math.max(1, L / 140));
   // A board standing in front of the doors, y from y0 to y0 + t.
   const front = (y0) => ({ origin: [0, y0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
   // A square pin pressed into a square hole, and the round hole it turns in.
@@ -669,6 +835,147 @@ function mihrabLock(kind, { t, fit, g, L, xc, zK }) {
   return out;
 }
 
+/**
+ * A foil: n round lobes about (cx, cy) reaching out to R, each a circle of
+ * radius rho, joined by a disc of radius `core`. Walked once round, in every
+ * direction the furthest of them - the outline of the union, not n circles
+ * the laser would cut through one another. Four lobes and no core is the
+ * quatrefoil; many small ones on a core is a scalloped rosette.
+ */
+function foil(cx, cy, n, R, rho, rot = 0, core = 0) {
+  const c = R - rho;
+  const steps = Math.max(48, Math.ceil((2 * Math.PI * R) / 0.4));
+  const out = [];
+  for (let i = 0; i < steps; i++) {
+    const a = (2 * Math.PI * i) / steps;
+    const ux = Math.cos(a);
+    const uy = Math.sin(a);
+    let r = core;
+    for (let k = 0; k < n; k++) {
+      const b = rot + (2 * Math.PI * k) / n;
+      const proj = c * (ux * Math.cos(b) + uy * Math.sin(b));
+      const disc = rho * rho - c * c + proj * proj;
+      if (disc >= 0) r = Math.max(r, proj + Math.sqrt(disc));
+    }
+    out.push([cx + r * ux, cy + r * uy]);
+  }
+  return out;
+}
+
+/** The two-squares star (khatam), CCW, its points at radius R. */
+function khatam(cx, cy, R, rot = Math.PI / 2) {
+  const ri = (R * Math.cos(Math.PI / 4)) / Math.cos(Math.PI / 8);
+  const out = [];
+  for (let i = 0; i < 16; i++) {
+    const a = rot + (i * Math.PI) / 8;
+    const rr = i % 2 ? ri : R;
+    out.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+  }
+  return out;
+}
+
+/** How far a ray from c at angle a runs before it first crosses a ring. */
+function rayExit(ring, c, a) {
+  const dx = Math.cos(a);
+  const dy = Math.sin(a);
+  let best = Infinity;
+  for (let i = 0; i < ring.length; i++) {
+    const p0 = ring[i];
+    const p1 = ring[(i + 1) % ring.length];
+    const ex = p1[0] - p0[0];
+    const ey = p1[1] - p0[1];
+    const den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-12) continue;
+    const wx = p0[0] - c[0];
+    const wy = p0[1] - c[1];
+    const along = (wx * ey - wy * ex) / den;
+    const on = (wx * dy - wy * dx) / den;
+    if (along > 1e-9 && on >= -1e-9 && on <= 1 + 1e-9) best = Math.min(best, along);
+  }
+  return best;
+}
+
+/**
+ * Holes cut down to a convex window. A star sliced by the window's edge can
+ * fall into pieces: the biggest is kept, and another only when it is a full
+ * strut from the ones already kept - any closer and the wood between them is
+ * a sliver that snaps. Pieces too small to cut cleanly are dropped.
+ */
+function holesInWindow(rings, win, strut, minW = 1.5) {
+  const out = [];
+  for (const ring of rings) {
+    const pieces = clipToConvex(toCCW(ring), win).sort((a, b) => ringArea(b) - ringArea(a));
+    const kept = [];
+    for (const pc of pieces) {
+      const A = ringArea(pc);
+      let per = 0;
+      for (let i = 0; i < pc.length; i++) {
+        const a = pc[i];
+        const b = pc[(i + 1) % pc.length];
+        per += Math.hypot(b[0] - a[0], b[1] - a[1]);
+      }
+      if (A < minW * minW || (2 * A) / per < minW / 2) continue;
+      if (kept.some((k) => ringDistance(k, pc) < strut - 1e-9)) continue;
+      kept.push(pc);
+    }
+    out.push(...kept);
+  }
+  return out;
+}
+
+/**
+ * The sunburst over the doors: n wedges fanning from c between 0 and 180
+ * degrees, a strut of wood down every ray between two of them, a hub of
+ * radius r0 left solid for the medallion, and - when `ring` is given - a band
+ * of wood at that radius splitting every wedge into an inner and an outer
+ * pane, the way a fanlight is leaded. The outer panes run out to `far`; the
+ * caller cuts them down to the arch. Along the transom there is no ray: the
+ * transom is the wood there.
+ */
+function sunburst(c, n, r0, ring, strut, far) {
+  const rows = ring ? [[r0, ring - strut / 2], [ring + strut / 2, far]] : [[r0, far]];
+  // `within`: the arc on a pane's inner side. Drawn as chords it would cut
+  // into the strut below it by the chords' sag, so its corners go out far
+  // enough that the chords themselves stay on the circle's outside.
+  const arc = (rad, from, to, within = false) => {
+    const k = rad >= far ? 6 : Math.max(2, Math.ceil((Math.abs(to - from) * rad) / 0.8));
+    const rr = within ? rad / Math.cos(Math.abs(to - from) / (2 * k)) : rad;
+    const pts = [];
+    for (let j = 0; j <= k; j++) {
+      const a = from + ((to - from) * j) / k;
+      pts.push([c[0] + rr * Math.cos(a), c[1] + rr * Math.sin(a)]);
+    }
+    return pts;
+  };
+  const cells = [];
+  for (let i = 0; i < n; i++) {
+    const a0 = (Math.PI * i) / n;
+    const a1 = (Math.PI * (i + 1)) / n;
+    const o0 = i === 0 ? 0 : strut / 2;
+    const o1 = i === n - 1 ? 0 : strut / 2;
+    // The pane's sides are the rays moved off by half a strut: at radius
+    // rad, that is this far round from the ray.
+    const lo = (rad) => a0 + Math.asin(Math.min(1, o0 / rad));
+    const hi = (rad) => a1 - Math.asin(Math.min(1, o1 / rad));
+    for (const [ra, rb] of rows) {
+      if (!(rb > ra) || !(hi(ra) - lo(ra) > 1e-3)) continue;
+      cells.push(dedupe([...arc(rb, lo(rb), hi(rb)), ...arc(ra, hi(ra), lo(ra), true)]));
+    }
+  }
+  return cells;
+}
+
+/** Move a lock part built for doors at y = 0 onto doors standing at y = dy. */
+function lockAt(part, dy) {
+  const o = part.frame.origin;
+  const moved = { ...part, frame: { ...part.frame, origin: [o[0], o[1] + dy, o[2]] } };
+  if (part.lockMove?.turn) {
+    const at = part.lockMove.turn.at;
+    moved.lockMove = { ...part.lockMove, turn: { ...part.lockMove.turn, at: [at[0], at[1] + dy, at[2]] } };
+  }
+  return moved;
+}
+
 export function buildBox(input = {}) {
   const p = { ...DEFAULTS, ...input };
   const t = Math.max(0.5, p.thickness);
@@ -678,12 +985,18 @@ export function buildBox(input = {}) {
   const measuredInside = p.measure === 'inside';
   const want = measuredInside ? outsideFor(p, p) : p;
   const mihrab = p.style === 'mihrab';
+  const mihrab2 = p.style === 'mihrab2';
   const round = p.style === 'round';
-  const L = Math.max(t * 8, mihrab ? 40 : 0, round ? Math.max(50, 16 * t) : 0, want.length);
+  const L = Math.max(t * 8, mihrab ? 40 : 0, mihrab2 ? m2MinL(p, t) : 0,
+    round ? Math.max(50, 16 * t) : 0, want.length);
+  const m2 = mihrab2 ? m2Sizes(p, t, L) : null;
   // A round box is as wide as it is long: Length is its diameter.
-  const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0, want.width);
-  const H = Math.max(mihrab ? mihrabMinH(t) : round ? roundMinH(t, p.roundLid !== false) : t * 6,
-    want.height);
+  const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0,
+    mihrab2 ? 4 * t + m2.e + Math.max(24, 8 * t) : 0, want.width);
+  const H = Math.max(mihrab ? mihrabMinH(t)
+    : mihrab2 ? m2.B + 2 * m2.r + m2.Tb + m2.door + m2.riseMin
+      : round ? roundMinH(t, p.roundLid !== false) : t * 6,
+  want.height);
   const lidded = p.style === 'lidded';
   const double = p.style === 'double';
   // A lid that lifts clean off, so the walls stop a board short and the lid's own
@@ -759,7 +1072,7 @@ export function buildBox(input = {}) {
   const divCross = divCount === 4;
   // Dividers and drawers want the same interior, and the combination cannot be
   // assembled - the drawer would have to pass through the divider.
-  const divOK = !almari && !mihrab && !round && divCount > 0
+  const divOK = !almari && !mihrab && !mihrab2 && !round && divCount > 0
     && divH > Math.max(6, t * 3)
     && Math.min(L, W) > 8 * t;
   // A divider only stands square if it is pinned in more than one place, so its
@@ -799,7 +1112,7 @@ export function buildBox(input = {}) {
   // screw never lands on a tab, and there are only ever as many as asked for.
   // The mihrab has no front wall and only two jointed corners, glued - its
   // doors are what comes apart.
-  const wantScrew = p.joint === 'screw' && !mihrab && !round;
+  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round;
   const nutPocketL = pocketDepth(t);
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
@@ -911,7 +1224,7 @@ export function buildBox(input = {}) {
   // side walls and boards carry a different set of joints. Rather than fork the
   // corner-joint maths in here with a mode flag, this style writes its own small
   // local builders, the way the lift-off lid already does.
-  if (!almari && !mihrab && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round) {
     for (const id of ['front', 'back']) {
       const g = buildWall();
       panels.push(normalisePanel({
@@ -983,14 +1296,14 @@ export function buildBox(input = {}) {
     return { outline: dedupe(pts), holes };
   };
 
-  if (!almari && !mihrab && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round) {
     const g = buildSide((y) => W - y);
     panels.push(normalisePanel({
       id: 'left', label: PANEL_LABELS.left, outline: g.outline, holes: g.holes,
       frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
   }
-  if (!almari && !mihrab && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round) {
     const g = buildSide((y) => y);
     panels.push(normalisePanel({
       id: 'right', label: PANEL_LABELS.right, outline: g.outline, holes: g.holes,
@@ -999,7 +1312,7 @@ export function buildBox(input = {}) {
   }
 
   // ---- bottom -------------------------------------------------------------
-  if (!almari && !mihrab && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round) {
     const x0 = t;
     const x1 = L - t;
     const y0 = t;
@@ -1998,6 +2311,391 @@ export function buildBox(input = {}) {
     };
   }
 
+  // ---- Mihrab 2.0: a flat-topped box behind a two-layer mihrab front -----
+  // X across, Y from the face of the front frame (y = 0) back, Z up.
+  //
+  //   frame     y 0..t. The face: the mihrab outline, a band of quatrefoils
+  //             all round it, the door opening a reveal wider than the board
+  //             behind, a transom, and the arch over it cut as a sunburst.
+  //   front     y t..2t, the same outline, solid but for the door opening and
+  //             the mortises the side walls tenon into. Behind the sunburst it
+  //             is the backing: coloured film or a print goes between the two.
+  //   doors     y 2t+e..3t+e. Plain rectangles standing BEHIND the front, so
+  //             the board and the frame step down to them twice; each turns
+  //             on two square pins at the edge of the opening, down into the
+  //             floor and up into the ceiling, and swings out through it.
+  //   body      side walls at x t..2t and L-2t..L-t, a lattice panel glued on
+  //             each so they finish flush with the front's edges; the back;
+  //             a floor level with the foot of the opening and the ceiling -
+  //             the flat top - level with its head, a door stop under it.
+  //   medallion a rosette glued over the foot of the sunburst.
+  //
+  // Above the ceiling there is only the front: the transom and the arch.
+  //
+  // The joints are drawn for one order: the body; the doors onto their floor
+  // pins; the ceiling straight down onto their top pins - the doors stop
+  // below it, so nothing is in its way, which is what the first mihrab had to
+  // learn the hard way; and the front, its two layers glued together first,
+  // pushed on last over the side walls' tenons.
+  let m2Info = null;
+  if (mihrab2) {
+    const { pinH: pH, holeR, e, r, s, aOut, aIn, B, q, Rm, Tb, door: dMin, riseMin } = m2;
+    const g = Math.max(0.1, numOr(p.doorGap, DEFAULTS.doorGap));
+    const riseWant = m2.rise;
+    const rise = Math.max(riseMin, Math.min(riseWant, H - (B + 2 * r + Tb + dMin)));
+    const zS = H - rise;          // spring line, and the top of the transom
+    const zO1 = zS - Tb - r;      // head of the door opening: the underside of the ceiling
+    const Hb = zO1 + t;           // the body's flat top
+    const xo = B + r;             // the opening, in from each side and up from the bottom
+    const zF = xo - t;            // the floor board: its top is the opening's foot
+    const yD = 2 * t + e;         // the doors' faces
+    const yP = yD + t / 2;        // and their pins
+    const mirror = (ring, span) => ring.map(([u, v]) => [span - u, v]).reverse();
+    const front = (y0) => ({ origin: [0, y0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] });
+    const run = (a, b) => keep(featureLayout(b - a, m).map((f) => ({ s: f.s + a, e: f.e + a })),
+      a + 0.5, b - 0.5);
+
+    // ---- the outline. Its point is only an edge - never bent, unlike the
+    // first mihrab's roof - so it can be sharp; its shoulders have to stay
+    // round all the way in through the frame band.
+    const ra = Math.max(3, t);
+    const Rwant = (Math.min(98, Math.max(10, numOr(p.archRound, DEFAULTS.archRound))) / 100) * (L / 2);
+    const Rmin = B + 2 * s + 2;
+    const keel = solveKeel({ L, zS, H, R: Math.max(Rwant, Rmin), ra })
+      || solveKeel({ L, zS, H, R: Rmin, ra, minSlope: 0 });
+    const face = dedupe([[0, 0], [L, 0], ...keelPath(keel, 0, { step: 1 }).reverse()]);
+    // The tympanum: inside the band, above the transom.
+    const inner = insetRing(face, B);
+    const tym = inner
+      ? clipToConvex(inner, [[-1, zS], [L + 1, zS], [L + 1, H + 1], [-1, H + 1]])
+        .sort((a, b) => ringArea(b) - ringArea(a))[0] || null
+      : null;
+
+    // ---- the quatrefoil band, down its middle line from the bottom-right
+    // corner, round the arch and back along the bottom. The two corners, the
+    // point of the arch and the middle of the bottom each get a quatrefoil of
+    // their own and the rest are spread evenly between them: two never crowd
+    // round a corner, and the band is the same on both sides.
+    const chain = [];
+    const midD = aOut + q / 2;
+    const mid = q >= 3 ? insetRing(face, midD) : null;
+    if (mid) {
+      const nearest = (ring, pt) => ring.reduce((bi, v, i) => (
+        Math.hypot(v[0] - pt[0], v[1] - pt[1]) < Math.hypot(ring[bi][0] - pt[0], ring[bi][1] - pt[1]) ? i : bi), 0);
+      const iBR = nearest(mid, [L - midD, midD]);
+      const path = [...mid.slice(iBR), ...mid.slice(0, iBR), mid[iBR]];
+      const cum = [0];
+      for (let i = 1; i < path.length; i++) {
+        cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+      }
+      const S = cum[cum.length - 1];
+      const at = (sv) => {
+        const u = ((sv % S) + S) % S;
+        let i = 1;
+        while (i < cum.length - 1 && cum[i] < u) i++;
+        const k = (u - cum[i - 1]) / Math.max(1e-12, cum[i] - cum[i - 1]);
+        return [path[i - 1][0] + k * (path[i][0] - path[i - 1][0]),
+          path[i - 1][1] + k * (path[i][1] - path[i - 1][1])];
+      };
+      let iTop = 0;
+      for (let i = 0; i < path.length; i++) if (path[i][1] > path[iTop][1]) iTop = i;
+      const iBL = nearest(path.slice(0, -1), [midD, midD]);
+      const anchors = [0, cum[iTop], cum[iBL], (cum[iBL] + S) / 2, S];
+      const P = q + 1.3 * s;
+      for (let j = 0; j + 1 < anchors.length; j++) {
+        const [a, b] = [anchors[j], anchors[j + 1]];
+        if (b - a < P) continue;
+        const k = Math.floor((b - a) / P);
+        for (let i = 0; i < k; i++) {
+          const sv = a + ((b - a) * i) / k;
+          const [x, z] = at(sv);
+          const p0 = at(sv - 0.5);
+          const p1 = at(sv + 0.5);
+          chain.push(foil(x, z, 4, q / 2, q / 3.5, Math.atan2(p1[1] - p0[1], p1[0] - p0[0])));
+        }
+      }
+    }
+
+    // ---- the tympanum, over the transom
+    const fill = p.m2Tympanum === 'plain' ? 'plain'
+      : PATTERNS.some((d) => d.id === p.m2Tympanum) ? p.m2Tympanum : 'sunburst';
+    let panes = [];
+    let burst = null;
+    if (tym && fill === 'plain') panes = [tym];
+    else if (tym && fill === 'sunburst') {
+      const c = [L / 2, zS];
+      let dmin = Infinity;
+      for (let deg = 8; deg <= 172; deg += 2) dmin = Math.min(dmin, rayExit(tym, c, (deg * Math.PI) / 180));
+      const r0 = Rm + s;
+      const ring = dmin - r0 > 3 * s + 10 ? r0 + 0.42 * (dmin - r0) : null;
+      const rMid = ring ? (r0 + ring) / 2 : (r0 + dmin) / 2;
+      const n = Math.min(17, Math.max(5, Math.round((Math.PI * rMid) / (Math.max(5, 2 * s) + s))));
+      panes = holesInWindow(sunburst(c, n, r0, ring, s, 2 * (L + H)), tym, s);
+      burst = { rays: n, hub: r0, ring };
+    } else if (tym) {
+      const bb = bbox(tym);
+      const hub = ellipse(L / 2, zS, Rm, Rm, 48);
+      panes = holesInWindow(patternHoles({ x: bb.x0, y: bb.y0, w: bb.w, h: bb.h },
+        { pattern: fill, strut: s, kerf: 0, avoid: [hub] }).rings, tym, s);
+    }
+
+    // ---- joints
+    const fY = run(2 * t, W - t);         // floor and ceiling into the side walls
+    const fX = run(2 * t, L - 2 * t);     // ... and into the back
+    const fZ = run(0, Hb);                // the side walls into the front board
+    const vF = featureLayout(Hb - t, m);  // back to sides, below the ceiling's band
+    const o = { slits };
+
+    // ---- doors: plain, each a door gap in from the opening all round
+    const x0 = xo + g;              // the hinge edge
+    const xc = L / 2 - g;           // the free edge
+    const xp = x0 + t / 2;          // the pin line
+    const zB = xo + g;
+    const zT = zO1 - g;
+    const doorH = zT - zB;
+    const nR = Math.max(4, Math.min(9, L * 0.04, doorH * 0.2));
+    const zK = zB + doorH / 2;      // finger notch or lock, halfway up
+    const asked = ['hook', 'bolt', 'pin'].includes(p.mihrabLock) ? p.mihrabLock : 'notch';
+    // Rounded pin tips, as on the first mihrab: the ceiling goes on over two
+    // pins at once and a square tip a hair off catches the rim of its hole.
+    const lead = { round: Math.min(0.6, 0.3 * pH) };
+    // How far a door can turn before its face meets the edge of the opening:
+    // a little past square, the frame being the door's stop that way.
+    let stop = null;
+    for (let deg = 90; deg <= 135 && stop === null; deg += 0.25) {
+      const a = (deg * Math.PI) / 180;
+      const nx = -Math.sin(a);
+      const ny = -Math.cos(a);
+      if ([[xo, t], [xo, 2 * t], [xo - r, 0], [xo - r, t]]
+        .some(([qx, qy]) => nx * (qx - xp) + ny * (qy - yP) - t / 2 <= 0)) stop = deg;
+    }
+    const swing = Math.min(100, (stop ?? 135) - 1);
+    const lock = mihrabLock(asked, {
+      t, fit, g, L, xc, zK,
+      room: {
+        x0: xo + 1, x1: L - xo - 1, z0: xo + 1, z1: zO1 - 1,
+        swing: { L, px: xp, py: yP, deg: swing, clear: 0.3, solid: [[xo, t, 2 * t], [xo - r, 0, t]] },
+      },
+    });
+    const lockKind = lock.info.kind;
+    const leftDoor = dedupe([
+      ...edgeRun([x0, zB], [xc, zB], [{ s: t / 2 - pH / 2, e: t / 2 + pH / 2, opts: lead }], t),
+      ...edgeRun([xc, zB], [xc, zT],
+        lockKind === 'notch' ? [{ s: zK - zB - nR, e: zK - zB + nR }] : [], -nR, { arc: true }),
+      ...edgeRun([xc, zT], [x0, zT], [{ s: xc - xp - pH / 2, e: xc - xp + pH / 2, opts: lead }], t + g),
+      [x0, zT],
+    ]);
+    panels.push(normalisePanel({
+      id: 'doorLeft', label: PANEL_LABELS.doorLeft, outline: leftDoor, holes: lock.leftHoles,
+      hinge: { axis: 'v', u: xp, n: -t / 2, sign: -1, angle: swing }, frame: front(yD),
+    }));
+    panels.push(normalisePanel({
+      id: 'doorRight', label: PANEL_LABELS.doorRight, outline: mirror(leftDoor, L), holes: lock.rightHoles,
+      hinge: { axis: 'v', u: L - xp, n: -t / 2, sign: 1, angle: swing }, frame: front(yD),
+    }));
+    // The face's two layers after the doors: the doors are what people
+    // decorate, so they come first on the 2D tab strip and the cut sheet.
+    panels.push(normalisePanel({
+      id: 'frame', label: PANEL_LABELS.frame, outline: face, noDecor: true,
+      holes: [rect(B, B, L - 2 * B, zS - Tb - B), ...chain, ...panes],
+      frame: front(0),
+    }));
+    panels.push(normalisePanel({
+      id: 'facade', label: PANEL_LABELS.facade, outline: face,
+      holes: [
+        rect(xo, xo, L - 2 * xo, zO1 - xo),
+        ...fZ.map((f) => shrinkRect(t, f.s, t, f.e - f.s, fit)),
+        ...fZ.map((f) => shrinkRect(L - 2 * t, f.s, t, f.e - f.s, fit)),
+      ],
+      frame: front(t),
+    }));
+
+    // ---- medallion: a scalloped rosette with a khatam cut through it, so the
+    // frame's wood shows as a star in whatever colour it is painted.
+    panels.push(normalisePanel({
+      id: 'medallion', label: PANEL_LABELS.medallion, noDecor: true,
+      outline: foil(L / 2, zS, 12, Rm, 0.2 * Rm, Math.PI / 2, 0.8 * Rm),
+      holes: [khatam(L / 2, zS, 0.5 * Rm)],
+      frame: front(-t),
+    }));
+
+    // ---- dividers: the long one behind the doors' meeting line, tenoned
+    // into the back and down into the floor; the cross one over it, tenoned
+    // into the side walls. Both stand clear of the door stop.
+    const ySt = yD + t + Math.min(0.3, g / 2);  // the stop's face, a hair behind the shut doors
+    const dCount = p.divider === 2 || p.divider === 4 ? p.divider : 0;
+    const dBase = xo;
+    const dHt = (zO1 - dBase) * divFrac;
+    const yFront = ySt + t + g;
+    const yMid = (yD + W) / 2;
+    const dOK = dCount > 0 && dHt > Math.max(6, 3 * t)
+      && W - t - yFront > 4 * t + 8 && L - 4 * t > 8 * t;
+    const dCross = dOK && dCount === 4;
+    const dFeats = dOK ? featureLayout(dHt, Math.max(2, Math.min(m, dHt / 6))) : [];
+    const dbF = dOK ? run(yFront, W - t) : [];
+    const slotW = Math.max(0.3, t - fit);
+
+    // ---- back and side walls
+    panels.push(normalisePanel({
+      id: 'back', label: PANEL_LABELS.back,
+      outline: dedupe([
+        ...edgeRun([2 * t, 0], [L - 2 * t, 0], [], 0),
+        ...edgeRun([L - 2 * t, 0], [L - 2 * t, Hb], vF, t),
+        ...edgeRun([L - 2 * t, Hb], [2 * t, Hb], forWalk(snug(fX), L - 2 * t, 2 * t), -t),
+        ...edgeRun([2 * t, Hb], [2 * t, 0], flipFeatures(vF, Hb), t),
+      ]),
+      holes: [
+        ...fX.map((f) => shrinkRect(f.s, zF, f.e - f.s, t, fit)),
+        ...dFeats.map((f) => shrinkRect(L / 2 - t / 2, dBase + f.s, t, f.e - f.s, fit)),
+      ],
+      frame: { origin: [L, W, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] },
+    }));
+    const sideRing = dedupe([
+      ...edgeRun([2 * t, 0], [W, 0], [], 0),
+      ...edgeRun([W, 0], [W, Hb], vF, -t),
+      ...edgeRun([W, Hb], [2 * t, Hb], forWalk(snug(fY), W, 2 * t), -t),
+      ...edgeRun([2 * t, Hb], [2 * t, 0], forWalk(fZ, Hb, 0), t),
+    ]);
+    const sideHoles = [
+      ...fY.map((f) => shrinkRect(f.s, zF, f.e - f.s, t, fit)),
+      ...(dCross ? dFeats.map((f) => shrinkRect(yMid - t / 2, dBase + f.s, t, f.e - f.s, fit)) : []),
+    ];
+    panels.push(normalisePanel({
+      id: 'left', label: PANEL_LABELS.left,
+      outline: mirror(sideRing, W), holes: sideHoles.map((h) => mirror(h, W)),
+      frame: { origin: [t, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
+    }));
+    panels.push(normalisePanel({
+      id: 'right', label: PANEL_LABELS.right, outline: sideRing, holes: sideHoles,
+      frame: { origin: [L - t, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+    }));
+
+    // ---- side lattice: a panel glued on each side wall, a margin in from
+    // its edges, with an arched window of jali cut through it.
+    const M = Math.max(5, 1.5 * t + 2);
+    const ou0 = 2 * t + M;
+    const ou1 = W - M;
+    const ov0 = M;
+    const ov1 = Hb - M;
+    let lattice = null;
+    if (ou1 - ou0 > 4 * M && ov1 - ov0 > 4 * M) {
+      const bw = Math.max(5, 0.12 * Math.min(ou1 - ou0, ov1 - ov0));
+      const [wx0, wx1, wz0, wz1] = [ou0 + bw, ou1 - bw, ov0 + bw, ov1 - bw];
+      const ww = wx1 - wx0;
+      const riseW = Math.min(0.55 * ww, 0.5 * (wz1 - wz0));
+      const kw = solveKeel({ L: ww, zS: wz1 - riseW, H: wz1, R: 0.32 * ww, ra: Math.max(1.5, 0.5 * t) })
+        || solveKeel({ L: ww, zS: wz1 - riseW, H: wz1, R: 0.2 * ww, ra: 1, minSlope: 0 });
+      const win = kw
+        ? dedupe([[wx0, wz0], [wx1, wz0],
+          ...keelPath(kw, 0, { step: 1 }).reverse().map(([x, z]) => [x + wx0, z])])
+        : rect(wx0, wz0, ww, wz1 - wz0);
+      const pat = p.m2Side === 'plain' ? 'plain'
+        : PATTERNS.some((d) => d.id === p.m2Side) ? p.m2Side : DEFAULTS.m2Side;
+      const holes = pat === 'plain' ? [win]
+        : holesInWindow(patternHoles({ x: wx0, y: wz0, w: ww, h: wz1 - wz0 },
+          { pattern: pat, strut: s, kerf: 0 }).rings, win, s);
+      const plate = rect(ou0, ov0, ou1 - ou0, ov1 - ov0);
+      panels.push(normalisePanel({
+        id: 'latticeLeft', label: PANEL_LABELS.latticeLeft, noDecor: true,
+        outline: mirror(plate, W), holes: holes.map((h) => mirror(h, W)),
+        frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
+      }));
+      panels.push(normalisePanel({
+        id: 'latticeRight', label: PANEL_LABELS.latticeRight, noDecor: true, outline: plate, holes,
+        frame: { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+      }));
+      lattice = { pattern: pat, holes: holes.length, margin: M, window: [ww, wz1 - wz0] };
+    }
+
+    // ---- floor and ceiling. Neither tenons into the front: it goes on last
+    // and is glued to their edges, held square by the side walls' tenons.
+    const pins = [ellipse(xp, yP, holeR, holeR, 40), ellipse(L - xp, yP, holeR, holeR, 40)];
+    const xs0 = xp + 0.75 * t + g;  // the stop starts past the swing of a door's hinge corner
+    const hs = Math.max(2 * t, 6);
+    const stF = run(xs0, L - xs0);
+    const flat = (tenon) => dedupe([
+      ...edgeRun([2 * t, 2 * t], [L - 2 * t, 2 * t], [], 0),
+      ...edgeRun([L - 2 * t, 2 * t], [L - 2 * t, W - t], forWalk(fY, 2 * t, W - t), t, tenon),
+      ...edgeRun([L - 2 * t, W - t], [2 * t, W - t], forWalk(fX, L - 2 * t, 2 * t), t, tenon),
+      ...edgeRun([2 * t, W - t], [2 * t, 2 * t], forWalk(fY, W - t, 2 * t), t, tenon),
+    ]);
+    panels.push(normalisePanel({
+      id: 'bottom', label: PANEL_LABELS.bottom, outline: flat(o),
+      holes: [...pins, ...dbF.map((f) => shrinkRect(L / 2 - t / 2, f.s, t, f.e - f.s, fit))],
+      frame: { origin: [0, 0, xo], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+    // The ceiling's tenons drop into open notches in the tops of the walls,
+    // so it goes straight down - and they carry no slits, being only dropped in.
+    panels.push(normalisePanel({
+      id: 'ceiling', label: PANEL_LABELS.ceiling, outline: flat({}),
+      holes: [...pins, ...stF.map((f) => shrinkRect(f.s, ySt, f.e - f.s, t, fit))],
+      frame: { origin: [0, 0, Hb], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] },
+    }));
+    panels.push(normalisePanel({
+      id: 'doorStop', label: PANEL_LABELS.doorStop, noDecor: true,
+      outline: dedupe([
+        [xs0, zO1 - hs], [L - xs0, zO1 - hs],
+        ...edgeRun([L - xs0, zO1], [xs0, zO1], forWalk(stF, L - xs0, xs0), t),
+        [xs0, zO1],
+      ]),
+      holes: [],
+      frame: front(ySt),
+    }));
+
+    if (dOK) {
+      panels.push(normalisePanel({
+        id: 'divLength', label: PANEL_LABELS.divLength,
+        outline: dedupe([
+          ...edgeRun([yFront, 0], [W - t, 0], forWalk(dbF, yFront, W - t), t),
+          ...edgeRun([W - t, 0], [W - t, dHt], dFeats, t),
+          ...edgeRun([W - t, dHt], [yFront, dHt],
+            dCross ? [{ s: W - t - yMid - slotW / 2, e: W - t - yMid + slotW / 2 }] : [], -dHt / 2),
+          [yFront, dHt],
+        ]),
+        holes: [],
+        frame: { origin: [L / 2 + t / 2, 0, dBase], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] },
+      }));
+      if (dCross) {
+        const span = L - 2 * t;
+        panels.push(normalisePanel({
+          id: 'divWidth', label: PANEL_LABELS.divWidth,
+          outline: dedupe([
+            ...edgeRun([t, 0], [span - t, 0],
+              [{ s: span / 2 - t - slotW / 2, e: span / 2 - t + slotW / 2 }], -dHt / 2),
+            ...edgeRun([span - t, 0], [span - t, dHt], dFeats, t),
+            ...edgeRun([span - t, dHt], [t, dHt], [], 0),
+            ...edgeRun([t, dHt], [t, 0], flipFeatures(dFeats, dHt), t),
+          ]),
+          holes: [],
+          frame: { origin: [t, yMid - t / 2, dBase], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] },
+        }));
+      }
+    }
+
+    for (const q2 of lock.parts) {
+      panels.push(normalisePanel({ ...lockAt(q2, yD), label: PANEL_LABELS[q2.id], noDecor: true }));
+    }
+
+    m2Info = {
+      keel, zS, zO1, Hb, xo, zF, yD, yP, xp, ySt, xs0, rise, riseWant, B, r, e, s, aOut, aIn, q, Tb, Rm,
+      door: { w: xc - x0, h: doorH, lockZ: zK, notchR: nR, swing },
+      clear: { gap: g, behind: e, middle: 2 * g, stop: ySt - yD - t },
+      lock: lock.info,
+      quatrefoils: chain.length,
+      tympanum: { fill, panes: panes.length, burst },
+      lattice,
+      inner: { l: L - 4 * t, w: W - yD - 2 * t, h: zO1 - xo },
+      cell: dOK
+        ? { count: dCount, l: (L - 5 * t) / 2, w: dCross ? (W - yD) / 2 - 1.5 * t : W - yD - 2 * t }
+        : null,
+      divider: dOK ? { count: dCount, height: dHt, front: yFront, mid: yMid } : null,
+      overall: { l: L, w: W, h: H },
+      riseClamped: riseWant > rise + 0.01,
+      roundClamped: keel ? keel.R < Rwant - 0.01 : true,
+      roundRaised: Rwant < Rmin - 0.01,
+    };
+  }
+
   // ---- round: a cylinder ---------------------------------------------------
   // Centred on (R, R) so the box still spans x, y in [0, L]. From the bottom:
   //
@@ -2133,6 +2831,8 @@ export function buildBox(input = {}) {
     ? (drawerIn ? { l: drawerIn.l, w: drawerIn.w, h: drawerIn.h } : null)
     : mihrab
       ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, mihrabInfo.zC - t) }
+      : mihrab2
+        ? m2Info.inner
       : round
         ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, H - (roundInfo.lid ? 4 : 2) * t) }
       : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, wallH - floorZ - t) };
@@ -2157,7 +2857,7 @@ export function buildBox(input = {}) {
         l: (L - 3 * t) / 2,
         w: divCount === 4 ? (W - 3 * t) / 2 : W - 2 * t,
       }
-      : null,
+      : m2Info?.cell ?? null,
   };
 
   return {
@@ -2167,11 +2867,11 @@ export function buildBox(input = {}) {
     derived: {
       dims,
       // The mihrab's walls stop at the spring line; above it is the crown.
-      wallH: mihrab ? mihrabInfo.zS : round ? t + roundInfo.hW : wallH,
+      wallH: mihrab ? mihrabInfo.zS : mihrab2 ? m2Info.Hb : round ? t + roundInfo.hW : wallH,
       floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       lid: lidInfo,
       vFeats, xFeats, yFeats,
-      divCount: divOK ? divCount : 0, divBase, divH, divFeats,
+      divCount: divOK ? divCount : m2Info?.cell?.count ?? 0, divBase, divH, divFeats,
       // This many screws on each jointed vertical corner. The cabinet has one
       // jointed corner PAIR - the back - where every other style has four
       // corners, so counting four here would tell the user to buy twice the
@@ -2191,6 +2891,7 @@ export function buildBox(input = {}) {
         && screwZs.length < Math.max(1, Math.min(4, Math.round(p.screwsPerEdge ?? 2))),
       almari: almariInfo,
       mihrab: mihrabInfo,
+      mihrab2: m2Info,
       round: roundInfo,
     },
     panels,
