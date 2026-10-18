@@ -69,6 +69,12 @@ export const DEFAULTS = {
   slitWidth: 0.4,
   slitOvershoot: 0.4,   // how far a slit reaches past the tenon root
   lidGap: 0.3,          // clearance each side so the lid can swing
+  // Mihrab: the play round each door - above and below the ceiling corner it
+  // turns under, at its foot, and between the two doors. Its own number, not
+  // lidGap: the ceiling has to come down over both doors' pins and into both
+  // doors' notches at once, and 0.3 mm left a customer paring the notches out
+  // with a knife (October 2026). A hinged lid has none of that to do.
+  doorGap: 0.6,
   lidSlack: 0.4,        // lift-off lid: gap between its inner face and the box
   lidDrop: 35,          // lift-off lid: % of the wall height its skirt covers
   lidNotch: true,       // lift-off lid: thumb notch in the front of the skirt
@@ -1679,7 +1685,7 @@ export function buildBox(input = {}) {
   let mihrabInfo = null;
   if (mihrab) {
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d);
-    const g = Math.max(0.1, num(p.lidGap, DEFAULTS.lidGap));
+    const g = Math.max(0.1, num(p.doorGap, DEFAULTS.doorGap));
     const mb = Math.max(2.5 * t, num(p.plinthMargin, DEFAULTS.plinthMargin));
     const zMin = t + Math.max(30, 10 * t);
     const ra0 = Math.max(10, 3.3 * t);
@@ -1702,7 +1708,9 @@ export function buildBox(input = {}) {
     const yC0 = t + cD;                    // ceiling front edge, just behind the doors
     const xB = t + Math.max(4, 1.3 * t);   // the ceiling corner that carries the pin
     const yE = yC0 + 2 * t;                // ... and how far back it runs over the wall
-    const notchW = xB + 0.5;               // door notch that the corner lives in
+    // Door notch that the corner lives in. The same play at its side as above
+    // and below: three faces of one board, and the tightest one is what binds.
+    const notchW = xB + Math.max(0.5, g);
     const gT = Math.max(0.3, g);
     const yR = yC0 + t;                    // inner arch board, a board behind the edge
     const zB0 = t + g;                     // door bottom; it settles onto the base
@@ -1845,14 +1853,18 @@ export function buildBox(input = {}) {
       ...keelPath(keel, 0, { to: xc }).filter(([, z]) => z > zN + 1e-6),
     ].reverse();                            // (xc, zTop) down to (xN, zN)
     const lockKind = ['hook', 'bolt', 'pin'].includes(p.mihrabLock) ? p.mihrabLock : 'notch';
+    // Both pins get rounded tips: a lead-in, so a hole only has to come down
+    // NEAR its pin to find it. The ceiling goes on over two of them at once,
+    // and a square tip that is a hair off catches the rim and stops it dead.
+    const lead = { round: Math.min(0.6, 0.3 * pinH) };
     const leftDoor = dedupe([
-      ...edgeRun([0, zB0], [xc, zB0], [{ s: xp - pinH / 2, e: xp + pinH / 2 }], t),
+      ...edgeRun([0, zB0], [xc, zB0], [{ s: xp - pinH / 2, e: xp + pinH / 2, opts: lead }], t),
       ...edgeRun([xc, zB0], [xc, zTop],
         lockKind === 'notch' ? [{ s: zK - zB0 - nR, e: zK - zB0 + nR }] : [], -nR, { arc: true }),
       ...archDown,
       [notchW, zN], [notchW, zC - gT],
       ...edgeRun([notchW, zC - gT], [0, zC - gT],
-        [{ s: notchW - xp - pinH / 2, e: notchW - xp + pinH / 2 }], t + gT),
+        [{ s: notchW - xp - pinH / 2, e: notchW - xp + pinH / 2, opts: lead }], t + gT),
       [0, zC - gT],
     ]);
     const doorFrame = { origin: [0, 0, 0], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] };
@@ -1914,6 +1926,9 @@ export function buildBox(input = {}) {
     mihrabInfo = {
       keel, zS, zC, rise, riseWant, mb, ys, yC0, yF, yR, yE, xB, xp, holeR, bossM, notchW, gT,
       door: { w: xc, h: zTop - zB0, straight: doorH, notchR: nR, lockZ: zK },
+      // The play round a door, face by face, for the inspector to say out loud.
+      // Each is the distance between two boards on the finished box.
+      clear: { gap: g, top: gT, side: notchW - xB, foot: g, middle: 2 * g },
       lock: lock.info,
       roof: { length: st.length, width: wS, rows: lh.rows, pitch: lh.pitch, zones: st.zones },
       overall: lie

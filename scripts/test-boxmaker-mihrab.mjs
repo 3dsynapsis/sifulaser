@@ -415,7 +415,7 @@ function testBox(params, { swing = true, fine = false } = {}) {
   check(`${tag}: tinggi puncak = H`, Math.abs(Math.max(...mid.map((q) => q[1])) + t / 2 - box.params.height) < 0.01);
   check(`${tag}: bahu tidak lebih tinggi dari puncak`, k.slope >= 0, `${k.slope}`);
   const doorL = box.panels.find((p) => p.id === 'doorLeft');
-  check(`${tag}: pintu separuh lebar`, Math.abs(doorL.size.w - (box.params.length / 2 - Math.max(0.1, box.params.lidGap ?? 0.3))) < 0.01,
+  check(`${tag}: pintu separuh lebar`, Math.abs(doorL.size.w - (box.params.length / 2 - Math.max(0.1, box.params.doorGap ?? 0.6))) < 0.01,
     `${doorL.size.w}`);
   check(`${tag}: ruang dalam`, box.derived.dims.inner.h > 0 && box.derived.dims.inner.l > 0);
 }
@@ -427,14 +427,14 @@ testBox({ length: 150, width: 90, height: 220, archRise: 70, archRound: 80 });
 testBox({ length: 300, width: 180, height: 380, archRise: 35, archRound: 30, plinthMargin: 20 });
 testBox({ length: 180, width: 110, height: 240, thickness: 5.2, kerf: 0.25 }, { fine: true });
 testBox({ length: 200, width: 120, height: 260, thickness: 2.6, kerf: 0.2 }, { fine: true }); // Falcata 2.6
-testBox({ length: 120, width: 80, height: 160, archRise: 90, archRound: 95, fit: 0.2, lidGap: 0.6 }, { fine: true });
+testBox({ length: 120, width: 80, height: 160, archRise: 90, archRound: 95, fit: 0.2, doorGap: 1 }, { fine: true });
 testBox({ length: 100, width: 76, height: 50 });                       // kotak lalai: had mesti bertindak
 testBox({ length: 400, width: 60, height: 300, archRise: 25 }, { swing: false });
 // Kunci: tiga jenis, tiga papan, kotak kecil.
 for (const lock of ['hook', 'bolt', 'pin']) {
   testBox({ length: 200, width: 120, height: 260, mihrabLock: lock }, { swing: false });
   testBox({ length: 180, width: 110, height: 240, thickness: 5.2, kerf: 0.25, mihrabLock: lock }, { swing: false });
-  testBox({ length: 120, width: 80, height: 160, thickness: 2.6, fit: 0.2, lidGap: 0.6, mihrabLock: lock }, { swing: false });
+  testBox({ length: 120, width: 80, height: 160, thickness: 2.6, fit: 0.2, doorGap: 0.6, mihrabLock: lock }, { swing: false });
   testBox({ length: 400, width: 120, height: 300, mihrabLock: lock }, { swing: false }); // kunci dibesarkan
 }
 testBox({ length: 200, width: 120, height: 260, mihrabLock: 'pin', mihrabCarve: true, mihrabLie: true }, { fine: true });

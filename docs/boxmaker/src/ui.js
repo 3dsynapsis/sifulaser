@@ -638,7 +638,8 @@ function overallInspector(root, ctx) {
     ...(p.style === 'shoebox' ? liftOffRows(p, ctx)
       : p.style === 'almari' ? drawerRows(p, ctx)
         : p.style === 'mihrab' ? mihrabRows(p, ctx, mat)
-          : p.style === 'round' ? roundRows(p, ctx) : [])));
+          : p.style === 'round' ? roundRows(p, ctx)
+            : p.style === 'lidded' || p.style === 'double' ? lidGapRows(p, ctx) : [])));
 
   // Straight after the style: this is where everyone looks first.
   const presets = patternPresets(mat, ctx);
@@ -699,6 +700,14 @@ function overallInspector(root, ctx) {
       min: 0.5, max: 12, step: 0.1,
       onInput: (v) => { setParam('thickness', v); clampDecor(); ctx.refresh(); },
     }),
+    // The commonest reason a box that looks right on screen will not go
+    // together: the sheet is not the thickness on its label, and every slot,
+    // notch and lid fit is cut to the number here.
+    h('p', { class: 'hint' },
+      'Measure the board with calipers and type what you measure. Plywood sold '
+      + 'as 3 mm is often 3.2 to 3.5 mm, and every slot, notch and lid is cut to '
+      + 'this number - a sheet thicker than it says is what makes parts too '
+      + 'tight to go in.'),
     numberRow('Kerf compensation (mm)', p.kerf, {
       min: 0, max: 0.6, step: 0.01,
       onInput: (v) => { setParam('kerf', v); ctx.refresh(); },
@@ -939,7 +948,7 @@ const MIHRAB_LOCKS = [
  */
 const lockArtCache = new Map();
 function lockThumb(kind, params, base) {
-  const key = `${kind}|${base}|${params.thickness}|${params.length}|${params.height}|${params.width}|${params.archRise}|${params.lidGap}|${params.fit}`;
+  const key = `${kind}|${base}|${params.thickness}|${params.length}|${params.height}|${params.width}|${params.archRise}|${params.doorGap}|${params.fit}`;
   if (lockArtCache.has(key)) return lockArtCache.get(key);
   const box = buildBox({ ...params, mihrabLock: kind });
   const m = box.derived.mihrab;
@@ -988,6 +997,27 @@ function lockThumb(kind, params, base) {
   return art;
 }
 
+/**
+ * The hinged lid's play, for the Lidded and Double styles. The number was always
+ * in the geometry (lidGap) and never on the page, so a lid that was a hair too
+ * tight to swing had no remedy short of a knife.
+ */
+function lidGapRows(p, ctx) {
+  const g = getBox().params.lidGap;
+  const two = p.style === 'double';
+  return [
+    numberRow('Lid gap (mm)', p.lidGap ?? 0.3, {
+      min: 0.1, max: 2, step: 0.05,
+      onInput: (v) => { setParam('lidGap', v); clampDecor(); ctx.refresh(); },
+    }),
+    h('p', { class: 'hint' },
+      `The lid clears each end wall by ${rnd(g, 2)} mm`
+      + (two ? ` and the two leaves part by ${rnd(g, 2)} mm in the middle` : '')
+      + ', and its pins reach that much further into the hinge holes. Raise it if '
+      + 'the lid rubs as it swings; lower it if it rattles.'),
+  ];
+}
+
 function mihrabRows(p, ctx, mat) {
   const d = getBox().derived.mihrab;
   if (!d) return [];
@@ -1022,6 +1052,19 @@ function mihrabRows(p, ctx, mat) {
         onclick: () => { setParam('mihrabLock', k.id); clampDecor(); ctx.refresh(); },
       }, h('span', { class: 'art', html: lockThumb(k.id, getBox().params, mat.color) }), k.label)))),
     h('p', { class: 'hint' }, lockHint(d)),
+    // Right under the lock: when the doors will not go in, this is the first
+    // place anyone looks, and it used not to be here at all.
+    numberRow('Door gap (mm)', p.doorGap ?? 0.6, {
+      min: 0.2, max: 2, step: 0.05,
+      onInput: (v) => { setParam('doorGap', v); clampDecor(); ctx.refresh(); },
+    }),
+    h('p', { class: 'hint' },
+      `Each door has ${rnd(d.clear.top, 2)} mm above and below the ceiling `
+      + `corner it turns under, ${rnd(d.clear.side, 2)} mm beside it, `
+      + `${rnd(d.clear.foot, 2)} mm at its foot and ${rnd(d.clear.middle, 2)} mm `
+      + 'between the two doors. The ceiling goes on last, down over both door '
+      + 'pins and into both notches at once - if it will not go, raise this '
+      + 'rather than paring the notches with a knife.'),
     d.carve ? h('p', { class: 'hint' },
       'An extra arch board sits on the inner arch, a few mm in from its edge. The '
       + 'pattern is cut through it and the plain arch behind shows through, so it '

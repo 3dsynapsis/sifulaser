@@ -37,10 +37,10 @@ hanya diperlukan semasa pembangunan.
 
 ## Perubahan yang dibuat terus dalam salinan ini
 
-**Sudah dipindahkan pada 11 Oktober 2026.** Perubahan di bawah mula-mula dibuat
-terus di sini, dan pada tarikh itu kesemuanya disalin balik ke projek asal
-(`CLAUDE CODE/12_Box Maker`) sebelum ukuran dalam ditambah. Projek asal kini
-mengandungi corak Islamik, jadi "Cara kemas kini" di atas selamat dijalankan.
+**Sudah dipindahkan, kali terakhir pada 18 Oktober 2026.** Perubahan di bawah
+mula-mula dibuat terus di sini. Pada 11 Oktober (corak Islamik) dan 18 Oktober
+(Mihrab, Bulat, Falcata 2.6 mm) kesemuanya disalin balik ke projek asal
+(`CLAUDE CODE/12_Box Maker`), jadi "Cara kemas kini" di atas selamat dijalankan.
 
 Kalau perubahan dibuat terus di sini lagi, amaran lama terpakai semula: ia
 wujud dalam `docs/boxmaker/` sahaja, dan menyalin dari projek asal tanpa
@@ -220,3 +220,22 @@ cakera selebar tapak + cakera palam di bawahnya (kelonggaran `lidSlack`).
 
 Ujian: `node scripts/test-boxmaker-round.mjs`. Alat voksel dikongsi dengan
 ujian Mihrab dalam `scripts/lib/boxmaker-voxel.mjs`.
+
+### Kelonggaran pintu Mihrab dan tutup berengsel
+
+Seorang pelanggan (18 Oktober 2026) tidak dapat menurunkan siling ke atas pintu
+Mihrab: takuk pintu memberi bucu siling hanya 0.3 mm di atas dan bawah dan
+0.5 mm di tepi, dan dia terpaksa mengoreknya dengan pisau.
+
+- `src/geom/box.js` — `doorGap` (asal 0.6 mm) tetapan sendiri untuk pintu
+  Mihrab, menggantikan `lidGap`: ruang atas, bawah dan tepi bucu siling dalam
+  takuk, di kaki pintu, dan antara dua pintu. Hujung kedua-dua pin pintu
+  dibulatkan (lead-in) supaya lubang menjumpai pin walaupun tersasar sedikit.
+  `derived.mihrab.clear` melaporkan setiap ruang.
+- `src/ui.js` — "Door gap (mm)" di bawah kunci pintu Mihrab, "Lid gap (mm)"
+  untuk Lidded dan Double (`lidGap`, kekal 0.3 mm), dan peringatan untuk
+  mengukur tebal papan sebenar di bawah Board thickness.
+- `scripts/test-boxmaker-mihrab.mjs` — semakan lebar pintu kini membaca
+  `doorGap`.
+
+Ujian: `npm test` dalam projek asal (bahagian "mihrab door gap" dan "lid gap").
