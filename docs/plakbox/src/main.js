@@ -1,4 +1,5 @@
-// Plak Box: input -> buildPlakBox -> paparan 3D + ringkasan -> STL.
+// Plak Box: input -> buildPlakBox -> paparan 3D + ringkasan -> STL (tapak)
+// dan SVG (kotak akrilik, src/acrylic.js).
 //
 // Satu fail kerana alatnya kecil: tiada editor 2D, tiada undo. Panel tetapan
 // dibina SEKALI; perubahan hanya menulis semula pratonton dan bahagian yang
@@ -9,6 +10,9 @@ import {
   buildPlakBox, cleanParams, profileOf, BASE_TYPES, DEFAULTS, LIMITS, trianglesToStl,
 } from './geom/base.js';
 import { View3D } from './view3d.js';
+import {
+  acrylicFiles, SHEETS as ACR_SHEETS, DEFAULT_SHEET as ACR_SHEET, DEFAULT_KERF, cleanKerf,
+} from './acrylic.js';
 
 const $ = (s) => document.querySelector(s);
 // v2: jenis tapak, dan bibir kini diukur dari tepi permukaan atas (lalai 8 -
@@ -41,6 +45,12 @@ const state = {
   show: saved.show === 'tapak' ? 'tapak' : 'siap',
   color: COLORS.some((c) => c.id === saved.color) ? saved.color : COLORS[0].id,
   backdrop: saved.backdrop === 'dark' ? 'dark' : 'light',
+  // Tetapan fail potong akrilik: saiz katil laser, kerf, label.
+  acr: {
+    sheet: ACR_SHEETS.some((x) => x.id === saved.acr?.sheet) ? saved.acr.sheet : ACR_SHEET,
+    kerf: cleanKerf(saved.acr?.kerf ?? DEFAULT_KERF),
+    labels: saved.acr?.labels === true,
+  },
 };
 // Jenis yang tersimpan tetapi sudah dibuang (Terapung) kembali ke Standard.
 if (!BASE_TYPES.some((t) => t.id === state.params.type)) state.params.type = DEFAULTS.type;
@@ -343,7 +353,7 @@ function renderDynamic() {
   acrylicNote.textContent =
     `Akrilik ${p.acrylic} mm, tanpa tanggam: depan dan belakang penuh, kiri dan kanan masuk di antaranya, `
     + `atas duduk di atas keempat-empat dinding. Selotip lebih kurang ${mm(d.tape / 1000, 2)} m untuk 8 sambungan. `
-    + 'Fail SVG potong akrilik akan datang dalam Bahagian 2.';
+    + 'Fail SVG potongnya di Export.';
   const stat = (k, v) => h('div', { class: 'stat' }, h('span', {}, k), h('b', {}, v));
   const typeName = BASE_TYPES.find((t) => t.id === p.type).name;
   summaryBox.replaceChildren(
@@ -389,6 +399,103 @@ $('#frameBtn').addEventListener('click', () => view.frame());
 
 // ------------------------------------------------------------ export
 const exportDlg = $('#exportDlg');
+
+function download(name, data, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function downloadStl(body) {
+  const d = model.derived;
+  const p = model.params;
+  const tag = `${mm(d.baseL, 0)}x${mm(d.baseW, 0)}x${mm(p.baseH, 0)}`;
+  const buf = trianglesToStl(body.mesh, `SifuLaser Plak Box ${body.id} ${p.type} ${tag}`);
+  download(`plakbox-${p.type}-${body.id}-${tag}.stl`, buf, 'model/stl');
+  showHint(`Fail STL ${body.name.toLowerCase()} dimuat turun`);
+}
+
+/**
+ * Pratonton satu helaian: kotak helaian, keping di tempatnya, nama setiap
+ * keping. Dilukis daripada susunan yang SAMA yang ditulis ke fail.
+ */
+function sheetPreview(sheet) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+    return n;
+  };
+  const svg = el('svg', { viewBox: `0 0 ${sheet.w} ${sheet.h}`, role: 'img' });
+  svg.append(el('rect', { x: 0, y: 0, width: sheet.w, height: sheet.h, fill: 'var(--surface-2, #f3f4f6)', stroke: 'var(--line-strong, #d0d4da)', 'stroke-width': sheet.w / 300 }));
+  for (const pl of sheet.placed) {
+    const y = sheet.h - pl.y - pl.h;   // fail y-ke-atas, pratonton y-ke-bawah
+    svg.append(el('rect', { x: pl.x, y, width: pl.w, height: pl.h, fill: '#dbeef4', stroke: '#e0453a', 'stroke-width': sheet.w / 400 }));
+    const t = el('text', {
+      x: pl.x + pl.w / 2, y: y + pl.h / 2, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': Math.min(pl.h * 0.22, pl.w * 0.16, sheet.w / 22), fill: '#3c4a52',
+    });
+    t.textContent = pl.piece.label + (pl.rot ? ' ↻' : '');
+    svg.append(t);
+  }
+  return svg;
+}
+
+function renderAcrylicExport() {
+  const root = $('#acrylicExport');
+  const p = model.params;
+  const files = acrylicFiles(model, state.acr);
+  const nBox = files.box.length;
+  const over = files.box.some((f) => f.sheet.overflow);
+  const pieces = model.derived.panels.map((q) => `${q.qty}× ${q.name} ${mm(q.w)} × ${mm(q.h)}`).join(', ');
+  const sheetSel = h('select', {
+    onchange: (e) => { state.acr.sheet = e.target.value; save(); renderAcrylicExport(); },
+  }, ACR_SHEETS.map((x) => h('option', { value: x.id, ...(x.id === state.acr.sheet ? { selected: true } : {}) }, x.name)));
+  const kerfIn = h('input', {
+    type: 'number', min: 0, max: 1, step: 0.01, value: state.acr.kerf,
+    onchange: (e) => { state.acr.kerf = cleanKerf(e.target.value); save(); renderAcrylicExport(); },
+  });
+  const labelsChk = h('input', {
+    type: 'checkbox', ...(state.acr.labels ? { checked: true } : {}),
+    onchange: (e) => { state.acr.labels = e.target.checked; save(); renderAcrylicExport(); },
+  });
+  // replaceChildren menulis null sebagai teks "null" - buang dahulu.
+  root.replaceChildren(...[
+    h('p', { class: 'muted' },
+      `${p.acrylic} mm akrilik jernih, 5 keping tanpa tanggam: ${pieces} mm (saiz siap). `
+      + `Setiap garis potong dibesarkan ${mm(files.kerf / 2, 3)} mm di setiap sisi untuk kerf, `
+      + 'jadi keping yang keluar dari mesin ialah saiz itu tepat.'),
+    h('div', { class: 'acr-row' },
+      h('div', { class: 'field' }, h('label', {}, 'Saiz katil laser / helaian'), sheetSel),
+      h('div', { class: 'field' }, h('label', {}, 'Kerf (mm)'), kerfIn)),
+    h('label', { class: 'acr-check' }, labelsChk,
+      h('span', {}, 'Label nama keping, dalam lapisan kelabu sendiri. Jangan petakan lapisan itu kepada ukiran - akrilik jernih menyimpan setiap tanda.')),
+    h('div', { class: 'sheet-prev' }, files.box.map((f, i) => h('figure', {},
+      sheetPreview(f.sheet),
+      h('figcaption', {}, `${nBox > 1 ? `Helaian ${i + 1} daripada ${nBox}` : 'Satu helaian'} · `
+        + `${f.sheet.placed.length} keping${f.sheet.overflow ? ' · keping lebih besar daripada helaian!' : ''}`
+        + (f.sheet.placed.some((x) => x.rot) ? ' · ↻ diputar 90°' : ''))))),
+    over ? h('p', { class: 'note warn' }, 'Ada keping yang lebih besar daripada helaian ini. Pilih katil yang lebih besar, atau kecilkan plak.') : null,
+    h('div', { class: 'dlg-actions start' },
+      files.box.map((f, i) => h('button', {
+        type: 'button', class: 'primary',
+        onclick: () => { download(f.name, f.svg, 'image/svg+xml'); showHint('Fail SVG kotak akrilik dimuat turun'); },
+      }, nBox > 1 ? `SVG helaian ${i + 1}` : 'Muat turun SVG kotak')),
+      files.plaque ? h('button', {
+        type: 'button', class: 'ghost',
+        onclick: () => { download(files.plaque.name, files.plaque.svg, 'image/svg+xml'); showHint('Fail SVG plak dimuat turun'); },
+      }, `SVG plak ${p.sheetT} mm`) : null),
+    files.plaque ? h('p', { class: 'hint' },
+      `Plak akrilik sekeping ${mm(p.plakL)} × ${mm(p.plakH)} mm dalam fail sendiri: ia ${p.sheetT} mm, dipotong `
+      + 'dari helaian lain. Fail itu garis luarnya sahaja - letak reka bentuk plak di dalamnya.') : null,
+    h('p', { class: 'hint' }, 'Lapisan Potong merah, garisan 0.1 mm - LightBurn / RDWorks memetakannya terus. '
+      + 'Kupas kertas pelindung hanya selepas kotak siap dipasang.'),
+  ].filter(Boolean));
+}
+
 $('#exportBtn').addEventListener('click', () => {
   const d = model.derived;
   const p = model.params;
@@ -399,26 +506,11 @@ $('#exportBtn').addEventListener('click', () => {
   $('#exportNote').textContent =
     `Sudah menghadap betul: bawah rata di plat, alur${isSlot() ? ' dan slot' : ''} ke atas. `
     + 'Setiap sisi mengecil ke atas atau tegak, jadi tiada support diperlukan.';
-  const actions = $('#exportActions');
-  actions.replaceChildren(h('button', { value: 'cancel', class: 'ghost' }, 'Batal'),
-    ...model.bodies.map((bd) => h('button', { value: bd.id, class: 'primary' },
-      model.bodies.length > 1 ? `STL ${bd.name.toLowerCase()}` : 'Muat turun STL')));
+  $('#exportActions').replaceChildren(...model.bodies.map((bd) => h('button', {
+    type: 'button', class: 'primary', onclick: () => downloadStl(bd),
+  }, model.bodies.length > 1 ? `STL ${bd.name.toLowerCase()}` : 'Muat turun STL')));
+  renderAcrylicExport();
   exportDlg.showModal();
-});
-exportDlg.addEventListener('close', () => {
-  const body = model.bodies.find((bd) => bd.id === exportDlg.returnValue);
-  if (!body) return;
-  const d = model.derived;
-  const p = model.params;
-  const tag = `${mm(d.baseL, 0)}x${mm(d.baseW, 0)}x${mm(p.baseH, 0)}`;
-  const buf = trianglesToStl(body.mesh, `SifuLaser Plak Box ${body.id} ${p.type} ${tag}`);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([buf], { type: 'model/stl' }));
-  a.download = `plakbox-${p.type}-${body.id}-${tag}.stl`;
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  showHint(`Fail STL ${body.name.toLowerCase()} dimuat turun`);
 });
 
 // ------------------------------------------------------------ cara pasang
@@ -430,7 +522,7 @@ $('#helpBtn').addEventListener('click', () => {
   const steps = [
     ['Muat turun STL dan buka dalam Bambu Studio (atau slicer lain).',
       'Ia sudah menghadap betul dan tidak perlu support. Tetapkan infill dan dinding dalam slicer.'],
-    ['Potong 5 keping akrilik ikut senarai "Keping untuk dipotong".',
+    ['Potong 5 keping akrilik daripada fail SVG (Export → Kotak akrilik).',
       'Kupas kertas pelindung hanya selepas siap dipasang.'],
     ['Berdirikan depan dan belakang, masukkan kiri dan kanan di antaranya.',
       'Lekat selotip pada empat bucu tegak.'],

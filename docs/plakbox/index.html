@@ -49,13 +49,22 @@
   </main>
 </div>
 
-<dialog id="exportDlg" class="dlg">
+<dialog id="exportDlg" class="dlg dlg-wide">
   <form method="dialog" class="dlg-body">
-    <h2>Export tapak untuk 3D printer</h2>
-    <p class="muted" id="exportSummary"></p>
-    <p class="note" id="exportNote"></p>
-    <!-- Butang muat turun dijana ikut senarai jasad model (kini satu). -->
-    <div class="dlg-actions" id="exportActions"></div>
+    <h2>Export</h2>
+    <section class="exp-part">
+      <h3>Tapak &middot; cetak 3D (STL)</h3>
+      <p class="muted" id="exportSummary"></p>
+      <p class="note" id="exportNote"></p>
+      <!-- Butang muat turun dijana ikut senarai jasad model (kini satu). -->
+      <div class="dlg-actions start" id="exportActions"></div>
+    </section>
+    <section class="exp-part">
+      <h3>Kotak akrilik &middot; potong laser (SVG)</h3>
+      <!-- Saiz katil, kerf, label, pratonton helaian dan butang - src/main.js. -->
+      <div class="acr-export" id="acrylicExport"></div>
+    </section>
+    <div class="dlg-actions"><button value="close" class="ghost">Tutup</button></div>
   </form>
 </dialog>
 

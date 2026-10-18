@@ -32,10 +32,18 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
    berdiri di tengahnya, jadi kotak akrilik dikira tepat seperti jenis lain.
    (Versi pertama, 16 Oktober 2026, tiada kotak dan plaknya condong; ditukar
    pada hari yang sama atas permintaan - plak mesti tegak di tengah, dalam kotak.)
-2. **Kotak akrilik jernih - potong laser, output SVG.** (Bahagian 2, belum.)
+2. **Kotak akrilik jernih - potong laser, output SVG.** (Siap, 18 Oktober 2026.)
    Lima keping tanpa tanggam, dicantum hujung ke hujung dan sambungannya
-   ditutup selotip (tiada chloroform). Saiz setiap keping sudah dikira dan
-   dipaparkan dalam panel "Kotak akrilik".
+   ditutup selotip (tiada chloroform). Export → "Kotak akrilik" memberi fail
+   SVG: keping disusun atas helaian saiz katil laser (600 × 400, 900 × 600,
+   1300 × 900, atau kepingan penuh 2440 × 1220) dengan putaran 90° bila
+   lebih padat, satu fail bagi setiap helaian, dan setiap garis potong
+   dibesarkan separuh kerf (lalai 0.15 mm) supaya keping siap tepat saiznya.
+   Lapisan Potong merah 0.1 mm; label nama keping pilihan, dalam lapisan
+   kelabu sendiri (lejang satu garisan Hershey, sama seperti Tray). Jenis
+   Dua Tingkat Slot juga mendapat fail berasingan untuk garis luar plak
+   akrilik sekeping (tebalnya lain, helaian lain). Pratonton setiap helaian
+   dalam dialog dilukis daripada susunan yang sama yang ditulis ke fail.
 
 ## Input
 
@@ -45,6 +53,10 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 
 ## Fail
 
+- `src/acrylic.js` - fail potong akrilik, tulen: `boxPieces()`, `plaquePiece()`,
+  `nest()` (MaxRects, best short side fit, putaran 90°), `sheetToSvg()`,
+  `acrylicFiles()`. `src/geom/label.js` dan `hershey-sans.js` disalin dari
+  `docs/tray/src/geom/` untuk label.
 - `src/geom/base.js` - geometri tulen (tiada DOM): `buildPlakBox()`,
   `profileOf()`, `buildBody()`, `trianglesToStl()`. Jasad = permukaan atas
   (medan tinggi atas grid segi empat tak seragam: alur, poket) + kulit sisi
@@ -66,7 +78,7 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 
 ## Ujian
 
-    node scripts/test-plakbox.mjs       # mesh tertutup, isipadu, saiz akrilik muat alur
+    node scripts/test-plakbox.mjs       # mesh tertutup, isipadu, saiz akrilik muat alur, fail potong akrilik
 
 Gambar tile `docs/images/tools/plakbox.webp` ialah foto 3D alat ini sendiri -
 ambil semula dengan `node scripts/tile-shots.mjs docs/images/tools plakbox`

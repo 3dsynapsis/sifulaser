@@ -315,6 +315,19 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 .dlg-body { padding: 20px; display: grid; gap: 14px; }
 .dlg h2 { margin: 0; font-size: 17px; }
 .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.dlg-actions.start { justify-content: flex-start; flex-wrap: wrap; }
+.dlg-wide { max-width: 560px; }
+.dlg-body { max-height: calc(100vh - 32px); overflow-y: auto; }
+.exp-part { display: grid; gap: 10px; border-top: 1px solid var(--line, #e3e5e8); padding-top: 12px; }
+.exp-part h3 { margin: 0; font-size: 14px; }
+.acr-export { display: grid; gap: 10px; }
+.acr-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; align-items: end; }
+.acr-check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--muted); }
+.acr-check input { margin-top: 2px; }
+.sheet-prev { display: grid; gap: 6px; }
+.sheet-prev figure { margin: 0; display: grid; gap: 3px; }
+.sheet-prev figcaption { font-size: 11px; color: var(--muted); }
+.sheet-prev svg { display: block; width: 100%; height: auto; max-height: 220px; }
 .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); }
 .check input { margin-top: 2px; }
 .layer-key { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }

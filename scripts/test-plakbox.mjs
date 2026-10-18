@@ -25,6 +25,13 @@
 //   * slot                 - tepat di tengah tapak, tegak, lebar = tebal plak +
 //                            2 x kelonggaran, lantai >= 3 mm, dinding ke alur
 //                            >= 1.5 mm, isipadu kiraan tangan.
+//   * FAIL POTONG AKRILIK  - setiap keping (5, ikut qty) diletak tepat sekali,
+//                            saiz dilukis = saiz siap + kerf (atau diputar),
+//                            tiada dua keping lebih rapat daripada GAP, semuanya
+//                            dalam helaian dan MARGIN (kecuali keping terlalu
+//                            besar, yang ditanda overflow), SVG ada satu garis
+//                            potong bagi setiap keping dengan saiz yang betul.
+//                            Plak slot dalam fail sendiri, saiz plak + kerf.
 //   * input teruk          - sifar, negatif, NaN, teks, jenis palsu: tak campak.
 
 import path from 'node:path';
@@ -276,6 +283,84 @@ function slotChecks(tag, r) {
   check('slot lalai: isipadu kiraan tangan', Math.abs(r.stats.volumeMm3 - (body - groove - hole)) < 1e-3,
     `${r.stats.volumeMm3} lawan ${body - groove - hole}`);
 }
+// ---- fail potong akrilik -------------------------------------------------------------
+{
+  const A = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'acrylic.js')).href);
+  const cases = [
+    {}, { type: 'slot' }, { plakL: 120, plakW: 40, plakH: 160 }, { plakL: 400, plakW: 120, plakH: 500 },
+    { acrylic: 5, gap: 20 }, { type: 'serong', plakL: 300, plakH: 380 }, { plakL: 60, plakW: 30, plakH: 60 },
+  ];
+  for (const params of cases) {
+    const m = buildPlakBox({ ...DEFAULTS, ...params });
+    for (const sh of A.SHEETS) {
+      for (const kerf of [0, 0.15, 0.3]) {
+        const tag = `akrilik ${JSON.stringify(params)} ${sh.id} kerf ${kerf}`;
+        const f = A.acrylicFiles(m, { sheet: sh.id, kerf, labels: kerf > 0.2 });
+        const placed = f.box.flatMap((b) => b.sheet.placed.map((pl) => ({ ...pl, sheet: b.sheet })));
+        const want = m.derived.panels.reduce((a, q) => a + q.qty, 0);
+        check(`${tag}: ${want} keping, setiap satu sekali`, placed.length === want
+          && new Set(placed.map((pl) => pl.piece.id)).size === want, `${placed.length}`);
+        // Saiz siap = senarai panel; dilukis = siap + kerf.
+        for (const q of m.derived.panels) {
+          const mine = placed.filter((pl) => pl.piece.id.startsWith(q.id));
+          check(`${tag}: ${q.name} x${q.qty}`, mine.length === q.qty);
+          for (const pl of mine) {
+            const [w, hh] = pl.rot ? [pl.h, pl.w] : [pl.w, pl.h];
+            check(`${tag}: ${pl.piece.label} saiz + kerf`, Math.abs(w - (q.w + kerf)) < 1e-6 && Math.abs(hh - (q.h + kerf)) < 1e-6,
+              `${w} x ${hh} lawan ${q.w + kerf} x ${q.h + kerf}`);
+          }
+        }
+        // Tiada tindih / terlalu rapat; dalam helaian.
+        for (const b of f.box) {
+          const P = b.sheet.placed;
+          for (let i = 0; i < P.length; i++) {
+            const a = P[i];
+            if (!b.sheet.overflow) {
+              check(`${tag}: ${a.piece.label} dalam helaian`, a.x >= A.MARGIN - 1e-6 && a.y >= A.MARGIN - 1e-6
+                && a.x + a.w <= b.sheet.w - A.MARGIN + 1e-6 && a.y + a.h <= b.sheet.h - A.MARGIN + 1e-6,
+              `${a.x},${a.y} ${a.w}x${a.h}`);
+            }
+            for (let j = i + 1; j < P.length; j++) {
+              const c = P[j];
+              const apart = a.x + a.w + A.GAP <= c.x + 1e-6 || c.x + c.w + A.GAP <= a.x + 1e-6
+                || a.y + a.h + A.GAP <= c.y + 1e-6 || c.y + c.h + A.GAP <= a.y + 1e-6;
+              check(`${tag}: ${a.piece.label} / ${c.piece.label} tidak bertindih`, apart);
+            }
+          }
+          // SVG: satu garis potong segi empat bagi setiap keping, saiz yang sama.
+          const cut = b.svg.split('<g id="cut"')[1].split('</g>')[0];
+          const rects = [...cut.matchAll(/M([\d.]+) ([\d.]+)H([\d.]+)V([\d.]+)H/g)]
+            .map((mm) => [Number(mm[3]) - Number(mm[1]), Number(mm[4]) - Number(mm[2])]);
+          check(`${tag}: SVG ada ${P.length} garis potong`, rects.length === P.length, `${rects.length}`);
+          check(`${tag}: SVG saiz garis potong`, rects.every(([w, hh], i) => Math.abs(w - P[i].w) < 1e-3 && Math.abs(hh - P[i].h) < 1e-3));
+          check(`${tag}: SVG unit mm`, b.svg.includes(`width="${b.sheet.w}mm"`) && b.svg.includes(`height="${b.sheet.h}mm"`));
+          check(`${tag}: label hanya bila diminta`, b.svg.includes('id="labels"') === (kerf > 0.2));
+        }
+        // Plak slot.
+        if (m.derived.slot) {
+          const pq = f.plaque?.sheet.placed[0];
+          check(`${tag}: plak slot dalam fail sendiri`, !!pq && Math.abs(pq.w - (m.params.plakL + kerf)) < 1e-6
+            && Math.abs(pq.h - (m.params.plakH + kerf)) < 1e-6 && f.plaque.name.includes(`${m.params.sheetT}mm`));
+        } else {
+          check(`${tag}: tiada plak bukan slot`, f.plaque === null);
+        }
+      }
+    }
+  }
+  // Keping lebih besar daripada helaian: ditanda, tidak hilang.
+  const big = buildPlakBox({ ...DEFAULTS, plakL: 700, plakW: 120, plakH: 600 });
+  const fb = A.acrylicFiles(big, { sheet: '600x400' });
+  check('akrilik keping terlalu besar: ditanda overflow', fb.box.some((b) => b.sheet.overflow));
+  check('akrilik keping terlalu besar: semua keping masih ada',
+    fb.box.reduce((a, b) => a + b.sheet.placed.length, 0) === 5);
+  check('akrilik: kerf teruk kembali ke lalai', A.cleanKerf('x') === A.DEFAULT_KERF && A.cleanKerf(-1) === A.DEFAULT_KERF
+    && A.cleanKerf(5) === A.DEFAULT_KERF && A.cleanKerf(0) === 0);
+  // Susunan padat: lalai muat satu helaian 900 x 600 dan dua helaian 600 x 400.
+  const m0 = buildPlakBox({ ...DEFAULTS });
+  check('akrilik lalai: satu helaian 900 x 600', A.acrylicFiles(m0, { sheet: '900x600' }).box.length === 1);
+  check('akrilik lalai: dua helaian 600 x 400', A.acrylicFiles(m0, { sheet: '600x400' }).box.length === 2);
+}
+
 // ---- input teruk ------------------------------------------------------------------
 for (const bad of [{ plakL: 0 }, { plakL: -5, plakW: NaN }, { acrylic: 'abc' }, { baseH: 1e9 }, null, undefined,
   { pocket: 'ya' }, { type: 42 }, { type: 'terapung', plinthH: -9 },
