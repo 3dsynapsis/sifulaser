@@ -422,17 +422,32 @@ function downloadStl(body) {
  * Pratonton satu helaian: kotak helaian, keping di tempatnya, nama setiap
  * keping. Dilukis daripada susunan yang SAMA yang ditulis ke fail.
  */
-function sheetPreview(sheet) {
+function sheetPreview(sheet, note = null) {
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, attrs) => {
     const n = document.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
     return n;
   };
-  const svg = el('svg', { viewBox: `0 0 ${sheet.w} ${sheet.h}`, role: 'img' });
-  svg.append(el('rect', { x: 0, y: 0, width: sheet.w, height: sheet.h, fill: 'var(--surface-2, #f3f4f6)', stroke: 'var(--line-strong, #d0d4da)', 'stroke-width': sheet.w / 300 }));
+  // Bila nota terpaksa duduk di luar katil, kanvas fail lebih tinggi daripada
+  // helaian: pratonton menunjukkan kedua-duanya, helaian di bawah.
+  const H = note ? note.canvasH : sheet.h;
+  const off = H - sheet.h;
+  const svg = el('svg', { viewBox: `0 0 ${sheet.w} ${H}`, role: 'img' });
+  svg.append(el('rect', { x: 0, y: off, width: sheet.w, height: sheet.h, fill: 'var(--surface-2, #f3f4f6)', stroke: 'var(--line-strong, #d0d4da)', 'stroke-width': sheet.w / 300 }));
+  if (note) {
+    // Nota bahan seperti dalam fail: dua baris hijau di atas keping.
+    note.lines.forEach((s, i) => {
+      const t = el('text', {
+        x: note.x, y: H - note.rows[i] + note.caps[i] / 2, 'font-size': note.caps[i] * 1.35,
+        fill: '#00a651', 'font-family': 'sans-serif',
+      });
+      t.textContent = s;
+      svg.append(t);
+    });
+  }
   for (const pl of sheet.placed) {
-    const y = sheet.h - pl.y - pl.h;   // fail y-ke-atas, pratonton y-ke-bawah
+    const y = H - pl.y - pl.h;   // fail y-ke-atas, pratonton y-ke-bawah
     svg.append(el('rect', { x: pl.x, y, width: pl.w, height: pl.h, fill: '#dbeef4', stroke: '#e0453a', 'stroke-width': sheet.w / 400 }));
     const t = el('text', {
       x: pl.x + pl.w / 2, y: y + pl.h / 2, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
@@ -474,24 +489,38 @@ function renderAcrylicExport() {
     h('label', { class: 'acr-check' }, labelsChk,
       h('span', {}, 'Label nama keping, dalam lapisan kelabu sendiri. Jangan petakan lapisan itu kepada ukiran - akrilik jernih menyimpan setiap tanda.')),
     h('div', { class: 'sheet-prev' }, files.box.map((f, i) => h('figure', {},
-      sheetPreview(f.sheet),
+      sheetPreview(f.sheet, f.note),
       h('figcaption', {}, `${nBox > 1 ? `Helaian ${i + 1} daripada ${nBox}` : 'Satu helaian'} · `
         + `${f.sheet.placed.length} keping${f.sheet.overflow ? ' · keping lebih besar daripada helaian!' : ''}`
         + (f.sheet.placed.some((x) => x.rot) ? ' · ↻ diputar 90°' : ''))))),
     over ? h('p', { class: 'note warn' }, 'Ada keping yang lebih besar daripada helaian ini. Pilih katil yang lebih besar, atau kecilkan plak.') : null,
+    // Setiap helaian dalam dua bentuk: SVG untuk LightBurn / RDWorks, PDF untuk
+    // tempat yang tidak boleh membuka SVG. Isinya sama, nota bahan sekali.
     h('div', { class: 'dlg-actions start' },
-      files.box.map((f, i) => h('button', {
-        type: 'button', class: 'primary',
-        onclick: () => { download(f.name, f.svg, 'image/svg+xml'); showHint('Fail SVG kotak akrilik dimuat turun'); },
-      }, nBox > 1 ? `SVG helaian ${i + 1}` : 'Muat turun SVG kotak')),
+      files.box.flatMap((f, i) => [
+        h('button', {
+          type: 'button', class: 'primary',
+          onclick: () => { download(f.name, f.svg, 'image/svg+xml'); showHint('Fail SVG kotak akrilik dimuat turun'); },
+        }, nBox > 1 ? `SVG helaian ${i + 1}` : 'Muat turun SVG kotak'),
+        h('button', {
+          type: 'button', class: 'primary',
+          onclick: () => { download(f.pdfName, f.pdf, 'application/pdf'); showHint('Fail PDF kotak akrilik dimuat turun'); },
+        }, nBox > 1 ? `PDF helaian ${i + 1}` : 'Muat turun PDF kotak'),
+      ]),
       files.plaque ? h('button', {
         type: 'button', class: 'ghost',
         onclick: () => { download(files.plaque.name, files.plaque.svg, 'image/svg+xml'); showHint('Fail SVG plak dimuat turun'); },
-      }, `SVG plak ${p.sheetT} mm`) : null),
+      }, `SVG plak ${p.sheetT} mm`) : null,
+      files.plaque ? h('button', {
+        type: 'button', class: 'ghost',
+        onclick: () => { download(files.plaque.pdfName, files.plaque.pdf, 'application/pdf'); showHint('Fail PDF plak dimuat turun'); },
+      }, `PDF plak ${p.sheetT} mm`) : null),
     files.plaque ? h('p', { class: 'hint' },
       `Plak akrilik sekeping ${mm(p.plakL)} × ${mm(p.plakH)} mm dalam fail sendiri: ia ${p.sheetT} mm, dipotong `
       + 'dari helaian lain. Fail itu garis luarnya sahaja - letak reka bentuk plak di dalamnya.') : null,
     h('p', { class: 'hint' }, 'Lapisan Potong merah, garisan 0.1 mm - LightBurn / RDWorks memetakannya terus. '
+      + `Setiap fail ada nota bahan untuk pekerja ("Acrylic ${p.acrylic}mm Clear", helaian, bilangan keping) `
+      + 'dalam lapisan Nota hijau - matikan Output lapisan itu, ia untuk dibaca sahaja. '
       + 'Kupas kertas pelindung hanya selepas kotak siap dipasang.'),
   ].filter(Boolean));
 }

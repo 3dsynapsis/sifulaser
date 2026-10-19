@@ -284,6 +284,46 @@ function slotChecks(tag, r) {
     `${r.stats.volumeMm3} lawan ${body - groove - hole}`);
 }
 // ---- fail potong akrilik -------------------------------------------------------------
+/** Nota: di dalam kanvas, jauh dari setiap keping, di atas helaian bila di luar katil. */
+function checkNote(tag, note, sheet) {
+  const M = 5;
+  const inside = note.x >= M - 1e-6 && note.x1 <= sheet.w - M + 1e-6 && note.y1 <= note.canvasH + 1e-6;
+  const clear = sheet.placed.every((pl) => note.x1 + 4 <= pl.x + 1e-6 || pl.x + pl.w + 4 <= note.x + 1e-6
+    || note.y1 + 4 <= pl.y + 1e-6 || pl.y + pl.h + 4 <= note.y0 + 1e-6);
+  const where = note.canvasH === sheet.h ? note.y1 <= sheet.h - M + 1e-6 : note.y0 >= sheet.h;
+  check(`${tag} dalam kanvas, jauh dari keping`, inside && clear && where,
+    `${note.x},${note.y0} - ${note.x1},${note.y1} kanvas ${note.canvasH}`);
+  check(`${tag} boleh dibaca`, note.caps[0] >= 2.5 && note.caps[1] >= 1.5, note.caps.join());
+}
+
+/** PDF: struktur sah (offset xref tepat), saiz halaman, garis potong = keping. */
+function checkPdf(tag, pdf, sheet, note, placed) {
+  const PT = 72 / 25.4;
+  const ascii = /^[\x09\x0a\x0d\x20-\x7e]*$/.test(pdf);
+  const xref = Number(pdf.match(/startxref\n(\d+)\n%%EOF\n$/)?.[1]);
+  const table = pdf.slice(xref).split('\n');
+  const n = Number(table[1].split(' ')[1]);
+  let offsetsOk = table[0] === 'xref';
+  for (let i = 1; i < n; i++) {
+    const off = Number(table[2 + i].slice(0, 10));
+    offsetsOk &&= pdf.slice(off, off + `${i} 0 obj`.length) === `${i} 0 obj`;
+  }
+  const len = Number(pdf.match(/\/Length (\d+) >>\nstream\n/)?.[1]);
+  const body = pdf.slice(pdf.indexOf('>>\nstream\n') + 10, pdf.indexOf('\nendstream'));
+  const box = pdf.match(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/);
+  const rects = [...body.matchAll(/([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re S/g)].map((x) => x.slice(1).map(Number));
+  check(`${tag} sah: ASCII, %PDF, offset xref tepat, panjang strim tepat`,
+    ascii && pdf.startsWith('%PDF-1.4\n') && offsetsOk && len === body.length, `${xref} ${len}/${body.length}`);
+  check(`${tag} sesaiz helaian (dan nota)`, Math.abs(Number(box?.[1]) - sheet.w * PT) < 0.01
+    && Math.abs(Number(box?.[2]) - note.canvasH * PT) < 0.01);
+  check(`${tag} satu garis potong merah bagi setiap keping, saiz sama`, rects.length === placed.length
+    && rects.every(([x, y, w, hh], i) => Math.abs(x - placed[i].x) < 1e-3 && Math.abs(y - placed[i].y) < 1e-3
+      && Math.abs(w - placed[i].w) < 1e-3 && Math.abs(hh - placed[i].h) < 1e-3)
+    && body.includes('1 0 0 RG'));
+  check(`${tag} nota hijau dalam lapisan sendiri`, body.includes('0 0.651 0.318 RG')
+    && pdf.includes(`/Subject (${note.lines[0]} |`));
+}
+
 {
   const A = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'acrylic.js')).href);
   const cases = [
@@ -333,14 +373,26 @@ function slotChecks(tag, r) {
             .map((mm) => [Number(mm[3]) - Number(mm[1]), Number(mm[4]) - Number(mm[2])]);
           check(`${tag}: SVG ada ${P.length} garis potong`, rects.length === P.length, `${rects.length}`);
           check(`${tag}: SVG saiz garis potong`, rects.every(([w, hh], i) => Math.abs(w - P[i].w) < 1e-3 && Math.abs(hh - P[i].h) < 1e-3));
-          check(`${tag}: SVG unit mm`, b.svg.includes(`width="${b.sheet.w}mm"`) && b.svg.includes(`height="${b.sheet.h}mm"`));
+          // Kanvas = helaian, atau lebih tinggi bila nota terpaksa duduk di luar katil.
+          check(`${tag}: SVG unit mm`, b.svg.includes(`width="${b.sheet.w}mm"`) && b.svg.includes(`height="${b.note.canvasH}mm"`)
+            && b.note.canvasH >= b.sheet.h);
           check(`${tag}: label hanya bila diminta`, b.svg.includes('id="labels"') === (kerf > 0.2));
+          // Nota bahan untuk pekerja: tebal sebenar, tidak menindih keping.
+          const head = `Acrylic ${m.params.acrylic}mm Clear`;
+          check(`${tag}: nota bahan "${head}"`, b.note.lines[0] === head
+            && b.svg.includes(`data-text="${head}"`) && b.svg.includes(`<desc>${head} |`));
+          checkNote(`${tag}: nota`, b.note, b.sheet);
+          checkPdf(`${tag}: PDF`, b.pdf, b.sheet, b.note, P);
         }
         // Plak slot.
         if (m.derived.slot) {
           const pq = f.plaque?.sheet.placed[0];
           check(`${tag}: plak slot dalam fail sendiri`, !!pq && Math.abs(pq.w - (m.params.plakL + kerf)) < 1e-6
             && Math.abs(pq.h - (m.params.plakH + kerf)) < 1e-6 && f.plaque.name.includes(`${m.params.sheetT}mm`));
+          check(`${tag}: nota plak ikut tebal plak, tanpa "Clear"`,
+            f.plaque.note.lines[0] === `Acrylic ${m.params.sheetT}mm - plak` && f.plaque.pdfName.endsWith('.pdf'));
+          checkNote(`${tag}: nota plak`, f.plaque.note, f.plaque.sheet);
+          checkPdf(`${tag}: PDF plak`, f.plaque.pdf, f.plaque.sheet, f.plaque.note, f.plaque.sheet.placed);
         } else {
           check(`${tag}: tiada plak bukan slot`, f.plaque === null);
         }

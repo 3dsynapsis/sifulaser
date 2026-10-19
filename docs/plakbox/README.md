@@ -45,6 +45,16 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
    akrilik sekeping (tebalnya lain, helaian lain). Pratonton setiap helaian
    dalam dialog dilukis daripada susunan yang sama yang ditulis ke fail.
 
+   **PDF dan nota bahan (19 Oktober 2026).** Setiap fail kini ada dua bentuk:
+   SVG dan PDF (satu halaman sesaiz helaian, vektor, skala sebenar mm) -
+   kerana tidak semua tempat boleh membuka SVG. Kedua-duanya membawa nota untuk
+   pekerja yang memotong: "Acrylic 2mm Clear" (tebal ikut pilihan), helaian
+   ke berapa dan saiznya, bilangan keping, kerf. Plak slot mendapat "Acrylic
+   5mm - plak" (tanpa "Clear", warnanya ikut reka bentuk). Nota itu lejang satu
+   garisan Hershey dalam lapisan Nota hijau sendiri (#00a651), di atas keping;
+   bila tiada ruang, kanvas dipanjangkan ke atas dan nota duduk di luar katil -
+   keping tidak berganjak. Nota itu sendiri berkata "jangan potong lapisan ini".
+
 ## Input
 
 Saiz LUAR plak yang dimasukkan - panjang, lebar, tinggi - TERMASUK tapak plak
@@ -54,8 +64,9 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 ## Fail
 
 - `src/acrylic.js` - fail potong akrilik, tulen: `boxPieces()`, `plaquePiece()`,
-  `nest()` (MaxRects, best short side fit, putaran 90°), `sheetToSvg()`,
-  `acrylicFiles()`. `src/geom/label.js` dan `hershey-sans.js` disalin dari
+  `nest()` (MaxRects, best short side fit, putaran 90°), `noteLines()` dan
+  `notePlace()` (nota bahan), `sheetToSvg()`, `sheetToPdf()` (penulis PDF
+  kecil sendiri, ASCII, tiada fon), `acrylicFiles()`. `src/geom/label.js` dan `hershey-sans.js` disalin dari
   `docs/tray/src/geom/` untuk label.
 - `src/geom/base.js` - geometri tulen (tiada DOM): `buildPlakBox()`,
   `profileOf()`, `buildBody()`, `trianglesToStl()`. Jasad = permukaan atas
@@ -78,7 +89,8 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 
 ## Ujian
 
-    node scripts/test-plakbox.mjs       # mesh tertutup, isipadu, saiz akrilik muat alur, fail potong akrilik
+    node scripts/test-plakbox.mjs       # mesh tertutup, isipadu, saiz akrilik muat alur, fail potong akrilik,
+                                        # nota bahan (tidak menindih keping), PDF sah (offset xref, saiz halaman)
 
 Gambar tile `docs/images/tools/plakbox.webp` ialah foto 3D alat ini sendiri -
 ambil semula dengan `node scripts/tile-shots.mjs docs/images/tools plakbox`
