@@ -7,8 +7,9 @@
 // yang sedang diseret tidak dibina semula di bawah jari pengguna.
 
 import {
-  buildPlakBox, cleanParams, profileOf, BASE_TYPES, DEFAULTS, LIMITS, trianglesToStl,
+  buildPlakBox, cleanParams, profileOf, BASE_TYPES, DEFAULTS, LIMITS, trianglesToStl, ACRYLIC_OPTIONS,
 } from './geom/base.js';
+import { plakQuote, orderUrl, PRINT } from './price.js';
 import { View3D } from './view3d.js';
 import {
   acrylicFiles, SHEETS as ACR_SHEETS, DEFAULT_SHEET as ACR_SHEET, DEFAULT_KERF, cleanKerf,
@@ -45,6 +46,8 @@ const state = {
   show: saved.show === 'tapak' ? 'tapak' : 'siap',
   color: COLORS.some((c) => c.id === saved.color) ? saved.color : COLORS[0].id,
   backdrop: saved.backdrop === 'dark' ? 'dark' : 'light',
+  // Kuantiti untuk sebut harga (set).
+  qty: Number.isSafeInteger(saved.qty) && saved.qty >= 1 && saved.qty <= 999 ? saved.qty : 1,
   // Tetapan fail potong akrilik: saiz katil laser, kerf, label.
   acr: {
     sheet: ACR_SHEETS.some((x) => x.id === saved.acr?.sheet) ? saved.acr.sheet : ACR_SHEET,
@@ -96,6 +99,7 @@ function rebuild() {
   w.hidden = !model.warnings.length;
   w.textContent = model.warnings.join(' ');
   renderDynamic();
+  renderPrice();
   paintLift();
   save();
 }
@@ -289,6 +293,42 @@ const pocketBlock = sub(
   h('label', { class: 'check' }, pocketChk, ' Poket untuk tapak plak (supaya plak tidak bergeser)'),
   pocketFields);
 
+// ---- harga: untuk pelanggan yang mahu order terus dari sini
+const priceRange = h('div', { class: 'price-big' });
+const priceSub = h('p', { class: 'muted price-sub' });
+const priceLines = h('div', { class: 'summary' });
+const qtyIn = h('input', {
+  type: 'number', min: 1, max: 999, step: 1, value: state.qty, inputmode: 'numeric',
+  oninput: (e) => {
+    const n = Math.floor(Number(e.target.value));
+    if (Number.isFinite(n) && n >= 1 && n <= 999) { state.qty = n; save(); renderPrice(); }
+  },
+  onchange: (e) => { e.target.value = state.qty; },
+});
+const orderBtn = h('a', { class: 'primary order-btn', target: '_blank', rel: 'noopener' }, 'Order melalui WhatsApp');
+
+function renderPrice() {
+  const q = plakQuote(model, { qty: state.qty, sheet: state.acr.sheet });
+  const p = model.params;
+  const color = COLORS.find((c) => c.id === state.color)?.name || '';
+  orderBtn.href = orderUrl(model, q, { color });
+  if (q.state !== 'priced') {
+    priceRange.textContent = 'Minta sebut harga';
+    priceSub.textContent = 'Saiz ini perlu disemak staff dahulu.';
+    priceLines.replaceChildren();
+    return;
+  }
+  priceRange.textContent = q.rangeText;
+  priceSub.textContent = state.qty > 1
+    ? `Anggaran ${q.totalText} untuk ${state.qty} set (${q.perSetText} seset)`
+    : `Anggaran ${q.totalText} seset`;
+  const stat = (k, v) => h('div', { class: 'stat' }, h('span', {}, k), h('b', {}, v));
+  priceLines.replaceChildren(
+    stat(`Tapak cetak 3D, ±${Math.round(q.grams)} g × RM${(PRINT.senPerGram / 100).toFixed(2)}`, q.baseText),
+    stat(`Kotak akrilik Clear ${p.acrylic} mm, laser ${q.acrylic.timeText}`, q.acrylicText),
+  );
+}
+
 const piecesBox = h('div', { class: 'pieces' });
 const acrylicNote = h('p', { class: 'hint' });
 const summaryBox = h('div', { class: 'summary' });
@@ -297,6 +337,15 @@ function renderStatic() {
   const root = $('#inspector');
   root.replaceChildren(
     h('h2', { class: 'insp-title' }, 'Plak Box'),
+
+    group('Harga', true,
+      priceRange, priceSub, priceLines,
+      h('div', { class: 'field qty-row' }, h('label', {}, 'Kuantiti (set)'), qtyIn),
+      orderBtn,
+      h('p', { class: 'hint' },
+        `Harga anggaran. Tapak dikira ikut berat PLA (cetak ${PRINT.printer}, infill ${Math.round(PRINT.infill * 100)}%, `
+        + `RM${(PRINT.senPerGram / 100).toFixed(2)} sesegram); kotak akrilik guna kiraan Kalkulator Laser Cut. `
+        + 'Tidak termasuk plak. Harga muktamad disahkan oleh staff.')),
 
     h('details', { class: 'group', open: true }, plakTitle, h('div', { class: 'group-body' },
       plakHint,
@@ -308,7 +357,7 @@ function renderStatic() {
     group('Kotak akrilik', true,
       h('div', { class: 'field' },
         h('label', {}, 'Tebal akrilik'),
-        seg([2, 3, 4, 5].map((v) => ({ id: v, label: `${v} mm` })), state.params.acrylic,
+        seg(ACRYLIC_OPTIONS.map((v) => ({ id: v, label: `${v} mm` })), model.params.acrylic,
           (v) => { state.params.acrylic = v; rebuild(); sync(); })),
       numberRow('gap', 'Ruang di keliling plak', { hint: 'Jarak antara plak dan dinding akrilik, setiap sisi.' }),
       numberRow('gapTop', 'Ruang di atas plak'),
@@ -336,8 +385,8 @@ function renderStatic() {
             rebuild();
           },
         })))),
-      h('p', { class: 'hint' }, 'Tapak pepejal sepenuhnya - ketumpatan (infill) ditetapkan dalam Bambu Studio. '
-        + 'Semua jenis boleh dicetak tanpa support.')),
+      h('p', { class: 'hint' }, 'Tapak pepejal sepenuhnya - ketumpatan (infill) ditetapkan dalam Bambu Studio; '
+        + `harga dikira dengan infill ${Math.round(PRINT.infill * 100)}%. Semua jenis boleh dicetak tanpa support.`)),
 
     group('Ringkasan', true, summaryBox),
   );
@@ -367,6 +416,7 @@ function renderDynamic() {
     stat('Tinggi keseluruhan', `${mm(d.totalH)} mm`),
     stat('Isipadu tapak', `${mm(model.stats.volumeMm3 / 1000)} cm³`),
     stat('Berat jika 100% pepejal', `${Math.round(model.stats.gramsSolid)} g PLA`),
+    stat(`Berat anggaran (infill ${Math.round(PRINT.infill * 100)}%)`, `${Math.round(plakQuote(model).grams)} g PLA`),
     stat('Segitiga STL', `${model.stats.triangles}`),
   );
 }

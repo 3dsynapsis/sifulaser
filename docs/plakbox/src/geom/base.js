@@ -109,7 +109,7 @@ export const LIMITS = {
   plakL: [30, 600],
   plakW: [10, 300],
   plakH: [30, 800],
-  acrylic: [1.5, 6],
+  acrylic: [2, 3],     // Clear 2 mm dan 3 mm sahaja (Boss, 20 Okt 2026)
   gap: [2, 60],
   gapTop: [0, 80],
   baseH: [8, 80],
@@ -131,6 +131,8 @@ export const LIMITS = {
 };
 
 const PLA_G_PER_CM3 = 1.24;
+/** Tebal akrilik kotak yang ditawarkan, mm: Clear 2 dan 3, seperti stok Kalkulator Laser Cut. */
+export const ACRYLIC_OPTIONS = [2, 3];
 const R6 = (v) => Math.round(v * 1e6) / 1e6;
 const DEG = Math.PI / 180;
 
@@ -147,6 +149,14 @@ export function cleanParams(input = {}) {
   }
   p.type = BASE_TYPES.some((t) => t.id === input.type) ? input.type : DEFAULTS.type;
   const notes = [];
+
+  // Kotak akrilik hanya ditawarkan dalam dua tebal. Reka bentuk lama yang
+  // tersimpan dengan tebal lain dibawa ke yang terdekat, dan diberitahu.
+  const askedT = Number(input.acrylic);
+  p.acrylic = p.acrylic < 2.5 ? 2 : 3;
+  if (Number.isFinite(askedT) && !ACRYLIC_OPTIONS.includes(askedT)) {
+    notes.push(`Akrilik ${askedT} mm tidak ditawarkan - kotak dikira dengan ${p.acrylic} mm (pilihan: 2 atau 3 mm).`);
+  }
 
   if (p.grooveDepth > p.baseH - 3) {
     p.grooveDepth = R6(Math.max(1, p.baseH - 3));

@@ -32,6 +32,13 @@
 //                            besar, yang ditanda overflow), SVG ada satu garis
 //                            potong bagi setiap keping dengan saiz yang betul.
 //                            Plak slot dalam fail sendiri, saiz plak + kerf.
+//   * HARGA                - berat tapak sama dengan kiraan tangan (kubus);
+//                            bahagian akrilik = quote() Kalkulator Laser Cut
+//                            dipanggil terus; jumlah = tapak + akrilik dibundar
+//                            10 sen; julat +-15%; kuantiti berganda; 2 mm lebih
+//                            murah daripada 3 mm; mesej WhatsApp membawa harga
+//                            yang sama dengan skrin.
+//   * akrilik 2 / 3 mm     - tebal lain disnap dan diberi nota.
 //   * input teruk          - sifar, negatif, NaN, teks, jenis palsu: tak campak.
 
 import path from 'node:path';
@@ -96,7 +103,7 @@ const CASES = [
   { stepW: 0 },
   { pocket: false },
   { plakL: 150, plakW: 60, plakH: 200, acrylic: 2, gap: 6, rim: 8, stepW: 3, stepH: 2 },
-  { plakL: 300, plakW: 120, plakH: 420, acrylic: 5, gap: 15, gapTop: 25, baseH: 40, rim: 20, grooveDepth: 8 },
+  { plakL: 300, plakW: 120, plakH: 420, acrylic: 3, gap: 15, gapTop: 25, baseH: 40, rim: 20, grooveDepth: 8 },
   { grooveClear: 0, pocketClear: 0 },
   { grooveDepth: 20, baseH: 10 },
   { gap: 2, pocketClear: 1 },
@@ -105,7 +112,7 @@ const CASES = [
 ];
 for (const t of BASE_TYPES) {
   CASES.push({ type: t.id, baseH: t.baseH });
-  CASES.push({ type: t.id, baseH: t.baseH, pocket: false, acrylic: 5 });
+  CASES.push({ type: t.id, baseH: t.baseH, pocket: false, acrylic: 2 });
   CASES.push({ type: t.id, baseH: 10, grooveDepth: 8 });         // tapak nipis: had mesti bertindak
 }
 CASES.push({ type: 'terapung', baseH: 32, plinthSplit: true });   // jenis yang sudah dibuang -> Standard
@@ -127,7 +134,7 @@ for (let k = 0; k < 80; k++) {
   CASES.push({
     type: BASE_TYPES[Math.floor(rnd() * BASE_TYPES.length)].id,
     plakL: 30 + rnd() * 500, plakW: 10 + rnd() * 200, plakH: 30 + rnd() * 600,
-    acrylic: 1.5 + rnd() * 4.5, gap: 2 + rnd() * 30, gapTop: rnd() * 40,
+    acrylic: rnd() < 0.5 ? 2 : 3, gap: 2 + rnd() * 30, gapTop: rnd() * 40,
     baseH: 8 + rnd() * 50, rim: 3 + rnd() * 30, grooveDepth: 1 + rnd() * 12,
     grooveClear: rnd() * 1.5, pocket: rnd() > 0.3, pocketDepth: 0.5 + rnd() * 6,
     pocketClear: rnd() * 3, stepW: rnd() > 0.4 ? rnd() * 20 : 0, stepH: rnd() * 10,
@@ -328,7 +335,7 @@ function checkPdf(tag, pdf, sheet, note, placed) {
   const A = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'acrylic.js')).href);
   const cases = [
     {}, { type: 'slot' }, { plakL: 120, plakW: 40, plakH: 160 }, { plakL: 400, plakW: 120, plakH: 500 },
-    { acrylic: 5, gap: 20 }, { type: 'serong', plakL: 300, plakH: 380 }, { plakL: 60, plakW: 30, plakH: 60 },
+    { acrylic: 2, gap: 20 }, { type: 'serong', plakL: 300, plakH: 380 }, { plakL: 60, plakW: 30, plakH: 60 },
   ];
   for (const params of cases) {
     const m = buildPlakBox({ ...DEFAULTS, ...params });
@@ -411,6 +418,114 @@ function checkPdf(tag, pdf, sheet, note, placed) {
   const m0 = buildPlakBox({ ...DEFAULTS });
   check('akrilik lalai: satu helaian 900 x 600', A.acrylicFiles(m0, { sheet: '900x600' }).box.length === 1);
   check('akrilik lalai: dua helaian 600 x 400', A.acrylicFiles(m0, { sheet: '600x400' }).box.length === 2);
+}
+
+// ---- harga -------------------------------------------------------------------------
+{
+  const P = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'price.js')).href);
+  const L = await import(pathToFileURL(path.join(here, '..', 'docs', 'lasercut', 'src', 'pricing.js')).href);
+  const { segTime } = await import(pathToFileURL(path.join(here, '..', 'docs', 'lasercut', 'src', 'laser.js')).href);
+  const { LIMITS } = await import(pathToFileURL(MOD).href);
+
+  // Tetapan yang Boss tetapkan (20 Okt 2026).
+  check('harga: infill 10%, RM0.50 sesegram, Bambu Lab', P.PRINT.infill === 0.1 && P.PRINT.senPerGram === 50
+    && P.PRINT.printer === 'Bambu Lab' && P.PRINT.filamentSenPerKg === 8000);
+
+  // Kubus sisi s, dibina sendiri: atas s^2, bawah s^2, sisi 4 s^2.
+  const cube = (s) => {
+    const v = [[0, 0, 0], [s, 0, 0], [s, s, 0], [0, s, 0], [0, 0, s], [s, 0, s], [s, s, s], [0, s, s]];
+    const f = [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4],
+      [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]];
+    return new Float32Array(f.flatMap((t) => t.flatMap((i) => v[i])));
+  };
+  for (const s of [20, 50, 3]) {
+    const g = P.printGrams(cube(s), s ** 3);
+    const shell = Math.min(s ** 3, s * s * 1.0 + s * s * 0.6 + 4 * s * s * 0.87);
+    const want = ((shell + (s ** 3 - shell) * 0.1) / 1000) * 1.24;
+    check(`harga: berat kubus ${s} mm = kiraan tangan`, near(g.grams, want, 1e-6), `${g.grams} lawan ${want}`);
+    check(`harga: berat kubus ${s} mm <= pepejal`, g.grams <= g.solidGrams + 1e-9);
+  }
+  check('harga: kubus kecil semuanya kulit = pepejal', near(P.printGrams(cube(3), 27).grams, (27 / 1000) * 1.24, 1e-9));
+
+  const priceCases = [{}, { acrylic: 2 }, { type: 'slot' }, { type: 'serong', plakL: 300, plakH: 380 },
+    { plakL: 30, plakW: 10, plakH: 30, gap: 2, gapTop: 0, rim: 3, baseH: 8 },
+    { plakL: LIMITS.plakL[1], plakW: LIMITS.plakW[1], plakH: LIMITS.plakH[1], gap: LIMITS.gap[1],
+      gapTop: LIMITS.gapTop[1], rim: LIMITS.rim[1], baseH: LIMITS.baseH[1], grooveDepth: LIMITS.grooveDepth[1] }];
+  for (const t of BASE_TYPES) priceCases.push({ type: t.id }, { type: t.id, acrylic: 2, plakL: 80, plakH: 120 });
+  for (const params of priceCases) {
+    const m = buildPlakBox({ ...DEFAULTS, ...params });
+    const tag = `harga ${JSON.stringify(params)}`;
+    for (const sheet of ['900x600', '600x400']) {
+      const q1 = P.plakQuote(m, { qty: 1, sheet });
+      check(`${tag} ${sheet}: ada harga`, q1.state === 'priced', q1.state);
+      if (q1.state !== 'priced') continue;
+      // Tapak: berat antara infill sahaja dan pepejal; RM0.50 sesegram.
+      const solid = m.stats.gramsSolid;
+      check(`${tag}: berat tapak munasabah`, q1.grams > solid * 0.1 && q1.grams < solid, `${q1.grams} / ${solid}`);
+      check(`${tag}: tapak = berat x RM0.50`, q1.baseSetSen === Math.round(q1.grams * 50));
+      // Akrilik: enjin Kalkulator Laser Cut yang sama, dipanggil terus.
+      const job = P.acrylicJob(m, sheet);
+      const mat = m.params.acrylic === 2 ? 'acr2' : 'acr3';
+      check(`${tag}: bahan ${mat}`, job.material.id === mat && q1.acrylic.material.id === mat);
+      const direct = L.quote(job.pieces, job.laser, mat, '1');
+      check(`${tag}: akrilik = quote() Kalkulator Laser Cut`, direct.totalSen === q1.acrylicSen && q1.acrylicSen > 0);
+      // Lima keping = senarai panel, saiz siap.
+      const want = m.derived.panels.flatMap((pp) => Array.from({ length: pp.qty }, () => [pp.w, pp.h]))
+        .map(([w, hh]) => `${Math.round(w * 1000)}x${Math.round(hh * 1000)}`).sort();
+      check(`${tag}: keping akrilik = panel`, JSON.stringify(job.pieces.map((pc) => `${pc.wUm}x${pc.hUm}`).sort())
+        === JSON.stringify(want));
+      // Masa potong: sekurang-kurangnya perimeter / laju, dan pecutan menambah sedikit sahaja.
+      const perim = m.derived.panels.reduce((a, pp) => a + pp.qty * 2 * (pp.w + pp.h), 0);
+      const cut = job.laser.cutSec[mat];
+      check(`${tag}: masa potong >= perimeter / laju`, cut >= perim / job.material.cutSpeed - 1e-9
+        && cut < perim / job.material.cutSpeed + 20 * segTime(1, job.material.cutSpeed), `${cut}`);
+      check(`${tag}: ada gerak kosong`, job.laser.rapidSec > 0);
+      // Jumlah dan julat.
+      check(`${tag}: jumlah = tapak + akrilik, 10 sen`, q1.totalSen === Math.floor((q1.baseSen + q1.acrylicSen) / 10 + 0.5) * 10
+        && q1.totalSen % 10 === 0);
+      check(`${tag}: julat +-15%`, q1.lowSen === Math.floor((q1.totalSen * 0.85) / 100) * 100
+        && q1.highSen === Math.ceil((q1.totalSen * 1.15) / 100) * 100 && q1.lowSen <= q1.totalSen && q1.totalSen <= q1.highSen);
+      check(`${tag}: teks julat`, q1.rangeText === `${L.fmtRMWhole(q1.lowSen)} - ${L.fmtRMWhole(q1.highSen)}`);
+      // Kuantiti.
+      const q3 = P.plakQuote(m, { qty: 3, sheet });
+      check(`${tag}: 3 set - tapak x3`, q3.baseSen === 3 * q1.baseSen && q3.qty === 3);
+      check(`${tag}: 3 set - akrilik = quote() x3`, q3.acrylicSen === L.quote(job.pieces, job.laser, mat, '3').totalSen);
+      check(`${tag}: 3 set ~ 3 x seset`, Math.abs(q3.totalSen - 3 * q1.totalSen) <= 30 || q1.acrylic.minApplied,
+        `${q3.totalSen} lawan ${3 * q1.totalSen}`);
+      // Mesej WhatsApp: nombor kedai, harga yang sama dengan skrin.
+      const url = P.orderUrl(m, q3, { color: 'Walnut' });
+      const text = decodeURIComponent(url.split('?text=')[1]);
+      check(`${tag}: WhatsApp ke kedai`, url.startsWith('https://wa.me/60134354118?text='));
+      check(`${tag}: WhatsApp bawa harga`, text.includes(q3.rangeText) && text.includes(q3.baseText)
+        && text.includes(q3.acrylicText) && text.includes('Kuantiti: 3 set')
+        && text.includes(`Clear ${m.params.acrylic} mm`) && text.includes('warna Walnut'));
+    }
+  }
+  // Akrilik 3 mm lebih mahal daripada 2 mm (helaian RM70 lawan RM50, potong lebih perlahan).
+  const a2 = P.plakQuote(buildPlakBox({ ...DEFAULTS, acrylic: 2 }));
+  const a3 = P.plakQuote(buildPlakBox({ ...DEFAULTS, acrylic: 3 }));
+  check('harga: 3 mm > 2 mm', a3.acrylicSen > a2.acrylicSen);
+  // Kuantiti teruk -> 1.
+  for (const bad of [0, -2, 'x', NaN, null]) {
+    check(`harga: kuantiti ${bad} -> 1`, P.plakQuote(buildPlakBox({ ...DEFAULTS }), { qty: bad }).qty === 1);
+  }
+  // Lalai: angka yang dibentang kepada Boss.
+  const q0 = P.plakQuote(buildPlakBox({ ...DEFAULTS }));
+  check('harga lalai 3 mm sekitar RM145', q0.totalSen > 12000 && q0.totalSen < 17000, q0.totalText);
+  // Tanpa harga (keping luar katil): mesej minta sebut harga, tiada "undefined".
+  const m0 = buildPlakBox({ ...DEFAULTS });
+  const unpriced = decodeURIComponent(P.orderUrl(m0, { state: 'oversize', qty: 2 }, {}).split('?text=')[1]);
+  check('harga: tanpa harga - minta sebut harga', unpriced.includes('Mohon sebut harga') && !unpriced.includes('undefined')
+    && !unpriced.includes('NaN') && unpriced.includes('Kuantiti: 2 set'));
+
+  // Akrilik 2 dan 3 mm sahaja: tebal lain disnap, dengan nota.
+  for (const [asked, got, noted] of [[2, 2, false], [3, 3, false], ['3', 3, false], [5, 3, true], [1.5, 2, true],
+    [2.2, 2, true], [2.7, 3, true], [10, 3, true], ['abc', DEFAULTS.acrylic, false], [undefined, DEFAULTS.acrylic, false]]) {
+    const m = buildPlakBox({ ...DEFAULTS, acrylic: asked });
+    const has = m.warnings.some((w) => w.includes('tidak ditawarkan'));
+    check(`akrilik ${asked} -> ${got} mm${noted ? ', bernota' : ''}`, m.params.acrylic === got && has === noted,
+      `${m.params.acrylic} ${has}`);
+  }
 }
 
 // ---- input teruk ------------------------------------------------------------------
