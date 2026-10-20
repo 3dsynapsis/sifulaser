@@ -1,0 +1,45 @@
+/* Dijana oleh scripts/build-legal.mjs - jangan sunting dengan tangan.
+   Warna sama dengan laman utama (src/index.css). */
+:root {
+  --canvas: #f5f7fb; --surface: #ffffff; --ink: #14213d; --muted: #5f6b7a;
+  --line: #dce3ec; --accent: #1f78d1;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --canvas: #0f1522; --surface: #172033; --ink: #e8edf6; --muted: #a3afc2; --line: #2a3650; --accent: #6aa9ec; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--canvas); color: var(--ink);
+  font: 400 15px/1.65 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+a { color: var(--accent); }
+.lg-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  max-width: 760px; margin: 0 auto; padding: 16px;
+}
+.lg-brand { font-weight: 800; font-size: 18px; color: var(--ink); text-decoration: none; }
+.lg-brand i { color: var(--accent); }
+.lg-home { font-size: 14px; text-decoration: none; }
+.lg-doc { max-width: 760px; margin: 0 auto; padding: 0 16px 24px; }
+.lg-lang { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+article {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 22px 20px; margin-bottom: 16px;
+}
+h1 { font-size: 24px; line-height: 1.25; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 22px 0 6px; }
+p, ul { margin: 0 0 10px; }
+ul { padding-left: 20px; }
+.lg-meta { color: var(--muted); font-size: 13px; }
+.lg-contact { list-style: none; padding: 0; }
+.lg-contact li { margin-bottom: 4px; }
+.lg-foot {
+  max-width: 760px; margin: 0 auto; padding: 8px 16px 32px; text-align: center;
+  font-size: 13px; color: var(--muted);
+}
+.lg-foot nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-bottom: 8px; }
+.lg-foot a[aria-current="page"] { color: var(--ink); font-weight: 700; text-decoration: none; }
+@media (max-width: 480px) {
+  article { padding: 18px 16px; }
+  h1 { font-size: 21px; }
+}

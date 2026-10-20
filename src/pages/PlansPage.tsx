@@ -23,6 +23,7 @@ import {
 } from '../lib/access'
 import { useAuth } from '../lib/auth'
 import { SiteHeader } from '../components/SiteHeader'
+import { LegalFooter } from '../components/LegalFooter'
 
 const featuresFor = (tier: TierId) =>
   PLAN_FEATURES.filter((feature) => feature.tiers.includes(tier))
@@ -372,6 +373,7 @@ export const PlansPage = () => {
           Harga dalam Ringgit Malaysia. WhatsApp kami untuk urusan pembayaran
           dan naik taraf akaun.
         </p>
+        <LegalFooter />
       </div>
     </div>
   )

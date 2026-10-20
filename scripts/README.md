@@ -1,5 +1,25 @@
 # Skrip
 
+## `build-legal.mjs` - page polisi (Terma, Privasi, Refund, Ambil Sendiri, Hubungi)
+
+Menjana `docs/terma/`, `docs/privasi/`, `docs/refund/`, `docs/ambil/`,
+`docs/hubungi/` dan `docs/shared/legal.css` daripada `src/data/company.ts` -
+sumber yang sama dengan footer laman (`src/components/LegalFooter.tsx`). Fail
+statik dengan URL sebenar, bukan route `#/`, kerana pemeriksa gerbang
+pembayaran (Bayarcash) dan enjin carian membaca laman tanpa JavaScript.
+
+Butiran syarikat ikut sijil SSM SYNAPSIS ENTERPRISE (alamat UTAMA 44A Jalan
+Keluli AK7/AK). Keputusan Boss 20 Oktober 2026: ambil sendiri di Shah Alam
+sahaja (tiada pos), siap 3-5 hari bekerja, disimpan 30 hari, bayaran balik
+penuh hanya sebelum kerja bermula.
+
+```bash
+node scripts/build-legal.mjs && node scripts/build-llms.mjs && npm run build
+```
+
+`build-llms.mjs` juga membaca `company.ts`: sitemap memuatkan page polisi, dan
+llms.txt serta JSON-LD membawa nama syarikat dan alamat.
+
 ## `blog-screenshots.mjs` — gambar untuk halaman episod blog
 
 Setiap episod di `#/blog` memaparkan satu screenshot alat, dengan butang

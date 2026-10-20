@@ -19,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { COMPANY, LEGAL_PAGES } from '../src/data/company.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(here, '..');
@@ -68,6 +69,9 @@ p();
 p(`> SifuLaser (sifulaser.com) ialah laman Mahligai Seni, kedai laser cut di Malaysia: ${uvSoon ? 'kalkulator harga laser cut' : 'kalkulator harga laser cut dan UV print'} yang membaca fail pelanggan, penjana design untuk laser (kotak, puzzle, keychain, tag, rehal, cake topper, stand nama), alat fail (tulisan, kod QR, ubah saiz, tukar format), dan latihan operator mesin laser. Bahasa utama: Bahasa Melayu. Mata wang: RM.`);
 p();
 p(`Sebut harga dan pesanan melalui WhatsApp: +${WA} (https://wa.me/${WA}). Semua harga di laman ini ialah anggaran; harga muktamad disahkan oleh staff selepas semakan fail.`);
+p();
+p(`Dikendalikan oleh ${COMPANY.name}, SSM ${COMPANY.regNo}, ${COMPANY.address.join(', ')}. Tempahan diambil sendiri di Shah Alam; tiada penghantaran pos buat masa ini.`);
+p(`Polisi: ${LEGAL_PAGES.map((x) => `[${x.ms}](${SITE}${x.path})`).join(', ')}.`);
 p();
 p('## Harga laser cut (ringkasan untuk AI)');
 p();
@@ -137,6 +141,7 @@ for (const t of tools) {
   const u = urlOf(t.href);
   if (!u.includes('#') && !pages.includes(u)) pages.push(u);
 }
+pages.push(...LEGAL_PAGES.map((x) => `${SITE}${x.path}`));
 pages.push(`${SITE}/lasercut/harga.md`, `${SITE}/llms.txt`);
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -159,7 +164,17 @@ const ld = [
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Mahligai Seni',
+    legalName: COMPANY.name,
+    identifier: COMPANY.regNo,
     url: `${SITE}/`,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: `${COMPANY.address[0]}, ${COMPANY.address[1]}`,
+      postalCode: '40000',
+      addressLocality: 'Shah Alam',
+      addressRegion: 'Selangor',
+      addressCountry: 'MY',
+    },
     description: 'Kedai laser cut di Malaysia: laser cut, ukiran laser dan UV print.',
     contactPoint: { '@type': 'ContactPoint', contactType: 'sales', telephone: `+${WA}`, url: `https://wa.me/${WA}`, availableLanguage: ['ms', 'en'] },
   },

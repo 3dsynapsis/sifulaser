@@ -1,5 +1,6 @@
 import { LazyMotion, MotionConfig, m } from 'motion/react'
 import { SiteHeader } from '../components/SiteHeader'
+import { LegalFooter } from '../components/LegalFooter'
 import { HomeHero } from '../components/home/HomeHero'
 import { LearnStep } from '../components/home/LearnStep'
 import { StepChips } from '../components/home/StepChips'
@@ -101,6 +102,7 @@ export const HomePage = () => {
               <p className="hand">Satu tempat, semua kerja laser anda.</p>
               <p className="home-sign-by">SifuLaser by Mahligai Seni</p>
             </footer>
+            <LegalFooter />
           </main>
         </div>
       </MotionConfig>

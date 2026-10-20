@@ -17,6 +17,7 @@ import {
   whatsappUrlFor,
 } from '../data/shop'
 import { SiteHeader } from '../components/SiteHeader'
+import { LegalFooter } from '../components/LegalFooter'
 
 export const AboutPage = () => (
   <div className="min-h-screen bg-canvas">
@@ -170,6 +171,7 @@ export const AboutPage = () => (
           akan terus dikemas kini dari masa ke masa.
         </p>
       </section>
+      <LegalFooter />
     </div>
   </div>
 )

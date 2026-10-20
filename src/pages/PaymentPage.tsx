@@ -26,6 +26,7 @@ import {
 } from '../lib/access'
 import { CLASS_INFO } from '../data/plans'
 import { useAuth } from '../lib/auth'
+import { LegalFooter } from '../components/LegalFooter'
 
 const Step = ({
   number,
@@ -276,6 +277,7 @@ export const PaymentPage = () => {
         <p className="pb-4 text-center text-xs text-muted">
           Simpan resit pembayaran anda sehingga akses dibuka.
         </p>
+        <LegalFooter />
       </div>
     </div>
   )
