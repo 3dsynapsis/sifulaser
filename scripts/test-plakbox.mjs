@@ -39,6 +39,9 @@
 //                            murah daripada 3 mm; mesej WhatsApp membawa harga
 //                            yang sama dengan skrin.
 //   * akrilik 2 / 3 mm     - tebal lain disnap dan diberi nota.
+//   * SIMPAN KE AKAUN      - Export menyimpan reka bentuk: params kunci DEFAULTS
+//                            sahaja, rekod ikut firestore.rules, dua simpanan
+//                            serentak = satu entri, gagal = senyap.
 //   * input teruk          - sifar, negatif, NaN, teks, jenis palsu: tak campak.
 
 import path from 'node:path';
@@ -526,6 +529,118 @@ function checkPdf(tag, pdf, sheet, note, placed) {
     check(`akrilik ${asked} -> ${got} mm${noted ? ', bernota' : ''}`, m.params.acrylic === got && has === noted,
       `${m.params.acrylic} ${has}`);
   }
+}
+
+// ---- reka bentuk tersimpan ---------------------------------------------------------
+// Export menyimpan reka bentuk ke akaun sendiri. Diuji tanpa pelayar: fetch dan
+// localStorage dipalsukan, dan apa yang dihantar disemak terhadap peraturan
+// firestore.rules (kunci yang dibenarkan, had saiz).
+{
+  const S = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'saved.js')).href);
+  const C = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'cloud.js')).href);
+  const G = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'designs.js')).href);
+  const COLORS = [{ id: '#6b4430' }, { id: '#a8774f' }, { id: '#2b2b2d' }, { id: '#f1f0ec' }];
+
+  // Parameter: kunci DEFAULTS sahaja, nilai rosak jatuh ke lalai.
+  const dp = S.designParams({ ...DEFAULTS, plakL: 250, plinthSplit: true, plinthH: 9, gap: NaN, type: 'serong', pocket: 'ya' });
+  check('simpan: kunci params = DEFAULTS sahaja', JSON.stringify(Object.keys(dp)) === JSON.stringify(Object.keys(DEFAULTS))
+    && Object.keys(dp).length <= 40);
+  check('simpan: nilai rosak -> lalai', dp.plakL === 250 && dp.gap === DEFAULTS.gap && dp.pocket === DEFAULTS.pocket
+    && dp.type === 'serong');
+
+  // Pergi-balik melalui format Firestore.
+  const st = {
+    params: { ...DEFAULTS, plakL: 300, plakH: 410.5, acrylic: 2, type: 'tingkat', pocket: false },
+    color: '#2b2b2d', name: '', acr: { sheet: '600x400', kerf: 0.2, labels: true },
+  };
+  const trip = (row) => C.fromFields(C.toFields(row));
+  const row = trip({ name: S.autoName(st.params), tool: 'plakbox', params: S.designParams(st.params),
+    material: S.designMaterial(st.params), extra: JSON.stringify(S.designExtra(st)) });
+  const back = S.readDesign(row, COLORS);
+  check('simpan: pergi-balik params', JSON.stringify(back.params) === JSON.stringify(S.designParams(st.params)),
+    JSON.stringify(back.params));
+  check('simpan: pergi-balik warna, helaian, kerf, label', back.color === '#2b2b2d' && back.acr.sheet === '600x400'
+    && back.acr.kerf === 0.2 && back.acr.labels === true);
+  check('simpan: nama automatik kekal automatik', back.name === '' && S.autoName(st.params) === 'Plak Box 300 x 80 x 410.5 mm');
+  check('simpan: nama sendiri dikekalkan', S.readDesign({ ...row, name: 'Plak Datuk Bandar' }, COLORS).name === 'Plak Datuk Bandar');
+  const junk = S.readDesign({ name: 'x', params: { plakL: '230', type: 'terapung', gap: null, acrylic: 3, evil: 1 }, extra: '{oops' }, COLORS);
+  check('simpan: rekod rosak tidak merosakkan alat', junk.params.plakL === DEFAULTS.plakL && junk.params.type === DEFAULTS.type
+    && junk.params.gap === DEFAULTS.gap && !('evil' in junk.params) && junk.color === undefined
+    && junk.acr.sheet && Number.isFinite(junk.acr.kerf));
+  check('simpan: rekod dibuka masih membina', buildPlakBox(junk.params).bodies[0].mesh.length > 0
+    && buildPlakBox(back.params).params.acrylic === 2);
+  check('simpan: warna asing diabaikan', S.readDesign({ ...row, extra: '{"color":"red"}' }, COLORS).color === undefined);
+
+  // Simpan senyap: fetch palsu.
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k),
+  };
+  const calls = [];
+  let reply = (req) => ({ status: 200, body: JSON.stringify({ name: `projects/sifulaser/databases/(default)/documents/users/u1/designs/${req.method === 'POST' ? 'abc' : req.url.split('/').pop()}` }) });
+  globalThis.fetch = async (url, init) => {
+    const req = { url: String(url), method: init.method, headers: init.headers, body: init.body ? JSON.parse(init.body) : null };
+    calls.push(req);
+    await new Promise((r) => setTimeout(r, 5));
+    const res = reply(req);
+    return { ok: res.status < 300, status: res.status, text: async () => res.body };
+  };
+  const gstore = {
+    name: () => st.name || S.autoName(st.params),
+    params: () => S.designParams(st.params),
+    material: () => S.designMaterial(st.params),
+    extra: () => S.designExtra(st),
+    rename: () => {},
+    apply: () => {},
+  };
+
+  check('simpan: tanpa daftar masuk -> tiada panggilan', (await G.saveQuietly(gstore)) === false && calls.length === 0);
+  store.set('sifulaser.session', JSON.stringify({ uid: 'u1', token: 'tok', email: 'a@b.c', exp: Date.now() - 1000 }));
+  check('simpan: sesi tamat -> tiada panggilan', (await G.saveQuietly(gstore)) === false && calls.length === 0);
+  store.set('sifulaser.session', JSON.stringify({ uid: 'u1', token: 'tok', email: 'a@b.c', exp: Date.now() + 3.6e6 }));
+
+  // Export dibuka dan STL ditekan serta-merta: dua simpanan serentak.
+  const [r1, r2] = await Promise.all([G.saveQuietly(gstore), G.saveQuietly(gstore)]);
+  check('simpan: dua serentak -> satu POST kemudian PATCH id yang sama', r1 && r2 && calls.length === 2
+    && calls[0].method === 'POST' && calls[1].method === 'PATCH' && calls[1].url.includes('/users/u1/designs/abc'),
+  calls.map((c) => `${c.method} ${c.url}`).join(' ; '));
+  const sent = calls[0];
+  const f = sent.body.fields;
+  check('simpan: ke akaun sendiri, dengan token', sent.url.includes('/documents/users/u1/designs')
+    && sent.headers.Authorization === 'Bearer tok');
+  // firestore.rules: kunci yang dibenarkan dan hadnya.
+  const allowed = ['name', 'tool', 'params', 'material', 'updatedAt', 'extra'];
+  check('simpan: kunci rekod ikut firestore.rules', Object.keys(f).every((k) => allowed.includes(k)));
+  check('simpan: tool plakbox, nama <= 120, tool <= 40', f.tool.stringValue === 'plakbox'
+    && f.name.stringValue === 'Plak Box 300 x 80 x 410.5 mm' && f.name.stringValue.length <= 120 && f.tool.stringValue.length <= 40);
+  check('simpan: params map <= 40 kunci', !!f.params.mapValue && Object.keys(f.params.mapValue.fields).length === Object.keys(DEFAULTS).length
+    && Object.keys(f.params.mapValue.fields).length <= 40);
+  check('simpan: bahan dan extra', f.material.stringValue === 'Akrilik Clear 2mm'
+    && typeof f.extra.stringValue === 'string' && f.extra.stringValue.length <= 700000
+    && JSON.parse(f.extra.stringValue).color === '#2b2b2d');
+  // Nombor bulat sebagai integerValue rentetan - dibaca kembali sebagai nombor.
+  check('simpan: plakL dihantar sebagai integerValue', f.params.mapValue.fields.plakL.integerValue === '300'
+    && f.params.mapValue.fields.plakH.doubleValue === 410.5);
+
+  // Simpanan seterusnya mengemas kini entri yang sama.
+  st.params.plakL = 320;
+  await G.saveQuietly(gstore);
+  check('simpan: export kali kedua -> PATCH, bukan entri baharu', calls.length === 3 && calls[2].method === 'PATCH'
+    && calls[2].body.fields.params.mapValue.fields.plakL.integerValue === '320'
+    && calls[2].body.fields.name.stringValue === 'Plak Box 320 x 80 x 410.5 mm');
+
+  // Pelayan menolak: senyap, false, tidak campak - fail tetap dimuat turun.
+  reply = () => ({ status: 403, body: '' });
+  let threw = false, res403;
+  try { res403 = await G.saveQuietly(gstore); } catch { threw = true; }
+  check('simpan: ditolak -> false, tidak campak', !threw && res403 === false);
+  reply = () => ({ status: 500, body: 'boom' });
+  check('simpan: ralat pelayan -> false', (await G.saveQuietly(gstore)) === false);
+  // Selepas kegagalan, barisan tidak tersekat.
+  reply = (req) => ({ status: 200, body: JSON.stringify({ name: `x/designs/${req.url.split('/').pop()}` }) });
+  check('simpan: barisan pulih selepas gagal', (await G.saveQuietly(gstore)) === true);
+  delete globalThis.fetch;
+  delete globalThis.localStorage;
 }
 
 // ---- input teruk ------------------------------------------------------------------

@@ -10,6 +10,11 @@ import {
   buildPlakBox, cleanParams, profileOf, BASE_TYPES, DEFAULTS, LIMITS, trianglesToStl, ACRYLIC_OPTIONS,
 } from './geom/base.js';
 import { plakQuote, orderUrl, PRINT } from './price.js';
+import * as gallery from './designs.js';
+import { signedIn } from './cloud.js';
+import {
+  autoName, designParams, designMaterial, designExtra, readDesign,
+} from './saved.js';
 import { View3D } from './view3d.js';
 import {
   acrylicFiles, SHEETS as ACR_SHEETS, DEFAULT_SHEET as ACR_SHEET, DEFAULT_KERF, cleanKerf,
@@ -46,6 +51,8 @@ const state = {
   show: saved.show === 'tapak' ? 'tapak' : 'siap',
   color: COLORS.some((c) => c.id === saved.color) ? saved.color : COLORS[0].id,
   backdrop: saved.backdrop === 'dark' ? 'dark' : 'light',
+  // Nama reka bentuk dalam akaun; kosong = nama automatik ikut saiz plak.
+  name: typeof saved.name === 'string' ? saved.name.slice(0, 120) : '',
   // Kuantiti untuk sebut harga (set).
   qty: Number.isSafeInteger(saved.qty) && saved.qty >= 1 && saved.qty <= 999 ? saved.qty : 1,
   // Tetapan fail potong akrilik: saiz katil laser, kerf, label.
@@ -305,7 +312,12 @@ const qtyIn = h('input', {
   },
   onchange: (e) => { e.target.value = state.qty; },
 });
-const orderBtn = h('a', { class: 'primary order-btn', target: '_blank', rel: 'noopener' }, 'Order melalui WhatsApp');
+const orderBtn = h('a', {
+  class: 'primary order-btn', target: '_blank', rel: 'noopener',
+  // Pelanggan yang order: reka bentuknya disimpan juga (kalau sudah daftar
+  // masuk), supaya staff dan pelanggan boleh membukanya semula.
+  onclick: () => { void gallery.saveQuietly(galleryStore); },
+}, 'Order melalui WhatsApp');
 
 function renderPrice() {
   const q = plakQuote(model, { qty: state.qty, sheet: state.acr.sheet });
@@ -451,6 +463,9 @@ $('#frameBtn').addEventListener('click', () => view.frame());
 const exportDlg = $('#exportDlg');
 
 function download(name, data, type) {
+  // Simpan dahulu, sebelum muat turun: simpanan tidak boleh hilang kerana
+  // muat turun gagal pada baris sebelumnya.
+  void saveAfterExport();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type }));
   a.download = name;
@@ -590,7 +605,57 @@ $('#exportBtn').addEventListener('click', () => {
   }, model.bodies.length > 1 ? `STL ${bd.name.toLowerCase()}` : 'Muat turun STL')));
   renderAcrylicExport();
   exportDlg.showModal();
+  void saveAfterExport();
 });
+
+// ------------------------------------------------------------ reka bentuk tersimpan
+// Sama seperti alat lain (Box Maker, Rehal, Cake Topper...): butang Simpan dan
+// galeri "Reka bentuk saya" di bar atas, dan reka bentuk disimpan SENDIRI ke
+// akaun bila Export ditekan dan bila fail dimuat turun (Boss, 20 Okt 2026).
+// Export sudah meminta daftar masuk (/shared/export-gate.js), jadi pada saat
+// itu sesi sudah ada. Satu reka bentuk dikemas kini di tempatnya, bukan entri
+// baharu setiap kali.
+
+/** Apa yang galeri boleh lihat dan ubah - sempit dengan sengaja. */
+const galleryStore = {
+  name: () => state.name || autoName(state.params),
+  params: () => designParams(state.params),
+  material: () => designMaterial(model.params),
+  extra: () => designExtra(state),
+  rename: (name) => { state.name = name === autoName(state.params) ? '' : name; save(); },
+  apply: (row) => applyDesign(row),
+};
+
+function applyDesign(row) {
+  const d = readDesign(row, COLORS);
+  state.params = d.params;
+  state.name = d.name;
+  state.acr = d.acr;
+  if (d.color) state.color = d.color;
+  rebuild();
+  renderStatic();   // segmen dan warna dibina dengan nilai semasa
+  sync();
+}
+
+const savedLine = $('#exportSaved');
+async function saveAfterExport() {
+  if (!signedIn()) { savedLine.hidden = true; return; }
+  savedLine.hidden = false;
+  savedLine.textContent = 'Menyimpan dalam "Reka bentuk saya"...';
+  const ok = await gallery.saveQuietly(galleryStore);
+  savedLine.textContent = ok
+    ? `✓ Disimpan dalam "Reka bentuk saya" sebagai "${galleryStore.name()}" - buka semula bila-bila masa dari bar atas.`
+    : 'Tak dapat simpan ke akaun kali ini. Fail tetap boleh dimuat turun.';
+}
+
+const dialogFiller = (build) => function fill(dlg) {
+  const close = () => dlg.close();
+  dlg.replaceChildren(build(h, galleryStore, close, () => fill(dlg)));
+};
+const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+$('#saveBtn').addEventListener('click', () => { fillSaveDialog($('#saveDlg')); $('#saveDlg').showModal(); });
+$('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg')); $('#filesDlg').showModal(); });
 
 // ------------------------------------------------------------ cara pasang
 $('#helpBtn').addEventListener('click', () => {
@@ -617,6 +682,20 @@ renderStatic();
 rebuild();
 sync();
 
+// Datang dari galeri alat lain: ?design=<id>. Selepas lukisan pertama, supaya
+// alat sudah boleh diguna walaupun akaun lambat menjawab; parameter dibuang
+// selepas itu supaya muat semula tidak membuang perubahan seterusnya.
+{
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    gallery.openById(galleryStore, wanted).finally(() => {
+      const url = new URL(location.href);
+      url.searchParams.delete('design');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    });
+  }
+}
+
 if (new URLSearchParams(location.search).has('debug')) {
-  window.__app = { state, rebuild, get model() { return model; }, view };
+  window.__app = { state, rebuild, get model() { return model; }, view, galleryStore };
 }

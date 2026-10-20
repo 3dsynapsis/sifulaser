@@ -89,6 +89,28 @@ Kalau sumber Kalkulator Laser Cut (`23_Lasercut Languange Machine/quote`)
 ditukar, salinan dalam `docs/lasercut` dikemas kini dahulu - Plak Box membaca
 salinan itu.
 
+## Simpan ke akaun (20 Oktober 2026)
+
+Sama seperti Box Maker, Rehal dan alat lain: butang **Simpan** dan galeri
+**Reka bentuk saya** (ikon folder di skrin sempit) di bar atas. Reka bentuk
+juga disimpan SENDIRI ke akaun bila Export dibuka, bila mana-mana fail (STL,
+SVG, PDF) dimuat turun, dan bila "Order melalui WhatsApp" ditekan - Export
+sudah meminta daftar masuk, jadi sesi ada pada saat itu. Dialog Export
+menunjukkan "Disimpan dalam Reka bentuk saya". Satu reka bentuk dikemas kini
+di tempatnya (PATCH), bukan entri baharu setiap kali; simpanan dibaris supaya
+STL dan SVG yang ditekan serentak tidak menjadi dua entri. Gagal = senyap,
+fail tetap dimuat turun.
+
+Yang disimpan ialah tetapan, bukan fail: 25 parameter (kunci `DEFAULTS`
+sahaja - peraturan Firestore mengehadkan 40), bahan ("Akrilik Clear 3mm"),
+dan `extra` (warna tapak, saiz helaian, kerf, label). Nama automatik ikut saiz
+plak ("Plak Box 230 x 80 x 310 mm") sehingga pengguna menamakannya sendiri.
+Admin boleh membaca reka bentuk pelanggan (firestore.rules).
+
+Reka bentuk Plak Box muncul juga dalam galeri alat lain, tetapi alat lain
+belum kenal `plakbox` dalam peta `TOOLS` mereka, jadi dari sana ia belum boleh
+dibuka (sama seperti reka bentuk Rehal hari ini).
+
 ## Input
 
 Saiz LUAR plak yang dimasukkan - panjang, lebar, tinggi - TERMASUK tapak plak
@@ -102,6 +124,11 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
   `notePlace()` (nota bahan), `sheetToSvg()`, `sheetToPdf()` (penulis PDF
   kecil sendiri, ASCII, tiada fon), `acrylicFiles()`. `src/geom/label.js` dan `hershey-sans.js` disalin dari
   `docs/tray/src/geom/` untuk label.
+- `src/cloud.js`, `src/designs.js` - simpan ke akaun dan galeri, disalin dari
+  `docs/rehal/src/` (Firestore REST, tiada SDK). Beza: `TOOL = 'plakbox'`,
+  simpanan dibaris, `saveQuietly()` memulangkan true / false.
+- `src/saved.js` - bentuk data reka bentuk tersimpan, tulen: `designParams()`,
+  `designExtra()`, `readDesign()` (rekod rosak jatuh ke lalai), `autoName()`.
 - `src/price.js` - harga: `printGrams()` (berat tapak), `acrylicJob()` (keping
   dan masa laser untuk `quote()`), `plakQuote()`, `orderMessage()` /
   `orderUrl()` (mesej WhatsApp daripada sebut harga yang sama dengan skrin).
@@ -129,7 +156,9 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
     node scripts/test-plakbox.mjs       # mesh tertutup, isipadu, saiz akrilik muat alur, fail potong akrilik,
                                         # nota bahan (tidak menindih keping), PDF sah (offset xref, saiz halaman),
                                         # harga (berat kubus kiraan tangan, akrilik = quote() terus, julat,
-                                        # kuantiti, mesej WhatsApp), akrilik 2 / 3 mm sahaja
+                                        # kuantiti, mesej WhatsApp), akrilik 2 / 3 mm sahaja,
+                                        # simpan ke akaun (fetch palsu: rekod ikut firestore.rules,
+                                        # dua simpanan serentak = satu entri)
 
 Gambar tile `docs/images/tools/plakbox.webp` ialah foto 3D alat ini sendiri -
 ambil semula dengan `node scripts/tile-shots.mjs docs/images/tools plakbox`
