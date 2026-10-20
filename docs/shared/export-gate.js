@@ -64,13 +64,13 @@ function ask() {
     + 'color:#fff;font-weight:700;font-size:14px;cursor:pointer');
   go.textContent = 'Daftar masuk dengan Google';
 
-  const not = style(document.createElement('button'),
-    'width:100%;margin-top:8px;padding:9px 16px;border:0;border-radius:10px;'
-    + 'background:transparent;color:#64748b;font-size:13px;cursor:pointer');
-  not.textContent = 'Nanti dulu';
-
+  // Tiada butang "Nanti dulu". Ia hanya menutup tetingkap ini, tetapi bunyinya
+  // seperti "langkau dan teruskan" - orang menekannya, menunggu fail yang tidak
+  // pernah datang, dan menyangka laman rosak. Bos memutuskan pada 20 Oktober
+  // 2026: daftar masuk wajib untuk muat turun, jadi satu-satunya butang ialah
+  // daftar masuk. Klik di luar kad atau Esc masih menutupnya, supaya sesiapa
+  // yang belum mahu tidak terperangkap di atas reka bentuknya sendiri.
   const close = () => back.remove();
-  not.addEventListener('click', close);
   back.addEventListener('click', (e) => { if (e.target === back) close(); });
   document.addEventListener('keydown', function esc(e) {
     if (e.key !== 'Escape') return;
@@ -86,7 +86,7 @@ function ask() {
     location.href = `${HOME}?signin=1&next=${encodeURIComponent(next)}`;
   });
 
-  card.append(title, body, go, not);
+  card.append(title, body, go);
   back.append(card);
   document.body.append(back);
   go.focus();
