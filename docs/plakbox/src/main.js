@@ -303,7 +303,6 @@ const pocketBlock = sub(
 // ---- harga: untuk pelanggan yang mahu order terus dari sini
 const priceRange = h('div', { class: 'price-big' });
 const priceSub = h('p', { class: 'muted price-sub' });
-const priceLines = h('div', { class: 'summary' });
 const qtyIn = h('input', {
   type: 'number', min: 1, max: 999, step: 1, value: state.qty, inputmode: 'numeric',
   oninput: (e) => {
@@ -327,18 +326,12 @@ function renderPrice() {
   if (q.state !== 'priced') {
     priceRange.textContent = 'Minta sebut harga';
     priceSub.textContent = 'Saiz ini perlu disemak staff dahulu.';
-    priceLines.replaceChildren();
     return;
   }
-  priceRange.textContent = q.rangeText;
-  priceSub.textContent = state.qty > 1
-    ? `Anggaran ${q.totalText} untuk ${state.qty} set (${q.perSetText} seset)`
-    : `Anggaran ${q.totalText} seset`;
-  const stat = (k, v) => h('div', { class: 'stat' }, h('span', {}, k), h('b', {}, v));
-  priceLines.replaceChildren(
-    stat(`Tapak cetak 3D, ±${Math.round(q.grams)} g × RM${(PRINT.senPerGram / 100).toFixed(2)}`, q.baseText),
-    stat(`Kotak akrilik Clear ${p.acrylic} mm, laser ${q.acrylic.timeText}`, q.acrylicText),
-  );
+  // Satu harga tepat, tanpa pecahan tapak / akrilik (Boss, 20 Okt 2026).
+  // Kiraan di sebaliknya kekal sama - lihat price.js dan README.
+  priceRange.textContent = q.totalText;
+  priceSub.textContent = `${state.qty > 1 ? `${state.qty} set · ` : 'Seset · '}tapak + kotak akrilik ${p.acrylic} mm, tidak termasuk plak`;
 }
 
 const piecesBox = h('div', { class: 'pieces' });
@@ -351,13 +344,14 @@ function renderStatic() {
     h('h2', { class: 'insp-title' }, 'Plak Box'),
 
     group('Harga', true,
-      priceRange, priceSub, priceLines,
+      priceRange, priceSub,
       h('div', { class: 'field qty-row' }, h('label', {}, 'Kuantiti (set)'), qtyIn),
       orderBtn,
-      h('p', { class: 'hint' },
-        `Harga anggaran. Tapak dikira ikut berat PLA (cetak ${PRINT.printer}, infill ${Math.round(PRINT.infill * 100)}%, `
-        + `RM${(PRINT.senPerGram / 100).toFixed(2)} sesegram); kotak akrilik guna kiraan Kalkulator Laser Cut. `
-        + 'Tidak termasuk plak. Harga muktamad disahkan oleh staff.')),
+      // Akrilik mudah pecah dalam pos - ambil sendiri sahaja (Boss, 20 Okt 2026).
+      h('p', { class: 'hint' }, 'Ambil sendiri di Shah Alam, tiada pos buat masa ini. ',
+        h('a', { href: '/ambil/', target: '_top' }, 'Ambil sendiri'), ' · ',
+        h('a', { href: '/refund/', target: '_top' }, 'Bayaran balik'), ' · ',
+        h('a', { href: '/terma/', target: '_top' }, 'Terma'))),
 
     h('details', { class: 'group', open: true }, plakTitle, h('div', { class: 'group-body' },
       plakHint,
@@ -397,8 +391,8 @@ function renderStatic() {
             rebuild();
           },
         })))),
-      h('p', { class: 'hint' }, 'Tapak pepejal sepenuhnya - ketumpatan (infill) ditetapkan dalam Bambu Studio; '
-        + `harga dikira dengan infill ${Math.round(PRINT.infill * 100)}%. Semua jenis boleh dicetak tanpa support.`)),
+      h('p', { class: 'hint' }, 'Tapak pepejal sepenuhnya - ketumpatan (infill) ditetapkan dalam Bambu Studio. '
+        + 'Semua jenis boleh dicetak tanpa support.')),
 
     group('Ringkasan', true, summaryBox),
   );

@@ -499,9 +499,12 @@ function checkPdf(tag, pdf, sheet, note, placed) {
       const url = P.orderUrl(m, q3, { color: 'Walnut' });
       const text = decodeURIComponent(url.split('?text=')[1]);
       check(`${tag}: WhatsApp ke kedai`, url.startsWith('https://wa.me/60134354118?text='));
-      check(`${tag}: WhatsApp bawa harga`, text.includes(q3.rangeText) && text.includes(q3.baseText)
-        && text.includes(q3.acrylicText) && text.includes('Kuantiti: 3 set')
-        && text.includes(`Clear ${m.params.acrylic} mm`) && text.includes('warna Walnut'));
+      // Harga tepat sahaja, sama dengan skrin - tiada pecahan tapak / akrilik.
+      check(`${tag}: WhatsApp bawa harga tepat, tanpa pecahan`, text.includes(`Harga: ${q3.totalText}`)
+        && !text.includes(q3.baseText) && !text.includes(q3.acrylicText) && !text.includes(' g)')
+        && text.includes('Kuantiti: 3 set')
+        && text.includes(`Clear ${m.params.acrylic} mm`) && text.includes('warna Walnut')
+        && text.includes('Ambil sendiri di Shah Alam'));
     }
   }
   // Akrilik 3 mm lebih mahal daripada 2 mm (helaian RM70 lawan RM50, potong lebih perlahan).

@@ -85,6 +85,13 @@ WhatsApp (nombor kedai yang sama dengan Kalkulator Laser Cut). Kiraan dalam
 Lalai (plak 230 x 80 x 310 mm, Standard, 3 mm): tapak +-198 g = RM99.23,
 akrilik RM45.40, jumlah RM144.60 (RM122 - RM167). Akrilik 2 mm: RM132.00.
 
+**Paparan (20 Oktober 2026, Boss):** kad Harga dan mesej WhatsApp hanya
+menunjuk **satu harga tepat** (jumlah, dibundar 10 sen), tanpa julat dan tanpa
+pecahan tapak / akrilik atau berat. Kiraan di atas tidak berubah; pecahan masih
+ada dalam objek `plakQuote()` untuk ujian. Barang **diambil sendiri di Shah
+Alam** - tiada pos (akrilik mudah pecah); kad Harga dan mesej WhatsApp berkata
+begitu, dengan pautan ke /ambil/, /refund/ dan /terma/.
+
 Kalau sumber Kalkulator Laser Cut (`23_Lasercut Languange Machine/quote`)
 ditukar, salinan dalam `docs/lasercut` dikemas kini dahulu - Plak Box membaca
 salinan itu.

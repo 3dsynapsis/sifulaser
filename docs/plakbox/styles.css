@@ -264,6 +264,7 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 
 .hint, .muted { color: var(--muted); font-size: 12px; margin: 0; }
 .hint { margin: -4px 0 0; }
+.hint a { color: var(--accent); }
 .warn { color: var(--danger); font-size: 12px; margin: 0; }
 .note.warn { color: var(--danger); }
 .tick-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }

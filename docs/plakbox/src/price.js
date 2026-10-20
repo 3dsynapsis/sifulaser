@@ -157,13 +157,17 @@ export function orderMessage(model, q, { color = '' } = {}) {
     'Salam, saya nak order Plak Box.',
     `Plak: ${r1(p.plakL)} x ${r1(p.plakW)} x ${r1(p.plakH)} mm${d.slot ? ` (plak akrilik ${p.sheetT} mm, dalam slot)` : ''}`,
     `Tapak: ${TYPE_NAMES[p.type] || p.type}, ${r1(d.baseL)} x ${r1(d.baseW)} x ${r1(p.baseH)} mm`
-      + `${color ? `, warna ${color}` : ''}${priced ? ` (cetak 3D, lebih kurang ${Math.round(q.grams)} g)` : ''}`,
+      + `${color ? `, warna ${color}` : ''} (cetak 3D)`,
     `Kotak akrilik: Clear ${p.acrylic} mm, ${r1(d.coverOutL)} x ${r1(d.coverOutW)} x ${r1(d.coverH)} mm`,
     `Kuantiti: ${q.qty} set`,
-    priced ? `Anggaran harga: ${q.rangeText} (tapak ${q.baseText}, kotak akrilik ${q.acrylicText})`
+    // Satu harga tepat, sama dengan skrin; tiada pecahan tapak / akrilik
+    // (Boss, 20 Okt 2026). Pecahan masih dalam objek sebut harga untuk ujian.
+    priced ? `Harga: ${q.totalText}`
       : 'Mohon sebut harga untuk saiz ini.',
   ];
   if (priced) lines.push('Harga untuk tapak dan kotak akrilik, tidak termasuk plak.');
+  // Barang akrilik mudah pecah dalam pos: ambil sendiri sahaja (Boss, 20 Okt 2026).
+  lines.push('Ambil sendiri di Shah Alam.');
   return lines.join('\n');
 }
 
