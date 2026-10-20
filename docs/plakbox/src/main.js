@@ -13,7 +13,7 @@ import { plakQuote, orderUrl, PRINT } from './price.js';
 import * as gallery from './designs.js';
 import { signedIn } from './cloud.js';
 import {
-  autoName, designParams, designMaterial, designExtra, readDesign,
+  autoName, designParams, designMaterial, designExtra, readDesign, designLink, readDesignLink,
 } from './saved.js';
 import { View3D } from './view3d.js';
 import {
@@ -64,6 +64,14 @@ const state = {
 };
 // Jenis yang tersimpan tetapi sudah dibuang (Terapung) kembali ke Standard.
 if (!BASE_TYPES.some((t) => t.id === state.params.type)) state.params.type = DEFAULTS.type;
+// Dibuka dari pautan dalam mesej order WhatsApp (saved.js, designLink): reka
+// bentuk itu tepat-tepat, menggantikan yang tersimpan dalam pelayar ini.
+const fromLink = readDesignLink(location.search, COLORS);
+if (fromLink) {
+  state.params = fromLink.params;
+  state.name = '';
+  if (fromLink.color) state.color = fromLink.color;
+}
 const save = () => {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* abaikan */ }
 };
@@ -88,12 +96,12 @@ const ACRYLIC_G_PER_CM3 = 1.19;
 
 // ------------------------------------------------------------ pengiraan semula
 let hintTimer = null;
-function showHint(text) {
+function showHint(text, ms = 1800) {
   const el = $('#stageHint');
   el.textContent = text;
   el.classList.add('show');
   clearTimeout(hintTimer);
-  hintTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  hintTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 function rebuild() {
@@ -322,7 +330,7 @@ function renderPrice() {
   const q = plakQuote(model, { qty: state.qty, sheet: state.acr.sheet });
   const p = model.params;
   const color = COLORS.find((c) => c.id === state.color)?.name || '';
-  orderBtn.href = orderUrl(model, q, { color });
+  orderBtn.href = orderUrl(model, q, { color, link: designLink(state.params, { color: state.color }) });
   if (q.state !== 'priced') {
     priceRange.textContent = 'Minta sebut harga';
     priceSub.textContent = 'Saiz ini perlu disemak staff dahulu.';
@@ -675,6 +683,15 @@ $('#helpBtn').addEventListener('click', () => {
 renderStatic();
 rebuild();
 sync();
+
+// Pautan order: tetapan dibuang dari URL selepas dibaca (ia sudah disimpan
+// dalam pelayar), supaya muat semula tidak membuang perubahan seterusnya.
+if (fromLink) {
+  const url = new URL(location.href);
+  for (const k of [...Object.keys(DEFAULTS), 'warna']) url.searchParams.delete(k);
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+  showHint('Reka bentuk dari pautan order dibuka. Tekan Export untuk fail STL / SVG / PDF.', 6000);
+}
 
 // Datang dari galeri alat lain: ?design=<id>. Selepas lukisan pertama, supaya
 // alat sudah boleh diguna walaupun akaun lambat menjawab; parameter dibuang

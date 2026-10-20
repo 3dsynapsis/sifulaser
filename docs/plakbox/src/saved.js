@@ -77,3 +77,61 @@ export function readDesign(row, colors = []) {
   if (colors.some((c) => c.id === extra.color)) out.color = extra.color;
   return out;
 }
+
+// ---- pautan reka bentuk -----------------------------------------------------
+// Mesej "Order melalui WhatsApp" membawa pautan yang membuka reka bentuk itu
+// tepat-tepat di alat ini. WhatsApp tidak boleh membawa fail dari laman web
+// (wa.me hanya teks), jadi staff klik pautan itu, nampak 3D-nya, dan Export
+// STL / SVG / PDF sendiri - fail yang sama yang pelanggan nampak. Tiada akaun,
+// tiada pelayan: tetapan itu sendiri ada dalam URL.
+
+export const LINK_BASE = 'https://sifulaser.com/plakbox/';
+const LINK_ALWAYS = ['plakL', 'plakW', 'plakH', 'acrylic', 'type'];
+// 0.001 mm: lebih halus daripada mana-mana input (langkah 0.05), jadi saiz
+// yang dibuka semula sama dengan yang dipesan.
+const round3 = (v) => Math.round(v * 1000) / 1000;
+
+/**
+ * Pautan bagi reka bentuk ini. Saiz plak, tebal akrilik dan jenis sentiasa
+ * ditulis (supaya mudah dibaca dalam mesej); yang lain hanya bila berbeza
+ * daripada lalai. `color` ialah id warna ('#6b4430'), ditulis sebagai `warna`.
+ */
+export function designLink(params, { color } = {}) {
+  const p = designParams(params);
+  const q = new URLSearchParams();
+  for (const k of Object.keys(DEFAULTS)) {
+    const v = p[k];
+    if (!LINK_ALWAYS.includes(k) && v === DEFAULTS[k]) continue;
+    q.set(k, typeof v === 'number' ? String(round3(v)) : typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+  }
+  if (color) q.set('warna', String(color).replace('#', ''));
+  return `${LINK_BASE}?${q}`;
+}
+
+/**
+ * URL -> reka bentuk, atau null bila URL tidak membawa satu pun tetapan
+ * (contohnya ?debug). Nilai yang rosak diabaikan dan lalai digunakan; had
+ * saiz dikenakan oleh buildPlakBox seperti biasa.
+ */
+export function readDesignLink(search, colors = []) {
+  const q = new URLSearchParams(search);
+  const params = {};
+  for (const [k, d] of Object.entries(DEFAULTS)) {
+    if (!q.has(k)) continue;
+    const raw = q.get(k).trim();
+    if (typeof d === 'number') {
+      const v = Number(raw);
+      if (raw !== '' && Number.isFinite(v)) params[k] = v;
+    } else if (typeof d === 'boolean') {
+      if (['1', 'true'].includes(raw)) params[k] = true;
+      else if (['0', 'false'].includes(raw)) params[k] = false;
+    } else {
+      params[k] = raw;
+    }
+  }
+  if (!Object.keys(params).length) return null;
+  const out = { params: readDesign({ params }, colors).params };
+  const c = q.get('warna');
+  if (c && colors.some((x) => x.id === `#${c}`)) out.color = `#${c}`;
+  return out;
+}

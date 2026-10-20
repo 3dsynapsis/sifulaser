@@ -92,6 +92,17 @@ ada dalam objek `plakQuote()` untuk ujian. Barang **diambil sendiri di Shah
 Alam** - tiada pos (akrilik mudah pecah); kad Harga dan mesej WhatsApp berkata
 begitu, dengan pautan ke /ambil/, /refund/ dan /terma/.
 
+**Pautan reka bentuk dalam mesej order (20 Oktober 2026).** WhatsApp (wa.me)
+hanya membawa teks - fail STL / SVG / PDF tidak boleh dilampirkan dari laman.
+Jadi mesej "Order melalui WhatsApp" berakhir dengan pautan
+`https://sifulaser.com/plakbox/?plakL=..&type=..&warna=..`
+(`saved.js`, `designLink()`): saiz plak, tebal akrilik dan jenis sentiasa,
+tetapan lain hanya bila berbeza daripada lalai, nombor hingga 0.001 mm. Staff
+klik, alat membuka reka bentuk itu tepat-tepat (`readDesignLink()`, nilai rosak
+jatuh ke lalai), membuang tetapan dari URL, dan memberitahu "Tekan Export".
+Fail dijana semula dari tetapan yang sama, jadi ia sama dengan yang pelanggan
+nampak; ujian membuktikan saiz (0.005 mm), harga dan keping akrilik sama.
+
 Kalau sumber Kalkulator Laser Cut (`23_Lasercut Languange Machine/quote`)
 ditukar, salinan dalam `docs/lasercut` dikemas kini dahulu - Plak Box membaca
 salinan itu.

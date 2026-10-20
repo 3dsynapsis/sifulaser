@@ -149,7 +149,7 @@ const TYPE_NAMES = {
 const r1 = (v) => Math.round(v * 10) / 10;
 
 /** Mesej order ke WhatsApp kedai, daripada sebut harga yang sama dengan skrin. */
-export function orderMessage(model, q, { color = '' } = {}) {
+export function orderMessage(model, q, { color = '', link = '' } = {}) {
   const p = model.params;
   const d = model.derived;
   const priced = q.state === 'priced';
@@ -168,6 +168,9 @@ export function orderMessage(model, q, { color = '' } = {}) {
   if (priced) lines.push('Harga untuk tapak dan kotak akrilik, tidak termasuk plak.');
   // Barang akrilik mudah pecah dalam pos: ambil sendiri sahaja (Boss, 20 Okt 2026).
   lines.push('Ambil sendiri di Shah Alam.');
+  // Untuk staff: buka reka bentuk ini tepat-tepat - 3D dan fail STL / SVG / PDF
+  // (saved.js, designLink). Baris terakhir supaya WhatsApp menunjuk pratontonnya.
+  if (link) lines.push('', `Reka bentuk (3D + fail STL/SVG/PDF): ${link}`);
   return lines.join('\n');
 }
 

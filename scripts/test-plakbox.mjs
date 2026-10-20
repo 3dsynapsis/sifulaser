@@ -42,6 +42,8 @@
 //   * SIMPAN KE AKAUN      - Export menyimpan reka bentuk: params kunci DEFAULTS
 //                            sahaja, rekod ikut firestore.rules, dua simpanan
 //                            serentak = satu entri, gagal = senyap.
+//   * PAUTAN ORDER         - pautan dalam mesej WhatsApp membuka reka bentuk
+//                            yang sama: saiz, harga, keping akrilik.
 //   * input teruk          - sifar, negatif, NaN, teks, jenis palsu: tak campak.
 
 import path from 'node:path';
@@ -644,6 +646,56 @@ function checkPdf(tag, pdf, sheet, note, placed) {
   check('simpan: barisan pulih selepas gagal', (await G.saveQuietly(gstore)) === true);
   delete globalThis.fetch;
   delete globalThis.localStorage;
+}
+
+// ---- pautan reka bentuk dalam mesej order ---------------------------------------
+// Staff klik pautan dalam mesej WhatsApp dan mesti mendapat reka bentuk yang
+// SAMA: saiz, harga dan fail potong.
+{
+  const S = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'saved.js')).href);
+  const P = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'price.js')).href);
+  const A = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'acrylic.js')).href);
+  const COLORS = [{ id: '#6b4430' }, { id: '#a8774f' }, { id: '#2b2b2d' }, { id: '#f1f0ec' }];
+  const linkCases = [{}, { type: 'slot', plakL: 73, plakW: 45, plakH: 88, baseH: 30, sheetT: 5 },
+    { type: 'serong', slantFrontOnly: true, plakL: 300.25, acrylic: 2 }, { pocket: false, gapTop: 0 },
+    ...CASES.slice(-30)];
+  for (const params of linkCases) {
+    const full = { ...DEFAULTS, ...params };
+    const url = S.designLink(full, { color: '#2b2b2d' });
+    const tag = `pautan ${JSON.stringify(params).slice(0, 80)}`;
+    check(`${tag}: ke /plakbox/`, url.startsWith('https://sifulaser.com/plakbox/?') && url.length < 600, url);
+    const back = S.readDesignLink(new URL(url).search, COLORS);
+    check(`${tag}: dibaca semula`, !!back && back.color === '#2b2b2d');
+    if (!back) continue;
+    const m1 = buildPlakBox(full);
+    const m2 = buildPlakBox(back.params);
+    const d1 = m1.derived, d2 = m2.derived;
+    check(`${tag}: saiz sama`, ['baseL', 'baseW', 'coverOutL', 'coverOutW', 'coverH', 'totalH']
+      .every((k) => near(d1[k], d2[k], 0.005)) && m1.params.type === m2.params.type
+      && m1.params.acrylic === m2.params.acrylic && m1.params.pocket === m2.params.pocket
+      && m1.params.slantFrontOnly === m2.params.slantFrontOnly);
+    const q1 = P.plakQuote(m1), q2 = P.plakQuote(m2);
+    check(`${tag}: harga sama`, q1.state === q2.state && (q1.state !== 'priced' || Math.abs(q1.totalSen - q2.totalSen) <= 10),
+      `${q1.totalText} lawan ${q2.totalText}`);
+    const f1 = A.acrylicFiles(m1, {}), f2 = A.acrylicFiles(m2, {});
+    check(`${tag}: keping akrilik sama`, f1.box.length === f2.box.length
+      && f1.box.every((b, i) => b.sheet.placed.length === f2.box[i].sheet.placed.length));
+  }
+  // Mesej order membawa pautan; tanpa pautan, tiada baris kosong yang tergantung.
+  const m0 = buildPlakBox({ ...DEFAULTS });
+  const q0 = P.plakQuote(m0);
+  const link0 = S.designLink(m0.params, { color: '#6b4430' });
+  const msg = decodeURIComponent(P.orderUrl(m0, q0, { color: 'Walnut', link: link0 }).split('?text=')[1]);
+  check('pautan: mesej order membawa pautan reka bentuk', msg.includes(`Reka bentuk (3D + fail STL/SVG/PDF): ${link0}`)
+    && msg.trim().endsWith(link0));
+  check('pautan: tanpa pautan, tiada baris pautan', !P.orderMessage(m0, q0, {}).includes('Reka bentuk ('));
+  // URL yang bukan pautan reka bentuk tidak mengganti reka bentuk orang.
+  for (const s of ['', '?debug', '?cb=123', '?design=abc', '?plakL=abc', '?pocket=ya']) {
+    check(`pautan: "${s}" bukan reka bentuk`, S.readDesignLink(s, COLORS) === null);
+  }
+  const junk = S.readDesignLink('?type=palsu&plakL=120&warna=ff0000&pocket=0', COLORS);
+  check('pautan: nilai rosak jatuh ke lalai', junk && junk.params.type === DEFAULTS.type && junk.params.plakL === 120
+    && junk.params.pocket === false && junk.color === undefined);
 }
 
 // ---- input teruk ------------------------------------------------------------------
