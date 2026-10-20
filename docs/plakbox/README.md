@@ -103,6 +103,18 @@ jatuh ke lalai), membuang tetapan dari URL, dan memberitahu "Tekan Export".
 Fail dijana semula dari tetapan yang sama, jadi ia sama dengan yang pelanggan
 nampak; ujian membuktikan saiz (0.005 mm), harga dan keping akrilik sama.
 
+**Kongsi dengan gambar (20 Oktober 2026).** Butang kedua di bawah "Order
+melalui WhatsApp" (`src/share.js`): satu PNG 1080 x 1350 - pandangan 3D dari
+sudut standard (`View3D.snapshot()`, sentiasa "Siap" walaupun skrin di "Tapak
+sahaja") dengan jenis, saiz plak / tapak / kotak, warna, kuantiti dan harga -
+dan mesej order yang sama (dengan pautan reka bentuk), melalui menu kongsi
+telefon. Menu kongsi tidak boleh memilih penerima, jadi pelanggan memilih chat
+kedai; mesej juga disalin ke papan keratan kerana WhatsApp iOS kadang-kadang
+membuang teks bila ada gambar. Semuanya segerak dalam klik (toDataURL, bukan
+toBlob) kerana Safari menolak `navigator.share()` selepas `await`. Peranti tanpa
+kongsi fail (kebanyakan komputer): gambar dimuat turun dan WhatsApp dibuka
+dengan mesej, untuk dilampirkan sendiri.
+
 Kalau sumber Kalkulator Laser Cut (`23_Lasercut Languange Machine/quote`)
 ditukar, salinan dalam `docs/lasercut` dikemas kini dahulu - Plak Box membaca
 salinan itu.

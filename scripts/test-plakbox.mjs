@@ -693,6 +693,12 @@ function checkPdf(tag, pdf, sheet, note, placed) {
   for (const s of ['', '?debug', '?cb=123', '?design=abc', '?plakL=abc', '?pocket=ya']) {
     check(`pautan: "${s}" bukan reka bentuk`, S.readDesignLink(s, COLORS) === null);
   }
+  // Kongsi dengan gambar: data:URL -> Blob segerak, bait sama.
+  const SH = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'share.js')).href);
+  const raw = new Uint8Array([137, 80, 78, 71, 0, 255, 10, 13]);
+  const blob = SH.dataUrlToBlob(`data:image/png;base64,${Buffer.from(raw).toString('base64')}`);
+  const got = new Uint8Array(await blob.arrayBuffer());
+  check('kongsi: data:URL -> Blob tepat', blob.type === 'image/png' && got.length === raw.length && got.every((v, i) => v === raw[i]));
   const junk = S.readDesignLink('?type=palsu&plakL=120&warna=ff0000&pocket=0', COLORS);
   check('pautan: nilai rosak jatuh ke lalai', junk && junk.params.type === DEFAULTS.type && junk.params.plakL === 120
     && junk.params.pocket === false && junk.color === undefined);

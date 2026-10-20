@@ -439,6 +439,42 @@ export class View3D {
     }
   }
 
+  /**
+   * Gambar reka bentuk, `w` x `h` piksel, latar telus, dari sudut standard
+   * yang sama dengan frame() - bukan sudut skrin pengguna, supaya setiap
+   * gambar order rupanya sama. Segerak sepenuhnya: dilukis dan disalin dalam
+   * satu tugasan, jadi penimbal WebGL masih ada (tiada preserveDrawingBuffer)
+   * dan menu kongsi masih dalam sentuhan pengguna yang sama.
+   */
+  snapshot(w = 1080, h = 1080) {
+    const cam = this.camera.clone();
+    cam.clearViewOffset();
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+    const { L, W, H } = this.bounds || { L: 300, W: 150, H: 300 };
+    const r = 0.5 * Math.hypot(L, W, H);
+    const fit = Math.min(cam.fov, cam.fov * cam.aspect) * Math.PI / 360;
+    const dist = (r / Math.sin(fit)) * 1.04;
+    const dir = [0.5, -0.78, 0.38];
+    const m = Math.hypot(...dir);
+    const cz = H / 2 + this.follow;
+    cam.position.set(dir[0] / m * dist, dir[1] / m * dist, cz + dir[2] / m * dist);
+    cam.lookAt(0, 0, cz);
+    const pr = this.renderer.getPixelRatio();
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(w, h, false);
+    this.renderer.render(this.scene, cam);
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    out.getContext('2d').drawImage(this.renderer.domElement, 0, 0, w, h);
+    // Kembali ke saiz pentas (resize() juga menetapkan semula gaya kanvas).
+    this.renderer.setPixelRatio(pr);
+    this.resize();
+    this.renderer.render(this.scene, this.camera);
+    return out;
+  }
+
   frame() {
     const { L, W, H } = this.bounds || { L: 300, W: 150, H: 300 };
     const r = 0.5 * Math.hypot(L, W, H);

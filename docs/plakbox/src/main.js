@@ -9,7 +9,8 @@
 import {
   buildPlakBox, cleanParams, profileOf, BASE_TYPES, DEFAULTS, LIMITS, trianglesToStl, ACRYLIC_OPTIONS,
 } from './geom/base.js';
-import { plakQuote, orderUrl, PRINT } from './price.js';
+import { plakQuote, orderUrl, orderMessage, PRINT } from './price.js';
+import { composeOrderImage, shareOrder } from './share.js';
 import * as gallery from './designs.js';
 import { signedIn } from './cloud.js';
 import {
@@ -325,6 +326,50 @@ const orderBtn = h('a', {
   // masuk), supaya staff dan pelanggan boleh membukanya semula.
   onclick: () => { void gallery.saveQuietly(galleryStore); },
 }, 'Order melalui WhatsApp');
+// Pilihan kedua: gambar 3D + butiran + mesej yang sama, melalui menu kongsi
+// telefon (share.js). Pelanggan memilih chat kedai sendiri.
+const shareBtn = h('button', { type: 'button', class: 'ghost share-btn', onclick: () => shareWithImage() },
+  'Kongsi dengan gambar');
+
+function shareWithImage() {
+  const q = plakQuote(model, { qty: state.qty, sheet: state.acr.sheet });
+  const p = model.params;
+  const d = model.derived;
+  const colorName = COLORS.find((c) => c.id === state.color)?.name || '';
+  const text = orderMessage(model, q, { color: colorName, link: designLink(state.params, { color: state.color }) });
+  // Gambar sentiasa pandangan "Siap" (kotak + plak), walaupun skrin di "Tapak
+  // sahaja"; kamera pengguna dipulangkan selepas itu.
+  const other = state.show !== 'siap';
+  const cam = { p: view.camera.position.clone(), t: view.controls.target.clone() };
+  if (other) view.build(model, { show: 'siap', color: state.color, backdrop: 'light' });
+  const shot = view.snapshot(1080, 1080);
+  if (other) {
+    view.build(model, { show: state.show, color: state.color, backdrop: state.backdrop });
+    view.camera.position.copy(cam.p);
+    view.controls.target.copy(cam.t);
+    view.controls.update();
+  }
+  const typeName = BASE_TYPES.find((t) => t.id === p.type).name;
+  const canvas = composeOrderImage(shot, {
+    title: `Plak Box · ${typeName}`,
+    price: q.state === 'priced' ? q.totalText : 'Sebut harga',
+    lines: [
+      `Plak ${mm(p.plakL)} × ${mm(p.plakW)} × ${mm(p.plakH)} mm${d.slot ? ` · akrilik ${mm(p.sheetT)} mm dalam slot` : ''}`,
+      `Tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm${colorName ? ` · ${colorName}` : ''}`,
+      `Kotak akrilik Clear ${p.acrylic} mm · ${mm(d.coverOutL)} × ${mm(d.coverOutW)} × ${mm(d.coverH)} mm`,
+      `Kuantiti ${state.qty} set · tidak termasuk plak`,
+    ],
+    footer: 'sifulaser.com/plakbox · Ambil sendiri di Shah Alam',
+  });
+  void gallery.saveQuietly(galleryStore);
+  const how = shareOrder({
+    canvas, text, waHref: orderBtn.href, download,
+    filename: `plakbox-${p.type}-${mm(p.plakL, 0)}x${mm(p.plakW, 0)}x${mm(p.plakH, 0)}.png`,
+  });
+  showHint(how === 'share'
+    ? 'Pilih WhatsApp, kemudian chat SifuLaser (+60 13-435 4118).'
+    : 'Gambar dimuat turun. Lampirkan dalam chat WhatsApp yang dibuka.', 6000);
+}
 
 function renderPrice() {
   const q = plakQuote(model, { qty: state.qty, sheet: state.acr.sheet });
@@ -355,6 +400,7 @@ function renderStatic() {
       priceRange, priceSub,
       h('div', { class: 'field qty-row' }, h('label', {}, 'Kuantiti (set)'), qtyIn),
       orderBtn,
+      shareBtn,
       // Akrilik mudah pecah dalam pos - ambil sendiri sahaja (Boss, 20 Okt 2026).
       h('p', { class: 'hint' }, 'Ambil sendiri di Shah Alam, tiada pos buat masa ini. ',
         h('a', { href: '/ambil/', target: '_top' }, 'Ambil sendiri'), ' · ',
