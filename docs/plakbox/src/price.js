@@ -1,6 +1,6 @@
 // Harga Plak Box, untuk pelanggan yang mahu order terus dari alat ini.
 //
-//   harga satu set = tapak cetak 3D + kotak akrilik
+//   harga satu set = tapak (cetak 3D ATAU potong laser) + kotak akrilik
 //
 //   tapak   berat PLA anggaran x RM0.50 sesegram. Berat dikira seperti
 //           slicer: kulit (2 dinding, 5 lapis atas, 3 lapis bawah - tetapan
@@ -8,6 +8,13 @@
 //           Kulit diukur daripada mesh STL yang sama dengan yang dimuat turun:
 //           setiap segitiga menghadap atas x tebal atas, menghadap bawah x tebal
 //           bawah, menegak x tebal dinding.
+//   tapak   (mod laser) enjin yang sama dengan kotak, bahan papan yang
+//           dipilih (MDF / plywood / akrilik hitam): setiap lapisan satu
+//           keping sesaiz segi empatnya (bahagian tengah alur dipotong dari
+//           dalam bingkai, jadi tiada bahan tambahan), masa potong setiap tepi
+//           termasuk lubang, tanda penjajaran pada laju skor, gerak kosong
+//           mengikut susunan helaian fail potong. Sebut harga sendiri - caj
+//           minimum dikenakan pada setiap bahan, sama seperti dua order.
 //   kotak   enjin Kalkulator Laser Cut (../../lasercut/src/pricing.js) - tidak
 //           disalin, diimport, supaya harga bahan, laju potong, kadar seminit,
 //           markup dan caj minimum sentiasa sama dengan kalkulator itu. Lima
@@ -22,9 +29,11 @@
 // Tulen: tiada DOM, diuji oleh scripts/test-plakbox.mjs.
 
 import { quote, materialById, RANGE, fmtRM, fmtRMWhole } from '../../lasercut/src/pricing.js';
-import { segTime, MOTION } from '../../lasercut/src/laser.js';
+import { segTime, MOTION, MARK_SPEED } from '../../lasercut/src/laser.js';
 import { waUrl } from '../../lasercut/src/whatsapp.js';
 import { nest, boxPieces, sheetDef, DEFAULT_SHEET } from './acrylic.js';
+import { layerPieces } from './geom/layers.js';
+import { boardOf } from './geom/base.js';
 
 // Cetakan: Bambu Lab, "0.20mm Standard" (wall_loops 2, top_shell_layers 5,
 // bottom_shell_layers 3, garisan 0.42 / 0.45 mm), infill 10% (Boss, 20 Okt 2026).
@@ -103,6 +112,46 @@ export function acrylicJob(model, sheetId = DEFAULT_SHEET) {
   };
 }
 
+/** Masa sepanjang poligaris (tertutup atau tidak) dengan brek di setiap bucu. */
+const pathTime = (pts, v, closed) => {
+  let t = 0;
+  const n = closed ? pts.length : pts.length - 1;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    t += segTime(Math.hypot(b[0] - a[0], b[1] - a[1]), v);
+  }
+  return t;
+};
+
+/**
+ * Kerja laser untuk tapak lapis (mod 'laser'), dalam bentuk quote() terima.
+ * Saiz siap (kerf 0): seperti Kalkulator Laser Cut kira daripada lukisan.
+ */
+export function laserBaseJob(model, sheetId = DEFAULT_SHEET) {
+  const board = boardOf(model.params.board);
+  const material = materialById(board.laserId);
+  const pieces = layerPieces(model.layers, 0);
+  let cut = 0;
+  let score = 0;
+  for (const pc of pieces) {
+    for (const r of pc.rings) cut += pathTime(r, material.cutSpeed, true);
+    for (const l of pc.scores) score += pathTime(l, MARK_SPEED, false);
+  }
+  let rapid = 0;
+  for (const s of nest(pieces, sheetDef(sheetId))) {
+    let at = [0, 0];
+    for (const pl of s.placed) {
+      rapid += segTime(Math.hypot(pl.x - at[0], pl.y - at[1]), MOTION.vmax);
+      at = [pl.x, pl.y];
+    }
+  }
+  return {
+    material,
+    pieces: pieces.map((pc) => ({ wUm: Math.round(pc.nominal.w * 1000), hUm: Math.round(pc.nominal.h * 1000) })),
+    laser: { cutSec: { [material.id]: cut }, scoreSec: score, engraveSec: 0, rapidSec: rapid },
+  };
+}
+
 /**
  * Sebut harga penuh satu Plak Box x kuantiti. `qty` integer >= 1.
  * Semua yang skrin dan mesej WhatsApp tunjuk datang dari objek ini.
@@ -116,8 +165,17 @@ export function plakQuote(model, { qty = 1, sheet = DEFAULT_SHEET } = {}) {
   if (acr.state !== 'priced') return { state: acr.state, qty: n, acrylic: acr };
   const body = model.bodies[0];
   const w = printGrams(body.mesh, body.volumeMm3);
-  const baseSetSen = Math.round(w.grams * PRINT.senPerGram);
-  const baseSen = baseSetSen * n;
+  let baseSetSen = Math.round(w.grams * PRINT.senPerGram);
+  let baseSen = baseSetSen * n;
+  let laserBase = null;
+  if (model.layers) {
+    // Tapak lapis: sebut harga laser sendiri, bahan papan.
+    const job = laserBaseJob(model, sheet);
+    laserBase = quote(job.pieces, job.laser, job.material.id, String(n));
+    if (laserBase.state !== 'priced') return { state: laserBase.state, qty: n, acrylic: acr, laserBase };
+    baseSen = laserBase.totalSen;
+    baseSetSen = Math.round(baseSen / n);
+  }
   const raw = acr.totalSen + baseSen;
   const totalSen = Math.floor(raw / 10 + 0.5) * 10;
   const lowSen = Math.floor((totalSen * (1 - RANGE)) / 100) * 100;
@@ -131,6 +189,7 @@ export function plakQuote(model, { qty = 1, sheet = DEFAULT_SHEET } = {}) {
     baseSen,
     baseText: fmtRM(baseSen),
     filamentCostSen: Math.round((w.grams / 1000) * PRINT.filamentSenPerKg) * n,
+    laserBase,
     acrylic: acr,
     acrylicSen: acr.totalSen,
     acrylicText: fmtRM(acr.totalSen),
@@ -156,8 +215,11 @@ export function orderMessage(model, q, { color = '', link = '' } = {}) {
   const lines = [
     'Salam, saya nak order Plak Box.',
     `Plak: ${r1(p.plakL)} x ${r1(p.plakW)} x ${r1(p.plakH)} mm${d.slot ? ` (plak akrilik ${p.sheetT} mm, dalam slot)` : ''}`,
-    `Tapak: ${TYPE_NAMES[p.type] || p.type}, ${r1(d.baseL)} x ${r1(d.baseW)} x ${r1(p.baseH)} mm`
-      + `${color ? `, warna ${color}` : ''} (cetak 3D)`,
+    model.layers
+      ? `Tapak: ${TYPE_NAMES[p.type] || p.type}, ${r1(d.baseL)} x ${r1(d.baseW)} x ${r1(p.baseH)} mm`
+        + ` (potong laser, ${boardOf(p.board).name}, ${model.layers.N} lapis)`
+      : `Tapak: ${TYPE_NAMES[p.type] || p.type}, ${r1(d.baseL)} x ${r1(d.baseW)} x ${r1(p.baseH)} mm`
+        + `${color ? `, warna ${color}` : ''} (cetak 3D)`,
     `Kotak akrilik: Clear ${p.acrylic} mm, ${r1(d.coverOutL)} x ${r1(d.coverOutW)} x ${r1(d.coverH)} mm`,
     `Kuantiti: ${q.qty} set`,
     // Satu harga tepat, sama dengan skrin; tiada pecahan tapak / akrilik

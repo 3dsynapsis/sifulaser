@@ -150,8 +150,13 @@ const NOTE_LEAD = 2.5;              // jarak antara dua baris
  * Dua baris nota bagi satu fail. `t` dalam mm; `kind` 'kotak' (helaian
  * `sheet`) atau 'plak' (sekeping, saiz siap `size`).
  */
-export function noteLines({ kind = 'kotak', t, sheet, size, index = 1, total = 1, count, kerf }) {
+export function noteLines({ kind = 'kotak', t, sheet, size, index = 1, total = 1, count, kerf, material }) {
   const tail = ` - kerf ${fmt(kerf)} mm - nota sahaja, jangan potong lapisan ini`;
+  if (kind === 'tapak') {
+    const where = total > 1 ? `helaian ${index}/${total}` : 'helaian';
+    return [`${material}`,
+      `Plak Box - tapak lapis - ${where} ${fmt(sheet.w)} x ${fmt(sheet.h)} mm - ${count} lapis${tail}`];
+  }
   if (kind === 'plak') {
     return [`Acrylic ${fmt(t)}mm - plak`,
       `Plak Box - plak ${fmt(size.w)} x ${fmt(size.h)} mm - 1 keping${tail}`];
@@ -205,6 +210,23 @@ export function notePaths(note) {
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+// Keping yang bukan segi empat kosong (lapisan tapak: berlubang, dengan tanda
+// penjajaran) membawa `rings` dan `scores` dalam koordinat tempatannya, dari
+// bucu kiri bawah. Di sini ia dibawa ke helaian - diputar 90 darjah lawan
+// arah jam bila susunan memutarnya - sebagai poligaris [x0, y0, x1, y1, ...].
+export const SCORE_COLOR = '#0000ff';
+const placePt = (pl, [x, y]) => (pl.rot ? [pl.x + (pl.piece.h - y), pl.y + x] : [pl.x + x, pl.y + y]);
+function placedCuts(pl) {
+  if (!pl.piece.rings) return [[pl.x, pl.y, pl.x + pl.w, pl.y, pl.x + pl.w, pl.y + pl.h, pl.x, pl.y + pl.h, pl.x, pl.y]];
+  return pl.piece.rings.map((r) => [...r, r[0]].flatMap((q) => placePt(pl, q)));
+}
+const placedScores = (pl) => (pl.piece.scores || []).map((l) => l.flatMap((q) => placePt(pl, q)));
+const svgPoly = (p, close) => {
+  let d = `M${fmt(p[0])} ${fmt(p[1])}`;
+  for (let k = 2; k < p.length; k += 2) d += `L${fmt(p[k])} ${fmt(p[k + 1])}`;
+  return close ? `${d}Z` : d;
+};
+
 /** Satu helaian sebagai SVG: lapisan Potong merah, label kelabu (pilihan), nota hijau. */
 export function sheetToSvg(sheet, { title = 'Plak Box', labels = false, strokeWidth = 0.1, note = null } = {}) {
   const H = note ? note.canvasH : sheet.h;
@@ -217,9 +239,22 @@ export function sheetToSvg(sheet, { title = 'Plak Box', labels = false, strokeWi
     '<g id="cut" data-layer="Potong" fill="none" stroke="#ff0000" stroke-width="' + fmt(strokeWidth) + '">',
   ].filter(Boolean);
   for (const pl of sheet.placed) {
-    parts.push(`<path d="M${fmt(pl.x)} ${fmt(pl.y)}H${fmt(pl.x + pl.w)}V${fmt(pl.y + pl.h)}H${fmt(pl.x)}Z"/>`);
+    if (!pl.piece.rings) {
+      parts.push(`<path d="M${fmt(pl.x)} ${fmt(pl.y)}H${fmt(pl.x + pl.w)}V${fmt(pl.y + pl.h)}H${fmt(pl.x)}Z"/>`);
+      continue;
+    }
+    // Satu <path> bagi setiap keping: tepi luar dan lubangnya bersama.
+    parts.push(`<path d="${placedCuts(pl).map((c) => svgPoly(c.slice(0, -2), true)).join(' ')}"/>`);
   }
   parts.push('</g>');
+  const scores = sheet.placed.flatMap(placedScores);
+  if (scores.length) {
+    // Tanda penjajaran: skor ringan (biru, seperti Engrave Line dalam Box
+    // Maker), di tempat keping lapisan atas duduk - tertutup bila dilekat.
+    parts.push(`<g id="score" data-layer="Tanda penjajaran" fill="none" stroke="${SCORE_COLOR}" stroke-width="${fmt(strokeWidth)}">`);
+    for (const l of scores) parts.push(`<path d="${svgPoly(l, false)}"/>`);
+    parts.push('</g>');
+  }
   if (labels) {
     // Lejang satu garisan, kelabu, lapisan sendiri: untuk mengenal keping di
     // atas katil. Jangan petakan lapisan ini kepada ukiran - akrilik jernih
@@ -263,7 +298,6 @@ export function sheetToPdf(sheet, { title = 'Plak Box', labels = false, strokeWi
   const H = note ? note.canvasH : sheet.h;
   const ops = [`${fmt(PT)} 0 0 ${fmt(PT)} 0 0 cm`, '1 J 1 j'];
   ops.push(`${rgb('#ff0000')} RG ${fmt(strokeWidth)} w`);
-  for (const pl of sheet.placed) ops.push(`${fmt(pl.x)} ${fmt(pl.y)} ${fmt(pl.w)} ${fmt(pl.h)} re S`);
   const lines = (polys) => {
     for (const p of polys) {
       if (p.length < 4) continue;
@@ -272,6 +306,15 @@ export function sheetToPdf(sheet, { title = 'Plak Box', labels = false, strokeWi
       ops.push(`${s} S`);
     }
   };
+  for (const pl of sheet.placed) {
+    if (pl.piece.rings) lines(placedCuts(pl));
+    else ops.push(`${fmt(pl.x)} ${fmt(pl.y)} ${fmt(pl.w)} ${fmt(pl.h)} re S`);
+  }
+  const scores = sheet.placed.flatMap(placedScores);
+  if (scores.length) {
+    ops.push(`${rgb(SCORE_COLOR)} RG`);
+    lines(scores);
+  }
   if (labels) {
     ops.push(`${rgb('#9aa0a6')} RG`);
     for (const pl of sheet.placed) {

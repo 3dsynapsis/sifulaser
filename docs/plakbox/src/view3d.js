@@ -239,7 +239,41 @@ export class View3D {
     const baseMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(opts.color || '#6b4430'), roughness: 0.6, metalness: 0.02,
     });
-    for (const body of model.bodies) {
+    // Tapak potong laser: lapisan papan sebenar, setiap keping diekstrud dari
+    // garis potongnya, dengan tepi gelap (tepi terbakar laser) supaya setiap
+    // lapisan dan celah alur kelihatan seperti yang akan dilekat.
+    if (model.layers) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(opts.boardColor || '#b48a5e'), roughness: 0.75, metalness: 0.02,
+      });
+      const seam = new THREE.LineBasicMaterial({ color: 0x2a1d12, transparent: true, opacity: 0.55 });
+      const rectPath = (r, P) => {
+        const q = new P();
+        q.moveTo(r.x0, r.y0); q.lineTo(r.x1, r.y0); q.lineTo(r.x1, r.y1); q.lineTo(r.x0, r.y1); q.closePath();
+        return q;
+      };
+      for (const L of model.layers.layers) {
+        for (const part of L.parts) {
+          const shape = rectPath(part.outline, THREE.Shape);
+          // Lubang mesti berlawanan arah dengan tepi luar.
+          for (const hole of part.holes) {
+            const q = new THREE.Path();
+            q.moveTo(hole.x0, hole.y0); q.lineTo(hole.x0, hole.y1); q.lineTo(hole.x1, hole.y1); q.lineTo(hole.x1, hole.y0); q.closePath();
+            shape.holes.push(q);
+          }
+          const geom = new THREE.ExtrudeGeometry(shape, { depth: L.z1 - L.z0, bevelEnabled: false });
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.position.z = L.z0;
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          this.root.add(mesh);
+          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom), seam);
+          edges.position.z = L.z0;
+          this.root.add(edges);
+        }
+      }
+    }
+    for (const body of (model.layers ? [] : model.bodies)) {
       const geom = new THREE.BufferGeometry();
       geom.setAttribute('position', new THREE.BufferAttribute(body.mesh.slice(), 3));
       geom.computeVertexNormals();

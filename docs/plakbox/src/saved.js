@@ -8,7 +8,7 @@
 //
 // Tulen: tiada DOM, diuji oleh scripts/test-plakbox.mjs.
 
-import { DEFAULTS, BASE_TYPES } from './geom/base.js';
+import { DEFAULTS, BASE_TYPES, boardOf } from './geom/base.js';
 import { SHEETS, DEFAULT_SHEET, DEFAULT_KERF, cleanKerf } from './acrylic.js';
 
 const r1 = (v) => Math.round(Number(v) * 10) / 10;
@@ -33,12 +33,16 @@ export function designParams(params) {
 }
 
 /** Bahan, sebagai teks yang dibaca manusia dalam rekod. */
-export const designMaterial = (params) => `Akrilik Clear ${params.acrylic}mm`;
+export const designMaterial = (params) => `Akrilik Clear ${params.acrylic}mm`
+  + (params.baseMode === 'laser' ? ` + tapak ${boardOf(params.board).name}` : '');
 
 /** Selebihnya - warna tapak dan tetapan fail potong - sebagai satu objek kecil. */
 export const designExtra = (state) => ({
   color: state.color,
   acr: { sheet: state.acr.sheet, kerf: state.acr.kerf, labels: state.acr.labels },
+  base: state.base
+    ? { sheet: state.base.sheet, kerf: state.base.kerf, labels: state.base.labels, marks: state.base.marks }
+    : undefined,
 });
 
 /**
@@ -73,6 +77,14 @@ export function readDesign(row, colors = []) {
       kerf: cleanKerf(a.kerf ?? DEFAULT_KERF),
       labels: a.labels === true,
     },
+  };
+  // Tetapan fail tapak laser; kerf null = lalai papan.
+  const b = extra.base && typeof extra.base === 'object' ? extra.base : {};
+  out.base = {
+    sheet: SHEETS.some((s) => s.id === b.sheet) ? b.sheet : DEFAULT_SHEET,
+    kerf: Number.isFinite(b.kerf) && b.kerf >= 0 && b.kerf <= 1 ? b.kerf : null,
+    labels: b.labels === true,
+    marks: b.marks !== false,
   };
   if (colors.some((c) => c.id === extra.color)) out.color = extra.color;
   return out;

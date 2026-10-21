@@ -44,6 +44,16 @@
 //                            serentak = satu entri, gagal = senyap.
 //   * PAUTAN ORDER         - pautan dalam mesej WhatsApp membuka reka bentuk
 //                            yang sama: saiz, harga, keping akrilik.
+//   * TAPAK POTONG LASER   - tinggi tapak, alur, poket, slot dan tingkat ialah
+//                            gandaan tebal papan; setiap lapisan, disampel pada
+//                            grid, sama dengan tapak pepejal yang diterangkan
+//                            oleh profil + alur + poket + slot pada tengah
+//                            lapisan itu (jadi tindanan = tapak); lantai >= 1
+//                            lapisan; kerf membesarkan tepi luar dan
+//                            mengecilkan lubang; setiap tanda penjajaran duduk
+//                            atas bahan lapisannya DAN di bawah keping lapisan
+//                            atas (tertutup bila dilekat); fail SVG/PDF ada
+//                            satu keping bagi setiap lapisan; harga dikira.
 //   * input teruk          - sifar, negatif, NaN, teks, jenis palsu: tak campak.
 
 import path from 'node:path';
@@ -702,6 +712,119 @@ function checkPdf(tag, pdf, sheet, note, placed) {
   const junk = S.readDesignLink('?type=palsu&plakL=120&warna=ff0000&pocket=0', COLORS);
   check('pautan: nilai rosak jatuh ke lalai', junk && junk.params.type === DEFAULTS.type && junk.params.plakL === 120
     && junk.params.pocket === false && junk.color === undefined);
+}
+
+// ---- tapak potong laser -----------------------------------------------------------
+{
+  const LAY = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'geom', 'layers.js')).href);
+  const LB = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'laserbase.js')).href);
+  const PR = await import(pathToFileURL(path.join(here, '..', 'docs', 'plakbox', 'src', 'price.js')).href);
+  const inR = (r, x, y) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
+  const mult = (v, T) => Math.abs(v / T - Math.round(v / T)) < 1e-6;
+  const cases = [];
+  for (const type of BASE_TYPES.map((t) => t.id)) {
+    for (const boardT of [3, 2.7, 5]) cases.push({ type, boardT });
+  }
+  cases.push({ type: 'serong', slantFrontOnly: true, boardT: 3 });
+  cases.push({ type: 'standard', boardT: 3, pocket: false, grooveDepth: 7, baseH: 20 });
+  cases.push({ type: 'slot', boardT: 3, slotDepth: 20, baseH: 15 });
+  cases.push({ type: 'tingkat', boardT: 5, baseH: 12 });
+  for (const c of cases) {
+    const m = buildPlakBox({ ...DEFAULTS, ...c, baseMode: 'laser' });
+    const p = m.params, d = m.derived, S = m.layers;
+    const tag = `laser ${JSON.stringify(c)}`;
+    const T = p.boardT;
+    check(`${tag}: ada lapisan`, !!S && S.N >= 2 && S.layers.length === S.N);
+    if (!S) continue;
+    check(`${tag}: tinggi = N x tebal`, Math.abs(p.baseH - S.N * T) < 1e-6, `${p.baseH} / ${S.N} x ${T}`);
+    check(`${tag}: alur gandaan tebal, >= 1 lapis, lantai >= 1 lapis`, mult(p.grooveDepth, T) && S.grooveLayers >= 1 && S.grooveLayers <= S.N - 1);
+    if (d.pocket) check(`${tag}: poket gandaan tebal`, mult(p.pocketDepth, T) && S.pocketLayers <= S.N - 1);
+    if (d.slot) check(`${tag}: slot gandaan tebal, lantai >= 1 lapis`, mult(p.slotDepth, T) && S.slotLayers <= S.N - 1);
+    if (p.type === 'tingkat' || p.type === 'slot') {
+      check(`${tag}: tingkat bawah gandaan tebal`, mult((p.baseH * p.tierRatio) / 100, T) && p.tierChamfer === 0);
+    }
+    // Pepejal rujukan pada (x, y, z), daripada derive sahaja.
+    const solid = (x, y, z) => {
+      const o = LAY.offsetAt(d.profile, z);
+      if (!(x > d.top.x0 - o.l && x < d.top.x1 + o.r && y > d.top.y0 - o.f && y < d.top.y1 + o.b)) return false;
+      const depth = p.baseH - z;
+      if (depth < p.grooveDepth && inR(d.groove, x, y) && !inR(d.grooveIn, x, y)) return false;
+      if (d.pocket && depth < p.pocketDepth && inR(d.pocket, x, y)) return false;
+      if (d.slot && depth < p.slotDepth && inR(d.slot, x, y)) return false;
+      return true;
+    };
+    let bad = 0, n = 0;
+    for (const L of S.layers) {
+      const z = (L.z0 + L.z1) / 2;
+      const inPart = (x, y) => L.parts.some((q) => inR(q.outline, x, y) && !q.holes.some((hh) => inR(hh, x, y)));
+      for (let x = 0.137; x < d.baseL; x += d.baseL / 97) {
+        for (let y = 0.211; y < d.baseW; y += d.baseW / 61) {
+          n++;
+          if (inPart(x, y) !== solid(x, y, z)) bad++;
+        }
+      }
+      // Bahagian tengah alur (bila ada) muat dalam lubang bingkai dengan celah = lebar alur.
+      const fr = L.parts.find((q) => q.kind === 'frame'), ce = L.parts.find((q) => q.kind === 'centre');
+      if (fr) {
+        const gap = ce.outline.x0 - fr.holes[0].x0;
+        check(`${tag}: L${L.n} celah alur = akrilik + 2 x kelonggaran`, Math.abs(gap - (p.acrylic + 2 * p.grooveClear)) < 1e-6, `${gap}`);
+      }
+    }
+    check(`${tag}: setiap lapisan = tapak pepejal pada tengahnya`, bad === 0, `${bad} / ${n} titik berbeza`);
+    // Tanda penjajaran: atas bahan lapisan ini, di bawah keping lapisan atas.
+    let mOut = 0, mCount = 0;
+    S.layers.forEach((L, i) => {
+      const up = S.layers[i + 1];
+      for (const mk of L.marks) {
+        for (const [x, y] of mk) {
+          mCount++;
+          const onHere = L.parts.some((q) => x >= q.outline.x0 && x <= q.outline.x1 && y >= q.outline.y0 && y <= q.outline.y1
+            && !q.holes.some((hh) => inR(hh, x, y)));
+          const covered = up && up.parts.some((q) => inR(q.outline, x, y) && !q.holes.some((hh) => inR(hh, x, y)));
+          if (!onHere || !covered) mOut++;
+        }
+      }
+    });
+    check(`${tag}: tanda penjajaran tertutup oleh lapisan atas`, mOut === 0, `${mOut} / ${mCount}`);
+    check(`${tag}: lapisan atas tiada tanda`, S.layers[S.N - 1].marks.length === 0);
+    // Lapisan pepejal tepat di bawah lapisan alur: empat tanda L di bucu
+    // bahagian tengah, supaya ia boleh dijajarkan.
+    S.layers.forEach((L, i) => {
+      const up = S.layers[i + 1];
+      if (!up || !up.groove || L.groove) return;
+      const ce = up.parts.find((q) => q.kind === 'centre').outline;
+      const corners = [[ce.x0, ce.y0], [ce.x1, ce.y0], [ce.x1, ce.y1], [ce.x0, ce.y1]];
+      const hit = corners.filter(([cx, cy]) => L.marks.some((mk) => Math.hypot(mk[1][0] - cx, mk[1][1] - cy) < 1.5)).length;
+      check(`${tag}: L${L.n} ada tanda bucu bahagian tengah alur`, hit === 4, `${hit}/4`);
+    });
+    // Kerf: tepi luar +k/2, lubang -k/2.
+    const k = 0.2;
+    const pcs = LAY.layerPieces(S, k);
+    const okK = pcs.every((pc, i) => {
+      const L = S.layers[i];
+      return Math.abs(pc.w - (L.rect.x1 - L.rect.x0 + k)) < 1e-6 && Math.abs(pc.h - (L.rect.y1 - L.rect.y0 + k)) < 1e-6
+        && pc.rings.length === L.parts.reduce((a, q) => a + 1 + q.holes.length, 0);
+    });
+    check(`${tag}: keping + kerf`, okK);
+    // Fail dan harga.
+    const f = LB.baseFiles(m, { sheet: '900x600', kerf: k });
+    check(`${tag}: fail ada setiap lapisan sekali`, f.files.reduce((a, x) => a + x.sheet.placed.length, 0) === S.N);
+    check(`${tag}: SVG ada potong, tanda, nota papan`, f.files.every((x) => x.svg.includes('id="cut"') && x.svg.includes('id="note"'))
+      && f.files.some((x) => x.svg.includes('id="score"')) === S.layers.some((L) => L.marks.length > 0)
+      && f.files[0].note.lines[0].startsWith(f.board.name));
+    check(`${tag}: PDF sah`, f.files.every((x) => x.pdf.startsWith('%PDF-1.4') && x.pdf.includes('%%EOF')));
+    const q = PR.plakQuote(m, { qty: 2 });
+    check(`${tag}: harga dikira dengan papan`, q.state === 'priced' && q.laserBase && q.laserBase.state === 'priced'
+      && q.laserBase.material.id === f.board.laserId && q.totalSen >= q.acrylicSen + q.laserBase.totalSen - 10, q.state);
+  }
+  // Cetak 3D tiada lapisan; tiada fail tapak laser.
+  const mp = buildPlakBox({ ...DEFAULTS });
+  check('cetak 3D: tiada lapisan', mp.layers === null && LB.baseFiles(mp) === null);
+  // Mod / papan teruk jatuh ke lalai.
+  const mb = buildPlakBox({ ...DEFAULTS, baseMode: 'x', board: 'kayu-jati' });
+  check('mod teruk: cetak 3D, papan lalai', mb.params.baseMode === 'print' && mb.params.board === 'mdf3');
+  const mt = buildPlakBox({ ...DEFAULTS, baseMode: 'laser', boardT: 'abc', baseH: 'x' });
+  check('laser teruk: tak campak, lapisan sah', !!mt.layers && mt.layers.N >= 2);
 }
 
 // ---- input teruk ------------------------------------------------------------------

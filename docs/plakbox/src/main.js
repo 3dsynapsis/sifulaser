@@ -1,5 +1,6 @@
-// Plak Box: input -> buildPlakBox -> paparan 3D + ringkasan -> STL (tapak)
-// dan SVG (kotak akrilik, src/acrylic.js).
+// Plak Box: input -> buildPlakBox -> paparan 3D + ringkasan -> tapak (STL
+// cetak 3D, atau SVG / PDF lapisan potong laser - src/laserbase.js) dan kotak
+// akrilik (SVG / PDF, src/acrylic.js).
 //
 // Satu fail kerana alatnya kecil: tiada editor 2D, tiada undo. Panel tetapan
 // dibina SEKALI; perubahan hanya menulis semula pratonton dan bahagian yang
@@ -8,7 +9,9 @@
 
 import {
   buildPlakBox, cleanParams, profileOf, BASE_TYPES, DEFAULTS, LIMITS, trianglesToStl, ACRYLIC_OPTIONS,
+  BOARDS, boardOf,
 } from './geom/base.js';
+import { baseFiles, cleanBoardKerf } from './laserbase.js';
 import { plakQuote, orderUrl, orderMessage, PRINT } from './price.js';
 import { composeOrderImage, shareOrder } from './share.js';
 import * as gallery from './designs.js';
@@ -62,6 +65,13 @@ const state = {
     kerf: cleanKerf(saved.acr?.kerf ?? DEFAULT_KERF),
     labels: saved.acr?.labels === true,
   },
+  // Tetapan fail tapak laser. kerf null = lalai papan yang dipilih.
+  base: {
+    sheet: ACR_SHEETS.some((x) => x.id === saved.base?.sheet) ? saved.base.sheet : ACR_SHEET,
+    kerf: Number.isFinite(saved.base?.kerf) ? saved.base.kerf : null,
+    labels: saved.base?.labels === true,
+    marks: saved.base?.marks !== false,
+  },
 };
 // Jenis yang tersimpan tetapi sudah dibuang (Terapung) kembali ke Standard.
 if (!BASE_TYPES.some((t) => t.id === state.params.type)) state.params.type = DEFAULTS.type;
@@ -93,6 +103,7 @@ const h = (tag, attrs = {}, ...kids) => {
 };
 const mm = (v, dp = 1) => `${Math.round(v * 10 ** dp) / 10 ** dp}`;
 const isSlot = () => !!model.derived.slot;
+const isLaser = () => !!model.layers;
 const ACRYLIC_G_PER_CM3 = 1.19;
 
 // ------------------------------------------------------------ pengiraan semula
@@ -107,10 +118,11 @@ function showHint(text, ms = 1800) {
 
 function rebuild() {
   model = buildPlakBox(state.params);
-  view.build(model, { show: state.show, color: state.color, backdrop: state.backdrop });
+  view.build(model, viewOpts(state.show, state.backdrop));
   const d = model.derived;
   const p = model.params;
-  $('#sizeReadout').textContent = `Tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm`;
+  $('#sizeReadout').textContent = `Tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm`
+    + (isLaser() ? ` · ${model.layers.N} lapis ${boardOf(p.board).name}` : '');
   const w = $('#warnings');
   w.hidden = !model.warnings.length;
   w.textContent = model.warnings.join(' ');
@@ -118,6 +130,11 @@ function rebuild() {
   renderPrice();
   paintLift();
   save();
+}
+
+/** Pilihan pratonton: warna tapak cetak, atau warna papan untuk tapak laser. */
+function viewOpts(show, backdrop) {
+  return { show, color: state.color, backdrop, boardColor: boardOf(model.params.board).color };
 }
 
 // ------------------------------------------------------------ butang angkat
@@ -184,6 +201,21 @@ function sync() {
   // Jenis slot: plak sekeping akrilik dicucuk ke slot di tengah - slot itu
   // menggantikan poket. Kotak akrilik dan alurnya sama seperti jenis lain.
   const slot = type === 'slot';
+  // Mod tapak: kawalan cetak 3D atau potong laser.
+  const laser = model.params.baseMode === 'laser';
+  modeSeg.paint(model.params.baseMode);
+  laserBlock.hidden = !laser;
+  printBlock.hidden = laser;
+  boardSel.value = model.params.board;
+  tierChamferRow.hidden = laser;   // papan dipotong tegak - tiada serong tepi
+  for (const [key, { num, range }] of inputs) {
+    // Dalam mod laser, ketinggian bergerak selangkah satu lapisan.
+    if (['baseH', 'grooveDepth', 'pocketDepth', 'slotDepth', 'stepH'].includes(key)) {
+      const st = laser ? model.params.boardT : (key === 'baseH' ? 1 : 0.5);
+      num.step = st;
+      range.step = st;
+    }
+  }
   pocketBlock.hidden = slot;
   sheetRow.hidden = !slot;
   plakWLabel.textContent = slot ? 'Ruang plak (depan ke belakang)' : 'Lebar (depan ke belakang)';
@@ -262,10 +294,11 @@ const typeNote = h('p', { class: 'hint' });
 const frontSeg = seg([{ id: 'semua', label: 'Semua sisi' }, { id: 'depan', label: 'Depan sahaja' }],
   state.params.slantFrontOnly ? 'depan' : 'semua', (v) => { state.params.slantFrontOnly = v === 'depan'; rebuild(); sync(); });
 const sub = (...kids) => h('div', { class: 'group-body', style: 'padding:0' }, ...kids);
+const tierChamferRow = numberRow('tierChamfer', 'Serong tepi tingkat', { step: 0.5, hint: '0 = tepi tajam.' });
 const tierSub = sub(
   numberRow('tierInset', 'Tingkat atas masuk ke dalam', { step: 0.5 }),
   numberRow('tierRatio', 'Tinggi tingkat bawah', { step: 1, unit: '%' }),
-  numberRow('tierChamfer', 'Serong tepi tingkat', { step: 0.5, hint: '0 = tepi tajam.' }));
+  tierChamferRow);
 const slotSub = sub(
   numberRow('slotDepth', 'Dalam slot', { step: 0.5, hint: 'Berapa dalam plak terbenam dalam tapak.' }),
   numberRow('slotClear', 'Kelonggaran slot (setiap sisi)', { step: 0.05,
@@ -309,6 +342,38 @@ const pocketBlock = sub(
   h('label', { class: 'check' }, pocketChk, ' Poket untuk tapak plak (supaya plak tidak bergeser)'),
   pocketFields);
 
+// ---- mod tapak: cetak 3D atau potong laser
+const modeSeg = seg([{ id: 'print', label: 'Cetak 3D' }, { id: 'laser', label: 'Potong laser' }],
+  state.params.baseMode || 'print', (v) => { state.params.baseMode = v; rebuild(); sync(); });
+const boardSel = h('select', {
+  onchange: (e) => {
+    state.params.board = e.target.value;
+    state.params.boardT = boardOf(e.target.value).t;   // tebal nominal; pengguna boleh ubah ke sebenar
+    rebuild();
+    sync();
+  },
+}, BOARDS.map((b) => h('option', { value: b.id }, b.name)));
+const layerInfo = h('p', { class: 'note' });
+const laserBlock = sub(
+  h('div', { class: 'field' }, h('label', {}, 'Papan'), boardSel),
+  numberRow('boardT', 'Tebal sebenar papan', { step: 0.05,
+    hint: 'Ukur dengan angkup: MDF "3 mm" selalunya 2.7–3.0 mm. Setiap ketinggian di bawah dikira dalam lapisan setebal ini.' }),
+  layerInfo);
+const printBlock = sub(
+  h('div', { class: 'field' },
+    h('label', {}, 'Warna pratonton'),
+    h('div', { class: 'swatches' }, COLORS.map((c) => h('button', {
+      type: 'button', title: c.name, 'aria-pressed': String(c.id === state.color),
+      style: `background:${c.id}`,
+      onclick: (e) => {
+        state.color = c.id;
+        for (const b of e.target.parentNode.children) b.setAttribute('aria-pressed', String(b === e.target));
+        rebuild();
+      },
+    })))),
+  h('p', { class: 'hint' }, 'Tapak pepejal sepenuhnya - ketumpatan (infill) ditetapkan dalam Bambu Studio. '
+    + 'Semua jenis boleh dicetak tanpa support.'));
+
 // ---- harga: untuk pelanggan yang mahu order terus dari sini
 const priceRange = h('div', { class: 'price-big' });
 const priceSub = h('p', { class: 'muted price-sub' });
@@ -341,10 +406,10 @@ function shareWithImage() {
   // sahaja"; kamera pengguna dipulangkan selepas itu.
   const other = state.show !== 'siap';
   const cam = { p: view.camera.position.clone(), t: view.controls.target.clone() };
-  if (other) view.build(model, { show: 'siap', color: state.color, backdrop: 'light' });
+  if (other) view.build(model, viewOpts('siap', 'light'));
   const shot = view.snapshot(1080, 1080);
   if (other) {
-    view.build(model, { show: state.show, color: state.color, backdrop: state.backdrop });
+    view.build(model, viewOpts(state.show, state.backdrop));
     view.camera.position.copy(cam.p);
     view.controls.target.copy(cam.t);
     view.controls.update();
@@ -355,7 +420,9 @@ function shareWithImage() {
     price: q.state === 'priced' ? q.totalText : 'Sebut harga',
     lines: [
       `Plak ${mm(p.plakL)} × ${mm(p.plakW)} × ${mm(p.plakH)} mm${d.slot ? ` · akrilik ${mm(p.sheetT)} mm dalam slot` : ''}`,
-      `Tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm${colorName ? ` · ${colorName}` : ''}`,
+      isLaser()
+        ? `Tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm · potong laser ${boardOf(p.board).name}, ${model.layers.N} lapis`
+        : `Tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm${colorName ? ` · ${colorName}` : ''}`,
       `Kotak akrilik Clear ${p.acrylic} mm · ${mm(d.coverOutL)} × ${mm(d.coverOutW)} × ${mm(d.coverH)} mm`,
       `Kuantiti ${state.qty} set · tidak termasuk plak`,
     ],
@@ -424,7 +491,9 @@ function renderStatic() {
       h('div', { class: 'field' }, h('label', {}, 'Keping untuk dipotong'), piecesBox),
       acrylicNote),
 
-    group('Tapak cetak 3D', true,
+    group('Tapak', true,
+      h('div', { class: 'field' }, h('label', {}, 'Dibuat dengan'), modeSeg),
+      laserBlock,
       h('div', { class: 'field' }, h('label', {}, 'Jenis tapak'), typeCards),
       typeNote,
       ...fieldBlocks,
@@ -434,19 +503,7 @@ function renderStatic() {
       numberRow('grooveClear', 'Kelonggaran alur (setiap sisi)', { step: 0.05,
         hint: 'Lebar alur = tebal akrilik + 2 × kelonggaran. 0.3–0.5 mm biasanya muat untuk PLA.' }),
       pocketBlock,
-      h('div', { class: 'field' },
-        h('label', {}, 'Warna pratonton'),
-        h('div', { class: 'swatches' }, COLORS.map((c) => h('button', {
-          type: 'button', title: c.name, 'aria-pressed': String(c.id === state.color),
-          style: `background:${c.id}`,
-          onclick: (e) => {
-            state.color = c.id;
-            for (const b of e.target.parentNode.children) b.setAttribute('aria-pressed', String(b === e.target));
-            rebuild();
-          },
-        })))),
-      h('p', { class: 'hint' }, 'Tapak pepejal sepenuhnya - ketumpatan (infill) ditetapkan dalam Bambu Studio. '
-        + 'Semua jenis boleh dicetak tanpa support.')),
+      printBlock),
 
     group('Ringkasan', true, summaryBox),
   );
@@ -465,8 +522,19 @@ function renderDynamic() {
     + 'Fail SVG potongnya di Export.';
   const stat = (k, v) => h('div', { class: 'stat' }, h('span', {}, k), h('b', {}, v));
   const typeName = BASE_TYPES.find((t) => t.id === p.type).name;
+  const L = model.layers;
+  if (L) {
+    const parts = L.layers.reduce((a, x) => a + x.parts.length, 0);
+    layerInfo.textContent = `${L.N} lapis × ${mm(L.T, 2)} mm = tapak ${mm(p.baseH, 2)} mm tinggi. `
+      + `Alur ${L.grooveLayers} lapis (${mm(p.grooveDepth, 2)} mm)`
+      + (L.pocketLayers ? `, poket ${L.pocketLayers} lapis` : '')
+      + (L.slotLayers ? `, slot ${L.slotLayers} lapis (${mm(p.slotDepth, 2)} mm)` : '')
+      + `. ${parts} keping: lapisan alur dipotong jadi bingkai + bahagian tengah.`;
+  }
   summaryBox.replaceChildren(
     stat('Jenis tapak', typeName),
+    stat('Dibuat dengan', L ? `Potong laser · ${boardOf(p.board).name}` : 'Cetak 3D'),
+    L ? stat('Lapisan', `${L.N} × ${mm(L.T, 2)} mm`) : null,
     stat('Tapak', `${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm`),
     d.namePlate ? stat('Ruang plat nama (depan)', `${mm(d.namePlate.w)} × ${mm(d.namePlate.h)} mm`) : null,
     stat('Kotak akrilik (luar)', `${mm(d.coverOutL)} × ${mm(d.coverOutW)} × ${mm(d.coverH)} mm`),
@@ -474,10 +542,12 @@ function renderDynamic() {
     d.slot ? stat('Plak akrilik', `${mm(p.plakL)} × ${mm(p.plakH)} × ${mm(p.sheetT)} mm`) : null,
     d.slot ? stat('Berat plak lebih kurang', `${Math.round((p.plakL * p.plakH * p.sheetT / 1000) * ACRYLIC_G_PER_CM3)} g`) : null,
     stat('Tinggi keseluruhan', `${mm(d.totalH)} mm`),
-    stat('Isipadu tapak', `${mm(model.stats.volumeMm3 / 1000)} cm³`),
-    stat('Berat jika 100% pepejal', `${Math.round(model.stats.gramsSolid)} g PLA`),
-    stat(`Berat anggaran (infill ${Math.round(PRINT.infill * 100)}%)`, `${Math.round(plakQuote(model).grams)} g PLA`),
-    stat('Segitiga STL', `${model.stats.triangles}`),
+    ...(L ? [] : [
+      stat('Isipadu tapak', `${mm(model.stats.volumeMm3 / 1000)} cm³`),
+      stat('Berat jika 100% pepejal', `${Math.round(model.stats.gramsSolid)} g PLA`),
+      stat(`Berat anggaran (infill ${Math.round(PRINT.infill * 100)}%)`, `${Math.round(plakQuote(model).grams)} g PLA`),
+      stat('Segitiga STL', `${model.stats.triangles}`),
+    ]),
   );
 }
 
@@ -559,9 +629,24 @@ function sheetPreview(sheet, note = null) {
       svg.append(t);
     });
   }
+  // Titik tempatan keping -> pratonton (y ke bawah), dengan putaran susunan.
+  const at = (pl, [x, y]) => {
+    const [sx, sy] = pl.rot ? [pl.x + (pl.piece.h - y), pl.y + x] : [pl.x + x, pl.y + y];
+    return `${sx.toFixed(2)} ${(H - sy).toFixed(2)}`;
+  };
   for (const pl of sheet.placed) {
     const y = H - pl.y - pl.h;   // fail y-ke-atas, pratonton y-ke-bawah
-    svg.append(el('rect', { x: pl.x, y, width: pl.w, height: pl.h, fill: '#dbeef4', stroke: '#e0453a', 'stroke-width': sheet.w / 400 }));
+    if (pl.piece.rings) {
+      // Lapisan tapak: garis potong sebenar (lubang alur, poket, slot) dan
+      // tanda penjajaran biru.
+      const d = pl.piece.rings.map((r) => `M${r.map((q) => at(pl, q)).join('L')}Z`).join('');
+      svg.append(el('path', { d, fill: '#efe2cf', 'fill-rule': 'evenodd', stroke: '#e0453a', 'stroke-width': sheet.w / 400 }));
+      for (const m of pl.piece.scores || []) {
+        svg.append(el('path', { d: `M${m.map((q) => at(pl, q)).join('L')}`, fill: 'none', stroke: '#1f4fe0', 'stroke-width': sheet.w / 300 }));
+      }
+    } else {
+      svg.append(el('rect', { x: pl.x, y, width: pl.w, height: pl.h, fill: '#dbeef4', stroke: '#e0453a', 'stroke-width': sheet.w / 400 }));
+    }
     const t = el('text', {
       x: pl.x + pl.w / 2, y: y + pl.h / 2, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
       'font-size': Math.min(pl.h * 0.22, pl.w * 0.16, sheet.w / 22), fill: '#3c4a52',
@@ -638,9 +723,66 @@ function renderAcrylicExport() {
   ].filter(Boolean));
 }
 
+/** Bahagian Tapak dalam dialog Export, mod potong laser: lapisan papan. */
+function renderBaseExport() {
+  const root = $('#baseExport');
+  const p = model.params;
+  const board = boardOf(p.board);
+  const out = baseFiles(model, state.base);
+  const n = out.files.length;
+  const over = out.files.some((f) => f.sheet.overflow);
+  const sheetSel = h('select', {
+    onchange: (e) => { state.base.sheet = e.target.value; save(); renderBaseExport(); },
+  }, ACR_SHEETS.map((x) => h('option', { value: x.id, ...(x.id === state.base.sheet ? { selected: true } : {}) }, x.name)));
+  const kerfIn = h('input', {
+    type: 'number', min: 0, max: 1, step: 0.01, value: out.kerf,
+    onchange: (e) => { state.base.kerf = cleanBoardKerf(e.target.value, p.board); save(); renderBaseExport(); },
+  });
+  const chk = (key, text) => h('label', { class: 'acr-check' },
+    h('input', {
+      type: 'checkbox', ...(state.base[key] ? { checked: true } : {}),
+      onchange: (e) => { state.base[key] = e.target.checked; save(); renderBaseExport(); },
+    }), h('span', {}, text));
+  root.replaceChildren(...[
+    h('p', { class: 'muted' },
+      `${model.layers.N} lapis ${board.name} (${mm(p.boardT, 2)} mm sebenar), tapak ${mm(model.derived.baseL)} × `
+      + `${mm(model.derived.baseW)} × ${mm(p.baseH, 2)} mm. Lapisan alur dipotong jadi bingkai dan bahagian tengah `
+      + `dari segi empat yang sama. Kerf ${mm(out.kerf / 2, 3)} mm setiap sisi: tepi luar dibesarkan, lubang dikecilkan.`),
+    h('div', { class: 'acr-row' },
+      h('div', { class: 'field' }, h('label', {}, 'Saiz katil laser / helaian'), sheetSel),
+      h('div', { class: 'field' }, h('label', {}, 'Kerf (mm)'), kerfIn)),
+    chk('marks', 'Tanda penjajaran (skor ringan biru) di tempat lapisan atas diletak. Ia tertutup bila dilekat - tiada apa kelihatan pada tapak siap.'),
+    chk('labels', 'Label nombor lapisan, dalam lapisan kelabu sendiri.'),
+    h('div', { class: 'sheet-prev' }, out.files.map((f, i) => h('figure', {},
+      sheetPreview(f.sheet, f.note),
+      h('figcaption', {}, `${n > 1 ? `Helaian ${i + 1} daripada ${n}` : 'Satu helaian'} · `
+        + `${f.sheet.placed.length} lapis${f.sheet.overflow ? ' · lapisan lebih besar daripada helaian!' : ''}`
+        + (f.sheet.placed.some((x) => x.rot) ? ' · ↻ diputar 90°' : ''))))),
+    over ? h('p', { class: 'note warn' }, 'Ada lapisan yang lebih besar daripada helaian ini. Pilih katil yang lebih besar.') : null,
+    h('div', { class: 'dlg-actions start' },
+      out.files.flatMap((f, i) => [
+        h('button', {
+          type: 'button', class: 'primary',
+          onclick: () => { download(f.name, f.svg, 'image/svg+xml'); showHint('Fail SVG tapak dimuat turun'); },
+        }, n > 1 ? `SVG tapak ${i + 1}` : 'Muat turun SVG tapak'),
+        h('button', {
+          type: 'button', class: 'primary',
+          onclick: () => { download(f.pdfName, f.pdf, 'application/pdf'); showHint('Fail PDF tapak dimuat turun'); },
+        }, n > 1 ? `PDF tapak ${i + 1}` : 'Muat turun PDF tapak'),
+      ])),
+    h('p', { class: 'hint' }, 'Lapisan: Potong merah, Tanda penjajaran biru (skor ringan, kuasa rendah), '
+      + `Nota hijau ("${board.name}", helaian, bilangan lapis - matikan Output, ia untuk dibaca sahaja).`),
+  ].filter(Boolean));
+}
+
 $('#exportBtn').addEventListener('click', () => {
   const d = model.derived;
   const p = model.params;
+  const laser = isLaser();
+  $('#baseExportTitle').textContent = laser ? 'Tapak · potong laser (SVG / PDF)' : 'Tapak · cetak 3D (STL)';
+  for (const id of ['#exportSummary', '#exportNote', '#exportActions']) $(id).hidden = laser;
+  $('#baseExport').hidden = !laser;
+  if (laser) renderBaseExport();
   const parts = model.bodies.length > 1 ? `${model.bodies.length} fail STL binari` : 'STL binari satu jasad';
   $('#exportSummary').textContent =
     `${parts}: tapak ${mm(d.baseL)} × ${mm(d.baseW)} × ${mm(p.baseH)} mm, `
@@ -679,6 +821,7 @@ function applyDesign(row) {
   state.params = d.params;
   state.name = d.name;
   state.acr = d.acr;
+  state.base = d.base;
   if (d.color) state.color = d.color;
   rebuild();
   renderStatic();   // segmen dan warna dibina dengan nilai semasa
@@ -708,19 +851,31 @@ $('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg'))
 // ------------------------------------------------------------ cara pasang
 $('#helpBtn').addEventListener('click', () => {
   const p = model.params;
+  const L = model.layers;
   const slotStep = [
     `Cucuk plak akrilik ${mm(p.plakL)} × ${mm(p.plakH)} × ${mm(p.sheetT)} mm tegak ke dalam slot di tengah tapak.`,
-    'Kalau terlalu ketat, naikkan kelonggaran slot 0.05 mm dan cetak semula. Kemudian turunkan kotak akrilik ke dalam alur.'];
+    `Kalau terlalu ketat, naikkan kelonggaran slot 0.05 mm dan ${L ? 'potong semula lapisan berslot' : 'cetak semula'}. `
+      + 'Kemudian turunkan kotak akrilik ke dalam alur.'];
+  const baseSteps = L
+    ? [
+      [`Potong ${L.N} lapis ${boardOf(p.board).name} daripada fail SVG / PDF tapak (Export → Tapak).`,
+        'Lapisan Potong merah; Tanda penjajaran biru pada kuasa rendah (skor, bukan potong); matikan lapisan Nota hijau.'],
+      ['Lekat lapisan dari L1 (bawah) ke atas dengan gam kayu, setiap keping di atas tanda L biru lapisan bawahnya.',
+        'Tanda itu di dalam tapak keping atas, jadi ia tertutup sepenuhnya. Tekan rata atau apit sehingga gam kering.'],
+      ['Lapisan alur ada dua keping: bingkai dan bahagian tengah. Letak bingkai dahulu, kemudian bahagian tengah di atas tandanya.',
+        'Atau masukkan dinding akrilik ke dalam alur semasa gam masih basah - ia memegang celah alur tepat selebar akrilik.'],
+    ]
+    : [['Muat turun STL dan buka dalam Bambu Studio (atau slicer lain).',
+      'Ia sudah menghadap betul dan tidak perlu support. Tetapkan infill dan dinding dalam slicer.']];
   const steps = [
-    ['Muat turun STL dan buka dalam Bambu Studio (atau slicer lain).',
-      'Ia sudah menghadap betul dan tidak perlu support. Tetapkan infill dan dinding dalam slicer.'],
+    ...baseSteps,
     ['Potong 5 keping akrilik daripada fail SVG (Export → Kotak akrilik).',
       'Kupas kertas pelindung hanya selepas siap dipasang.'],
     ['Berdirikan depan dan belakang, masukkan kiri dan kanan di antaranya.',
       'Lekat selotip pada empat bucu tegak.'],
     ['Letak keping atas di atas keempat-empat dinding.', 'Lekat selotip pada empat tepinya.'],
     isSlot() ? slotStep : ['Letak plak dalam poket tapak, kemudian turunkan kotak akrilik ke dalam alur.',
-      'Kalau terlalu ketat, naikkan kelonggaran alur 0.1 mm dan cetak semula.'],
+      `Kalau terlalu ketat, naikkan kelonggaran alur 0.1 mm dan ${L ? 'potong semula lapisan alur' : 'cetak semula'}.`],
   ];
   $('#assembleSteps').replaceChildren(...steps.map(([a, b]) => h('li', {}, a, ' ', h('span', {}, b))));
   $('#helpDlg').showModal();

@@ -59,6 +59,38 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
    dalam Clear 2 mm dan 3 mm (stok Kalkulator Laser Cut). Tebal lain dalam
    simpanan lama atau URL disnap ke yang terdekat, dengan nota di senarai amaran.
 
+## Tapak potong laser (21 Oktober 2026)
+
+Pilihan kedua untuk tapak: **Tapak → Dibuat dengan → Potong laser**. Tapak
+yang sama dibina daripada lapisan papan (MDF 3/5 mm, Plywood 3/5 mm, Akrilik
+Hitam 3 mm) yang dipotong laser dan dilekat bertindan - cara tapak plak dibuat
+sebelum printer, dan cara kebanyakan kedai laser masih membuatnya (lapisan
+rata dilekat; tebal papan sebenar diukur sebelum potong).
+
+- **Gandaan tebal papan.** Tinggi tapak, dalam alur, poket, slot, tingkat
+  Standard dan tingkat bawah Dua Tingkat dibundarkan ke gandaan "Tebal sebenar
+  papan" (diukur, lalai tebal nominal), dengan lantai sekurang-kurangnya satu
+  lapisan. Serong tepi tingkat dibuang (papan dipotong tegak). Ini berlaku
+  dalam `cleanParams()`, jadi ukuran, kotak akrilik dan harga semuanya ikut
+  tapak yang benar-benar terhasil.
+- **Lapisan** (`src/geom/layers.js`). Tepi luar setiap lapisan ialah profil
+  jenis tapak pada tengah lapisan itu: Standard bertingkat di atas, Serong
+  menjadi tangga, Klasik tangga yang mengikut lengkung S. Lapisan alur dipotong
+  jadi bingkai + bahagian tengah dengan celah tepat selebar alur, bahagian
+  tengah dari dalam bingkai itu sendiri (satu segi empat papan). Poket dan slot
+  menembusi lapisan sedalam mana yang perlu.
+- **Tanda penjajaran** (biru, skor ringan): tanda L di bucu tempat keping
+  lapisan atas diletak, 0.6 mm di dalam tapak keping itu - tertutup bila
+  dilekat, tiada apa kelihatan pada produk. Ia juga menentukan arah (Serong
+  "depan sahaja"). Boleh dimatikan.
+- **Fail** (`src/laserbase.js`): satu SVG + PDF bagi setiap helaian, penulis,
+  susunan dan nota bahan yang sama dengan kotak akrilik; kerf lalai ikut
+  papan (MDF/ply 0.2-0.25, akrilik 0.15).
+- **Harga**: enjin Kalkulator Laser Cut dengan bahan papan itu (bukan berat
+  PLA) - lihat `laserBaseJob()` dalam `src/price.js`.
+- **Pratonton 3D**: setiap keping diekstrud dari garis potongnya, tepi gelap
+  menunjukkan setiap lapisan.
+
 ## Harga (20 Oktober 2026)
 
 Kad "Harga" di atas panel tetapan, supaya pelanggan boleh order terus melalui

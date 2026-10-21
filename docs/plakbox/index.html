@@ -57,11 +57,14 @@
     <!-- Reka bentuk disimpan sendiri ke akaun bila Export dibuka - src/main.js. -->
     <p class="note" id="exportSaved" hidden></p>
     <section class="exp-part">
-      <h3>Tapak &middot; cetak 3D (STL)</h3>
+      <!-- Tajuk ikut mod tapak: cetak 3D (STL) atau potong laser (SVG / PDF). -->
+      <h3 id="baseExportTitle">Tapak &middot; cetak 3D (STL)</h3>
       <p class="muted" id="exportSummary"></p>
       <p class="note" id="exportNote"></p>
       <!-- Butang muat turun dijana ikut senarai jasad model (kini satu). -->
       <div class="dlg-actions start" id="exportActions"></div>
+      <!-- Mod potong laser: saiz katil, kerf, tanda, pratonton helaian lapisan. -->
+      <div class="acr-export" id="baseExport" hidden></div>
     </section>
     <section class="exp-part">
       <h3>Kotak akrilik &middot; potong laser (SVG / PDF)</h3>

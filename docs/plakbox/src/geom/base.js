@@ -58,8 +58,17 @@
 //   * muka bawah: grid yang sama, dipetakan ke cincin paling bawah.
 // Tiada CSG, tiada earcut: setiap sisi dikongsi oleh tepat dua segitiga.
 //
-// Modul ini TULEN: tiada DOM, tiada import. Diuji dalam node
-// (scripts/test-plakbox.mjs).
+// MOD TAPAK. `baseMode` 'print' (cetak 3D, di atas) atau 'laser': tapak yang
+// sama dibina daripada LAPISAN papan (MDF, plywood, akrilik hitam) yang
+// dipotong laser dan dilekat bertindan - cara tapak ini dibuat sebelum ada
+// printer. Setiap tinggi (tapak, alur, poket, slot, tingkat) dibundarkan ke
+// gandaan tebal papan, supaya geometri yang dikira ialah yang benar-benar
+// terhasil bila lapisan ditindan. Lapisan itu sendiri: geom/layers.js.
+//
+// Modul ini TULEN: tiada DOM; satu import, geom/layers.js, juga tulen.
+// Diuji dalam node (scripts/test-plakbox.mjs).
+
+import { laserLayers } from './layers.js';
 
 export const BASE_TYPES = [
   { id: 'standard', name: 'Standard', note: 'Blok, tingkat kecil di tepi atas', baseH: 25 },
@@ -103,7 +112,24 @@ export const DEFAULTS = {
   sheetT: 5,
   slotDepth: 12,
   slotClear: 0.25,   // setiap sisi; akrilik potong laser + PLA = muat ketat
+  // Mod tapak: 'print' cetak 3D (STL) atau 'laser' lapisan papan (SVG/PDF).
+  baseMode: 'print',
+  board: 'mdf3',     // papan tapak laser - lihat BOARDS
+  boardT: 3,         // tebal SEBENAR papan itu (diukur), mm
 };
+
+/**
+ * Papan untuk tapak potong laser. `laserId` ialah bahan dalam Kalkulator Laser
+ * Cut (harga dan laju potong); `t` tebal nominal; `kerf` lalai fail potong.
+ */
+export const BOARDS = [
+  { id: 'mdf3', name: 'MDF 3mm', t: 3, kerf: 0.2, color: '#b48a5e', laserId: 'mdf3' },
+  { id: 'mdf5', name: 'MDF 5mm', t: 5, kerf: 0.25, color: '#b48a5e', laserId: 'mdf5' },
+  { id: 'ply3', name: 'Plywood 3mm', t: 3, kerf: 0.2, color: '#d8b98c', laserId: 'ply3' },
+  { id: 'ply5', name: 'Plywood 5mm', t: 5, kerf: 0.25, color: '#d8b98c', laserId: 'ply5' },
+  { id: 'blk3', name: 'Akrilik Hitam 3mm', t: 3, kerf: 0.15, color: '#1f1f22', laserId: 'blk3' },
+];
+export const boardOf = (id) => BOARDS.find((b) => b.id === id) || BOARDS[0];
 
 export const LIMITS = {
   plakL: [30, 600],
@@ -128,6 +154,7 @@ export const LIMITS = {
   sheetT: [2, 12],
   slotDepth: [3, 40],
   slotClear: [0, 1],
+  boardT: [1.5, 12],
 };
 
 const PLA_G_PER_CM3 = 1.24;
@@ -138,7 +165,37 @@ const DEG = Math.PI / 180;
 
 /** Parameter yang selamat: nombor, dalam had, dan konsisten antara satu sama lain. */
 export function cleanParams(input = {}) {
-  input = input || {};
+  const r = cleanBase(input || {});
+  if (r.p.baseMode === 'laser') laserQuantize(r.p, r.notes);
+  return r;
+}
+
+const layersOf = (v, T) => Math.round(v / T + 1e-9);
+
+/**
+ * Tapak laser: setiap tinggi kepada gandaan tebal papan, dan setiap ciri
+ * sekurang-kurangnya satu lapisan dengan satu lapisan pepejal di bawahnya.
+ * Lengkung dan serong tepi tingkat tiada pada papan yang dipotong tegak.
+ */
+function laserQuantize(p, notes) {
+  const T = p.boardT;
+  const N = Math.round(p.baseH / T);
+  const at = (k) => R6(k * T);
+  const clampL = (v, lo, hi) => Math.min(hi, Math.max(lo, layersOf(v, T)));
+  p.grooveDepth = at(clampL(p.grooveDepth, 1, N - 1));
+  if (p.pocket) p.pocketDepth = at(clampL(p.pocketDepth, 1, N - 1));
+  if (p.type === 'slot') p.slotDepth = at(clampL(p.slotDepth, 1, N - 1));
+  if (p.type === 'standard' && p.stepH > 0) p.stepH = at(clampL(p.stepH, 1, N - 1));
+  if (p.type === 'tingkat' || p.type === 'slot') {
+    // Tingkat bawah: lapisan bulat, dengan tingkat atas cukup untuk alur + satu.
+    const g = layersOf(p.grooveDepth, T);
+    const k = Math.max(1, Math.min(N - g - 1, Math.round((N * p.tierRatio) / 100)));
+    p.tierRatio = R6((k / N) * 100);
+    p.tierChamfer = 0;
+  }
+}
+
+function cleanBase(input) {
   const p = {};
   for (const [k, def] of Object.entries(DEFAULTS)) {
     if (typeof def === 'boolean') { p[k] = input[k] == null ? def : !!input[k]; continue; }
@@ -148,7 +205,19 @@ export function cleanParams(input = {}) {
     p[k] = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def;
   }
   p.type = BASE_TYPES.some((t) => t.id === input.type) ? input.type : DEFAULTS.type;
+  p.baseMode = input.baseMode === 'laser' ? 'laser' : 'print';
+  p.board = BOARDS.some((b) => b.id === input.board) ? input.board : DEFAULTS.board;
   const notes = [];
+  // Tapak laser: tinggi = bilangan lapisan bulat x tebal papan, sekurang-
+  // kurangnya dua lapisan (satu lantai, satu untuk alur). Lantai di bawah
+  // setiap ciri ialah satu lapisan, bukan 3 mm.
+  const laser = p.baseMode === 'laser';
+  const T = p.boardT;
+  if (laser) {
+    const N = Math.max(2, Math.min(Math.floor(LIMITS.baseH[1] / T), layersOf(p.baseH, T)));
+    p.baseH = R6(N * T);
+  }
+  const floor = laser ? T : 3;
 
   // Kotak akrilik hanya ditawarkan dalam dua tebal. Reka bentuk lama yang
   // tersimpan dengan tebal lain dibawa ke yang terdekat, dan diberitahu.
@@ -158,24 +227,24 @@ export function cleanParams(input = {}) {
     notes.push(`Akrilik ${askedT} mm tidak ditawarkan - kotak dikira dengan ${p.acrylic} mm (pilihan: 2 atau 3 mm).`);
   }
 
-  if (p.grooveDepth > p.baseH - 3) {
-    p.grooveDepth = R6(Math.max(1, p.baseH - 3));
-    notes.push(`Alur dihadkan ${p.grooveDepth} mm supaya lantai di bawahnya kekal 3 mm.`);
+  if (p.grooveDepth > p.baseH - floor) {
+    p.grooveDepth = R6(Math.max(1, p.baseH - floor));
+    notes.push(`Alur dihadkan ${p.grooveDepth} mm supaya lantai di bawahnya kekal ${floor} mm.`);
   }
-  if (p.pocketDepth > p.baseH - 2) p.pocketDepth = R6(Math.max(0.5, p.baseH - 2));
+  if (p.pocketDepth > p.baseH - (laser ? T : 2)) p.pocketDepth = R6(Math.max(0.5, p.baseH - (laser ? T : 2)));
 
   if (p.type === 'standard') {
-    if (p.stepH > p.baseH - 3) p.stepH = R6(p.baseH - 3);
+    if (p.stepH > p.baseH - floor) p.stepH = R6(p.baseH - floor);
     if (!(p.stepW > 0) || !(p.stepH > 0)) { p.stepW = 0; p.stepH = 0; }
   }
-  if (p.type === 'klasik' && 2 * p.ogeeR > p.baseH - 3) {
-    p.ogeeR = R6((p.baseH - 3) / 2);
+  if (p.type === 'klasik' && 2 * p.ogeeR > p.baseH - floor) {
+    p.ogeeR = R6((p.baseH - floor) / 2);
     notes.push(`Lengkung klasik dihadkan ${p.ogeeR} mm supaya tepi tegak di bawahnya kekal 3 mm.`);
   }
   if (p.type === 'tingkat' || p.type === 'slot') {
     const h1 = (p.baseH * p.tierRatio) / 100;
-    if (p.baseH - h1 < p.grooveDepth + 3) {
-      const fit = ((p.baseH - p.grooveDepth - 3) / p.baseH) * 100;
+    if (p.baseH - h1 < p.grooveDepth + floor) {
+      const fit = ((p.baseH - p.grooveDepth - floor) / p.baseH) * 100;
       p.tierRatio = R6(Math.max(LIMITS.tierRatio[0], fit));
       notes.push(`Tingkat bawah dikecilkan ke ${Math.round(p.tierRatio)}% supaya tingkat atas cukup tebal untuk alur.`);
     }
@@ -186,9 +255,9 @@ export function cleanParams(input = {}) {
 
   if (p.type === 'slot') {
     p.pocket = false; // slot menggantikan poket
-    if (p.slotDepth > p.baseH - 3) {
-      p.slotDepth = R6(Math.max(LIMITS.slotDepth[0], p.baseH - 3));
-      notes.push(`Slot dihadkan ${p.slotDepth} mm dalam supaya lantai di bawahnya kekal 3 mm.`);
+    if (p.slotDepth > p.baseH - floor) {
+      p.slotDepth = R6(Math.max(Math.min(LIMITS.slotDepth[0], p.baseH - floor), p.baseH - floor));
+      notes.push(`Slot dihadkan ${p.slotDepth} mm dalam supaya lantai di bawahnya kekal ${floor} mm.`);
     }
     // Plak mesti muat dalam ruangnya, dengan 3 mm di depan dan belakang.
     const minW = R6(p.sheetT + 2 * p.slotClear + 6);
@@ -511,6 +580,8 @@ export function buildPlakBox(input = {}) {
     derived: d,
     grid: { xs, ys, H, Htop: Hs },
     bodies,
+    // Tapak potong laser: lapisan papan, dari bawah. null untuk cetak 3D.
+    layers: p.baseMode === 'laser' ? laserLayers(p, d) : null,
     stats: {
       triangles,
       volumeMm3: volume,
