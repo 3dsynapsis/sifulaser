@@ -77,6 +77,10 @@ fail sahaja, tidak pernah dipotong atau diukir pada produk:
 - **STL**: pengepala fail, dan "sifulaser.com" terbenam 0.6 mm di tengah
   tapak, dicerminkan supaya terbaca bila objek diterbalikkan (Plak Box,
   Tray Organizer). Cake Topper tiada tapak — pengepala sahaja.
+  Tapak = lapisan pertama, bahagian paling sensitif, jadi tulisan itu dibuat
+  MUDAH DICETAK: gaya stensil (bahagian dalam a, e, o bersambung — tiada
+  pulau kecil yang mesti melekat sendiri pada katil), garisan >= 1.2 mm,
+  huruf 7–9 mm; tapak terlalu kecil untuk 7 mm tidak diberi tulisan.
 - **Nama fail**: awalan `sifulaser-`.
 
 SVG/PDF/STL-pengepala/nama dibuat oleh `/shared/brand.js`, yang dimuat oleh

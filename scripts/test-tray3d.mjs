@@ -28,7 +28,7 @@ const TRAY = path.join(here, '..', 'docs', 'tray');
 const THREE = await import(pathToFileURL(path.join(TRAY, 'vendor', 'three.module.js')).href);
 const { buildTray3D, trianglesToStl, PRINTERS } =
   await import(pathToFileURL(path.join(TRAY, 'src', 'geom', 'tray3d.js')).href);
-const { debossCap } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
+const { debossCap, DEBOSS } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
 
 let passed = 0, failed = 0;
 const fails = [];
@@ -120,11 +120,12 @@ function brandChecks(label, { params: p, derived: d, mesh }) {
     const foot = d.stack ? p.wallT + d.clear : 0;
     const inset = foot + (d.stack ? Math.max(0, d.r - d.clear) : d.rO) + 1;
     check(`${label}: jenama - dilangkau hanya bila lantai nipis atau tapak kecil`, p.floorT < 1.4
-      || debossCap({ x0: inset, y0: inset, x1: p.length - inset, y1: p.width - inset }) < 3, `lantai ${p.floorT}`);
+      || debossCap({ x0: inset, y0: inset, x1: p.length - inset, y1: p.width - inset }) < DEBOSS.capMin, `lantai ${p.floorT}`);
     return;
   }
   branded++;
-  check(`${label}: jenama - teks`, b.text === 'sifulaser.com' && b.cap >= 3 - 1e-9 && b.cap <= 7 + 1e-9, JSON.stringify(b));
+  check(`${label}: jenama - teks`, b.text === 'sifulaser.com' && b.cap >= DEBOSS.capMin - 1e-9 && b.cap <= DEBOSS.capMax + 1e-9
+    && b.stroke >= DEBOSS.strokeMin - 1e-9, JSON.stringify(b));
   check(`${label}: jenama - >= 1 mm lantai kekal`, b.depth >= 0.4 - 1e-9 && b.depth <= Math.min(0.6, p.floorT - 1) + 1e-9, `${b.depth}`);
   let area = 0, outside = 0;
   for (let t = 0; t < mesh.length; t += 9) {

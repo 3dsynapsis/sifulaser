@@ -42,7 +42,9 @@ kaki bila boleh disusun), dicerminkan supaya terbaca bila dulang
 diterbalikkan - `/shared/deboss.js`, 21 Oktober 2026. Dalamnya 0.6 mm tetapi
 sentiasa meninggalkan sekurang-kurangnya 1 mm lantai: lantai 1.4 mm dapat
 0.4 mm, lantai di bawah 1.4 mm tiada jenama. Isi padu analitik menolak
-isipadu huruf.
+isipadu huruf. Gaya stensil, huruf 7-9 mm, garisan >= 1.2 mm, supaya tiada
+pulau kecil pada lapisan pertama; dulang terlalu kecil untuk huruf 7 mm
+tiada jenama.
 
 ## Ujian
 

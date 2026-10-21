@@ -22,8 +22,20 @@
 //   * baris raster di tepi tampalan tidak pernah terbenam (margin), jadi
 //     sempadan tampalan sentiasa rata pada z = 0.
 //
-// Siling setiap huruf ialah jambatan selebar lejang (~1.2 mm), bukan overhang:
-// mana-mana slicer mencetaknya tanpa support.
+// MUDAH DICETAK (bos, 21 Oktober 2026: tapak ialah bahagian paling sensitif).
+// Muka bawah ialah lapisan pertama atas katil, jadi:
+//   * STENSIL - bahagian dalam a, e, o tidak dibiarkan menjadi pulau yang
+//     mesti melekat sendiri pada katil selama tiga lapisan; ia disambung ke
+//     muka di luar huruf dengan jambatan selebar `bridge`. Kedudukannya
+//     DIREKA (BRIDGES) supaya huruf masih dibaca sama - satu jambatan di atas
+//     "o" sahaja menjadikannya "u". Pulau lain yang masih tinggal (huruf yang
+//     tiada dalam BRIDGES, atau mulut e yang tertutup pada huruf kecil)
+//     disambung oleh stencil() dengan jambatan lurus terpendek.
+//   * LEJANG TEBAL - sekurang-kurangnya strokeMin (3 garisan nozzle 0.4 mm),
+//     jadi lekuk masih terbuka walaupun lapisan pertama mengembang 0.2-0.4 mm.
+//   * TIDAK DIKECILKAN - huruf di bawah capMin tidak diletak langsung.
+// Siling setiap huruf ialah jambatan selebar lejang (~1.2-1.4 mm), bukan
+// overhang: mana-mana slicer mencetaknya tanpa support.
 //
 // Tulen: tiada DOM. Diimport oleh geom Plak Box dan Tray Organizer, diuji
 // oleh scripts/test-plakbox.mjs, scripts/test-tray3d.mjs, scripts/test-brand.mjs.
@@ -32,14 +44,28 @@ import { SANS } from './hershey-sans.js';
 
 export const DEBOSS = {
   text: 'sifulaser.com',
-  depth: 0.6,     // 3 lapis pada 0.2 mm
-  res: 0.3,       // sel raster, mm
-  margin: 3,      // ruang rata di keliling tulisan dalam tampalan
-  capMax: 7,      // tinggi huruf besar paling tinggi
-  capMin: 3,      // lebih kecil daripada ini tidak terbaca - langkau
+  depth: 0.6,       // 3 lapis pada 0.2 mm
+  res: 0.3,         // sel raster, mm
+  margin: 3,        // ruang rata di keliling tulisan dalam tampalan
+  capMax: 9,        // tinggi huruf besar paling tinggi
+  capMin: 7,        // lebih kecil: s dan e tertutup oleh lejang 1.2 mm - langkau
+  strokeMin: 1.2,   // lebar lejang paling nipis = 3 garisan nozzle 0.4 mm
+  strokeK: 0.16,    // lejang = strokeK x tinggi huruf bila lebih tebal
+  bridge: 1,        // lebar jambatan stensil
 };
 
 const R6 = (v) => Math.round(v * 1e6) / 1e6;
+
+// Jambatan stensil, unit fon Hershey (cap 21, x-height 14, y ke atas): titik
+// pada garis tengah lejang + arah merentasi lejang. Gaya fon stensil biasa:
+//   o - dibelah atas dan bawah, "( )"
+//   e - palang dipisah daripada sisi kanan (jambatan dari mata ke mulut)
+//   a - atas mangkuk, jauh dari batang supaya batang tidak bertakuk
+const BRIDGES = {
+  o: [[9.5, 14, 0, 1], [9.5, 0, 0, -1]],
+  e: [[13, 8, 0, 1]],
+  a: [[10.5, 14, 0, 1]],
+};
 
 /** Jarak titik (x, y) ke segmen ab. */
 function segDist(x, y, ax, ay, bx, by) {
@@ -49,8 +75,8 @@ function segDist(x, y, ax, ay, bx, by) {
   return Math.hypot(x - ax - t * dx, y - ay - t * dy);
 }
 
-/** Separuh lebar lejang untuk huruf setinggi `cap`. */
-const strokeR = (cap) => Math.max(0.45, 0.085 * cap);
+/** Lebar lejang untuk huruf setinggi `cap`. */
+const strokeOf = (cap, { strokeMin, strokeK }) => Math.max(strokeMin, strokeK * cap);
 
 /** Lebar "text" dalam unit tinggi huruf besar. */
 function textWidth1(text) {
@@ -66,13 +92,13 @@ function textWidth1(text) {
  * Murah, untuk memilih kawasan sebelum debossPlan() merasterkan.
  */
 export function debossFit(avail, opts = {}) {
-  const { text, margin, capMax } = { ...DEBOSS, ...opts };
+  const { text, margin, capMax, strokeMin, strokeK } = { ...DEBOSS, ...opts };
   const aw = avail.x1 - avail.x0, ah = avail.y1 - avail.y0;
   // Tampalan = tulisan (w x cap) + satu lebar lejang + 2 margin; lejang
-  // 0.17 cap, tetapi tidak kurang daripada 0.9 mm (strokeR di bawah).
+  // strokeK x cap, tetapi tidak kurang daripada strokeMin (strokeOf).
   const solve = (len, w) => {
-    const c = len / (w + 0.17);
-    return 0.085 * c >= 0.45 ? c : (len - 0.9) / w;
+    const c = len / (w + strokeK);
+    return strokeK * c >= strokeMin ? c : (len - strokeMin) / w;
   };
   const fit = (along, across) => Math.min(capMax, solve(across - 2 * margin, 1), solve(along - 2 * margin, textWidth1(text)));
   const h = fit(aw, ah), v = fit(ah, aw);
@@ -87,12 +113,13 @@ export const debossCap = (avail, opts) => debossFit(avail, opts).cap;
  * sel terbenam. null bila tak muat huruf setinggi capMin.
  */
 export function debossPlan(avail, opts = {}) {
-  const { text, depth, res, margin, capMin } = { ...DEBOSS, ...opts };
+  const o = { ...DEBOSS, ...opts };
+  const { text, depth, res, margin, capMin } = o;
   const k1 = 1 / (SANS.cap || 21);
   const w1 = textWidth1(text);
   const { cap, vertical } = debossFit(avail, opts);
-  if (!(cap >= capMin)) return null;
-  const r = strokeR(cap);                           // separuh lebar lejang
+  if (!(cap >= capMin - 1e-9)) return null;
+  const r = strokeOf(cap, o) / 2;                   // separuh lebar lejang
   const tw = w1 * cap + 2 * r, th = cap + 2 * r;
   const cx = (avail.x0 + avail.x1) / 2, cy = (avail.y0 + avail.y1) / 2;
   const [hx, hy] = vertical ? [th / 2, tw / 2] : [tw / 2, th / 2];
@@ -108,6 +135,7 @@ export function debossPlan(avail, opts = {}) {
   // Lejang, dicerminkan pada x supaya dibaca dari bawah. Melintang: huruf
   // pertama di hujung +x. Menegak: dibaca dari -y ke +y, kaki huruf di -x.
   const segs = [];
+  const cuts = [];
   let pen = 0;
   const k = cap * k1;
   const place = vertical
@@ -116,11 +144,16 @@ export function debossPlan(avail, opts = {}) {
   for (const c of text) {
     const g = SANS.glyphs[c.codePointAt(0)];
     if (!g) continue;
+    const p = (u, v) => place(pen + u * k, v * k);
     for (const st of g.s) {
       for (let q = 0; q + 3 < st.length; q += 2) {
-        const p = (u, v) => place(pen + u * k, v * k);
         segs.push([...p(st[q], st[q + 1]), ...p(st[q + 2], st[q + 3])]);
       }
+    }
+    for (const [u, v, du, dv] of BRIDGES[c] || []) {
+      const [x0, y0] = p(u, v), [x1, y1] = p(u + du, v + dv);
+      const l = Math.hypot(x1 - x0, y1 - y0);
+      cuts.push({ x: x0, y: y0, dx: (x1 - x0) / l, dy: (y1 - y0) / l });
     }
     pen += g.w * k;
   }
@@ -133,6 +166,34 @@ export function debossPlan(avail, opts = {}) {
       }
     }
   }
+  // Jambatan yang direka: segi empat selebar `bridge`, merentasi lejang
+  // sejauh r + separuh sel ke setiap sisi garis tengah - cukup untuk
+  // memutuskan lejang, tidak sampai ke lejang jiran.
+  const reach = r + res / 2;
+  for (const t of cuts) {
+    for (let a = 1; a < nx - 1; a++) {
+      for (let b = 1; b < ny - 1; b++) {
+        const qx = (X[a] + X[a + 1]) / 2 - t.x, qy = (Y[b] + Y[b + 1]) / 2 - t.y;
+        const along = qx * t.dx + qy * t.dy, across = -qx * t.dy + qy * t.dx;
+        if (Math.abs(along) <= reach && Math.abs(across) <= o.bridge / 2) mask[a * ny + b] = 0;
+      }
+    }
+  }
+  noCheckerboard(mask, nx, ny);
+  const grid = { X, Y, nx, ny, mask };
+  const bridges = cuts.length + stencil(grid, { width: o.bridge, up: vertical ? [1, 0] : [0, 1] });
+  let area = 0;
+  for (let a = 0; a < nx; a++) {
+    for (let b = 0; b < ny; b++) if (mask[a * ny + b]) area += (X[a + 1] - X[a]) * (Y[b + 1] - Y[b]);
+  }
+  return { text, depth, cap, vertical, patch, X, Y, nx, ny, mask, area, volume: area * depth, segs, stroke: 2 * r, bridges };
+}
+
+/**
+ * Tiada papan dam: dua sel terbenam yang bersentuhan di satu bucu sahaja
+ * membuat satu sisi tegak dikongsi empat muka. Isi satu lagi sel sehingga tiada.
+ */
+function noCheckerboard(mask, nx, ny) {
   for (let changed = true; changed;) {
     changed = false;
     for (let a = 0; a + 1 < nx; a++) {
@@ -144,11 +205,99 @@ export function debossPlan(avail, opts = {}) {
       }
     }
   }
-  let area = 0;
-  for (let a = 0; a < nx; a++) {
-    for (let b = 0; b < ny; b++) if (mask[a * ny + b]) area += (X[a + 1] - X[a]) * (Y[b + 1] - Y[b]);
+}
+
+/**
+ * Label komponen sel RATA (tidak terbenam), bersebelahan sisi. Komponen 0
+ * ialah yang menyentuh tepi tampalan - muka bawah di luar huruf; setiap
+ * komponen lain ialah PULAU: bahagian dalam huruf bertutup.
+ */
+export function flatComponents({ nx, ny, mask }) {
+  const label = new Int32Array(nx * ny).fill(-1);
+  const comps = [];
+  const flood = (start, id) => {
+    const cells = [start];
+    label[start] = id;
+    for (let q = 0; q < cells.length; q++) {
+      const c = cells[q], a = Math.floor(c / ny), b = c % ny;
+      for (const [A, B] of [[a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]]) {
+        if (A < 0 || B < 0 || A >= nx || B >= ny) continue;
+        const j = A * ny + B;
+        if (!mask[j] && label[j] < 0) { label[j] = id; cells.push(j); }
+      }
+    }
+    return cells;
+  };
+  comps.push(flood(0, 0));                          // sel (0, 0) sentiasa rata
+  for (let i = 0; i < nx * ny; i++) if (!mask[i] && label[i] < 0) comps.push(flood(i, comps.length));
+  return { label, comps };
+}
+
+/**
+ * Gaya stensil: setiap pulau disambung ke komponen 0 dengan satu jalur sel
+ * rata selebar `width`, lurus dari pusat pulau. Arah dicuba ikut keutamaan -
+ * "atas" huruf (`up`), bawah, kemudian dua sisi - dan yang pertama yang sampai
+ * ke luar huruf dalam 3 mm dipakai; jika tiada, yang terpendek. Pulau yang tak
+ * boleh disambung langsung diisi (lubang huruf itu hilang, bukan gagal cetak).
+ * Mengubah `mask`; pulangkan bilangan jambatan.
+ */
+function stencil(g, { width, up }) {
+  const { X, Y, nx, ny, mask } = g;
+  const dirs = [up, [-up[0], -up[1]], [up[1], up[0]], [-up[1], -up[0]]];
+  let bridges = 0;
+  for (let pass = 0; pass < 6; pass++) {
+    const { label, comps } = flatComponents(g);
+    if (comps.length === 1) break;
+    for (let id = 1; id < comps.length; id++) {
+      const cells = comps[id];
+      let sx = 0, sy = 0;
+      for (const c of cells) {
+        const a = Math.floor(c / ny), b = c % ny;
+        sx += (X[a] + X[a + 1]) / 2; sy += (Y[b] + Y[b + 1]) / 2;
+      }
+      const cx = sx / cells.length, cy = sy / cells.length;
+      let best = null;
+      for (const [dx, dy] of dirs) {
+        // Jalur: garis-garis sel selari dengan arah, pusatnya dalam width/2
+        // daripada garis tengah pulau.
+        const along = dx !== 0 ? 'x' : 'y';
+        const lines = [];
+        if (along === 'x') {
+          for (let b = 0; b < ny; b++) if (Math.abs((Y[b] + Y[b + 1]) / 2 - cy) <= width / 2 + 1e-9) lines.push(b);
+        } else {
+          for (let a = 0; a < nx; a++) if (Math.abs((X[a] + X[a + 1]) / 2 - cx) <= width / 2 + 1e-9) lines.push(a);
+        }
+        if (!lines.length) continue;
+        const start = along === 'x'
+          ? X.findIndex((x, a) => a < nx && X[a + 1] > cx)
+          : Y.findIndex((y, b) => b < ny && Y[b + 1] > cy);
+        const walk = [];
+        let ok = true, len = 0;
+        for (const ln of lines) {
+          let k = start, n = 0;
+          const at = (kk) => (along === 'x' ? kk * ny + ln : ln * ny + kk);
+          const step = along === 'x' ? dx : dy;
+          const lim = along === 'x' ? nx : ny;
+          while (k >= 0 && k < lim && !mask[at(k)] && label[at(k)] === id) k += step;
+          while (k >= 0 && k < lim && mask[at(k)]) { walk.push(at(k)); n++; k += step; }
+          if (k < 0 || k >= lim || label[at(k)] !== 0) { ok = false; break; }
+          len = Math.max(len, n);
+        }
+        if (!ok) continue;
+        const mm = len * (along === 'x' ? (X[1] - X[0]) : (Y[1] - Y[0]));
+        if (!best || (best.mm > 3 && mm < best.mm)) best = { walk, mm };
+        if (best.mm <= 3) break;
+      }
+      if (best) {
+        for (const c of best.walk) mask[c] = 0;
+        bridges++;
+      } else {
+        for (const c of cells) mask[c] = 1;
+      }
+    }
+    noCheckerboard(mask, nx, ny);
   }
-  return { text, depth, cap, vertical, patch, X, Y, nx, ny, mask, area, volume: area * depth, segs, stroke: 2 * r };
+  return bridges;
 }
 
 /** Segitiga dengan normal searah `n`. */
@@ -243,5 +392,8 @@ export function debossFace(outer, plan, push) {
 
 /** Ringkasan untuk derived / ujian. */
 export const debossInfo = (plan) => (plan
-  ? { text: plan.text, depth: plan.depth, cap: plan.cap, vertical: plan.vertical, rect: plan.patch, areaMm2: plan.area, volumeMm3: plan.volume }
+  ? {
+    text: plan.text, depth: plan.depth, cap: plan.cap, stroke: plan.stroke, vertical: plan.vertical,
+    bridges: plan.bridges, rect: plan.patch, areaMm2: plan.area, volumeMm3: plan.volume,
+  }
   : null);

@@ -66,7 +66,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const MOD = path.join(here, '..', 'docs', 'plakbox', 'src', 'geom', 'base.js');
 const { buildPlakBox, DEFAULTS, BASE_TYPES, trianglesToStl } = await import(pathToFileURL(MOD).href);
-const { debossCap } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
+const { debossCap, DEBOSS } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
 
 let passed = 0;
 let failed = 0;
@@ -195,7 +195,8 @@ for (const input of CASES) {
     else if (b.deboss) {
       debossed++;
       const r = b.deboss.rect;
-      check(`${bt}: jenama - teks`, b.deboss.text === 'sifulaser.com' && near(b.deboss.depth, 0.6) && b.deboss.cap >= 3 - 1e-9 && b.deboss.cap <= 7 + 1e-9,
+      check(`${bt}: jenama - teks`, b.deboss.text === 'sifulaser.com' && near(b.deboss.depth, 0.6) && b.deboss.cap >= DEBOSS.capMin - 1e-9 && b.deboss.cap <= DEBOSS.capMax + 1e-9
+        && b.deboss.stroke >= DEBOSS.strokeMin - 1e-9,
         JSON.stringify(b.deboss));
       check(`${bt}: jenama - dalam muka bawah`, r.x0 > 0 && r.y0 > 0 && r.x1 < d.baseL && r.y1 < d.baseW, JSON.stringify(r));
       check(`${bt}: jenama - siling di dalam tampalan`, m.ceilOutside === 0, `${m.ceilOutside}`);
@@ -205,7 +206,7 @@ for (const input of CASES) {
       check(`${bt}: jenama - tak tembus`, b.deboss.depth <= 2 - 1.4 + 1e-9);
     } else {
       check(`${bt}: jenama - dilangkau hanya bila muka bawah kecil`,
-        debossCap({ x0: 2, y0: 2, x1: d.baseL - 2, y1: d.baseW - 2 }) < 3, `${d.baseL} x ${d.baseW}`);
+        debossCap({ x0: 2, y0: 2, x1: d.baseL - 2, y1: d.baseW - 2 }) < DEBOSS.capMin, `${d.baseL} x ${d.baseW}`);
     }
     check(`${bt}: tiada sisi berganda`, m.dup === 0, `${m.dup}`);
     check(`${bt}: tiada segitiga leper`, m.degenerate === 0, `${m.degenerate}`);

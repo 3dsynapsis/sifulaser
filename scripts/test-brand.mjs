@@ -21,6 +21,9 @@
 //             empat, berbucu bulat, oktagon, dengan titik kolinear) bertapak
 //             jenama tertutup, manifold, isipadu = prisma - huruf; huruf
 //             dicerminkan (dibaca dari bawah); terlalu kecil -> null.
+//   * mudah dicetak - pada setiap saiz huruf: TIADA pulau (stensil: bahagian
+//             dalam a, e, o bersambung ke muka luar), lejang >= 1.2 mm,
+//             jambatan yang direka berada pada huruf yang betul.
 //   * nama  - awalan sifulaser- sekali sahaja.
 
 import fs from 'node:fs';
@@ -242,12 +245,12 @@ for (const [k, v] of Object.entries(pdfs)) {
     'segi empat ikut jam': [[0, 0], [0, 50], [120, 50], [120, 0]],
     'titik kolinear': [[0, 0], [30, 0], [70, 0], [120, 0], [120, 20], [120, 50], [60, 50], [0, 50], [0, 25]],
     'berbucu bulat': rr(0, 0, 150, 60, 12),
-    oktagon: Array.from({ length: 8 }, (_, i) => [60 + 60 * Math.cos((i * Math.PI) / 4 + Math.PI / 8), 60 + 60 * Math.sin((i * Math.PI) / 4 + Math.PI / 8)]),
+    oktagon: Array.from({ length: 8 }, (_, i) => [80 + 80 * Math.cos((i * Math.PI) / 4 + Math.PI / 8), 80 + 80 * Math.sin((i * Math.PI) / 4 + Math.PI / 8)]),
     tinggi: [[0, 0], [30, 0], [30, 140], [0, 140]],
   };
   for (const [name, outer] of Object.entries(shapes)) {
     const xs = outer.map((q) => q[0]), ys = outer.map((q) => q[1]);
-    const ins = name === 'oktagon' ? 20 : name === 'berbucu bulat' ? 13 : 2;
+    const ins = name === 'oktagon' ? 25 : name === 'berbucu bulat' ? 13 : 2;
     const plan = D.debossPlan({ x0: Math.min(...xs) + ins, y0: Math.min(...ys) + ins, x1: Math.max(...xs) - ins, y1: Math.max(...ys) - ins });
     check(`terbenam ${name}: ada rancangan`, !!plan);
     if (!plan) continue;
@@ -259,7 +262,7 @@ for (const [k, v] of Object.entries(pdfs)) {
     check(`terbenam ${name}: tiada segitiga merosot`, r.degenerate === 0, `${r.degenerate}`);
     const want = Math.abs(area(outer)) * 5 - plan.volume;
     check(`terbenam ${name}: isipadu = prisma - huruf`, Math.abs(r.vol - want) < 1e-6 * want, `${r.vol} vs ${want}`);
-    check(`terbenam ${name}: huruf ada`, plan.area > 20 && plan.cap >= 3);
+    check(`terbenam ${name}: huruf ada`, plan.area > 20 && plan.cap >= D.DEBOSS.capMin);
     check(`terbenam ${name}: arah`, plan.vertical === (name === 'tinggi'));
     // Dicerminkan: 's' (huruf pertama) di hujung +x (melintang) / -y (menegak).
     const mid = (s) => (plan.vertical ? (s[1] + s[3]) / 2 : (s[0] + s[2]) / 2);
@@ -267,7 +270,34 @@ for (const [k, v] of Object.entries(pdfs)) {
     check(`terbenam ${name}: dicerminkan`, plan.vertical ? first < last : first > last);
   }
   check('terbenam: terlalu kecil -> null', D.debossPlan({ x0: 0, y0: 0, x1: 20, y1: 8 }) === null);
-  check('terbenam: had huruf 7 mm', D.debossPlan({ x0: 0, y0: 0, x1: 500, y1: 300 }).cap === 7);
+  check('terbenam: had huruf 9 mm', D.debossPlan({ x0: 0, y0: 0, x1: 500, y1: 300 }).cap === D.DEBOSS.capMax);
+  // Tulisan 7 mm perlu tampalan 75.9 x 14.2 mm (mana-mana arah).
+  check('terbenam: di bawah 7 mm tiada tulisan', D.debossPlan({ x0: 0, y0: 0, x1: 75, y1: 70 }) === null
+    && D.debossPlan({ x0: 0, y0: 0, x1: 300, y1: 13.5 }) === null && D.debossPlan({ x0: 0, y0: 0, x1: 13.5, y1: 300 }) === null
+    && D.debossPlan({ x0: 0, y0: 0, x1: 76, y1: 14.5 }) !== null);
+  // Mudah dicetak: setiap saiz dari capMin ke capMax, kedua-dua arah.
+  for (let cap = D.DEBOSS.capMin; cap <= D.DEBOSS.capMax + 1e-9; cap += 0.25) {
+    for (const vertical of [false, true]) {
+      const box = vertical ? { x0: 0, y0: 0, x1: 60, y1: 300 } : { x0: 0, y0: 0, x1: 300, y1: 60 };
+      const p = D.debossPlan(box, { capMax: cap });
+      const tag = `terbenam ${cap.toFixed(2)} mm${vertical ? ' menegak' : ''}`;
+      check(`${tag}: ada`, !!p && Math.abs(p.cap - cap) < 1e-9 && p.vertical === vertical);
+      if (!p) continue;
+      const { comps } = D.flatComponents(p);
+      check(`${tag}: tiada pulau pada lapisan pertama`, comps.length === 1, `${comps.length - 1} pulau`);
+      check(`${tag}: lejang >= 1.2 mm`, p.stroke >= 1.2 - 1e-9, `${p.stroke}`);
+      // 4 jambatan yang direka (o x2, e, a) dan tiada jambatan sandaran.
+      check(`${tag}: jambatan = 4 yang direka`, p.bridges === 4, `${p.bridges}`);
+      // Setiap lekuk masih wujud: kawasan huruf tidak hilang ditelan jambatan.
+      check(`${tag}: huruf masih ada`, p.area > 20 * cap, `${p.area}`);
+    }
+  }
+  // Teks tanpa jambatan yang direka: pulau disambung oleh stencil() sandaran.
+  {
+    const p = D.debossPlan({ x0: 0, y0: 0, x1: 300, y1: 60 }, { text: 'BOOK 0898' });
+    const { comps } = D.flatComponents(p);
+    check('terbenam teks lain: pulau disambung sandaran', comps.length === 1 && p.bridges >= 4, `${comps.length - 1} pulau, ${p.bridges} jambatan`);
+  }
   const sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
   check('terbenam: tampalan melebihi muka -> false', D.debossFace(sq, D.debossPlan({ x0: 0, y0: 0, x1: 120, y1: 40 }), () => {}) === false);
 }
