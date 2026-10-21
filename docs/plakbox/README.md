@@ -61,6 +61,12 @@ Bukan salinan vendored - sumber alat ini MEMANG tinggal di sini, sama seperti
 
 ## Tapak potong laser (21 Oktober 2026)
 
+> **Disorok** pada hari yang sama atas permintaan bos (rupanya kurang
+> cantik). `LASER_BASE = false` dalam `src/main.js` menyorok pilihan "Dibuat
+> dengan" dan membuka sebarang reka bentuk bermod laser sebagai cetak 3D.
+> Geometri, fail SVG/PDF, harga dan ujian di bawah kekal dan masih diuji;
+> tukar ke `true` untuk memaparkannya semula.
+
 Pilihan kedua untuk tapak: **Tapak → Dibuat dengan → Potong laser**. Tapak
 yang sama dibina daripada lapisan papan (MDF 3/5 mm, Plywood 3/5 mm, Akrilik
 Hitam 3 mm) yang dipotong laser dan dilekat bertindan - cara tapak plak dibuat

@@ -49,6 +49,11 @@ const load = () => {
   return {};
 };
 const saved = load();
+// Tapak potong laser DISOROK (21 Oktober 2026, bos: tak cantik). Geometri,
+// fail SVG/PDF, harga dan ujiannya kekal; true memaparkannya semula. Selagi
+// false, reka bentuk lama, pautan atau simpanan bermod laser dibuka sebagai
+// cetak 3D (rebuild()) - tiada jalan buntu tanpa butang untuk keluar.
+const LASER_BASE = false;
 const state = {
   params: { ...DEFAULTS, ...(saved.params || {}) },
   // Paparan "angkat" dahulu satu tab; kini butang animasi di atas pentas.
@@ -117,6 +122,7 @@ function showHint(text, ms = 1800) {
 }
 
 function rebuild() {
+  if (!LASER_BASE) state.params.baseMode = 'print';
   model = buildPlakBox(state.params);
   view.build(model, viewOpts(state.show, state.backdrop));
   const d = model.derived;
@@ -492,7 +498,7 @@ function renderStatic() {
       acrylicNote),
 
     group('Tapak', true,
-      h('div', { class: 'field' }, h('label', {}, 'Dibuat dengan'), modeSeg),
+      h('div', { class: 'field', hidden: !LASER_BASE }, h('label', {}, 'Dibuat dengan'), modeSeg),
       laserBlock,
       h('div', { class: 'field' }, h('label', {}, 'Jenis tapak'), typeCards),
       typeNote,
