@@ -14,8 +14,12 @@
 //   * isipadu              - positif (normal ke luar), dan untuk beberapa jenis
 //                            sama dengan kiraan tangan yang bebas daripada kod.
 //   * TANPA SUPPORT        - setiap segitiga yang menghadap ke bawah (kecuali
-//                            muka bawah di plat) tidak lebih landai daripada
+//                            muka bawah di plat dan siling huruf jenama -
+//                            jambatan ~1.2 mm) tidak lebih landai daripada
 //                            45 darjah. Itulah janji setiap jenis tapak.
+//   * jenama               - "sifulaser.com" terbenam 0.6 mm di bawah tapak
+//                            cetak 3D: siling dalam tampalan, luas = luas
+//                            huruf, tiada pada tapak laser.
 //   * kotak sempadan       - tapak tepat baseL x baseW, bermula di z = 0.
 //   * lantai               - di bawah alur dan poket sekurang-kurangnya 2 mm
 //                            bahan.
@@ -62,6 +66,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const MOD = path.join(here, '..', 'docs', 'plakbox', 'src', 'geom', 'base.js');
 const { buildPlakBox, DEFAULTS, BASE_TYPES, trianglesToStl } = await import(pathToFileURL(MOD).href);
+const { debossCap } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
 
 let passed = 0;
 let failed = 0;
@@ -73,11 +78,15 @@ function check(name, cond, detail = '') {
 }
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 
-/** Semakan mesh: tertutup, berorientasi, tiada leper, overhang; isipadu bertanda. */
-function meshReport(tris) {
+/**
+ * Semakan mesh: tertutup, berorientasi, tiada leper, overhang; isipadu bertanda.
+ * `recess` (jenama terbenam, { rect, depth }): siling huruf - muka rata pada
+ * z = depth di dalam rect - ialah jambatan, bukan overhang; luasnya dikira.
+ */
+function meshReport(tris, recess = null) {
   const key = (i) => `${tris[i]},${tris[i + 1]},${tris[i + 2]}`;
   const edges = new Map();
-  let degenerate = 0, vol = 0, worstDown = 1, bottomMinX = Infinity;
+  let degenerate = 0, vol = 0, worstDown = 1, bottomMinX = Infinity, ceilArea = 0, ceilOutside = 0;
   let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
   for (let b = 0; b < tris.length; b += 9) {
     const ks = [key(b), key(b + 3), key(b + 6)];
@@ -91,8 +100,17 @@ function meshReport(tris) {
     const len = Math.hypot(cx, cy, cz);
     if (len / 2 < 1e-6) degenerate++;
     const onBed = Math.abs(tris[b + 2]) < 1e-6 && Math.abs(tris[b + 5]) < 1e-6 && Math.abs(tris[b + 8]) < 1e-6;
+    const atZ = (z) => Math.abs(tris[b + 2] - z) < 1e-5 && Math.abs(tris[b + 5] - z) < 1e-5 && Math.abs(tris[b + 8] - z) < 1e-5;
+    const ceiling = recess && cz < 0 && atZ(recess.depth);
+    if (ceiling) {
+      ceilArea += len / 2;
+      const { x0: rx0, y0: ry0, x1: rx1, y1: ry1 } = recess.rect;
+      for (let k = 0; k < 9; k += 3) {
+        if (tris[b + k] < rx0 - 1e-4 || tris[b + k] > rx1 + 1e-4 || tris[b + k + 1] < ry0 - 1e-4 || tris[b + k + 1] > ry1 + 1e-4) ceilOutside++;
+      }
+    }
     if (onBed) bottomMinX = Math.min(bottomMinX, tris[b], tris[b + 3], tris[b + 6]);
-    else if (len > 0) worstDown = Math.min(worstDown, cz / len);
+    else if (len > 0 && !ceiling) worstDown = Math.min(worstDown, cz / len);
     const [px, py, pz] = [tris[b], tris[b + 1], tris[b + 2]];
     const [qx, qy, qz] = [tris[b + 3], tris[b + 4], tris[b + 5]];
     const [rx, ry, rz] = [tris[b + 6], tris[b + 7], tris[b + 8]];
@@ -109,7 +127,7 @@ function meshReport(tris) {
     const [a, b] = e.split('|');
     if ((edges.get(`${b}|${a}`) || 0) !== c) open++;
   }
-  return { open, dup, degenerate, vol, worstDown, bottomMinX, bbox: { x0, y0, z0, x1, y1, z1 } };
+  return { open, dup, degenerate, vol, worstDown, bottomMinX, ceilArea, ceilOutside, bbox: { x0, y0, z0, x1, y1, z1 } };
 }
 
 // ---- kes ---------------------------------------------------------------------
@@ -160,6 +178,7 @@ for (let k = 0; k < 80; k++) {
 }
 
 // ---- semakan ---------------------------------------------------------------
+let debossed = 0;
 for (const input of CASES) {
   const tag = JSON.stringify(input).slice(0, 80);
   let r;
@@ -169,8 +188,25 @@ for (const input of CASES) {
   let volSum = 0, triSum = 0;
   for (const b of bodies) {
     const bt = `${tag} [${b.id}]`;
-    const m = meshReport(b.mesh);
+    const m = meshReport(b.mesh, b.deboss);
     check(`${bt}: mesh tertutup`, m.open === 0, `${m.open} sisi terbuka`);
+    // Jenama terbenam di bawah tapak cetak 3D (laser: tiada STL, tiada jenama).
+    if (p.baseMode === 'laser') check(`${bt}: laser - tiada jenama terbenam`, !b.deboss);
+    else if (b.deboss) {
+      debossed++;
+      const r = b.deboss.rect;
+      check(`${bt}: jenama - teks`, b.deboss.text === 'sifulaser.com' && near(b.deboss.depth, 0.6) && b.deboss.cap >= 3 - 1e-9 && b.deboss.cap <= 7 + 1e-9,
+        JSON.stringify(b.deboss));
+      check(`${bt}: jenama - dalam muka bawah`, r.x0 > 0 && r.y0 > 0 && r.x1 < d.baseL && r.y1 < d.baseW, JSON.stringify(r));
+      check(`${bt}: jenama - siling di dalam tampalan`, m.ceilOutside === 0, `${m.ceilOutside}`);
+      check(`${bt}: jenama - luas siling = luas huruf`, m.ceilArea > 1 && near(m.ceilArea, b.deboss.areaMm2, 1e-3 * b.deboss.areaMm2),
+        `${m.ceilArea.toFixed(3)} lawan ${b.deboss.areaMm2.toFixed(3)}`);
+      // Lantai alur/poket/slot >= 2 mm (disemak di bawah): >= 1.4 mm bahan kekal di atas huruf.
+      check(`${bt}: jenama - tak tembus`, b.deboss.depth <= 2 - 1.4 + 1e-9);
+    } else {
+      check(`${bt}: jenama - dilangkau hanya bila muka bawah kecil`,
+        debossCap({ x0: 2, y0: 2, x1: d.baseL - 2, y1: d.baseW - 2 }) < 3, `${d.baseL} x ${d.baseW}`);
+    }
     check(`${bt}: tiada sisi berganda`, m.dup === 0, `${m.dup}`);
     check(`${bt}: tiada segitiga leper`, m.degenerate === 0, `${m.degenerate}`);
     check(`${bt}: isipadu positif`, m.vol > 0 && Math.abs(m.vol - b.volumeMm3) < Math.max(0.5, b.volumeMm3 * 1e-5),
@@ -232,6 +268,7 @@ for (const input of CASES) {
   check(`${tag}: amaran dinding poket tepat`,
     wallWarn === (p.pocket && p.gap - p.grooveClear - p.pocketClear < 3), r.warnings.join(' | '));
 }
+check(`jenama terbenam pada kebanyakan kes (${debossed}/${CASES.length})`, debossed >= CASES.length * 0.8);
 
 function slotChecks(tag, r) {
   const { params: p, derived: d, grid } = r;
@@ -256,7 +293,7 @@ function slotChecks(tag, r) {
 
 // ---- nombor lalai dan kiraan tangan ------------------------------------------------
 {
-  const { derived: d, params: p, stats } = buildPlakBox(DEFAULTS);
+  const { derived: d, params: p, stats, bodies } = buildPlakBox(DEFAULTS);
   check('lalai: jenis Standard', p.type === 'standard');
   check('lalai: kotak luar 256 x 106', near(d.coverOutL, 256) && near(d.coverOutW, 106), `${d.coverOutL} x ${d.coverOutW}`);
   check('lalai: tapak 280.8 x 130.8 (sama seperti sebelum jenis tapak)', near(d.baseL, 280.8) && near(d.baseW, 130.8), `${d.baseL} x ${d.baseW}`);
@@ -266,8 +303,10 @@ function slotChecks(tag, r) {
   const band = (280.8 * 130.8 - 272.8 * 122.8) * 4;
   const groove = (256.8 * 106.8 - 249.2 * 99.2) * 4;
   const pocket = 231 * 81 * 2;
-  check('lalai: isipadu kiraan tangan', Math.abs(stats.volumeMm3 - (full - band - groove - pocket)) < 1e-3,
-    `${stats.volumeMm3} lawan ${full - band - groove - pocket}`);
+  // Tulisan terbenam di bawah: luasnya disemak terus daripada mesh di atas.
+  const brand = bodies[0].deboss.volumeMm3;
+  check('lalai: isipadu kiraan tangan', Math.abs(stats.volumeMm3 - (full - band - groove - pocket - brand)) < 1e-3,
+    `${stats.volumeMm3} lawan ${full - band - groove - pocket - brand}`);
 }
 {
   // Serong: frustum (keratan berubah linear) - formula prismoid tepat.
@@ -276,7 +315,8 @@ function slotChecks(tag, r) {
   const L = 272.8, W = 122.8; // permukaan atas
   const frustum = (25 / 6) * (L * W + 4 * (L + s) * (W + s) + (L + 2 * s) * (W + 2 * s));
   const cut = (256.8 * 106.8 - 249.2 * 99.2) * 4 + 231 * 81 * 2;
-  check('serong: isipadu kiraan tangan (prismoid)', Math.abs(r.stats.volumeMm3 - (frustum - cut)) < 0.05,
+  const brand = r.bodies[0].deboss.volumeMm3;
+  check('serong: isipadu kiraan tangan (prismoid)', Math.abs(r.stats.volumeMm3 - (frustum - cut - brand)) < 0.05,
     `${r.stats.volumeMm3} lawan ${frustum - cut}`);
 }
 {
@@ -302,7 +342,8 @@ function slotChecks(tag, r) {
   const groove = ((d.groove.x1 - d.groove.x0) * (d.groove.y1 - d.groove.y0)
     - (d.grooveIn.x1 - d.grooveIn.x0) * (d.grooveIn.y1 - d.grooveIn.y0)) * p.grooveDepth;
   const hole = 230.5 * 5.5 * 12;
-  check('slot lalai: isipadu kiraan tangan', Math.abs(r.stats.volumeMm3 - (body - groove - hole)) < 1e-3,
+  const brand = r.bodies[0].deboss.volumeMm3;
+  check('slot lalai: isipadu kiraan tangan', Math.abs(r.stats.volumeMm3 - (body - groove - hole - brand)) < 1e-3,
     `${r.stats.volumeMm3} lawan ${body - groove - hole}`);
 }
 // ---- fail potong akrilik -------------------------------------------------------------

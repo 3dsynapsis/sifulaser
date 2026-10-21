@@ -15,6 +15,10 @@
 //   * setiap kes    - fillet 0 dan bukan 0, pembahagi rendah dan separas rim,
 //                     boleh susun, grid 1x1 hingga 12x12, input teruk.
 //   * STL           - 84 + 50n bait, kiraan sepadan, normal unit.
+//   * jenama        - "sifulaser.com" terbenam di tapak: siling huruf rata
+//                     pada z = dalam, di dalam tampalan, luasnya sama dengan
+//                     yang dirancang; >= 1 mm lantai kekal; tiada jenama bila
+//                     lantai < 1.4 mm.
 
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,6 +28,7 @@ const TRAY = path.join(here, '..', 'docs', 'tray');
 const THREE = await import(pathToFileURL(path.join(TRAY, 'vendor', 'three.module.js')).href);
 const { buildTray3D, trianglesToStl, PRINTERS } =
   await import(pathToFileURL(path.join(TRAY, 'src', 'geom', 'tray3d.js')).href);
+const { debossCap } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
 
 let passed = 0, failed = 0;
 const fails = [];
@@ -99,11 +104,43 @@ function checkTray(label, params, expect = {}) {
   // Isi padu waras: kurang daripada kotak pepejal, lebih daripada lantai sahaja.
   check(`${label}: isi padu < kotak pepejal`, m.vol < p.length * p.width * p.height);
   check(`${label}: isi padu > lantai sahaja`, m.vol > p.length * p.width * p.floorT * 0.99);
+  brandChecks(label, tray);
   if (expect.cells != null) check(`${label}: ${expect.cells} petak`, d.cellCount === expect.cells, `${d.cellCount}`);
   if (expect.flatTop != null) check(`${label}: flatTop ${expect.flatTop}`, d.flatTop === expect.flatTop);
   if (expect.warn) for (const w of expect.warn) check(`${label}: amaran '${w}'`, d.warnings.includes(w), d.warnings.join(','));
   if (expect.noWarn) for (const w of expect.noWarn) check(`${label}: tiada amaran '${w}'`, !d.warnings.includes(w), d.warnings.join(','));
   return tray;
+}
+
+let branded = 0;
+/** Jenama terbenam di bawah tapak. */
+function brandChecks(label, { params: p, derived: d, mesh }) {
+  const b = d.deboss;
+  if (!b) {
+    const foot = d.stack ? p.wallT + d.clear : 0;
+    const inset = foot + (d.stack ? Math.max(0, d.r - d.clear) : d.rO) + 1;
+    check(`${label}: jenama - dilangkau hanya bila lantai nipis atau tapak kecil`, p.floorT < 1.4
+      || debossCap({ x0: inset, y0: inset, x1: p.length - inset, y1: p.width - inset }) < 3, `lantai ${p.floorT}`);
+    return;
+  }
+  branded++;
+  check(`${label}: jenama - teks`, b.text === 'sifulaser.com' && b.cap >= 3 - 1e-9 && b.cap <= 7 + 1e-9, JSON.stringify(b));
+  check(`${label}: jenama - >= 1 mm lantai kekal`, b.depth >= 0.4 - 1e-9 && b.depth <= Math.min(0.6, p.floorT - 1) + 1e-9, `${b.depth}`);
+  let area = 0, outside = 0;
+  for (let t = 0; t < mesh.length; t += 9) {
+    if (![2, 5, 8].every((k) => Math.abs(mesh[t + k] - b.depth) < 1e-5)) continue;
+    const ux = mesh[t + 3] - mesh[t], uy = mesh[t + 4] - mesh[t + 1];
+    const vx = mesh[t + 6] - mesh[t], vy = mesh[t + 7] - mesh[t + 1];
+    const cz = ux * vy - uy * vx;
+    if (cz >= 0) continue;                       // siling menghadap ke bawah
+    area += -cz / 2;
+    for (const k of [0, 3, 6]) {
+      const x = mesh[t + k], y = mesh[t + k + 1];
+      if (x < b.rect.x0 - 1e-4 || x > b.rect.x1 + 1e-4 || y < b.rect.y0 - 1e-4 || y > b.rect.y1 + 1e-4) outside++;
+    }
+  }
+  check(`${label}: jenama - siling di dalam tampalan`, outside === 0, `${outside}`);
+  check(`${label}: jenama - luas siling = luas huruf`, area > 1 && near(area, b.areaMm2, 1e-3 * b.areaMm2), `${area} vs ${b.areaMm2}`);
 }
 
 // ---- kes ------------------------------------------------------------------------
@@ -175,6 +212,18 @@ for (let n = 0; n < 60; n++) {
   if (t) fuzzRun++;
 }
 check('fuzz: semua 60 dibina', fuzzRun === 60, `${fuzzRun}`);
+check(`jenama terbenam pada kebanyakan dulang (${branded})`, branded >= 80);
+{
+  // Lantai 1.2 mm: tiada jenama; 1.4 mm: 0.4 mm dalam; lalai 1.6 mm: 0.6 mm.
+  const t12 = buildTray3D({ floorT: 1.2 }, THREE), t14 = buildTray3D({ floorT: 1.4 }, THREE);
+  check('jenama: lantai 1.2 tiada', t12.derived.deboss === null);
+  check('jenama: lantai 1.4 -> 0.4 mm', t14.derived.deboss && near(t14.derived.deboss.depth, 0.4, 1e-9));
+  check('jenama: boleh susun -> di bawah kaki', (() => {
+    const t = buildTray3D({ stack: true }, THREE);
+    const r = t.derived.deboss.rect, f = t.params.wallT + t.derived.clear;
+    return r.x0 > f && r.y0 > f && r.x1 < t.params.length - f && r.y1 < t.params.width - f;
+  })());
+}
 
 // ---- grid terlalu padat: pembahagi tak dijana, masih manifold -------------------
 {
@@ -231,7 +280,8 @@ for (const b of bad) checkTray(`input teruk ${JSON.stringify(b)}`, b);
   const { length: L, width: W, height: H, floorT } = t.params;
   const sumCells = t.rings.cells.reduce((s, r) => s + Math.abs(r.reduce((a, [x, y], i, arr) => { const [x2, y2] = arr[(i + 1) % arr.length]; return a + x * y2 - x2 * y; }, 0) / 2), 0);
   const aO = Math.abs(t.rings.O.reduce((a, [x, y], i, arr) => { const [x2, y2] = arr[(i + 1) % arr.length]; return a + x * y2 - x2 * y; }, 0) / 2);
-  check('lalai: formula isi padu', near(t.derived.volumeMm3, aO * H - sumCells * (H - floorT), 1e-6));
+  // Tolak jenama terbenam - luasnya disemak terus daripada mesh (brandChecks).
+  check('lalai: formula isi padu', near(t.derived.volumeMm3, aO * H - sumCells * (H - floorT) - t.derived.deboss.volumeMm3, 1e-6));
   check('lalai: luas O < L*W (fillet luar memotong bucu)', aO < L * W && aO > L * W * 0.99);
 }
 

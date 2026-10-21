@@ -39,9 +39,15 @@
 // (tapak, lantai poket). Ia dihantar masuk, bukan diimport, supaya ujian
 // node boleh beri terus dan halaman boleh kongsi salinan yang pandangan 3D
 // sudah muat.
+//
+// JENAMA: "sifulaser.com" terbenam di tengah tapak, dicerminkan supaya
+// terbaca bila dulang diterbalikkan (/shared/deboss.js). Sedalam 0.6 mm,
+// tetapi sentiasa meninggalkan >= 1 mm lantai; lantai di bawah 1.4 mm tiada
+// jenama.
 
 import { DEFAULTS as LASER_DEFAULTS, cleanFractions } from './tray.js';
 import { cleanTree, gridToTree, layoutRegions } from './layout.js';
+import { debossPlan, debossFace, debossInfo } from '../../../shared/deboss.js';
 
 export const PRINT_DEFAULTS = {
   wallT: 1.6,          // dinding luar DAN pembahagi; 4 perimeter nozzle 0.4
@@ -388,13 +394,21 @@ export function buildTray3D(input = {}, THREE) {
   };
 
   // ---- tapak, kaki, dinding luar ------------------------------------------------
+  // Tapak (O, atau kaki F bila boleh disusun) dengan jenama terbenam di tengah.
+  const foot = stack ? Frr : O;
+  const brandDepth = R6(Math.min(0.6, floorT - 1));
+  const inset = foot.r + 1;
+  let brand = brandDepth >= 0.4 - 1e-9
+    ? debossPlan({ x0: foot.x0 + inset, y0: foot.y0 + inset, x1: foot.x1 - inset, y1: foot.y1 - inset }, { depth: brandDepth })
+    : null;
+  if (brand && !debossFace(foot.pts, brand, emit)) brand = null;
   if (stack) {
-    cap(F, [], 0, false);
+    if (!brand) cap(F, [], 0, false);
     side(F, 0, footH, false);
     ringFace(O, Frr, footH, false);
     side(O.pts, footH, H, false);
   } else {
-    cap(O.pts, [], 0, false);
+    if (!brand) cap(O.pts, [], 0, false);
     side(O.pts, 0, H, false);
   }
 
@@ -455,7 +469,7 @@ export function buildTray3D(input = {}, THREE) {
   const aCells = C.reduce((s, c) => s + ringArea(c.pts), 0);
   const aF = F ? ringArea(F) : 0;
   const volume = (stack ? aF * footH + aO * (H - footH) : aO * H)
-    - aCells * (Hd - floorT) - aI * (H - Hd);
+    - aCells * (Hd - floorT) - aI * (H - Hd) - (brand ? brand.volume : 0);
   const volumeCm3 = volume / 1000;
   // Dinding setebal 3-4 perimeter dan lantai 1.6 mm dicetak hampir pepejal,
   // jadi anggaran berat ialah isi padu x ketumpatan PLA; sedikit kurang untuk
@@ -494,6 +508,7 @@ export function buildTray3D(input = {}, THREE) {
       },
       r, rO, stack, footH, clear,
       volumeMm3: volume, volumeCm3, gramsPLA,
+      deboss: debossInfo(brand),
       triangles: triCount,
       bed, fitsBed, fitsZ, printerName: printer.name,
       dividerClamped,

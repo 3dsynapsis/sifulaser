@@ -67,6 +67,24 @@ sebelum boleh muat turun. Tag itu pun diletak dalam **sumber** alat atas sebab
 yang sama. Alat kekal percuma untuk diguna — gate itu hanya pada butang Export,
 dan ia corong jualan, bukan kunci: bendera yang dibacanya localStorage biasa.
 
+## Jenama dalam fail export
+
+Setiap fail yang dimuat turun dari alat membawa "by sifulaser.com" — dalam
+fail sahaja, tidak pernah dipotong atau diukir pada produk:
+
+- **SVG / PDF**: tulisan hijau satu garisan dalam jalur 10 mm baharu di bawah
+  semua keping, lapisan/kumpulan sendiri (`sifulaser-brand`).
+- **STL**: pengepala fail, dan "sifulaser.com" terbenam 0.6 mm di tengah
+  tapak, dicerminkan supaya terbaca bila objek diterbalikkan (Plak Box,
+  Tray Organizer). Cake Topper tiada tapak — pengepala sahaja.
+- **Nama fail**: awalan `sifulaser-`.
+
+SVG/PDF/STL-pengepala/nama dibuat oleh `/shared/brand.js`, yang dimuat oleh
+`/shared/export-gate.js` dan menangkap setiap muat turun Blob + `<a download>`
+— tiada perubahan dalam alat. Alat baharu mendapatnya selagi ia memuatkan
+export-gate. Tulisan terbenam STL ialah geometri, jadi ia dalam penjana jasad
+alat itu sendiri melalui `/shared/deboss.js`. Ujian: `node scripts/test-brand.mjs`.
+
 ## Sejarah
 
 Kekalkan sejarah **lurus** — fast-forward sahaja, elakkan merge commit.

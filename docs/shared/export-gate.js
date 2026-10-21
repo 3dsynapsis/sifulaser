@@ -24,6 +24,11 @@
 // simply not installed and export works as it always did. Failing open is the
 // right way round for something that is not a security control.
 
+// Setiap fail yang dimuat turun membawa "by sifulaser.com" (lapisan sendiri,
+// di luar keping) dan nama sifulaser-... - lihat brand.js. Dimuat dari sini
+// kerana setiap alat sudah memuatkan fail ini; tiada tag baharu dalam alat.
+import './brand.js';
+
 const KEY = 'sifulaser.session';
 const HOME = 'https://sifulaser.com/';
 

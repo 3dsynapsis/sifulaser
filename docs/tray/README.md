@@ -35,6 +35,15 @@ setiap README jiran mengingatkan supaya tag analitik dan export-gate diletak
 dalam sumber. Di sini sumber dan docs ialah fail yang sama, jadi amaran itu
 tidak terpakai - tetapi dua tag itu masih WAJIB ada dalam `index.html`.
 
+## Jenama di tapak
+
+STL cetak 3D membawa "sifulaser.com" terbenam di tengah tapak (atau di bawah
+kaki bila boleh disusun), dicerminkan supaya terbaca bila dulang
+diterbalikkan - `/shared/deboss.js`, 21 Oktober 2026. Dalamnya 0.6 mm tetapi
+sentiasa meninggalkan sekurang-kurangnya 1 mm lantai: lantai 1.4 mm dapat
+0.4 mm, lantai di bawah 1.4 mm tiada jenama. Isi padu analitik menolak
+isipadu huruf.
+
 ## Ujian
 
 ```bash

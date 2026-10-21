@@ -65,10 +65,18 @@
 // gandaan tebal papan, supaya geometri yang dikira ialah yang benar-benar
 // terhasil bila lapisan ditindan. Lapisan itu sendiri: geom/layers.js.
 //
-// Modul ini TULEN: tiada DOM; satu import, geom/layers.js, juga tulen.
-// Diuji dalam node (scripts/test-plakbox.mjs).
+// JENAMA. "sifulaser.com" terbenam 0.6 mm di muka bawah tapak cetak 3D,
+// dicerminkan supaya terbaca bila tapak diterbalikkan (keputusan bos, 21
+// Oktober 2026: tanda dalam fail, bukan pada muka yang kelihatan), di tengah
+// muka bawah; geometri dalam /shared/deboss.js.
+//
+// Modul ini TULEN: tiada DOM; import geom/layers.js dan /shared/deboss.js,
+// kedua-duanya tulen. Diuji dalam node (scripts/test-plakbox.mjs).
 
 import { laserLayers } from './layers.js';
+import { DEBOSS, debossPlan, debossFace, debossInfo } from '../../../shared/deboss.js';
+
+export { DEBOSS };
 
 export const BASE_TYPES = [
   { id: 'standard', name: 'Standard', note: 'Blok, tingkat kecil di tepi atas', baseH: 25 },
@@ -411,7 +419,7 @@ const uniqSorted = (vals) => {
  * paras yang wujud di bucu grid itu, supaya setiap segmen tegak dikongsi tepat
  * dua muka - bukan simpang-T yang slicer laporkan sebagai "non-manifold".
  */
-export function buildBody(top, xs, ys, H, Htop, profile) {
+export function buildBody(top, xs, ys, H, Htop, profile, { deboss = null } = {}) {
   const out = [];
   const push = (...pts) => { for (const q of pts) out.push(R6(q[0]), R6(q[1]), R6(q[2])); };
   const tri = (a, b, c, nx, ny, nz) => {
@@ -506,12 +514,32 @@ export function buildBody(top, xs, ys, H, Htop, profile) {
   // ---- muka bawah: grid dipetakan ke cincin paling bawah
   const { mx, my } = mapper(prof[prof.length - 1].o);
   const bx = xs.map(mx), by = ys.map(my);
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < m; j++) {
-      tri([bx[i], by[j], 0], [bx[i + 1], by[j], 0], [bx[i + 1], by[j + 1], 0], 0, 0, -1);
-      tri([bx[i], by[j], 0], [bx[i + 1], by[j + 1], 0], [bx[i], by[j + 1], 0], 0, 0, -1);
+  // Jenama: muka bawah ialah segi empat (cincin paling bawah), jadi ia
+  // dibina sebagai SATU poligon cembung - setiap titik grid pada tepinya,
+  // supaya dinding sisi masih berkongsi setiap tepi - dengan tulisan di
+  // tengah. Grid dalaman tidak perlu di sini: tiada apa di atas muka ini yang
+  // bergantung padanya.
+  let plan = null;
+  if (deboss) {
+    const x0 = bx[0], x1 = bx[n], y0 = by[0], y1 = by[m];
+    plan = debossPlan({ x0: x0 + 2, y0: y0 + 2, x1: x1 - 2, y1: y1 - 2 }, deboss);
+    const ring = [
+      ...bx.map((x) => [x, y0]),
+      ...by.slice(1).map((y) => [x1, y]),
+      ...bx.slice(0, -1).reverse().map((x) => [x, y1]),
+      ...by.slice(1, -1).reverse().map((y) => [x0, y]),
+    ];
+    if (plan && !debossFace(ring, plan, push)) plan = null;
+  }
+  if (!plan) {
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < m; j++) {
+        tri([bx[i], by[j], 0], [bx[i + 1], by[j], 0], [bx[i + 1], by[j + 1], 0], 0, 0, -1);
+        tri([bx[i], by[j], 0], [bx[i + 1], by[j + 1], 0], [bx[i], by[j + 1], 0], 0, 0, -1);
+      }
     }
   }
+  out.deboss = debossInfo(plan);
   return out;
 }
 
@@ -553,7 +581,9 @@ export function buildPlakBox(input = {}) {
 
   // Senarai jasad, walaupun kini sentiasa satu: pengeksport dan pratonton
   // sudah tahu mengendalikan lebih daripada satu bahagian.
-  const bodies = [{ id: 'tapak', name: 'Tapak', tris: buildBody(d.top, xs, ys, H, Hs, d.profile), z: 0 }];
+  // Jenama terbenam hanya pada tapak cetak 3D; tapak laser tiada STL.
+  const tris = buildBody(d.top, xs, ys, H, Hs, d.profile, { deboss: p.baseMode === 'laser' ? null : DEBOSS });
+  const bodies = [{ id: 'tapak', name: 'Tapak', tris, deboss: tris.deboss, z: 0 }];
   let volume = 0, triangles = 0;
   for (const b of bodies) {
     b.volumeMm3 = meshVolume(b.tris);
