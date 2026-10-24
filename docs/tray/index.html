@@ -13,7 +13,7 @@
     <div class="brand">
       <span class="logo">&#9638;</span>
       <input id="projectName" class="name-input" value="Dulang tanpa nama" spellcheck="false" aria-label="Nama projek">
-      <span id="status" class="status">Disimpan</span>
+      <span id="status" class="status" title="Disimpan automatik dalam pelayar ini sahaja. Tekan Simpan untuk menyimpan ke akaun.">Disimpan di pelayar</span>
     </div>
 
     <div class="midbar">
@@ -28,6 +28,8 @@
       <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">&#8630;</button>
       <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">&#8631;</button>
       <button class="icon-btn" id="helpBtn" title="Cara pasang">?</button>
+      <button class="soft" id="saveBtn">Simpan</button>
+      <button class="ghost quiet" id="filesBtn" title="Reka bentuk saya" aria-label="Reka bentuk saya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="files-label">Reka bentuk saya</span></button>
       <!-- id="exportBtn" ialah keseluruhan kewajipan alat ini kepada
            /shared/export-gate.js, yang memadankan target.closest('#exportBtn')
            pada pendengar fasa tangkap. -->
@@ -63,6 +65,8 @@
       <span><i style="background:#9aa0a6"></i>Label</span>
     </div>
     <p class="note" id="exportNote"></p>
+    <!-- Reka bentuk disimpan sendiri ke akaun bila Export dibuka - src/main.js. -->
+    <p class="note" id="exportSaved" hidden></p>
     <div class="dlg-actions">
       <button value="cancel" class="ghost">Batal</button>
       <button value="svg" class="primary" id="dlSvg">Muat turun SVG</button>
@@ -79,6 +83,9 @@
     <div class="dlg-actions"><button value="ok" class="primary">Faham</button></div>
   </form>
 </dialog>
+
+<dialog id="saveDlg" class="dlg"></dialog>
+<dialog id="filesDlg" class="dlg"></dialog>
 
 <script type="module" src="src/main.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->

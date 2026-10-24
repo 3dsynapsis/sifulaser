@@ -29,6 +29,10 @@ export const TOOLS = {
   topper: { name: 'Cake Topper', path: '/topper/' },
   keychain: { name: 'Keychain', path: '/keychain/' },
   tag: { name: 'Tag Generator', path: '/tag/' },
+  converter: { name: 'Converter File', path: '/converter/' },
+  rehal: { name: 'Rehal', path: '/rehal/' },
+  plakbox: { name: 'Plak Box', path: '/plakbox/' },
+  tray: { name: 'Tray Organizer', path: '/tray/' },
 };
 
 /** The tool this copy of the gallery is running inside. */

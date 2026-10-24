@@ -41,3 +41,12 @@ diubah. Yang ditambah di sini:
 33 fon, sama seperti Cake Topper. `src/font/CREDITS.txt` dan
 `src/font/LICENCES.txt` **mesti kekal**: Sans dan Script diterbitkan daripada
 Hershey Fonts, yang mensyaratkan pengakuan diedarkan bersama data fon.
+
+## Perubahan terus: senarai alat galeri (24 Oktober 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `converter`, `rehal`, `plakbox` dan `tray` supaya reka bentuk dari
+alat itu yang muncul dalam "Reka bentuk saya" boleh dibuka (ia membawa ke
+`/<alat>/?design=<id>`). Tanpanya baris itu tidak berbuat apa-apa bila
+ditekan. Perubahan ini dibuat terus dalam salinan `docs/`: salin baris yang
+sama ke projek sumber sebelum menyalin semula alat ini, kalau tidak ia hilang
+senyap.

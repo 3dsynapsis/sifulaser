@@ -9,6 +9,11 @@ import { View3D } from './view3d.js';
 import { View2D } from './view2d.js';
 import { exportSvg, SHEETS, nest, sheetDef } from './export.js';
 import { trianglesToStl } from './geom/tray3d.js';
+import * as gallery from './designs.js';
+import { signedIn } from './cloud.js';
+import {
+  UNTITLED, autoName, designParams, designMaterial, designExtra, readDesign,
+} from './saved.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -47,8 +52,11 @@ els.name.addEventListener('change', () => {
   els.name.value = state.name;
 });
 
+// Simpanan automatik ke pelayar INI sahaja - satu reka bentuk, satu peranti.
+// Yang ke akaun ialah butang Simpan; label ini berkata begitu supaya "Disimpan"
+// tidak disangka simpanan akaun.
 onPersist((st) => {
-  els.status.textContent = st === 'busy' ? 'Menyimpan...' : 'Disimpan';
+  els.status.textContent = st === 'busy' ? 'Menyimpan...' : 'Disimpan di pelayar';
   els.status.classList.toggle('busy', st === 'busy');
 });
 
@@ -144,6 +152,7 @@ els.exportBtn.addEventListener('click', () => {
   labelsChk.checked = state.showLabels;
   refreshExportDialog();
   els.exportDlg.showModal();
+  void saveAfterExport();
 });
 sheetSel.addEventListener('change', () => {
   update((s) => { s.sheet = sheetSel.value; }, { history: false });
@@ -180,6 +189,7 @@ function downloadSvg() {
   // muat turun kedua yang tiba dalam frame yang sama dengan yang pertama.
   files.forEach((f, i) => setTimeout(() => saveBlob(f.name, f.svg, 'image/svg+xml;charset=utf-8'), i * 350));
   showHint(files.length > 1 ? `${files.length} fail SVG dimuat turun` : 'Fail SVG dimuat turun');
+  void gallery.saveQuietly(galleryStore);
 }
 
 function downloadStl() {
@@ -188,6 +198,78 @@ function downloadStl() {
   const buf = trianglesToStl(tray.mesh, `SifuLaser Tray Organizer ${L}x${W}x${H}`);
   saveBlob(`dulang-${L}x${W}x${H}.stl`, buf, 'model/stl');
   showHint('Fail STL dimuat turun');
+  void gallery.saveQuietly(galleryStore);
+}
+
+// ---- reka bentuk tersimpan ---------------------------------------------------
+// Sama seperti alat lain (Plak Box, Box Maker, Rehal...): butang Simpan dan
+// galeri "Reka bentuk saya" di bar atas, dan reka bentuk disimpan SENDIRI ke
+// akaun bila Export dibuka dan bila fail dimuat turun (bos, 24 Oktober 2026).
+// Export sudah meminta daftar masuk (/shared/export-gate.js), jadi pada saat
+// itu sesi sudah ada. Satu reka bentuk dikemas kini di tempatnya, bukan entri
+// baharu setiap kali.
+
+/** Apa yang galeri boleh lihat dan ubah - sempit dengan sengaja. */
+const galleryStore = {
+  name: () => (state.name && state.name !== UNTITLED ? state.name : autoName(state)),
+  params: () => designParams(state),
+  material: () => designMaterial(state),
+  extra: () => designExtra(state),
+  rename: (name) => {
+    update((s) => { s.name = name === autoName(s) ? UNTITLED : name; }, { history: false });
+    els.name.value = state.name;
+  },
+  apply: (row) => applyDesign(row),
+};
+
+/** Buka rekod akaun: satu langkah undo, dan semua kawalan dilukis semula. */
+function applyDesign(row) {
+  const { state: d } = readDesign(row);
+  update((s) => {
+    s.params = d.params;
+    s.material = d.material;
+    s.filament = d.filament;
+    s.sheet = d.sheet;
+    s.showLabels = d.showLabels;
+    s.name = d.name;
+    s.selected = { i: 0, j: 0 };
+    s.selectedPath = [];
+  }, { geometry: true });
+  els.name.value = state.name;
+}
+
+const savedLine = $('#exportSaved');
+async function saveAfterExport() {
+  if (!signedIn()) { savedLine.hidden = true; return; }
+  savedLine.hidden = false;
+  savedLine.textContent = 'Menyimpan dalam "Reka bentuk saya"...';
+  const ok = await gallery.saveQuietly(galleryStore);
+  savedLine.textContent = ok
+    ? `✓ Disimpan dalam "Reka bentuk saya" sebagai "${galleryStore.name()}" - buka semula bila-bila masa dari bar atas.`
+    : 'Tak dapat simpan ke akaun kali ini. Fail tetap boleh dimuat turun.';
+}
+
+/** h() untuk designs.js: anak boleh array, null atau false. */
+const gh = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2).toLowerCase(), v);
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) n.append(c);
+  return n;
+};
+const dialogFiller = (build) => function fill(dlg) {
+  const close = () => dlg.close();
+  dlg.replaceChildren(build(gh, galleryStore, close, () => fill(dlg)));
+};
+const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+for (const [btn, dlg, fill] of [['#saveBtn', '#saveDlg', fillSaveDialog], ['#filesBtn', '#filesDlg', fillFilesDialog]]) {
+  $(btn).addEventListener('click', () => { fill($(dlg)); $(dlg).showModal(); });
+  $(dlg).addEventListener('click', (e) => { if (e.target === $(dlg)) $(dlg).close(); });
 }
 
 // ---- bantuan ----------------------------------------------------------------
@@ -293,5 +375,19 @@ function render() {
 
 subscribe(render);
 render();
-els.status.textContent = 'Disimpan';
+els.status.textContent = 'Disimpan di pelayar';
 showHint('Klik petak, tekan + Lajur / + Baris. Seret pembahagi untuk ubah saiz.', 4000);
+
+// Datang dari galeri alat lain: ?design=<id>. Selepas lukisan pertama, supaya
+// alat sudah boleh diguna walaupun akaun lambat menjawab; parameter dibuang
+// selepas itu supaya muat semula tidak membuang perubahan seterusnya.
+{
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    gallery.openById(galleryStore, wanted).finally(() => {
+      const url = new URL(location.href);
+      url.searchParams.delete('design');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    });
+  }
+}

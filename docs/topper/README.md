@@ -56,3 +56,12 @@ keluar dengan tepi berkilat, extruded tidak.
 Idea dari Cake Topper Generator oleh Cuttle. Enjin di sini milik kita sendiri,
 dan tiada sekatan lesen — Cuttle memerlukan langganan Pro untuk membuat atau
 menjual barang fizikal, dan melarang SVG hasilnya diedarkan.
+
+## Perubahan terus: senarai alat galeri (24 Oktober 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `converter`, `rehal`, `plakbox` dan `tray` supaya reka bentuk dari
+alat itu yang muncul dalam "Reka bentuk saya" boleh dibuka (ia membawa ke
+`/<alat>/?design=<id>`). Tanpanya baris itu tidak berbuat apa-apa bila
+ditekan. Perubahan ini dibuat terus dalam salinan `docs/`: salin baris yang
+sama ke projek sumber sebelum menyalin semula alat ini, kalau tidak ia hilang
+senyap.

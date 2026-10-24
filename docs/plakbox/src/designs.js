@@ -32,6 +32,7 @@ export const TOOLS = {
   converter: { name: 'Converter File', path: '/converter/' },
   rehal: { name: 'Rehal', path: '/rehal/' },
   plakbox: { name: 'Plak Box', path: '/plakbox/' },
+  tray: { name: 'Tray Organizer', path: '/tray/' },
 };
 
 /** The tool this copy of the gallery is running inside. */

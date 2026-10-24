@@ -327,3 +327,12 @@ turun, belakang dari belakang, bumbung, muka dari depan); hayunan pintu
 bersama jali dan kunci; lubang jali hanya di belakang tingkap; tanon dan slot
 tersorok di bawah bingkai; bibir bumbung satu papan; saiz dalam diukur.
 Ujian mutasi: 25 cara rosak yang munasabah, kesemuanya ditangkap.
+
+## Perubahan terus: senarai alat galeri (24 Oktober 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `converter`, `rehal`, `plakbox` dan `tray` supaya reka bentuk dari
+alat itu yang muncul dalam "Reka bentuk saya" boleh dibuka (ia membawa ke
+`/<alat>/?design=<id>`). Tanpanya baris itu tidak berbuat apa-apa bila
+ditekan. Perubahan ini dibuat terus dalam salinan `docs/`: salin baris yang
+sama ke projek sumber sebelum menyalin semula alat ini, kalau tidak ia hilang
+senyap.

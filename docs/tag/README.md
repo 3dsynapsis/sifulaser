@@ -133,3 +133,12 @@ those files must not be deleted:
 - `src/font/CREDITS.txt` — the Hershey acknowledgement for the stroke face
 - `src/clipart/LICENCES.txt` — the icon library, CC0, drawn for this tool
 - `assets/fonts/LICENCES.txt` — the seven bundled outline typefaces, all OFL-1.1
+
+## Perubahan terus: senarai alat galeri (24 Oktober 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `converter`, `rehal`, `plakbox` dan `tray` supaya reka bentuk dari
+alat itu yang muncul dalam "Reka bentuk saya" boleh dibuka (ia membawa ke
+`/<alat>/?design=<id>`). Tanpanya baris itu tidak berbuat apa-apa bila
+ditekan. Perubahan ini dibuat terus dalam salinan `docs/`: salin baris yang
+sama ke projek sumber sebelum menyalin semula alat ini, kalau tidak ia hilang
+senyap.

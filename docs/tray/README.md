@@ -35,6 +35,22 @@ setiap README jiran mengingatkan supaya tag analitik dan export-gate diletak
 dalam sumber. Di sini sumber dan docs ialah fail yang sama, jadi amaran itu
 tidak terpakai - tetapi dua tag itu masih WAJIB ada dalam `index.html`.
 
+## Simpan ke akaun (24 Oktober 2026)
+
+Butang **Simpan** dan galeri **Reka bentuk saya** di bar atas, sama seperti
+Plak Box dan alat lain: reka bentuk disimpan ke akaun (Firestore
+`users/{uid}/designs`, peraturan dalam `firestore.rules`), dan disimpan
+sendiri bila Export dibuka dan bila fail dimuat turun. Sebelum ini Tray hanya
+menyimpan SATU reka bentuk dalam pelayar; label status kini berkata "Disimpan
+di pelayar" supaya ia tidak disangka simpanan akaun.
+
+- `src/cloud.js`, `src/designs.js` - disalin daripada templat Plak Box
+  (`TOOL = 'tray'`). Senarai `TOOLS` dalam setiap salinan designs.js
+  merangkumi `tray`, supaya galeri alat lain boleh membuka dulang.
+- `src/saved.js` - bentuk data, tiada DOM: params rata (<= 40 kunci), pokok
+  petak mod cetak dan tetapan pratonton/fail potong dalam `extra`.
+- Ujian: `node scripts/test-tray-designs.mjs`.
+
 ## Jenama di tapak
 
 STL cetak 3D membawa "sifulaser.com" terbenam di tengah tapak (atau di bawah

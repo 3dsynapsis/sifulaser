@@ -61,7 +61,9 @@ html, body {
 /* ---------- bar atas ---------- */
 .topbar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* Lajur kanan ikut isinya (Simpan, Reka bentuk saya, Export...) supaya
+     butang tidak terlipat; nama projek di kiri mengecil dahulu. */
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   padding: 8px 14px;
@@ -101,6 +103,17 @@ html, body {
 .vt[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 
 .actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.actions > * { white-space: nowrap; flex: none; }
+/* Bar atas sederhana: galeri ikon folder sahaja, status pelayar disorok. */
+@media (max-width: 1240px) {
+  #filesBtn { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  #filesBtn .files-label { display: none; }
+  #filesBtn svg { width: 18px; height: 18px; }
+}
+@media (max-width: 1080px) { .status { display: none; } }
+/* Tablet: baris saiz (juga tertulis pada pandangan 3D) memberi ruang kepada
+   nama projek. Di bawah 640 px ia kembali, pada barisnya sendiri. */
+@media (min-width: 641px) and (max-width: 900px) { .actions > #sizeReadout { display: none; } }
 
 button { font-family: inherit; }
 
@@ -391,4 +404,62 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
   .dlg-actions { flex-wrap: wrap; gap: 8px; }
   .dlg-actions button { flex: 1 1 42%; min-width: 0; }
   .layer-key { flex-wrap: wrap; gap: 6px 14px; }
+}
+
+/* ---------- reka bentuk tersimpan (Simpan, Reka bentuk saya) ----------
+   Disalin daripada docs/plakbox/styles.css, 24 Oktober 2026. */
+.soft {
+  border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+  font: 600 13px/1 inherit; padding: 9px 14px; border-radius: 8px; cursor: pointer;
+}
+.soft:hover { filter: brightness(0.97); }
+.quiet { display: inline-flex; align-items: center; gap: 6px; }
+.quiet svg { width: 14px; height: 14px; opacity: 0.75; flex: none; }
+
+.row-actions { display: flex; gap: 6px; }
+.row-actions .wide { flex: 1; }
+.primary.wide { width: 100%; }
+.design-list {
+  list-style: none; margin: 2px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.design {
+  display: flex; align-items: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+}
+.design:hover { border-color: var(--line-strong); }
+.design.open { border-color: var(--accent); background: var(--accent-soft); }
+.design-open {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 7px 4px 7px 9px; text-align: left; font: inherit; color: inherit;
+}
+.design-name {
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.design-when { font-size: 11px; color: var(--muted); }
+.design .icon-btn { opacity: 0; margin-right: 4px; }
+.design:hover .icon-btn, .design .icon-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .design .icon-btn { opacity: 1; } }
+.warn-line { margin: 0; font-size: 12px; color: var(--danger); }
+.field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.name-field {
+  width: 100%; padding: 9px 11px; font: inherit; font-size: 16px;
+  border: 1.5px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); color: var(--text);
+}
+.name-field:focus { outline: none; border-color: var(--accent); }
+#filesDlg .design-list { max-height: 46vh; overflow-y: auto; }
+
+/* Bar atas sempit: galeri jadi ikon folder sahaja (labelnya kekal untuk
+   pembaca skrin melalui aria-label). */
+@media (max-width: 900px) {
+  #filesBtn { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  #filesBtn .files-label { display: none; }
+  #filesBtn svg { width: 18px; height: 18px; }
+}
+@media (max-width: 640px) {
+  .soft { padding: 11px 12px; }
+  #filesBtn { width: 38px; height: 38px; }
 }
