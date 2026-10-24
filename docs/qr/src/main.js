@@ -6,9 +6,14 @@ import {
 import { View } from './view.js';
 import {
   renderInspector, renderBackdrop, renderActions, renderWarnings,
-  fillExportDialog, fillHelpDialog, rnd,
+  fillExportDialog, fillHelpDialog, rnd, h,
 } from './ui.js';
 import { toSvg, toPdf } from './export.js';
+import * as gallery from './designs.js';
+import { signedIn } from './cloud.js';
+import {
+  UNTITLED, ownName, autoName, designParams, designMaterial, designExtra, readDesign,
+} from './saved.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -115,6 +120,17 @@ $('#helpBtn').addEventListener('click', () => {
 $('#exportBtn').addEventListener('click', () => {
   fillExportDialog(els.exportDlg);
   els.exportDlg.showModal();
+  void saveAfterExport();
+});
+
+// Each file taken away saves the design as well - on the click rather than on
+// the dialog closing, so a save is not lost because the download threw on the
+// line before it. Not awaited: WhatsApp's share sheet needs the click to still
+// be a user gesture when it is asked for.
+els.exportDlg.addEventListener('click', (event) => {
+  const button = event.target.closest && event.target.closest('button');
+  if (!button || !['svg', 'pdf', 'whatsapp'].includes(button.value)) return;
+  void gallery.saveQuietly(galleryStore);
 });
 
 els.exportDlg.addEventListener('close', () => {
@@ -228,3 +244,75 @@ function sendWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
+// ---- saved designs ---------------------------------------------------------
+// The same as the other tools (Plak Box, Box Maker, Rehal...): Save and the
+// "Reka bentuk saya" gallery in the top bar, and the design saves itself to the
+// account when Export is opened and when a file is taken. Export already asks
+// for a sign-in (/shared/export-gate.js), so by then there is a session. One
+// design is updated where it stands rather than a new entry every time.
+
+/** What the gallery may see and change - narrow on purpose. */
+const galleryStore = {
+  name: () => ownName(state) || autoName(state),
+  params: () => designParams(state),
+  material: () => designMaterial(state),
+  extra: () => designExtra(state),
+  // The automatic name stays automatic, so it follows the size and the link
+  // when they change after saving.
+  rename: (name) => {
+    update((s) => { s.name = name === autoName(s) || !ownName({ name }) ? UNTITLED : name; },
+      { history: false });
+    els.name.value = state.name;
+  },
+  apply: (row) => applyDesign(row),
+};
+
+/**
+ * Put a saved design on screen. One undo step, like any other change, so a
+ * design opened by mistake is one Ctrl+Z away from the one that was there.
+ */
+function applyDesign(row) {
+  const { state: d } = readDesign(row);
+  update((s) => {
+    s.params = d.params;
+    s.scanSpeed = d.scanSpeed;
+    s.lineInterval = d.lineInterval;
+    s.name = d.name;
+  });
+  els.name.value = state.name;
+  refresh();
+}
+
+const savedLine = $('#exportSaved');
+async function saveAfterExport() {
+  if (!signedIn()) { savedLine.hidden = true; return; }
+  savedLine.hidden = false;
+  savedLine.textContent = 'Menyimpan dalam "Reka bentuk saya"...';
+  const ok = await gallery.saveQuietly(galleryStore);
+  savedLine.textContent = ok
+    ? `✓ Disimpan dalam "Reka bentuk saya" sebagai "${galleryStore.name()}" - buka semula bila-bila masa dari bar atas.`
+    : 'Tak dapat simpan ke akaun kali ini. Fail tetap boleh dimuat turun.';
+}
+
+const dialogFiller = (build) => function fill(dlg) {
+  const close = () => dlg.close();
+  dlg.replaceChildren(build(h, galleryStore, close, () => fill(dlg)));
+};
+const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+$('#saveBtn').addEventListener('click', () => { fillSaveDialog($('#saveDlg')); $('#saveDlg').showModal(); });
+$('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg')); $('#filesDlg').showModal(); });
+
+// Arrived from the gallery in another tool: ?design=<id>. After the first
+// paint, so the tool is usable while the account answers, and the parameter is
+// cleared afterwards so a reload does not throw away what was changed since.
+{
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    gallery.openById(galleryStore, wanted).finally(() => {
+      const url = new URL(location.href);
+      url.searchParams.delete('design');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    });
+  }
+}

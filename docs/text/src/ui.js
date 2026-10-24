@@ -267,6 +267,7 @@ export function renderInspector(root, ctx) {
     onclick: () => {
       if (!confirm('Start over? This clears the text and every setting.')) return;
       reset();
+      ctx.startOver?.();
       ctx.refresh();
     },
   }, 'Start over'));

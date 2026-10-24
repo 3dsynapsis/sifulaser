@@ -5,10 +5,15 @@ import {
 } from './store.js';
 import { View } from './view.js';
 import {
-  renderInspector, renderBackdrop, renderActions, fillExportDialog, fillHelpDialog,
+  renderInspector, renderBackdrop, renderActions, fillExportDialog, fillHelpDialog, h,
 } from './ui.js';
 import { puzzleToSvg } from './exportSvg.js';
 import { puzzleToPdf } from './exportPdf.js';
+import * as gallery from './designs.js';
+import { signedIn } from './cloud.js';
+import {
+  UNTITLED, autoName, designParams, designMaterial, designExtra, readDesign,
+} from './saved.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -38,6 +43,9 @@ const ctx = {
       { geometry: true });
     refresh();
   },
+  // Start over is a new design: the next save must not overwrite the one that
+  // was open, and the top bar must not keep showing its name.
+  startOver: () => { gallery.forget(); els.name.value = state.name; },
 };
 
 let statusTimer = null;
@@ -84,10 +92,16 @@ $('#helpBtn').addEventListener('click', () => {
 $('#exportBtn').addEventListener('click', () => {
   fillExportDialog(els.exportDlg);
   els.exportDlg.showModal();
+  void saveAfterExport();
 });
 
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
+  // Every file that leaves saves the design too - after the layer split, say,
+  // was changed in this dialog. Started first so that a download that fails
+  // cannot take the save down with it; it does not wait, so WhatsApp's share
+  // still runs inside the click.
+  if (v === 'all' || v === 'pdf' || v === 'whatsapp') void gallery.saveQuietly(galleryStore);
   if (v === 'all') saveFile(buildFile('svg'));
   else if (v === 'pdf') saveFile(buildFile('pdf'));
   else if (v === 'whatsapp') sendWhatsApp();
@@ -192,6 +206,75 @@ function sendWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
+// ---- saved designs -------------------------------------------------------
+// The same as the other tools (Plak Box, Box Maker, Rehal...): Simpan and the
+// "Reka bentuk saya" gallery in the top bar, and the design saves ITSELF to the
+// account when Export opens and when a file is downloaded (Boss, 24 Oct 2026).
+// Export already asks for a sign-in (/shared/export-gate.js), so by then there
+// is a session. One design is updated where it stands, not a new entry each
+// time.
+
+/** What the gallery may see and change - narrow on purpose. */
+const galleryStore = {
+  name: () => (state.name && state.name !== UNTITLED ? state.name : autoName(state)),
+  params: () => designParams(state),
+  material: () => designMaterial(state),
+  extra: () => designExtra(state),
+  rename: (name) => {
+    update((s) => { s.name = name === autoName(s) ? UNTITLED : name; }, { history: false });
+    els.name.value = state.name;
+    markSaved();
+  },
+  apply: (row) => applyDesign(row),
+};
+
+/** Open an account record: one undo step, and every control drawn again. */
+function applyDesign(row) {
+  const { state: d } = readDesign(row);
+  update((s) => {
+    s.params = d.params;
+    s.material = d.material;
+    s.splitLayers = d.splitLayers;
+    s.name = d.name;
+  }, { geometry: true });
+  els.name.value = state.name;
+  refresh();
+}
+
+const savedLine = $('#exportSaved');
+async function saveAfterExport() {
+  if (!signedIn()) { savedLine.hidden = true; return; }
+  savedLine.hidden = false;
+  savedLine.textContent = 'Menyimpan dalam "Reka bentuk saya"...';
+  const ok = await gallery.saveQuietly(galleryStore);
+  savedLine.textContent = ok
+    ? `✓ Disimpan dalam "Reka bentuk saya" sebagai "${galleryStore.name()}" - buka semula bila-bila masa dari bar atas.`
+    : 'Tak dapat simpan ke akaun kali ini. Fail tetap boleh dimuat turun.';
+}
+
+const dialogFiller = (build) => function fill(dlg) {
+  const close = () => dlg.close();
+  dlg.replaceChildren(build(h, galleryStore, close, () => fill(dlg)));
+};
+const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+$('#saveBtn').addEventListener('click', () => { fillSaveDialog($('#saveDlg')); $('#saveDlg').showModal(); });
+$('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg')); $('#filesDlg').showModal(); });
+
 // The store emits on every mutation; the callers above already refresh, so this
 // only has to catch anything that mutates state without going through them.
 emit();
+
+// Arriving from another tool's gallery: ?design=<id>. After the first paint, so
+// the tool is usable even if the account is slow to answer; the parameter is
+// dropped afterwards so a reload does not throw away the changes made since.
+{
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    gallery.openById(galleryStore, wanted).finally(() => {
+      const url = new URL(location.href);
+      url.searchParams.delete('design');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    });
+  }
+}

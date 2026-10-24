@@ -7,9 +7,14 @@ import { loadFace } from './geom/text.js';
 import { View } from './view.js';
 import {
   renderInspector, renderBackdrop, renderActions, fillExportDialog, fillHelpDialog,
-  rnd,
+  rnd, h,
 } from './ui.js';
 import { toSvg, toPdf } from './export.js';
+import * as gallery from './designs.js';
+import { signedIn } from './cloud.js';
+import {
+  autoName, designParams, designMaterial, designExtra, readDesign,
+} from './saved.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -39,6 +44,9 @@ const ctx = {
   refresh: () => refresh(),
   // Typing should not rebuild the whole panel underneath the caret.
   refreshPreviewOnly: () => drawPreview(),
+  // Start over is a new design: the next save must not overwrite the one that
+  // was open, and the top bar must not keep showing its name.
+  startOver: () => { gallery.forget(); els.name.value = state.name; },
 };
 
 let statusTimer = null;
@@ -89,7 +97,7 @@ async function boot() {
   refresh();
 }
 
-boot();
+const booted = boot();
 
 els.name.addEventListener('change', () => {
   update((s) => { s.name = els.name.value.trim() || 'Untitled text'; },
@@ -108,10 +116,14 @@ $('#helpBtn').addEventListener('click', () => {
 $('#exportBtn').addEventListener('click', () => {
   fillExportDialog(els.exportDlg);
   els.exportDlg.showModal();
+  void saveAfterExport();
 });
 
 els.exportDlg.addEventListener('close', () => {
   const v = els.exportDlg.returnValue;
+  // Every file that leaves saves the design too - after the first save, an
+  // update of the same entry, so the account holds what was actually cut.
+  if (v === 'svg' || v === 'pdf' || v === 'whatsapp') void gallery.saveQuietly(galleryStore);
   if (v === 'svg') download('svg');
   else if (v === 'pdf') download('pdf');
   else if (v === 'whatsapp') sendWhatsApp();
@@ -215,3 +227,80 @@ function sendWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
+// ---- saved designs --------------------------------------------------------
+// The same as the other tools (Box Maker, Plak Box, Rehal...): Simpan and
+// "Reka bentuk saya" in the top bar, and the design saves itself to the account
+// when Export is opened and when a file is downloaded. Export already asks for
+// a sign-in (/shared/export-gate.js), so by then there is a session. One design
+// is updated where it stands, not a new entry every time.
+
+/** The top bar's placeholder: a design called this has no name of its own. */
+const UNTITLED = 'Untitled text';
+
+/** What a design is: the settings, not the preview backdrop or the outline. */
+const design = () => ({ params: state.params, speed: state.speed });
+
+/** What the gallery may see and change - narrow on purpose. */
+const galleryStore = {
+  name: () => (state.name && state.name !== UNTITLED ? state.name : autoName(design())),
+  params: () => designParams(design()),
+  material: () => designMaterial(design()),
+  extra: () => designExtra(design()),
+  // Accepting the automatic name keeps it automatic, so it follows the text.
+  rename: (name) => {
+    update((s) => { s.name = name === autoName(design()) ? UNTITLED : name; },
+      { history: false });
+    els.name.value = state.name;
+  },
+  apply: (row) => applyDesign(row),
+};
+
+function applyDesign(row) {
+  const d = readDesign(row, faces.map((f) => f.id));
+  // With history, so opening a design over unsaved work is one Undo away.
+  update((s) => {
+    s.params = d.state.params;
+    s.speed = d.state.speed;
+    s.name = d.name || UNTITLED;
+  });
+  els.name.value = state.name;
+  refresh();
+}
+
+const savedLine = $('#exportSaved');
+async function saveAfterExport() {
+  // Nothing to cut, nothing worth keeping - and no empty entries in the list.
+  if (!signedIn() || !getResult().paths.length) { savedLine.hidden = true; return; }
+  savedLine.hidden = false;
+  savedLine.textContent = 'Menyimpan dalam "Reka bentuk saya"...';
+  const ok = await gallery.saveQuietly(galleryStore);
+  savedLine.textContent = ok
+    ? `✓ Disimpan dalam "Reka bentuk saya" sebagai "${galleryStore.name()}" - buka semula bila-bila masa dari bar atas.`
+    : 'Tak dapat simpan ke akaun kali ini. Fail tetap boleh dimuat turun.';
+}
+
+const dialogFiller = (build) => function fill(dlg) {
+  const close = () => dlg.close();
+  dlg.replaceChildren(build(h, galleryStore, close, () => fill(dlg)));
+};
+const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
+const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
+$('#saveBtn').addEventListener('click', () => { fillSaveDialog($('#saveDlg')); $('#saveDlg').showModal(); });
+$('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg')); $('#filesDlg').showModal(); });
+
+// Arriving from another tool's gallery: ?design=<id>. Once the faces are in,
+// so the design's typeface is there to draw with and the tool is already usable
+// if the account is slow to answer. The parameter is removed afterwards, so a
+// reload does not throw away the changes made since.
+{
+  const wanted = new URLSearchParams(location.search).get('design');
+  if (wanted) {
+    booted.catch(() => {})
+      .then(() => gallery.openById(galleryStore, wanted))
+      .finally(() => {
+        const url = new URL(location.href);
+        url.searchParams.delete('design');
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+      });
+  }
+}

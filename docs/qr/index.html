@@ -28,6 +28,8 @@
       <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
       <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
       <button class="icon-btn" id="helpBtn" title="What decides whether a QR code scans">?</button>
+      <button class="soft" id="saveBtn">Simpan</button>
+      <button class="ghost quiet" id="filesBtn" title="Reka bentuk saya" aria-label="Reka bentuk saya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="files-label">Reka bentuk saya</span></button>
       <button class="primary" id="exportBtn">Export</button>
     </div>
   </header>
@@ -47,6 +49,8 @@
 <dialog id="exportDlg" class="dlg">
   <form method="dialog" class="dlg-body">
     <h2>Export</h2>
+    <!-- The design saves itself to the account when Export opens - src/main.js. -->
+    <p class="note" id="exportSaved" hidden></p>
     <p class="muted" id="exportSummary"></p>
     <div class="layer-key" id="layerKey"></div>
     <p class="note" id="exportNote"></p>
@@ -66,6 +70,9 @@
     <div class="dlg-actions"><button value="ok" class="primary">Got it</button></div>
   </form>
 </dialog>
+
+<dialog id="saveDlg" class="dlg"></dialog>
+<dialog id="filesDlg" class="dlg"></dialog>
 
 <script type="module" src="src/main.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->

@@ -37,3 +37,35 @@ digunakan dengan kebenaran khusus kepada mereka, bukan kepada kita.
 - Berbilang baris dengan penjajaran kiri/tengah/kanan
 - Jarak huruf, perkataan dan baris
 - Anggaran jarak perjalanan kepala dan masa mengukir
+
+## Perubahan yang dibuat terus dalam salinan ini
+
+**24 Oktober 2026 - butang Simpan dan galeri "Reka bentuk saya"**, sama seperti
+Plak Box, Box Maker, Rehal dan alat lain. Reka bentuk disimpan ke akaun
+pengguna (Firestore `users/{uid}/designs/{id}`, `tool: 'text'`) - bila Simpan
+ditekan, dan sendiri bila Export dibuka dan bila fail dimuat turun. Yang
+disimpan hanya tetapannya (teks, muka taip, saiz, jarak, condong, lebar,
+margin, lengkung, laju ukiran), bukan fail SVG/PDF.
+
+Fail baharu:
+
+- `src/cloud.js` - Firestore melalui REST, token dari `sifulaser.session`
+- `src/designs.js` - dialog Simpan dan galeri (TOOL `'text'`)
+- `src/saved.js` - keadaan alat <-> rekod akaun (tulen, tiada DOM)
+
+Fail diubah:
+
+- `index.html` - butang `#saveBtn` dan `#filesBtn` di bar atas, dialog
+  `#saveDlg` dan `#filesDlg`, baris `#exportSaved` dalam dialog Export
+- `src/main.js` - `galleryStore`, simpan bila Export / muat turun, buka
+  `?design=<id>`
+- `src/ui.js` - "Start over" memutuskan reka bentuk yang sedang dibuka
+  (`ctx.startOver`), supaya simpanan seterusnya tidak menulis atasnya
+- `styles.css` - gaya galeri, dan bar atas dua baris pada telefon (<= 640 px)
+
+Ujian: `node scripts/test-text-designs.mjs` (di repo laman ini).
+
+> **Amaran:** perubahan ini wujud di sini SAHAJA. Salin fail-fail di atas
+> balik ke projek sumber (`14_Text Engraver`) sebelum menjalankan "Cara kemas
+> kini" sekali lagi - arahan `cp` itu menulis atas `index.html`, `styles.css`
+> dan `src/`, dan semua ini akan hilang senyap.

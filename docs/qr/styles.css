@@ -480,3 +480,104 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   border-radius: 7px; padding: 8px 9px;
 }
 .face-select:focus { outline: none; border-color: var(--accent); }
+
+/* ---------- saved designs (as in the other tools) ---------- */
+/* Export, Save and the gallery are not equals: Export is the finish (solid
+   fill), Save one step down in the same colour, the gallery is navigation and
+   the quietest of the three. */
+.soft {
+  border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+  font: 600 13px/1 inherit; padding: 9px 14px; border-radius: 8px; cursor: pointer;
+}
+.soft:hover { filter: brightness(0.97); }
+.quiet { display: inline-flex; align-items: center; gap: 6px; }
+.quiet svg { width: 14px; height: 14px; opacity: 0.75; flex: none; }
+
+.row-actions { display: flex; gap: 6px; }
+.row-actions .wide { flex: 1; }
+.primary.wide { width: 100%; }
+.design-list {
+  list-style: none; margin: 2px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.design {
+  display: flex; align-items: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+}
+.design:hover { border-color: var(--line-strong); }
+.design.open { border-color: var(--accent); background: var(--accent-soft); }
+.design-open {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 7px 4px 7px 9px; text-align: left; font: inherit; color: inherit;
+}
+.design-name {
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.design-when { font-size: 11px; color: var(--muted); }
+.design .icon-btn { opacity: 0; margin-right: 4px; }
+.design:hover .icon-btn, .design .icon-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .design .icon-btn { opacity: 1; } }
+.warn-line { margin: 0; font-size: 12px; color: var(--danger); }
+.field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.name-field {
+  width: 100%; padding: 9px 11px; font: inherit; font-size: 16px;
+  border: 1.5px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); color: var(--text);
+}
+.name-field:focus { outline: none; border-color: var(--accent); }
+#filesDlg .design-list { max-height: 46vh; overflow-y: auto; }
+
+/* The top bar carries two more buttons than it was laid out for, so it gives
+   way in steps rather than wrapping a button's label onto three lines. */
+.actions > * { flex: none; white-space: nowrap; }
+/* The brand side may shrink below its content (the name field gives way
+   first); the buttons never do. With room to spare both sides stay equal and
+   the view switch stays centred. */
+.topbar { grid-template-columns: minmax(0, 1fr) auto 1fr; }
+.name-input { min-width: 0; }
+.status { flex: none; }
+/* The size readout says what the label under the preview already says. Where
+   it would be squeezed to a sliver beside the buttons, it goes. */
+#sizeReadout { white-space: normal; flex: 0 1 auto; min-width: 0; line-height: 1.3; }
+@media (max-width: 1499px) {
+  #sizeReadout { display: none; }
+}
+
+/* Narrower: the gallery becomes the folder icon alone (its label stays for
+   screen readers through aria-label). 1100 rather than 900 as in Plak Box:
+   this bar also holds undo, redo and an editable name. */
+@media (max-width: 1100px) {
+  #filesBtn { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  #filesBtn .files-label { display: none; }
+  #filesBtn svg { width: 18px; height: 18px; }
+}
+@media (max-width: 900px) {
+  .topbar { grid-template-columns: minmax(0, 1fr) auto auto; }
+}
+
+/* Phone: two rows - the name and the view switch, then the buttons - so that
+   Export stays on the screen instead of off its right-hand edge. */
+@media (max-width: 700px) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand   mid"
+      "actions actions";
+    gap: 6px 8px;
+    padding: 6px 10px 8px;
+  }
+  .brand { grid-area: brand; gap: 6px; }
+  .midbar { grid-area: mid; }
+  .actions { grid-area: actions; gap: 6px; flex-wrap: wrap; }
+  .logo { font-size: 16px; }
+  /* 16px: Safari zooms the page when a smaller field takes focus. */
+  .name-input { flex: 1 1 auto; max-width: none; font-size: 16px; }
+  input.name-field { font-size: 16px; }
+  .vt { padding: 9px 12px; font-size: 12px; }
+  .icon-btn { width: 38px; height: 38px; font-size: 16px; }
+  .primary, .soft { padding: 12px 14px; }
+  #filesBtn { width: 40px; height: 40px; }
+  .dlg-actions { flex-wrap: wrap; }
+}
