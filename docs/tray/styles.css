@@ -310,6 +310,20 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 /* ---- suis mod ---- */
 .mode-box { margin: 0 0 12px; display: grid; gap: 6px; }
 .seg.mode button { padding: 11px 6px; font-size: 13px; }
+
+/* Jimat bahan / Normal / Kuat - tiga kad dengan berat PLA masing-masing. */
+.strength { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.strength-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface);
+  color: var(--text); font: 500 11px/1.25 inherit; padding: 8px 8px; cursor: pointer; text-align: left;
+}
+.strength-card b { font-size: 12.5px; }
+.strength-card span { color: var(--muted); }
+.strength-card .strength-g { color: var(--text); font-weight: 600; font-size: 13px; }
+.strength-card:hover { border-color: var(--accent); }
+.strength-card[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.strength-card[aria-pressed="true"] b, .strength-card[aria-pressed="true"] .strength-g { color: var(--accent); }
 .swatch { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(0, 0, 0, .18); flex: none; }
 .group[hidden], .check[hidden], .layer-key[hidden], .primary[hidden] { display: none; }
 

@@ -1,7 +1,7 @@
 // Satu sumber kebenaran. Semua yang lain melanggan dan melukis semula.
 
 import { buildTray, DEFAULTS } from './geom/tray.js';
-import { buildTray3D, PRINT_DEFAULTS } from './geom/tray3d.js';
+import { buildTray3D, PRINT_DEFAULTS, STRENGTHS } from './geom/tray3d.js';
 import * as LAY from './geom/layout.js';
 // three.js untuk triangulator jasad cetak. Pandangan 3D memuatnya juga, jadi
 // ini salinan yang sama dan bukan muat turun kedua.
@@ -145,6 +145,28 @@ export function update(mutator, { history = true, geometry = false } = {}) {
 
 export function setParam(key, value, opts = {}) {
   update((s) => { s.params[key] = value; }, { geometry: true, ...opts });
+}
+
+/** Jimat bahan / Normal / Kuat: dinding dan lantai bersama, satu langkah undo. */
+export function setStrength(id) {
+  const s = STRENGTHS.find((x) => x.id === id);
+  if (!s) return;
+  update((st) => { st.params.wallT = s.wallT; st.params.floorT = s.floorT; }, { geometry: true });
+}
+
+/** Berat anggaran (g PLA) untuk setiap pilihan kekuatan pada reka bentuk semasa. */
+let strengthCache = { key: null, grams: null };
+export function strengthGrams() {
+  const { wallT, floorT, ...rest } = state.params;
+  const key = JSON.stringify(rest);
+  if (strengthCache.key !== key) {
+    const grams = {};
+    for (const s of STRENGTHS) {
+      grams[s.id] = buildTray3D({ ...state.params, wallT: s.wallT, floorT: s.floorT }, THREE, { brand: false }).derived.gramsPLA;
+    }
+    strengthCache = { key, grams };
+  }
+  return strengthCache.grams;
 }
 
 /** Tukar bahan: ketebalan dan kerf ikut, kecuali 'custom' yang kekal apa yang ditaip. */

@@ -35,6 +35,24 @@ setiap README jiran mengingatkan supaya tag analitik dan export-gate diletak
 dalam sumber. Di sini sumber dan docs ialah fail yang sama, jadi amaran itu
 tidak terpakai - tetapi dua tag itu masih WAJIB ada dalam `index.html`.
 
+## Kekuatan: Jimat / Normal / Kuat (24 Oktober 2026)
+
+Mod cetak 3D, kumpulan "Dinding & lantai": tiga kad yang menetapkan tebal
+dinding dan lantai bersama (`STRENGTHS` dalam `src/geom/tray3d.js`), dalam
+gandaan garisan nozzle 0.4 mm dan lapisan 0.2 mm:
+
+| Pilihan | Dinding | Lantai | Untuk |
+|---|---|---|---|
+| Jimat | 1.2 mm (3 garisan) | 1.4 mm | barang ringan |
+| Normal | 1.6 mm (4 garisan) | 1.6 mm | kegunaan harian (lalai) |
+| Kuat | 2.4 mm (6 garisan) | 2.4 mm | barang berat, dulang besar |
+
+Setiap kad menunjukkan berat PLA reka bentuk SEMASA pada tetapan itu
+(`strengthGrams()` dalam `src/store.js`, dibina tanpa tulisan jenama supaya
+murah, dicache), jadi "jimat" ialah nombor. Lantai Jimat 1.4 mm supaya tulisan
+jenama masih muat. Medan dinding/lantai kekal untuk nilai sendiri; bila ia
+tidak sepadan mana-mana kad, tiada kad dipilih.
+
 ## Simpan ke akaun (24 Oktober 2026)
 
 Butang **Simpan** dan galeri **Reka bentuk saya** di bar atas, sama seperti
@@ -53,12 +71,12 @@ di pelayar" supaya ia tidak disangka simpanan akaun.
 
 ## Jenama di tapak
 
-STL cetak 3D membawa "sifulaser.com" terbenam di tengah tapak (atau di bawah
+STL cetak 3D membawa "sifulaser" terbenam di tengah tapak (atau di bawah
 kaki bila boleh disusun), dicerminkan supaya terbaca bila dulang
 diterbalikkan - `/shared/deboss.js`, 21 Oktober 2026. Dalamnya 0.6 mm tetapi
 sentiasa meninggalkan sekurang-kurangnya 1 mm lantai: lantai 1.4 mm dapat
 0.4 mm, lantai di bawah 1.4 mm tiada jenama. Isi padu analitik menolak
-isipadu huruf. Gaya stensil, huruf 7-9 mm, garisan >= 1.2 mm, supaya tiada
+isipadu huruf. Gaya stensil, huruf 7-11 mm, garisan >= 1.2 mm, supaya tiada
 pulau kecil pada lapisan pertama; dulang terlalu kecil untuk huruf 7 mm
 tiada jenama.
 

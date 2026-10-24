@@ -17,9 +17,9 @@ import {
   setCellMm, selectCell, MAX_PER_AXIS,
   isPrint, setMode, FILAMENTS, filament, setFilament,
   selectPrintCell, canSplitPrint, splitPrint, removePrintSeg, movePrintSeg,
-  setPrintCellMm, useLaserGrid, hasCustomLayout, MAX_PRINT_CELLS,
+  setPrintCellMm, useLaserGrid, hasCustomLayout, MAX_PRINT_CELLS, setStrength, strengthGrams,
 } from './store.js';
-import { PRINTERS } from './geom/tray3d.js';
+import { PRINTERS, STRENGTHS, strengthOf } from './geom/tray3d.js';
 import { GridEditor } from './grid.js';
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -124,7 +124,22 @@ export function createInspector(root) {
     customBox);
 
   // ---- dinding & lantai (cetak) --------------------------------------------
+  // Jimat bahan / Normal / Kuat menetapkan dinding dan lantai bersama, dan
+  // setiap kad menunjukkan berat PLA reka bentuk INI pada tetapan itu - supaya
+  // "jimat" ialah nombor, bukan andaian. Medan di bawahnya kekal untuk nilai
+  // sendiri; bila ia tidak sepadan mana-mana kad, tiada kad dipilih.
+  const strengthCards = STRENGTHS.map((s) => {
+    const grams = h('span', { class: 'strength-g' });
+    const b = h('button', { type: 'button', class: 'strength-card', title: `${s.name}: ${s.note}`, onclick: () => setStrength(s.id) },
+      h('b', { text: s.name }),
+      grams,
+      h('span', { text: `dinding ${s.wallT} mm` }));
+    return { s, b, grams };
+  });
+  const strengthNote = h('p', { class: 'hint' });
   const wallGroup = group('Dinding & lantai', true,
+    h('div', { class: 'field' }, h('label', { text: 'Kekuatan - jimat bahan atau kuat' }),
+      h('div', { class: 'strength' }, ...strengthCards.map((c) => c.b)), strengthNote),
     reg(numField('Tebal dinding & pembahagi', {
       get: () => state.params.wallT, set: (v) => setParam('wallT', v), min: 0.8, max: 6, step: 0.2,
       hint: 'Gandaan lebar garisan nozzle: 1.2 / 1.6 / 2.0 mm untuk nozzle 0.4 mm. 1.6 = 4 perimeter, tegar.',
@@ -361,6 +376,18 @@ export function createInspector(root) {
         : 'Hujung pembahagi bertenon tembus dinding dan dilekat. Paling kukuh; tidak boleh tanggal.';
 
       if (print) {
+        const cur = strengthOf(p);
+        const grams = strengthGrams();
+        for (const c of strengthCards) {
+          c.b.setAttribute('aria-pressed', String(c.s.id === cur));
+          c.grams.textContent = `~${Math.round(grams[c.s.id])} g`;
+        }
+        const pick = STRENGTHS.find((s) => s.id === cur);
+        const save = Math.round(grams.normal - grams.jimat);
+        strengthNote.textContent = pick
+          ? `Dinding ${pick.wallT} mm (${pick.lines} garisan nozzle 0.4), lantai ${pick.floorT} mm. ${pick.note}`
+            + `${pick.id === 'jimat' ? ` Jimat ~${save} g PLA berbanding Normal.` : ''}`
+          : `Tetapan sendiri: dinding ${r1(p.wallT)} mm, lantai ${r1(p.floorT)} mm (~${Math.round(d.gramsPLA)} g PLA).`;
         stackChk.checked = Boolean(p.stack);
         stackField.hidden = !p.stack;
         stackHint.hidden = !p.stack;

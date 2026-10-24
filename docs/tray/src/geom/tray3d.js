@@ -60,6 +60,27 @@ export const PRINT_DEFAULTS = {
   printer: 'bambu-a1',
 };
 
+/**
+ * Pilihan kekuatan (bos, 24 Oktober 2026): tebal dinding dan lantai dalam
+ * gandaan lebar garisan nozzle 0.4 mm dan lapisan 0.2 mm, supaya slicer
+ * mencetak setiap dinding sebagai perimeter penuh tanpa celah infill nipis.
+ * Lantai Jimat 1.4 mm dan bukan 1.2: tulisan jenama di bawah tapak masih muat
+ * (0.4 mm dalam) dengan 1 mm lantai di atasnya. Dinding/lantai yang ditaip
+ * sendiri = 'sendiri'.
+ */
+export const STRENGTHS = [
+  { id: 'jimat', name: 'Jimat', wallT: 1.2, floorT: 1.4, lines: 3,
+    note: 'Untuk barang ringan: alat tulis, barang kemas, aksesori.' },
+  { id: 'normal', name: 'Normal', wallT: 1.6, floorT: 1.6, lines: 4,
+    note: 'Tegar untuk kegunaan harian.' },
+  { id: 'kuat', name: 'Kuat', wallT: 2.4, floorT: 2.4, lines: 6,
+    note: 'Untuk barang berat atau dulang besar: perkakas, skru, sudu garpu.' },
+];
+
+/** Pilihan kekuatan yang sepadan dengan params, atau 'sendiri'. */
+export const strengthOf = (p) => (STRENGTHS.find((s) => Math.abs(Number(p.wallT) - s.wallT) < 1e-6
+  && Math.abs(Number(p.floorT) - s.floorT) < 1e-6) || { id: 'sendiri' }).id;
+
 /** Katil cetak biasa, untuk amaran "tak muat" sahaja - bukan had keras. */
 export const PRINTERS = [
   { id: 'bambu-a1mini', name: 'Bambu Lab A1 mini', x: 180, y: 180, z: 180 },
@@ -188,7 +209,7 @@ function zipChains(A, B, al) {
 }
 
 /** Bina setiap segitiga untuk parameter yang diberi. `THREE` wajib. */
-export function buildTray3D(input = {}, THREE) {
+export function buildTray3D(input = {}, THREE, { brand: withBrand = true } = {}) {
   if (!THREE || !THREE.ShapeUtils) throw new Error('buildTray3D perlukan three.js (ShapeUtils)');
   const p = { ...LASER_DEFAULTS, ...PRINT_DEFAULTS, ...input };
   const wallT = Math.min(6, Math.max(0.8, Number(p.wallT) || PRINT_DEFAULTS.wallT));
@@ -398,7 +419,9 @@ export function buildTray3D(input = {}, THREE) {
   const foot = stack ? Frr : O;
   const brandDepth = R6(Math.min(0.6, floorT - 1));
   const inset = foot.r + 1;
-  let brand = brandDepth >= 0.4 - 1e-9
+  // brand: false - anggaran berat sahaja (kad Jimat / Normal / Kuat), tanpa
+  // kos merasterkan tulisan; beza beratnya di bawah 0.5 g.
+  let brand = withBrand && brandDepth >= 0.4 - 1e-9
     ? debossPlan({ x0: foot.x0 + inset, y0: foot.y0 + inset, x1: foot.x1 - inset, y1: foot.y1 - inset }, { depth: brandDepth })
     : null;
   if (brand && !debossFace(foot.pts, brand, emit)) brand = null;

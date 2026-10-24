@@ -1,4 +1,4 @@
-// "sifulaser.com" terbenam di muka bawah STL - jenama yang ikut fail cetak 3D.
+// "sifulaser" terbenam di muka bawah STL - jenama yang ikut fail cetak 3D.
 //
 // Keputusan bos (21 Oktober 2026): jenama ada dalam fail, bukan pada muka
 // produk yang kelihatan. Untuk STL itu bermakna di bawah tapak, terbenam
@@ -43,11 +43,13 @@
 import { SANS } from './hershey-sans.js';
 
 export const DEBOSS = {
-  text: 'sifulaser.com',
+  // Tanpa ".com" (bos, 24 Oktober 2026): lebih pendek, jadi huruf lebih
+  // besar dalam ruang yang sama. Fail SVG/PDF masih membawa alamat penuh.
+  text: 'sifulaser',
   depth: 0.6,       // 3 lapis pada 0.2 mm
   res: 0.3,         // sel raster, mm
-  margin: 3,        // ruang rata di keliling tulisan dalam tampalan
-  capMax: 9,        // tinggi huruf besar paling tinggi
+  margin: 1,        // ruang rata di keliling tulisan dalam tampalan
+  capMax: 11,       // tinggi huruf besar paling tinggi
   capMin: 7,        // lebih kecil: s dan e tertutup oleh lejang 1.2 mm - langkau
   strokeMin: 1.2,   // lebar lejang paling nipis = 3 garisan nozzle 0.4 mm
   strokeK: 0.16,    // lejang = strokeK x tinggi huruf bila lebih tebal
@@ -157,27 +159,33 @@ export function debossPlan(avail, opts = {}) {
     }
     pen += g.w * k;
   }
+  // Setiap lejang hanya menyemak sel dalam kotak sempadannya (+ r): hasil
+  // yang sama dengan menyemak setiap sel terhadap setiap lejang, tetapi
+  // puluhan kali lebih pantas - alat membina semula semasa slider diseret.
   const mask = new Uint8Array(nx * ny);
-  for (let a = 1; a < nx - 1; a++) {
-    for (let b = 1; b < ny - 1; b++) {
-      const x = (X[a] + X[a + 1]) / 2, y = (Y[b] + Y[b + 1]) / 2;
-      for (const s of segs) {
-        if (segDist(x, y, s[0], s[1], s[2], s[3]) <= r) { mask[a * ny + b] = 1; break; }
-      }
+  const cw = (patch.x1 - patch.x0) / nx, chh = (patch.y1 - patch.y0) / ny;
+  const span = (lo, hi, o0, d, n) => [Math.max(1, Math.floor((lo - o0) / d) - 1), Math.min(n - 2, Math.ceil((hi - o0) / d) + 1)];
+  const cells = (x0, x1, y0, y1, fn) => {
+    const [a0, a1] = span(x0, x1, patch.x0, cw, nx), [b0, b1] = span(y0, y1, patch.y0, chh, ny);
+    for (let a = a0; a <= a1; a++) {
+      for (let b = b0; b <= b1; b++) fn(a, b, (X[a] + X[a + 1]) / 2, (Y[b] + Y[b + 1]) / 2);
     }
+  };
+  for (const s of segs) {
+    cells(Math.min(s[0], s[2]) - r, Math.max(s[0], s[2]) + r, Math.min(s[1], s[3]) - r, Math.max(s[1], s[3]) + r,
+      (a, b, x, y) => { if (segDist(x, y, s[0], s[1], s[2], s[3]) <= r) mask[a * ny + b] = 1; });
   }
   // Jambatan yang direka: segi empat selebar `bridge`, merentasi lejang
   // sejauh r + separuh sel ke setiap sisi garis tengah - cukup untuk
   // memutuskan lejang, tidak sampai ke lejang jiran.
   const reach = r + res / 2;
   for (const t of cuts) {
-    for (let a = 1; a < nx - 1; a++) {
-      for (let b = 1; b < ny - 1; b++) {
-        const qx = (X[a] + X[a + 1]) / 2 - t.x, qy = (Y[b] + Y[b + 1]) / 2 - t.y;
-        const along = qx * t.dx + qy * t.dy, across = -qx * t.dy + qy * t.dx;
-        if (Math.abs(along) <= reach && Math.abs(across) <= o.bridge / 2) mask[a * ny + b] = 0;
-      }
-    }
+    const ext = Math.hypot(reach, o.bridge / 2);
+    cells(t.x - ext, t.x + ext, t.y - ext, t.y + ext, (a, b, x, y) => {
+      const qx = x - t.x, qy = y - t.y;
+      const along = qx * t.dx + qy * t.dy, across = -qx * t.dy + qy * t.dx;
+      if (Math.abs(along) <= reach && Math.abs(across) <= o.bridge / 2) mask[a * ny + b] = 0;
+    });
   }
   noCheckerboard(mask, nx, ny);
   const grid = { X, Y, nx, ny, mask };

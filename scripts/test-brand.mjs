@@ -271,14 +271,15 @@ for (const [k, v] of Object.entries(pdfs)) {
   }
   check('terbenam: terlalu kecil -> null', D.debossPlan({ x0: 0, y0: 0, x1: 20, y1: 8 }) === null);
   check('terbenam: had huruf 9 mm', D.debossPlan({ x0: 0, y0: 0, x1: 500, y1: 300 }).cap === D.DEBOSS.capMax);
-  // Tulisan 7 mm perlu tampalan 75.9 x 14.2 mm (mana-mana arah).
-  check('terbenam: di bawah 7 mm tiada tulisan', D.debossPlan({ x0: 0, y0: 0, x1: 75, y1: 70 }) === null
-    && D.debossPlan({ x0: 0, y0: 0, x1: 300, y1: 13.5 }) === null && D.debossPlan({ x0: 0, y0: 0, x1: 13.5, y1: 300 }) === null
-    && D.debossPlan({ x0: 0, y0: 0, x1: 76, y1: 14.5 }) !== null);
+  // "sifulaser" 7 mm perlu tampalan 46.9 x 10.2 mm (mana-mana arah).
+  check('terbenam: teks tanpa .com', D.DEBOSS.text === 'sifulaser');
+  check('terbenam: di bawah 7 mm tiada tulisan', D.debossPlan({ x0: 0, y0: 0, x1: 46, y1: 46 }) === null
+    && D.debossPlan({ x0: 0, y0: 0, x1: 300, y1: 10 }) === null && D.debossPlan({ x0: 0, y0: 0, x1: 10, y1: 300 }) === null
+    && D.debossPlan({ x0: 0, y0: 0, x1: 47.5, y1: 10.6 }) !== null);
   // Mudah dicetak: setiap saiz dari capMin ke capMax, kedua-dua arah.
   for (let cap = D.DEBOSS.capMin; cap <= D.DEBOSS.capMax + 1e-9; cap += 0.25) {
     for (const vertical of [false, true]) {
-      const box = vertical ? { x0: 0, y0: 0, x1: 60, y1: 300 } : { x0: 0, y0: 0, x1: 300, y1: 60 };
+      const box = vertical ? { x0: 0, y0: 0, x1: 30, y1: 300 } : { x0: 0, y0: 0, x1: 300, y1: 30 };
       const p = D.debossPlan(box, { capMax: cap });
       const tag = `terbenam ${cap.toFixed(2)} mm${vertical ? ' menegak' : ''}`;
       check(`${tag}: ada`, !!p && Math.abs(p.cap - cap) < 1e-9 && p.vertical === vertical);
@@ -286,10 +287,10 @@ for (const [k, v] of Object.entries(pdfs)) {
       const { comps } = D.flatComponents(p);
       check(`${tag}: tiada pulau pada lapisan pertama`, comps.length === 1, `${comps.length - 1} pulau`);
       check(`${tag}: lejang >= 1.2 mm`, p.stroke >= 1.2 - 1e-9, `${p.stroke}`);
-      // 4 jambatan yang direka (o x2, e, a) dan tiada jambatan sandaran.
-      check(`${tag}: jambatan = 4 yang direka`, p.bridges === 4, `${p.bridges}`);
+      // 2 jambatan yang direka (e, a) dan tiada jambatan sandaran.
+      check(`${tag}: jambatan = 2 yang direka`, p.bridges === 2, `${p.bridges}`);
       // Setiap lekuk masih wujud: kawasan huruf tidak hilang ditelan jambatan.
-      check(`${tag}: huruf masih ada`, p.area > 20 * cap, `${p.area}`);
+      check(`${tag}: huruf masih ada`, p.area > 12 * cap, `${p.area}`);
     }
   }
   // Teks tanpa jambatan yang direka: pulau disambung oleh stencil() sandaran.

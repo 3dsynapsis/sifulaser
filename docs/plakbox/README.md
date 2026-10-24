@@ -206,11 +206,11 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
   (satu cincin bagi setiap titik PROFIL tepi, dengan titik bahagi yang sama
   dengan grid atas) + muka bawah (grid yang sama). Jenis tapak hanya profil
   yang berbeza. Mesh tertutup tepat tanpa CSG.
-- Muka bawah tapak cetak 3D membawa "sifulaser.com" terbenam 0.6 mm,
+- Muka bawah tapak cetak 3D membawa "sifulaser" terbenam 0.6 mm,
   dicerminkan (`/shared/deboss.js`, 21 Oktober 2026): muka bawah dibina
   sebagai satu poligon dengan tampalan raster di tengah. Siling huruf ialah
   jambatan selebar lejang, jadi ujian overhang mengecualikannya. Gaya
-  stensil, huruf 7-9 mm, garisan >= 1.2 mm - tiada pulau kecil pada lapisan
+  stensil, huruf 7-11 mm, garisan >= 1.2 mm - tiada pulau kecil pada lapisan
   pertama (lihat komen dalam `/shared/deboss.js`).
 - `bibir` (rim) diukur dari tepi PERMUKAAN ATAS; profil terkeluar di luar itu
   (Standard, Serong, Klasik, Dua Tingkat). Jenis "Terapung" (kaki tersorok)

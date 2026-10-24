@@ -195,7 +195,7 @@ for (const input of CASES) {
     else if (b.deboss) {
       debossed++;
       const r = b.deboss.rect;
-      check(`${bt}: jenama - teks`, b.deboss.text === 'sifulaser.com' && near(b.deboss.depth, 0.6) && b.deboss.cap >= DEBOSS.capMin - 1e-9 && b.deboss.cap <= DEBOSS.capMax + 1e-9
+      check(`${bt}: jenama - teks`, b.deboss.text === DEBOSS.text && near(b.deboss.depth, 0.6) && b.deboss.cap >= DEBOSS.capMin - 1e-9 && b.deboss.cap <= DEBOSS.capMax + 1e-9
         && b.deboss.stroke >= DEBOSS.strokeMin - 1e-9,
         JSON.stringify(b.deboss));
       check(`${bt}: jenama - dalam muka bawah`, r.x0 > 0 && r.y0 > 0 && r.x1 < d.baseL && r.y1 < d.baseW, JSON.stringify(r));

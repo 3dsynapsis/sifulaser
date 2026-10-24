@@ -26,7 +26,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TRAY = path.join(here, '..', 'docs', 'tray');
 const THREE = await import(pathToFileURL(path.join(TRAY, 'vendor', 'three.module.js')).href);
-const { buildTray3D, trianglesToStl, PRINTERS } =
+const { buildTray3D, trianglesToStl, PRINTERS, STRENGTHS, strengthOf } =
   await import(pathToFileURL(path.join(TRAY, 'src', 'geom', 'tray3d.js')).href);
 const { debossCap, DEBOSS } = await import(pathToFileURL(path.join(here, '..', 'docs', 'shared', 'deboss.js')).href);
 
@@ -124,7 +124,7 @@ function brandChecks(label, { params: p, derived: d, mesh }) {
     return;
   }
   branded++;
-  check(`${label}: jenama - teks`, b.text === 'sifulaser.com' && b.cap >= DEBOSS.capMin - 1e-9 && b.cap <= DEBOSS.capMax + 1e-9
+  check(`${label}: jenama - teks`, b.text === DEBOSS.text && b.cap >= DEBOSS.capMin - 1e-9 && b.cap <= DEBOSS.capMax + 1e-9
     && b.stroke >= DEBOSS.strokeMin - 1e-9, JSON.stringify(b));
   check(`${label}: jenama - >= 1 mm lantai kekal`, b.depth >= 0.4 - 1e-9 && b.depth <= Math.min(0.6, p.floorT - 1) + 1e-9, `${b.depth}`);
   let area = 0, outside = 0;
@@ -214,6 +214,34 @@ for (let n = 0; n < 60; n++) {
 }
 check('fuzz: semua 60 dibina', fuzzRun === 60, `${fuzzRun}`);
 check(`jenama terbenam pada kebanyakan dulang (${branded})`, branded >= 80);
+
+// ---- Jimat bahan / Normal / Kuat ------------------------------------------------------
+{
+  check('kekuatan: tiga pilihan', STRENGTHS.map((s) => s.id).join() === 'jimat,normal,kuat');
+  const lalai = buildTray3D({}, THREE);
+  check('kekuatan: lalai = Normal (1.6 / 1.6)', strengthOf(lalai.params) === 'normal');
+  check('kekuatan: nilai sendiri = sendiri', strengthOf({ wallT: 2, floorT: 1.6 }) === 'sendiri');
+  const grams = [];
+  for (const s of STRENGTHS) {
+    // Dinding = gandaan garisan nozzle 0.4 mm, lantai = gandaan lapisan 0.2 mm.
+    check(`kekuatan ${s.id}: dinding ${s.lines} garisan 0.4 mm`, Math.abs(s.wallT - s.lines * 0.4) < 1e-9);
+    check(`kekuatan ${s.id}: lantai gandaan 0.2 mm`, Math.abs(s.floorT / 0.2 - Math.round(s.floorT / 0.2)) < 1e-9);
+    for (const extra of [{}, { stack: true }, { dividerHeight: 60, fillet: 0 }]) {
+      const t = checkTray(`kekuatan ${s.id} ${JSON.stringify(extra)}`, { wallT: s.wallT, floorT: s.floorT, ...extra });
+      if (!t) continue;
+      check(`kekuatan ${s.id} ${JSON.stringify(extra)}: dikenali`, strengthOf(t.params) === s.id);
+      check(`kekuatan ${s.id} ${JSON.stringify(extra)}: jenama di tapak`, !!t.derived.deboss,
+        JSON.stringify(t.derived.deboss));
+    }
+    // Anggaran tanpa jenama (kad) = berat sebenar, beza < 0.5 g.
+    const full = buildTray3D({ wallT: s.wallT, floorT: s.floorT }, THREE);
+    const est = buildTray3D({ wallT: s.wallT, floorT: s.floorT }, THREE, { brand: false });
+    check(`kekuatan ${s.id}: anggaran kad ~ berat sebenar`, Math.abs(full.derived.gramsPLA - est.derived.gramsPLA) < 0.5
+      && !est.derived.deboss, `${full.derived.gramsPLA} vs ${est.derived.gramsPLA}`);
+    grams.push(full.derived.gramsPLA);
+  }
+  check('kekuatan: Jimat < Normal < Kuat', grams[0] < grams[1] && grams[1] < grams[2], grams.map(Math.round).join(' < '));
+}
 {
   // Lantai 1.2 mm: tiada jenama; 1.4 mm: 0.4 mm dalam; lalai 1.6 mm: 0.6 mm.
   const t12 = buildTray3D({ floorT: 1.2 }, THREE), t14 = buildTray3D({ floorT: 1.4 }, THREE);
