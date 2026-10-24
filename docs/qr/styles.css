@@ -581,3 +581,24 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   #filesBtn { width: 40px; height: 40px; }
   .dlg-actions { flex-wrap: wrap; }
 }
+
+/* ---------- telefon: susun menegak (24 Oktober 2026) ----------
+   Bersebelahan, pratonton tinggal ~140 px lebar di sebelah panel 250 px.
+   Seperti Plak Box dan Tray: pratonton di atas selebar skrin, tetapan dalam
+   panel yang menatal di bawahnya. */
+@media (max-width: 700px) {
+  .layout { flex-direction: column; }
+  .stage { flex: 5 1 0; min-height: 230px; overflow: hidden; }
+  .stage-hint { bottom: 10px; font-size: 11px; padding: 5px 10px; }
+  .inspector {
+    flex: 6 1 0; width: auto; min-height: 0;
+    border-left: 0; border-top: 1px solid var(--line);
+    padding: 10px 12px 28px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .group > summary { padding: 14px 12px; }
+  /* 16px: Safari zum seluruh halaman bila medan < 16px dapat fokus. */
+  input[type="text"], input[type="number"], select, textarea { font-size: 16px; }
+  input[type="range"] { height: 28px; }
+  .warnings { top: auto; bottom: 48px; max-width: calc(100% - 16px); font-size: 11.5px; }
+}

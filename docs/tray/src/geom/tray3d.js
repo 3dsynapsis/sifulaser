@@ -50,8 +50,10 @@ import { cleanTree, gridToTree, layoutRegions } from './layout.js';
 import { debossPlan, debossFace, debossInfo } from '../../../shared/deboss.js';
 
 export const PRINT_DEFAULTS = {
-  wallT: 1.6,          // dinding luar DAN pembahagi; 4 perimeter nozzle 0.4
-  floorT: 1.6,
+  // Lalai = pilihan Jimat (STRENGTHS di bawah; bos, 24 Oktober 2026):
+  // dinding luar DAN pembahagi 3 perimeter nozzle 0.4, lantai 7 lapisan 0.2.
+  wallT: 1.2,
+  floorT: 1.4,
   fillet: 2,           // jejari bucu dalam petak; bucu luar = fillet + wallT
   stack: false,        // kaki terbenam supaya dulang boleh disusun
   stackClear: 0.3,     // kelonggaran kaki di dalam bukaan dulang bawah

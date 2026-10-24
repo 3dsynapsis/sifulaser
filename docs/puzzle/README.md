@@ -67,6 +67,10 @@ Fail diubah:
 - `styles.css` - gaya galeri, dan pada telefon (<= 640 px) bar atas dua baris
   dan butang dialog dua sebaris (dahulu empat butang Export melebarkan dialog
   melepasi skrin)
+- `styles.css` (hujung fail) - telefon (<= 640 px) susun MENEGAK: pratonton
+  di atas selebar skrin, panel tetapan menatal di bawahnya, seperti Plak Box
+  dan Tray (bos, 24 Oktober 2026). Sebelum ini pratonton tinggal ~140 px
+  lebar di sebelah panel.
 
 Ujian: `node scripts/test-puzzle-designs.mjs` (di repo laman ini).
 

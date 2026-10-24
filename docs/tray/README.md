@@ -43,8 +43,8 @@ gandaan garisan nozzle 0.4 mm dan lapisan 0.2 mm:
 
 | Pilihan | Dinding | Lantai | Untuk |
 |---|---|---|---|
-| Jimat | 1.2 mm (3 garisan) | 1.4 mm | barang ringan |
-| Normal | 1.6 mm (4 garisan) | 1.6 mm | kegunaan harian (lalai) |
+| Jimat | 1.2 mm (3 garisan) | 1.4 mm | barang ringan (lalai) |
+| Normal | 1.6 mm (4 garisan) | 1.6 mm | kegunaan harian |
 | Kuat | 2.4 mm (6 garisan) | 2.4 mm | barang berat, dulang besar |
 
 Setiap kad menunjukkan berat PLA reka bentuk SEMASA pada tetapan itu

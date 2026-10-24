@@ -64,6 +64,10 @@ Paparan (Artwork/Layers), latar pratonton dan `sheetWidth` tidak disimpan.
   bawah pratonton menyebut perkara yang sama), "Reka bentuk saya" jadi ikon
   sahaja di bawah 1100 px, dan dua baris di bawah 700 px supaya Export kekal
   dalam skrin telefon.
+- `styles.css` (hujung fail) - telefon (<= 700 px) susun MENEGAK: pratonton
+  di atas selebar skrin, panel tetapan menatal di bawahnya, seperti Plak Box
+  dan Tray (bos, 24 Oktober 2026). Sebelum ini pratonton tinggal ~140 px
+  lebar di sebelah panel.
 
 Ujian: `node scripts/test-qr-designs.mjs` (dari akar repo).
 

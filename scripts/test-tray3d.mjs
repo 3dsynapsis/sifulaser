@@ -219,7 +219,7 @@ check(`jenama terbenam pada kebanyakan dulang (${branded})`, branded >= 80);
 {
   check('kekuatan: tiga pilihan', STRENGTHS.map((s) => s.id).join() === 'jimat,normal,kuat');
   const lalai = buildTray3D({}, THREE);
-  check('kekuatan: lalai = Normal (1.6 / 1.6)', strengthOf(lalai.params) === 'normal');
+  check('kekuatan: lalai = Jimat (1.2 / 1.4)', strengthOf(lalai.params) === 'jimat');
   check('kekuatan: nilai sendiri = sendiri', strengthOf({ wallT: 2, floorT: 1.6 }) === 'sendiri');
   const grams = [];
   for (const s of STRENGTHS) {
@@ -298,8 +298,8 @@ for (const b of bad) checkTray(`input teruk ${JSON.stringify(b)}`, b);
 // ---- nilai lalai & derived waras -------------------------------------------------------
 {
   const t = buildTray3D({}, THREE);
-  check('lalai: dinding 1.6', t.params.wallT === 1.6);
-  check('lalai: thickness = wallT untuk grid', t.params.thickness === 1.6);
+  check('lalai: dinding 1.2, lantai 1.4 (Jimat)', t.params.wallT === 1.2 && t.params.floorT === 1.4);
+  check('lalai: thickness = wallT untuk grid', t.params.thickness === 1.2);
   check('lalai: minCell 8', t.params.minCell === 8);
   // Pokok daripada grid 3x2: 2 pembahagi menegak penuh, 3 segmen melintang (satu setiap lajur).
   check('lalai: 2 segmen X, 3 segmen Y', t.derived.dividers.x.length === 2 && t.derived.dividers.y.length === 3);
