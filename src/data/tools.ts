@@ -119,9 +119,9 @@ export const TOOLS: ToolEntry[] = [
     // Jiran Kalkulator Laser Cut atas sebab yang sama: ia membaca fail
     // pelanggan dan hujungnya sebut harga WhatsApp ke kedai.
     title: 'UV Print Calculator',
-    shortDescription: 'Harga UV print akrilik terus dari fail anda.',
+    shortDescription: 'Harga cetakan UV terus dari fail anda.',
     description:
-      'Upload PDF atau AI dan terus nampak harga cetakan UV atas akrilik jernih, kemudian hantar sebut harga ke WhatsApp.',
+      'Upload PDF atau AI dan terus nampak harga cetakan UV atas material anda sendiri, kemudian hantar sebut harga ke WhatsApp.',
     href: '#/uvprint',
     group: 'harga',
     variant: 'art',

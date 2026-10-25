@@ -17,7 +17,7 @@
 // No document at module scope: tools/test-ui.js imports this under node.
 
 import { quote, materialById, DEFAULT_MATERIAL } from './pricing.js';
-import { errorText, warningText, ruleText, WHATSAPP_ON_ERROR, MIN_NOTE, DISCLAIMER, ATTACH_NOTE, OVERSIZE, ERRORS } from './messages.js';
+import { errorText, warningText, ruleText, WHATSAPP_ON_ERROR, UV_ONLY, DISCLAIMER, ATTACH_NOTE, OVERSIZE, ERRORS } from './messages.js';
 import { whatsappLink } from './whatsapp.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
@@ -83,9 +83,9 @@ export function screenOf(s) {
   }
 
   if (out.priced || WHATSAPP_ON_ERROR.has(out.errorCode)) {
-    // Material and quantity are only in the message when the customer could
-    // see and choose them: a priced or oversize order. A file too large or too
-    // complex to read never shows those controls, so it sends neither.
+    // The service and quantity are only in the message when the customer could
+    // see them: a priced or oversize order. A file too large or too complex to
+    // read never shows the quantity, so it sends neither.
     const chosen = out.priced || out.errorCode === 'oversize';
     out.whatsapp = whatsappLink({
       fileName: s.file.name,
@@ -137,16 +137,15 @@ export function renderQuote(root, v) {
   if (v.priced) {
     const rows = [
       ['Luas satu set', `${q.setSqftText} kaki persegi`],
-      ['Kadar', `${q.rateText}`],
+      ['Kadar cetakan UV', `${q.rateText}`],
       ['Kuantiti', `${q.qty} set`],
-      ['Subjumlah', q.subtotalText],
     ];
     kids.push(h('div', { class: 'total-card' },
       h('dl', { class: 'sum' }, rows.flatMap(([k, val]) => [h('dt', {}, k), h('dd', {}, val)])),
-      q.minApplied ? h('p', { class: 'min-note' }, MIN_NOTE) : null,
       h('div', { class: 'total-row' },
         h('span', { class: 'total-label' }, 'Jumlah'),
         h('span', { class: 'total', id: 'totalText' }, q.totalText)),
+      h('p', { class: 'uv-only' }, UV_ONLY),
       h('p', { class: 'disclaimer' }, DISCLAIMER),
       ...waButton(v.whatsapp)));
   } else if (v.whatsapp) {

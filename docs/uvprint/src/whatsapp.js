@@ -48,15 +48,15 @@ export const waUrl = (text) => `https://wa.me/${WA_NUMBER}?text=${encodeURICompo
 
 /**
  * @param fileName  the name as picked
- * @param material  a MATERIALS entry
+ * @param material  a MATERIALS entry (the one service: UV printing only)
  * @param q         a quote() result, or null when there is no size to show
  * @param qtyText   the quantity box as typed
  * @param code      an error code when pricing stopped ('too-large', 'too-complex')
  */
 export function buildMessage({ fileName, material, q, qtyText, code = null }, maxGroups = Infinity) {
-  const lines = ['Salam, saya nak sebut harga UV print akrilik.'];
+  const lines = ['Salam, saya nak sebut harga cetakan UV (material saya sendiri).'];
   lines.push(`Fail: ${cleanFileName(fileName)}`);
-  if (material) lines.push(`Bahan: ${material.label}`);
+  if (material) lines.push(`Servis: ${material.label}`);
   if (q && q.lines.length) {
     const groups = groupSizes(q.lines);
     const shown = groups.slice(0, maxGroups);
@@ -67,7 +67,6 @@ export function buildMessage({ fileName, material, q, qtyText, code = null }, ma
   if (qty.ok) lines.push(`Kuantiti: ${qty.value} set`);
   if (q?.state === 'priced') {
     lines.push(`Jumlah anggaran: ${q.totalText}`);
-    if (q.minApplied) lines.push('(Harga minimum RM20 dikenakan)');
   } else if (q?.state === 'oversize') {
     lines.push('Saiz melebihi 90 x 60 cm - mohon sebut harga');
   } else if (code === 'too-large') {

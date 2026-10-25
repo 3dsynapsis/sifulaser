@@ -5,11 +5,11 @@
 // in src/ - tools/test-ui.js fails the build if one appears.
 
 import {
-  state, subscribe, load, startFile, setAnalysis, setError, setMaterial, setQtyText,
+  state, subscribe, load, startFile, setAnalysis, setError, setQtyText,
 } from './store.js';
 import { screenOf, renderFileInfo, renderQuote } from './ui.js';
 import { PreviewPane } from './view.js';
-import { MATERIALS, parseQty, fmtRM } from './pricing.js';
+import { parseQty } from './pricing.js';
 import { MAX_BYTES, analyseFile } from './analyse.js';
 
 const $ = (id) => document.getElementById(id);
@@ -21,7 +21,6 @@ const els = {
   work: $('work'),
   fileInfo: $('fileInfo'),
   quoteBox: $('quoteBox'),
-  materialRow: $('materialRow'),
   qty: $('qty'),
   qtyMinus: $('qtyMinus'),
   qtyPlus: $('qtyPlus'),
@@ -112,24 +111,8 @@ const pickFile = () => {
 };
 
 // ------------------------------------------------------------------ controls
-
-function buildMaterialButtons() {
-  els.materialRow.replaceChildren(...MATERIALS.map((m) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'target-btn';
-    b.dataset.id = m.id;
-    const top = document.createElement('span');
-    top.className = 'm-name';
-    top.textContent = m.id;
-    const sub = document.createElement('span');
-    sub.className = 'm-rate';
-    sub.textContent = fmtRM(m.rateSen);
-    b.append(top, sub);
-    b.addEventListener('click', () => setMaterial(m.id));
-    return b;
-  }));
-}
+// No material picker: the price is for UV printing only, on the customer's
+// own material (25 Oct 2026). The quantity is the only control.
 
 function stepQty(delta) {
   const q = parseQty(els.qty.value);
@@ -151,11 +134,6 @@ function render() {
   els.empty.hidden = v.mode !== 'empty';
   els.work.hidden = v.mode === 'empty';
   els.status.textContent = v.mode === 'busy' ? v.busy : '';
-  for (const b of els.materialRow.children) {
-    const on = b.dataset.id === v.materialId;
-    b.classList.toggle('is-on', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
   if (document.activeElement !== els.qty && els.qty.value !== state.params.qtyText) els.qty.value = state.params.qtyText;
   els.qty.setAttribute('aria-invalid', parseQty(state.params.qtyText).ok ? 'false' : 'true');
   if (v.mode === 'empty') return;
@@ -170,7 +148,7 @@ function render() {
   }
   renderFileInfo(els.fileInfo, v, { pickFile });
   renderQuote(els.quoteBox, v);
-  // Material and quantity only matter when there is something to price.
+  // The quantity only matters when there is something to price.
   els.controls.hidden = !(v.quote && v.quote.lines.length) || (v.errorCode && v.errorCode !== 'oversize');
   // A refused file has nothing to picture: the message moves up instead of
   // sitting under an empty grid.
@@ -209,7 +187,6 @@ window.addEventListener('resize', () => {
 });
 
 load();
-buildMaterialButtons();
 els.qty.value = state.params.qtyText;
 subscribe(scheduleRender);
 render();

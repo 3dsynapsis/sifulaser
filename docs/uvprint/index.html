@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kalkulator UV Print - harga anggaran cetakan UV atas akrilik jernih</title>
+<title>Kalkulator UV Print - harga anggaran cetakan UV, material anda sendiri</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#x1F5A8;</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,8 +21,8 @@
   <!-- What this tool is, before any file is chosen. Static markup on purpose:
        it must be on screen first and must not vanish in a re-render. -->
   <p class="differ">
-    <strong>Harga cetakan UV atas akrilik jernih.</strong>
-    Garisan potong ialah bentuk luar - semua di dalamnya dicetak UV.
+    <strong>Harga cetakan UV sahaja - anda bekalkan material sendiri.</strong>
+    Garisan potong ialah saiz kepingan anda - harga ikut luas itu.
     Fail anda dikira dalam pelayar ini sahaja dan tidak dimuat naik ke mana-mana.
   </p>
 
@@ -33,12 +33,10 @@
       <button class="primary big" id="pickBtn" type="button">Pilih Fail PDF / AI</button>
     </div>
     <ul class="rate-card" aria-label="Kadar harga">
-      <li><span>Akrilik Jernih 2mm</span><strong>RM20.00</strong></li>
-      <li><span>Akrilik Jernih 3mm</span><strong>RM22.00</strong></li>
-      <li><span>Akrilik Jernih 5mm</span><strong>RM30.00</strong></li>
+      <li><span>Cetakan UV (termasuk white ink)</span><strong>RM16.00</strong></li>
     </ul>
-    <p class="fineprint">Harga sekaki persegi, termasuk cetakan UV dan akrilik. Harga minimum RM20.
-      Saiz maksimum sekeping 90 x 60 cm.</p>
+    <p class="fineprint">Harga sekaki persegi, untuk cetakan UV sahaja. Material anda sendiri - tidak termasuk.
+      Tiada caj minimum. Saiz maksimum sekeping 90 x 60 cm.</p>
     <p class="fineprint">Tip: tandakan garisan potong dengan warna spot <code>CutContour</code>.
       Fail <code>.ai</code> mesti disimpan dengan pilihan <code>Create PDF Compatible File</code>.</p>
   </section>
@@ -51,8 +49,6 @@
 
     <section class="col">
       <div class="col-body" id="controls" hidden>
-        <h3 class="block-title" id="matLabel">Akrilik Jernih - harga sekaki persegi</h3>
-        <div class="target-row" id="materialRow" role="group" aria-labelledby="matLabel"></div>
         <label class="block-title" for="qty">Kuantiti (set)</label>
         <div class="stepper">
           <button class="ghost step" id="qtyMinus" type="button" aria-label="Kurang satu">-</button>

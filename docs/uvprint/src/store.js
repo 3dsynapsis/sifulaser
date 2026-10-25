@@ -12,8 +12,10 @@
 
 const STORAGE_KEY = 'uvprint.project.v1';
 
+// One service since 25 Oct 2026 ('uv', UV printing only). A save from before
+// holds '2mm' / '3mm' / '5mm'; screenOf() falls back to the service for those.
 export const DEFAULT_PARAMS = {
-  material: '3mm',
+  material: 'uv',
   qtyText: '1',
 };
 

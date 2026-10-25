@@ -241,9 +241,10 @@ code {
 .sum { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 13px; }
 .sum dt { color: var(--muted); }
 .sum dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-.min-note {
-  margin: 0; font-size: 13px; font-weight: 600; color: var(--warn);
-  background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: 8px; padding: 7px 10px;
+/* What the price covers: UV printing only, the customer's own material. */
+.uv-only {
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 8px; padding: 7px 10px;
 }
 .total-row {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;

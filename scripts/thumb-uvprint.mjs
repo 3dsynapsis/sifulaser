@@ -12,7 +12,7 @@
 //
 // What is drawn is what the calculator itself shows for that file: the artwork
 // in grey, the cut line in red (the outline plus its keyring hole), and the
-// total for 10 sets of 3 mm, from quote(). Nothing is typed in by hand - if the
+// total for 10 sets, from quote() - UV printing only since 25 Oct 2026. Nothing is typed in by hand - if the
 // cut detection, the preview or the rate card changes, re-running this changes
 // the picture.
 //
@@ -31,7 +31,7 @@ const OUT = process.argv[2] || path.join(SITE, 'docs', 'images', 'tools', 'uvpri
 const { analyseFile } = await import(pathToFileURL(path.join(TOOL, 'analyse.js')).href);
 const { quote } = await import(pathToFileURL(path.join(TOOL, 'pricing.js')).href);
 
-const MATERIAL = '3mm';
+const MATERIAL = 'uv'; // the one service: UV printing only
 const QTY = '10';
 
 const r = await analyseFile(new Uint8Array(fs.readFileSync(FIXTURE)), path.basename(FIXTURE));

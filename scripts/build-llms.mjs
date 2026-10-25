@@ -83,14 +83,14 @@ p(`- Masa mesin: potong = panjang (mm) / kelajuan potong; garisan halus = panjan
 p(`- Kadar bahan (RM sekaki persegi; kelajuan potong mm/s): ${laser.materials.map((m) => `${m.label} RM${m.material_myr_per_sqft.toFixed(2)} (${m.cut_speed_mm_per_s})`).join('; ')}.`);
 p(`- Saiz maksimum sekeping ${laser.pricing.max_piece_cm.long_side} x ${laser.pricing.max_piece_cm.short_side} cm.`);
 p();
-p('## Harga UV print atas akrilik jernih');
+p('## Harga cetakan UV (material pelanggan sendiri)');
 p();
 if (uvSoon) {
   // Calculator not finalised: no prices an assistant could repeat as fact.
   p(`- Kalkulator UV print sedang disiapkan dan belum ada harga dalam talian. Untuk sebut harga UV print, hubungi WhatsApp +${WA}.`);
 } else {
   p(`- Kalkulator: ${SITE}/uvprint/`);
-  p(`- Kadar sekaki persegi (termasuk cetakan dan akrilik): ${uv.MATERIALS.map((m) => `${m.label} RM${rm(m.rateSen)}`).join('; ')}. Luas = lebar x tinggi kotak setiap kepingan. Minimum RM${rm(uv.MIN_SEN).replace('.00', '')}. Saiz maksimum ${uv.BED_LONG_MM / 10} x ${uv.BED_SHORT_MM / 10} cm.`);
+  p(`- Kadar sekaki persegi, cetakan UV sahaja (material pelanggan sendiri): ${uv.MATERIALS.map((m) => `${m.label} RM${rm(m.rateSen)}`).join('; ')}. Luas = lebar x tinggi kotak setiap kepingan. Tiada caj minimum. Saiz maksimum ${uv.BED_LONG_MM / 10} x ${uv.BED_SHORT_MM / 10} cm.`);
 }
 p();
 for (const g of groups) {

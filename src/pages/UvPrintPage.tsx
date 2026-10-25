@@ -34,7 +34,7 @@ export const UvPrintPage = () => (
               UV Print Calculator
             </h1>
             <p className="truncate text-xs text-muted sm:text-sm">
-              Harga cetakan UV atas akrilik jernih — terus dari fail PDF atau AI anda
+              Harga cetakan UV, material anda sendiri — terus dari fail PDF atau AI anda
             </p>
           </div>
         </div>
@@ -51,7 +51,7 @@ export const UvPrintPage = () => (
     </header>
     <iframe
       src="/uvprint/"
-      title="UV Print Calculator — harga anggaran cetakan UV atas akrilik jernih"
+      title="UV Print Calculator — harga anggaran cetakan UV, material anda sendiri"
       className="min-h-0 w-full flex-1 border-0"
     />
   </div>

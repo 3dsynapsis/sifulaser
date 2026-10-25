@@ -1,18 +1,26 @@
 // Money and sizes. No floating ringgit anywhere.
 //
+// UV PRINTING ONLY - the customer brings their own material (Boss, 25 Oct
+// 2026). Until then the rate included clear acrylic (2 / 3 / 5 mm at RM20 /
+// RM22 / RM30 a sq ft) with an RM20 minimum per order. Now there is one rate
+// for the printing alone, RM16 a sq ft, white ink included, and NO minimum.
+// "Material" survives in the code as the name of the one service the rate
+// belongs to, so the store, the screen and the message keep their shape.
+//
 // The geometry step ends with each piece's width and height in whole
 // micrometres (rounded half up once). From there everything is integer:
 //
 //   area   = sum(W_um x H_um)                    um^2, BigInt
-//   n      = area x rate_sen x quantity          BigInt (5.4e17 on a big order,
+//   n      = area x rate_sen x quantity          BigInt (4.3e17 on a big order,
 //                                                past 2^53, so Number is unsafe)
 //   D      = 92,903,040,000 um^2 = 1 sq ft (304.8 mm squared)
 //   subtotal (nearest 10 sen, half up) = floor((n + 5D) / 10D) x 10
-//   total  = max(subtotal, 2000)
+//   total  = max(subtotal, 10)   - no minimum charge, but a priced order is
+//                                  never RM0.00 (a 1 cm piece rounds to 0 sen)
 //
 // Decisions the spec left open, and why (QA plan section 0):
-//   D1 round first, then the minimum; the note shows only if the ROUNDED
-//      subtotal is under RM20. Raw 1995 sen rounds to RM20.00 - no note.
+//   D1 round first, then the floor: a 4 sen order rounds to RM0.00 and is
+//      charged RM0.10; a 5 sen order rounds to RM0.10 on its own.
 //   D2 price from exact sizes, never from the rounded numbers on screen:
 //      3 pieces at 5mm x3 is RM25.60 exact, RM25.70 from the displayed sq ft.
 //   D3 a piece fits the bed if its SHOWN size fits (cm to 1 decimal, half up):
@@ -25,16 +33,15 @@
 //      test suite checks expected.json's prices through this code.
 
 export const SQFT_UM2 = 92_903_040_000n;
-export const MIN_SEN = 2000;
+export const FLOOR_SEN = 10;     // the smallest total: never RM0.00 (D1)
 export const BED_LONG_MM = 900;
 export const BED_SHORT_MM = 600;
 
+// One service: UV printing on the customer's own material, white ink included.
 export const MATERIALS = [
-  { id: '2mm', label: 'Akrilik Jernih 2mm', rateSen: 2000 },
-  { id: '3mm', label: 'Akrilik Jernih 3mm', rateSen: 2200 },
-  { id: '5mm', label: 'Akrilik Jernih 5mm', rateSen: 3000 },
+  { id: 'uv', label: 'Cetakan UV sahaja (termasuk white ink)', rateSen: 1600 },
 ];
-export const DEFAULT_MATERIAL = '3mm';
+export const DEFAULT_MATERIAL = 'uv';
 export const materialById = (id) => MATERIALS.find((m) => m.id === id) || null;
 
 /** Points (already x UserUnit) to whole micrometres, half up. */
@@ -117,10 +124,11 @@ export function quote(pieces, materialId, qtyText) {
   const n = setArea * BigInt(material.rateSen) * BigInt(q.value);
   const subtotalBig = ((n + 5n * SQFT_UM2) / (10n * SQFT_UM2)) * 10n;
   const subtotalSen = Number(subtotalBig);
-  const minApplied = subtotalSen < MIN_SEN;
-  const totalSen = minApplied ? MIN_SEN : subtotalSen;
+  // No minimum charge; the only floor is that a priced order is never RM0.00.
+  const floorApplied = subtotalSen < FLOOR_SEN;
   // The texts come from the BigInt, so they stay exact past 2^53 sen too.
-  const totalBig = minApplied ? BigInt(MIN_SEN) : subtotalBig;
+  const totalBig = floorApplied ? BigInt(FLOOR_SEN) : subtotalBig;
+  const totalSen = Number(totalBig);
   return {
     ...base,
     state: 'priced',
@@ -129,7 +137,7 @@ export function quote(pieces, materialId, qtyText) {
     rateText: `${fmtRM(material.rateSen)} / kaki persegi`,
     subtotalSen,
     subtotalText: fmtRM(subtotalBig),
-    minApplied,
+    floorApplied,
     totalSen,
     totalText: fmtRM(totalBig),
   };

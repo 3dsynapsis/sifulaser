@@ -1,10 +1,15 @@
 # UV Print Calculator (salinan vendored)
 
-Kalkulator harga **cetakan UV atas akrilik jernih**. Pelanggan pilih fail PDF
-atau Adobe Illustrator `.ai`; alat ini mencari garisan potong (warna spot
-`CutContour`, layer bernama "cut", atau bentuk tertutup paling luar), melukis
-pratonton dengan garisan potong merah, dan mengira harga ikut kaki persegi
-untuk akrilik 2 / 3 / 5 mm. Sebut harga dihantar ke WhatsApp kedai.
+Kalkulator harga **cetakan UV sahaja - pelanggan bekalkan material sendiri**.
+Pelanggan pilih fail PDF atau Adobe Illustrator `.ai`; alat ini mencari garisan
+potong (warna spot `CutContour`, layer bernama "cut", atau bentuk tertutup
+paling luar), melukis pratonton dengan garisan potong merah, dan mengira harga
+ikut kaki persegi: **RM16 sekaki persegi, termasuk white ink, tiada caj
+minimum** (Boss, 25 Oktober 2026). Sebut harga dihantar ke WhatsApp kedai.
+
+Sebelum 25 Oktober 2026 harganya termasuk akrilik jernih 2 / 3 / 5 mm (RM20 /
+RM22 / RM30 sekaki persegi, minimum RM20). Pilihan akrilik itu dibuang dari
+skrin kerana klien yang memakai alat ini sudah ada material sendiri.
 
 Fail pelanggan **tidak dimuat naik ke mana-mana**. Ia dibaca dalam pelayar oleh
 pembaca PDF kecil yang ditulis khas untuk alat ini (`src/pdf/`), di dalam Web

@@ -1,12 +1,14 @@
 // Every sentence a customer can see about their file, in one place, in Bahasa
 // Melayu. Short and direct: what happened, and what to do about it.
 //
-// Three strings are the spec's own words and are tested character for
-// character: the oversize message, the minimum-charge note and the disclaimer.
+// The spec's own words are tested character for character: the oversize
+// message and the disclaimer. The minimum-charge note went with the minimum
+// (25 Oct 2026); UV_ONLY says what the price covers now that the customer
+// brings their own material.
 
 export const OVERSIZE = 'Saiz melebihi bed mesin 90 x 60 cm - hubungi kami untuk sebut harga';
-export const MIN_NOTE = 'Harga minimum RM20 dikenakan';
 export const DISCLAIMER = 'Harga anggaran. Harga akhir disahkan selepas semakan fail.';
+export const UV_ONLY = 'Harga cetakan UV sahaja, termasuk white ink. Material anda sendiri - tidak termasuk.';
 export const ATTACH_NOTE = 'Sila lampirkan fail anda dalam WhatsApp selepas mesej dibuka.';
 
 export const ERRORS = {
