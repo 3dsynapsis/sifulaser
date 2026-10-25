@@ -35,14 +35,15 @@ setiap README jiran mengingatkan supaya tag analitik dan export-gate diletak
 dalam sumber. Di sini sumber dan docs ialah fail yang sama, jadi amaran itu
 tidak terpakai - tetapi dua tag itu masih WAJIB ada dalam `index.html`.
 
-## Kekuatan: Jimat / Normal / Kuat (24 Oktober 2026)
+## Kekuatan: Super jimat / Jimat / Normal / Kuat (24-25 Oktober 2026)
 
-Mod cetak 3D, kumpulan "Dinding & lantai": tiga kad yang menetapkan tebal
+Mod cetak 3D, kumpulan "Dinding & lantai": empat kad yang menetapkan tebal
 dinding dan lantai bersama (`STRENGTHS` dalam `src/geom/tray3d.js`), dalam
 gandaan garisan nozzle 0.4 mm dan lapisan 0.2 mm:
 
 | Pilihan | Dinding | Lantai | Untuk |
 |---|---|---|---|
+| Super jimat | 0.45 mm (1 garisan) | 0.8 mm | barang sangat ringan; tiada tulisan jenama |
 | Jimat | 1.2 mm (3 garisan) | 1.4 mm | barang ringan (lalai) |
 | Normal | 1.6 mm (4 garisan) | 1.6 mm | kegunaan harian |
 | Kuat | 2.4 mm (6 garisan) | 2.4 mm | barang berat, dulang besar |
@@ -50,7 +51,15 @@ gandaan garisan nozzle 0.4 mm dan lapisan 0.2 mm:
 Setiap kad menunjukkan berat PLA reka bentuk SEMASA pada tetapan itu
 (`strengthGrams()` dalam `src/store.js`, dibina tanpa tulisan jenama supaya
 murah, dicache), jadi "jimat" ialah nombor. Lantai Jimat 1.4 mm supaya tulisan
-jenama masih muat. Medan dinding/lantai kekal untuk nilai sendiri; bila ia
+jenama masih muat.
+
+Super jimat (25 Oktober): satu garisan dinding untuk Bambu Lab A1, nozzle 0.4.
+Profil "0.20mm Standard @BBL A1" dalam Bambu Studio memakai garisan dinding
+luar 0.42 mm dan dalam 0.45 mm, dengan penjana dinding Classic. Dinding 0.45:
+Arachne mencetaknya sebagai satu manik; Classic tidak menghilangkannya (dinding
+0.42 tepat runtuh bila diofset separuh garisan). Nota Export untuk dinding < 0.8
+mm meminta Wall generator = Arachne. Lantai 0.8 mm (4 lapisan) terlalu nipis
+untuk tulisan jenama. Medan dinding/lantai kekal untuk nilai sendiri; bila ia
 tidak sepadan mana-mana kad, tiada kad dipilih.
 
 ## Simpan ke akaun (24 Oktober 2026)

@@ -215,22 +215,28 @@ for (let n = 0; n < 60; n++) {
 check('fuzz: semua 60 dibina', fuzzRun === 60, `${fuzzRun}`);
 check(`jenama terbenam pada kebanyakan dulang (${branded})`, branded >= 80);
 
-// ---- Jimat bahan / Normal / Kuat ------------------------------------------------------
+// ---- Super jimat / Jimat / Normal / Kuat ------------------------------------------------
 {
-  check('kekuatan: tiga pilihan', STRENGTHS.map((s) => s.id).join() === 'jimat,normal,kuat');
+  check('kekuatan: empat pilihan', STRENGTHS.map((s) => s.id).join() === 'superjimat,jimat,normal,kuat');
   const lalai = buildTray3D({}, THREE);
   check('kekuatan: lalai = Jimat (1.2 / 1.4)', strengthOf(lalai.params) === 'jimat');
   check('kekuatan: nilai sendiri = sendiri', strengthOf({ wallT: 2, floorT: 1.6 }) === 'sendiri');
   const grams = [];
   for (const s of STRENGTHS) {
-    // Dinding = gandaan garisan nozzle 0.4 mm, lantai = gandaan lapisan 0.2 mm.
-    check(`kekuatan ${s.id}: dinding ${s.lines} garisan 0.4 mm`, Math.abs(s.wallT - s.lines * 0.4) < 1e-9);
+    // Dinding = gandaan garisan nozzle 0.4 mm (satu garisan = 0.42-0.45, lebar
+    // garisan Bambu Studio), lantai = gandaan lapisan 0.2 mm.
+    check(`kekuatan ${s.id}: dinding ${s.lines} garisan`, s.lines === 1
+      ? s.wallT >= 0.42 - 1e-9 && s.wallT <= 0.45 + 1e-9 : Math.abs(s.wallT - s.lines * 0.4) < 1e-9);
     check(`kekuatan ${s.id}: lantai gandaan 0.2 mm`, Math.abs(s.floorT / 0.2 - Math.round(s.floorT / 0.2)) < 1e-9);
-    for (const extra of [{}, { stack: true }, { dividerHeight: 60, fillet: 0 }]) {
+    const big = { length: 400, width: 400, height: 60, cols: new Array(12).fill(1), rows: new Array(12).fill(1) };
+    for (const extra of [{}, { stack: true }, { dividerHeight: 60, fillet: 0 }, { stack: true, fillet: 0, stackClear: 0 },
+      big, { ...big, fillet: 0, dividerHeight: 80 }, { layout: SUDU }, { length: 60, width: 40, height: 20 }]) {
       const t = checkTray(`kekuatan ${s.id} ${JSON.stringify(extra)}`, { wallT: s.wallT, floorT: s.floorT, ...extra });
       if (!t) continue;
       check(`kekuatan ${s.id} ${JSON.stringify(extra)}: dikenali`, strengthOf(t.params) === s.id);
-      check(`kekuatan ${s.id} ${JSON.stringify(extra)}: jenama di tapak`, !!t.derived.deboss,
+      // Jenama hanya bila lantai >= 1.4 mm dan tapak cukup besar untuk huruf 7 mm.
+      const room = t.params.length >= 60 && t.params.width >= 30;
+      check(`kekuatan ${s.id} ${JSON.stringify(extra)}: jenama ikut lantai`, !!t.derived.deboss === (s.floorT >= 1.4 && room),
         JSON.stringify(t.derived.deboss));
     }
     // Anggaran tanpa jenama (kad) = berat sebenar, beza < 0.5 g.
@@ -240,7 +246,8 @@ check(`jenama terbenam pada kebanyakan dulang (${branded})`, branded >= 80);
       && !est.derived.deboss, `${full.derived.gramsPLA} vs ${est.derived.gramsPLA}`);
     grams.push(full.derived.gramsPLA);
   }
-  check('kekuatan: Jimat < Normal < Kuat', grams[0] < grams[1] && grams[1] < grams[2], grams.map(Math.round).join(' < '));
+  check('kekuatan: Super jimat < Jimat < Normal < Kuat', grams.every((g, i) => i === 0 || grams[i - 1] < g), grams.map(Math.round).join(' < '));
+  check('kekuatan: Super jimat kurang separuh Normal', grams[0] < grams[2] / 2, grams.map(Math.round).join(' / '));
 }
 {
   // Lantai 1.2 mm: tiada jenama; 1.4 mm: 0.4 mm dalam; lalai 1.6 mm: 0.6 mm.

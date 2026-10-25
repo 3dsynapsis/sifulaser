@@ -130,7 +130,12 @@ function refreshExportDialog() {
     const bad = !(d.fitsBed && d.fitsZ);
     exportNote.textContent = bad
       ? `Lebih besar daripada katil ${d.printerName} (${d.bed.x} x ${d.bed.y} x ${d.bed.z} mm) - kecilkan dulang atau pilih printer lain.`
-      : 'Cetak sebagaimana adanya: bukaan ke atas, tiada sokongan diperlukan. 3-4 perimeter, infill 10-15%, PLA atau PETG.';
+      : tray.params.wallT < 0.8
+        // Satu garisan: penjana Classic (lalai Bambu Studio) mencetaknya dua
+        // kali bertindih; Arachne mencetak satu manik selebar dinding.
+        ? `Dinding satu garisan (${tray.params.wallT} mm). Dalam Bambu Studio: Quality → Wall generator → Arachne, `
+          + 'supaya dinding dicetak sebagai satu garisan bersih. Bukaan ke atas, tiada sokongan, PLA.'
+        : 'Cetak sebagaimana adanya: bukaan ke atas, tiada sokongan diperlukan. 3-4 perimeter, infill 10-15%, PLA atau PETG.';
     exportNote.classList.toggle('warn', bad);
     return;
   }

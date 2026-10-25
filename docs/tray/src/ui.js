@@ -37,12 +37,15 @@ const h = (tag, attrs = {}, ...kids) => {
 };
 
 const r1 = (v) => Math.round(v * 10) / 10;
+const r2 = (v) => Math.round(v * 100) / 100;
 
 /**
  * Medan nombor yang menulis ke store semasa menaip dan mengelompokkan satu
  * sesi fokus menjadi satu undo. `get` membaca nilai semasa; `set` menulisnya.
  */
-function numField(label, { get, set, min, max, step = 1, unit = 'mm', hint } = {}) {
+function numField(label, { get, set, min, max, step = 1, unit = 'mm', hint, dp = 1 } = {}) {
+  // dp: titik perpuluhan yang dipapar - 2 untuk dinding (0.45 mm, satu garisan).
+  const round = (v) => Math.round(v * 10 ** dp) / 10 ** dp;
   const input = h('input', { type: 'number', min, max, step, inputmode: 'decimal' });
   input.addEventListener('focus', beginGesture);
   input.addEventListener('blur', endGesture);
@@ -58,7 +61,7 @@ function numField(label, { get, set, min, max, step = 1, unit = 'mm', hint } = {
     if (min != null) v = Math.max(min, v);
     if (max != null) v = Math.min(max, v);
     set(v);
-    input.value = String(r1(v));
+    input.value = String(round(v));
   });
   const wrap = h('div', { class: 'field' },
     h('label', { text: label }),
@@ -66,7 +69,7 @@ function numField(label, { get, set, min, max, step = 1, unit = 'mm', hint } = {
     hint ? h('p', { class: 'hint', text: hint }) : null);
   return {
     el: wrap,
-    sync() { if (document.activeElement !== input) input.value = String(r1(get())); },
+    sync() { if (document.activeElement !== input) input.value = String(round(get())); },
   };
 }
 
@@ -141,8 +144,8 @@ export function createInspector(root) {
     h('div', { class: 'field' }, h('label', { text: 'Kekuatan - jimat bahan atau kuat' }),
       h('div', { class: 'strength' }, ...strengthCards.map((c) => c.b)), strengthNote),
     reg(numField('Tebal dinding & pembahagi', {
-      get: () => state.params.wallT, set: (v) => setParam('wallT', v), min: 0.8, max: 6, step: 0.2,
-      hint: 'Gandaan lebar garisan nozzle: 1.2 / 1.6 / 2.0 mm untuk nozzle 0.4 mm. 1.6 = 4 perimeter, tegar.',
+      get: () => state.params.wallT, set: (v) => setParam('wallT', v), min: 0.4, max: 6, step: 0.05, dp: 2,
+      hint: 'Gandaan lebar garisan nozzle 0.4 mm: 0.45 = satu garisan, 1.2 = 3, 1.6 = 4 perimeter (tegar), 2.4 = 6.',
     })),
     reg(numField('Tebal lantai', {
       get: () => state.params.floorT, set: (v) => setParam('floorT', v), min: 0.6, max: 6, step: 0.2,
@@ -350,7 +353,7 @@ export function createInspector(root) {
         selW.disabled = selH.disabled = !d.gridOK;
         resetLayout.hidden = !hasCustomLayout();
         gridHint.textContent = 'Klik satu petak, tekan + untuk belah petak ITU sahaja - contohnya satu petak panjang untuk sudu, '
-          + `kemudian belah petak sebelahnya jadi 2x2. Seret pembahagi untuk ubah saiz; x untuk buang. Pembahagi setebal dinding (${r1(p.wallT)} mm).`;
+          + `kemudian belah petak sebelahnya jadi 2x2. Seret pembahagi untuk ubah saiz; x untuk buang. Pembahagi setebal dinding (${r2(p.wallT)} mm).`;
       } else {
         grid.render(tray, state.selected);
         syncList('x', d.colW);
@@ -383,11 +386,12 @@ export function createInspector(root) {
           c.grams.textContent = `~${Math.round(grams[c.s.id])} g`;
         }
         const pick = STRENGTHS.find((s) => s.id === cur);
-        const save = Math.round(grams.normal - grams.jimat);
+        const save = pick ? Math.round(grams.normal - grams[pick.id]) : 0;
         strengthNote.textContent = pick
           ? `Dinding ${pick.wallT} mm (${pick.lines} garisan nozzle 0.4), lantai ${pick.floorT} mm. ${pick.note}`
-            + `${pick.id === 'jimat' ? ` Jimat ~${save} g PLA berbanding Normal.` : ''}`
-          : `Tetapan sendiri: dinding ${r1(p.wallT)} mm, lantai ${r1(p.floorT)} mm (~${Math.round(d.gramsPLA)} g PLA).`;
+            + `${save > 0 ? ` Jimat ~${save} g PLA berbanding Normal.` : ''}`
+            + `${pick.id === 'superjimat' ? ' Tiada tulisan "sifulaser" di tapak - lantai terlalu nipis.' : ''}`
+          : `Tetapan sendiri: dinding ${r2(p.wallT)} mm, lantai ${r1(p.floorT)} mm (~${Math.round(d.gramsPLA)} g PLA).`;
         stackChk.checked = Boolean(p.stack);
         stackField.hidden = !p.stack;
         stackHint.hidden = !p.stack;
@@ -407,7 +411,7 @@ export function createInspector(root) {
           stat('Isi padu', `${d.volumeCm3.toFixed(1)} cm³`),
           stat('Anggaran filamen', `~${Math.round(d.gramsPLA)} g PLA`),
           stat('Petak', `${d.cellCount}`),
-          stat('Dinding / lantai', `${r1(p.wallT)} / ${r1(p.floorT)} mm`),
+          stat('Dinding / lantai', `${r2(p.wallT)} / ${r1(p.floorT)} mm`),
           stat('Fillet dalam', `${r1(d.r)} mm`),
           stat('Segitiga STL', `${d.triangles.toLocaleString('ms-MY')}`),
         );

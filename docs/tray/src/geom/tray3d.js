@@ -71,6 +71,14 @@ export const PRINT_DEFAULTS = {
  * sendiri = 'sendiri'.
  */
 export const STRENGTHS = [
+  // Super jimat: SATU garisan dinding. 0.45 mm = lebar garisan dinding dalam
+  // Bambu Studio untuk nozzle 0.4 (A1 "0.20mm Standard": dinding luar 0.42,
+  // dalam 0.45) - cukup untuk penjana Arachne mencetak satu manik, dan tidak
+  // hilang dalam penjana Classic (lalai A1) seperti dinding 0.42 tepat yang
+  // runtuh bila diofset separuh garisan. Lantai 0.8 mm = 4 lapisan 0.2; terlalu
+  // nipis untuk tulisan jenama, jadi pilihan ini tiada "sifulaser" di tapak.
+  { id: 'superjimat', name: 'Super jimat', wallT: 0.45, floorT: 0.8, lines: 1,
+    note: 'Paling ringan. Dinding nipis dan lentur - untuk barang ringan sahaja: klip, getah, alat tulis.' },
   { id: 'jimat', name: 'Jimat', wallT: 1.2, floorT: 1.4, lines: 3,
     note: 'Untuk barang ringan: alat tulis, barang kemas, aksesori.' },
   { id: 'normal', name: 'Normal', wallT: 1.6, floorT: 1.6, lines: 4,
@@ -214,7 +222,8 @@ function zipChains(A, B, al) {
 export function buildTray3D(input = {}, THREE, { brand: withBrand = true } = {}) {
   if (!THREE || !THREE.ShapeUtils) throw new Error('buildTray3D perlukan three.js (ShapeUtils)');
   const p = { ...LASER_DEFAULTS, ...PRINT_DEFAULTS, ...input };
-  const wallT = Math.min(6, Math.max(0.8, Number(p.wallT) || PRINT_DEFAULTS.wallT));
+  // 0.4 mm: satu garisan nozzle 0.4 (Super jimat 0.45) ialah dinding paling nipis yang dicetak.
+  const wallT = Math.min(6, Math.max(0.4, Number(p.wallT) || PRINT_DEFAULTS.wallT));
   const floorT = Math.min(6, Math.max(0.6, Number(p.floorT) || PRINT_DEFAULTS.floorT));
   const L = Math.max(wallT * 8, Number(p.length) || LASER_DEFAULTS.length);
   const W = Math.max(wallT * 8, Number(p.width) || LASER_DEFAULTS.width);
