@@ -417,3 +417,46 @@ voksel, menyemak tumpuk, setiap lubang berisi, penutup keluar sepenuhnya melalui
 penahan (pemegang pada dinding, rel menahan penutup) dan laluan pemasangan. Bahagian
 "sliding box" dalam `npm test` projek sumber menyemak ukuran. **Belum diuji pada
 potongan sebenar**, terutama sama ada 0.5 mm cukup untuk papan yang melengkung.
+
+## Gaya Bertingkat (3 November 2026)
+
+Diminta Bos selepas melihat Stackable Parts Bin di MakerCase. Mekanismenya sama, kodnya
+ditulis sendiri. Dibuat dalam projek sumber dan disalin ke sini; kad "Bertingkat",
+`style: 'bin'`.
+
+Dua dinding sisi dengan semua yang lain bertanon menembusinya: lantai, belakang dan
+papan depan yang condong, dan pembahagi kalau ada. Dinding sisi dipasang terakhir.
+Belakang dan papan depan berdiri satu papan ke dalam dari tepi dinding sisi. Dinding
+sisi bermula di belakang pada `y = W`, sampai `y = a` (`a` = 20% Width), kemudian tepi
+depannya ke hujung bibir di `y = 0`.
+
+Susunan: bonggol 45° dua papan tinggi di tengah atas setiap dinding sisi masuk ke takuk
+di bawah dinding sisi bin atas (menahan depan-belakang), dan bonggol di atas dinding
+belakang masuk ke takuk di kaki dinding belakang atas (menahan kiri-kanan). `stackGap`
+ialah ruang keliling. Bin berdiri atas dinding sisinya sahaja; kaki dinding belakang
+`stackGap` di atas muka bawah lantai.
+
+Height **termasuk** bonggol, jadi dinding = Height - 2t dan jarak setingkat = tinggi
+dinding. Bilangan bin (`binCount`, 1-6, asal 2) menjadikan setiap set panel sebenar:
+`buildBox` menyalin panel selepas pampasan kerf, setiap salinan setingkat lebih tinggi
+(`id` `left#2`, `copyOf: 'left'`, `noDecor`, `noPick`). Jadi paparan 3D, Cut summary dan
+fail export semuanya melihat bilangan yang sama tanpa diberitahu. Salinan memakai hiasan
+set pertama melalui `store.decorFor`.
+
+Yang berbeza daripada MakerCase, sengaja:
+
+- **Kelegaan pada lantai.** Lantai bin atas sama aras dengan bonggol bin bawah dan
+  tepinya betul-betul menyentuh muka bonggol. Tanpa takuk cetek `stackGap` di tepi
+  lantai, susunan tiada kelonggaran di situ dan bin yang lebih lebar 0.1 mm tidak turun.
+- Bibir sebagai % dinding (`binLip`, asal 45), bukan mm: ia kekal munasabah bila Height berubah.
+- Pembahagi sentiasa setinggi bibir, tiada baris peratusan. Kalau bibir terlalu rendah,
+  panel amaran muncul dan pembahagi tidak dipotong. Tanon pembahagi bermula dua papan
+  dari lantai kerana dinding di situ sudah nipis dek takuk.
+- Skru dimatikan.
+
+Ujian: `node scripts/test-boxmaker-bin.mjs` - memasang setiap panel dan setiap set dalam
+grid voksel (bonggol mesti muat), setiap lubang berisi, bin atas terangkat lurus dan
+tersekat ke empat arah, ada kelonggaran dalam takuk, dinding sisi keluar lurus, bentuk
+salinan sama. Bahagian "bertingkat" dalam `npm test` projek sumber menyemak ukuran.
+**Belum diuji pada potongan sebenar**, terutama kestabilan susunan yang tinggi: bibir
+condong ke depan menjadikan bahagian depan lebih berat bila diisi.

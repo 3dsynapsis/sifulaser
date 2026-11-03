@@ -119,6 +119,7 @@ function boxThumb(style, base) {
   if (style === 'mihrab') return mihrabThumb(c);
   if (style === 'mihrab2') return mihrab2Thumb(c);
   if (style === 'round') return roundThumb(c);
+  if (style === 'bin') return binThumb(c);
 
   // top rim diamond, its inner opening, and the floor sitting below it
   const T = [48, 26]; const R = [80, 40]; const F = [48, 54]; const L = [16, 40];
@@ -221,6 +222,25 @@ function boxThumb(style, base) {
   ${hingeArm}
   ${slideLid}
 </svg>`;
+}
+
+/** Two bins, one on the other: the sloped lip and the hump are what the style is about. */
+function binThumb(c) {
+  const dx = 24; const dy = -9;
+  const bin = (oy) => {
+    const at = (x, y) => [x, y + oy];
+    const side = (o) => [[28, 66], [62, 66], [62, 40], [48, 40], [45, 36.5], [39, 36.5], [36, 40], [28, 40], [19, 53]]
+      .map(([x, y]) => at(x + o * dx, y + o * dy));
+    const near = side(0);
+    const far = side(1);
+    const back = [near[1], far[1], far[2], near[2]];
+    const floor = [near[0], far[0], far[1], near[1]];
+    const lip = [near[0], far[0], far[8], near[8]];
+    const stroke = (pts, fill) => `<polygon points="${P(pts)}" fill="${fill}" stroke="${c.edge}" stroke-width=".8" stroke-linejoin="round"/>`;
+    return stroke(far, c.innerB) + stroke(floor, c.floor) + stroke(back, c.right)
+      + stroke(lip, c.lid) + stroke(near, c.left);
+  };
+  return `<svg viewBox="0 0 96 74" aria-hidden="true">${bin(-27)}${bin(0)}</svg>`;
 }
 
 /** A drum: base, the wall with a hint of its kerf cuts, and the lid lifted off. */
@@ -546,6 +566,12 @@ const STYLES = [
     hint: 'A lid that slides out at the front, running in a groove between two rails '
       + 'on each side wall. A handle board carries it, and comes off with it.',
   },
+  {
+    id: 'bin',
+    label: 'Bertingkat',
+    hint: 'A parts bin with a sloped front lip that stacks: humps on top drop into '
+      + 'cut-outs under the bin above. Choose how many, and that many sets are cut.',
+  },
 ];
 
 const DIVIDERS = [
@@ -727,6 +753,7 @@ function overallInspector(root, ctx) {
           : p.style === 'round' ? roundRows(p, ctx)
           : p.style === 'hinge' ? hingeRows(p, ctx)
           : p.style === 'slide' ? slideRows(p, ctx)
+          : p.style === 'bin' ? binRows(p, ctx)
             : p.style === 'lidded' || p.style === 'double' ? lidGapRows(p, ctx) : [])));
 
   // Straight after the style: this is where everyone looks first.
@@ -746,11 +773,19 @@ function overallInspector(root, ctx) {
       },
       h('span', { class: 'art', html: dividerThumb(id, mat.color) }),
       label))),
-    (p.divider ? numberRow('Divider height (% of depth)', p.dividerHeight, {
+    (p.divider && p.style !== 'bin' ? numberRow('Divider height (% of depth)', p.dividerHeight, {
       min: 20, max: 100, step: 5,
       onInput: (v) => { setParam('dividerHeight', Math.round(v)); ctx.refresh(); },
     }) : null),
-    h('p', { class: 'hint' }, p.style === 'mihrab2'
+    p.style === 'bin' && p.divider && !getBox().derived.divCount
+      ? h('p', { class: 'warn' },
+        'The front lip is too low to carry dividers. Raise it, or make the bin taller.')
+      : null,
+    h('p', { class: 'hint' }, p.style === 'bin'
+      ? 'Dividers stand as tall as the front lip. The long one is tenoned into the back and '
+        + 'down into the floor; with four spaces the cross one half-laps over it and tenons '
+        + 'into both side walls.'
+      : p.style === 'mihrab2'
       ? 'Behind the doors: the long divider runs back from the doors\' meeting '
         + 'line, so each door opens on its own side, tenoned into the back and down '
         + 'into the floor. With four spaces the cross divider half-laps over it and '
@@ -812,7 +847,7 @@ function overallInspector(root, ctx) {
 
   const fitTicks = ['Looser', 'Loose', 'Standard', 'Tight', 'Tighter'];
   const d = getBox().derived;
-  const screwOn = p.joint === 'screw' && !['mihrab', 'mihrab2', 'round', 'hinge', 'slide'].includes(p.style);
+  const screwOn = p.joint === 'screw' && !['mihrab', 'mihrab2', 'round', 'hinge', 'slide', 'bin'].includes(p.style);
   root.append(group('Joints', false,
     p.style === 'mihrab' ? h('p', { class: 'hint' },
       'The mihrab is glued: its two back corners are finger joints, and the doors '
@@ -829,7 +864,10 @@ function overallInspector(root, ctx) {
     p.style === 'slide' ? h('p', { class: 'hint' },
       'The Sliding Box is glued: its rails run along the side walls, right where the '
       + 'nut pockets would reach in. The lid is what comes off.') : null,
-    ['mihrab', 'mihrab2', 'round', 'hinge', 'slide'].includes(p.style) ? null : h('div', { class: 'field' },
+    p.style === 'bin' ? h('p', { class: 'hint' },
+      'A bin is glued: everything tenons through its two side walls, and it has no '
+      + 'front wall to carry a nut. The stack is what comes apart.') : null,
+    ['mihrab', 'mihrab2', 'round', 'hinge', 'slide', 'bin'].includes(p.style) ? null : h('div', { class: 'field' },
       h('label', {}, 'Corner joint'),
       h('div', { class: 'seg' }, [
         ['standard', 'Standard'], ['screw', 'Screw'],
@@ -1177,6 +1215,41 @@ function hingeRows(p, ctx) {
     h('p', { class: 'hint' },
       'Lid gap is the clearance between each arm and its wall, and round each disc. Raise '
       + 'it if the arm rubs as it turns; lower it if the lid rattles.'),
+  ];
+}
+
+/** How many bins, how high the lip, how freely one drops onto the next. */
+function binRows(p, ctx) {
+  const d = getBox().derived.bin;
+  if (!d) return [];
+  const set = (key, v) => { setParam(key, v); clampDecor(); ctx.refresh(); };
+  const cab = getBox().params;
+  const pct = Math.round((d.lipH / d.pitch) * 100);
+  return [
+    numberRow('How many bins', d.count, {
+      min: 1, max: 6, step: 1,
+      onInput: (v) => set('binCount', Math.round(v)),
+    }),
+    numberRow('Front lip (% of the wall)', p.binLip ?? 45, {
+      min: 10, max: 90, step: 5,
+      onInput: (v) => set('binLip', Math.round(v)),
+    }),
+    numberRow('Stack gap (mm)', d.gap, {
+      min: 0.1, max: Math.max(0.1, rnd(p.thickness / 2, 2)), step: 0.05,
+      onInput: (v) => set('stackGap', v),
+    }),
+    h('p', { class: 'hint' },
+      d.count > 1
+        ? `The file cuts ${d.count} full sets. Each bin adds ${rnd(d.pitch, 1)} mm, so the `
+          + `stack stands ${rnd(d.stackH, 1)} mm tall.`
+        : `The file cuts one bin. Each one you add to a stack raises it ${rnd(d.pitch, 1)} mm.`),
+    h('p', { class: 'hint' },
+      `The lip is ${rnd(d.lipH, 1)} mm tall (${pct}%), and leans ${rnd(d.reach, 1)} mm `
+      + `forward of the base. Height includes the ${rnd(d.hump, 1)} mm humps on top, so a `
+      + `bin ${rnd(cab.height, 1)} mm high has walls ${rnd(d.pitch, 1)} mm high.`),
+    h('p', { class: 'hint' },
+      'Stack gap is the room between each hump and its cut-out. Raise it if a bin will not '
+      + 'drop on; lower it if the stack wobbles.'),
   ];
 }
 
@@ -1763,6 +1836,9 @@ function dimensionRows(p, ctx) {
       : p.style === 'hinge'
         ? 'Boxing something? Switch to Inside and type its size instead - the walls, the '
           + 'arms and their gaps all take their share of the length, and the lid of the height.'
+      : p.style === 'bin'
+        ? 'Sizing for something? Switch to Inside and type its size instead - the floor, '
+          + 'from the foot of the lip to the back, is what gets measured.'
         : 'Boxing something? Switch to Inside and type its size instead - the '
           + 'walls take two board thicknesses off whatever is typed here.')));
   return rows;
@@ -2420,7 +2496,7 @@ const STEPS = [
   {
     t: 'Lay them out',
     d: 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.',
-    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'hinge'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'hinge', 'slide', 'bin'],
   },
   {
     t: 'Lay them out',
@@ -2444,6 +2520,38 @@ const STEPS = [
       + 'them and wipe any squeeze-out from the groove now, because a drop left in there '
       + 'stops the lid for good. Once the box is closed you cannot reach them.',
     only: ['slide'],
+  },
+  {
+    t: 'Lay them out',
+    d: 'Each bin is two side walls, a back, a floor and a sloped front board, plus its '
+      + 'dividers if it has them. The sets are identical, so any part fits any bin.',
+    only: ['bin'],
+  },
+  {
+    t: 'One side wall flat on the bench',
+    d: 'Lay it inside up and push in the tenons of the floor, the back and the front '
+      + 'board. The front board\'s slots are on a slant, so it leans out as it goes in, '
+      + 'with its foot on the floor.',
+    only: ['bin'],
+  },
+  {
+    t: 'Dividers next',
+    d: 'Stand the long divider in the floor and the back. Drop the crossing one onto it, '
+      + 'so the two half-laps lock together. Its ends reach the side walls.',
+    only: ['bin'],
+    when: (p) => !!p.divider,
+  },
+  {
+    t: 'Second side wall last',
+    d: 'Bring it down over every tenon at once, then press the bin square on a flat '
+      + 'surface. Glue as you go, and keep the humps and cut-outs clean.',
+    only: ['bin'],
+  },
+  {
+    t: 'Stack them',
+    d: 'Lower one bin straight onto another. The humps on the side walls and the back '
+      + 'drop into the cut-outs under the bin above. No glue here: a stack lifts apart.',
+    only: ['bin'],
   },
   {
     t: 'Lay them out',
@@ -2633,12 +2741,12 @@ const STEPS = [
   {
     t: 'Floor into the front wall',
     d: 'The slitted tenons push through the mortises. They should click, not fight.',
-    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'bin'],
   },
   {
     t: 'Add a side wall',
     d: 'The tabs on the front wall drop into the notches on the side wall; the floor tenon goes in at the same time.',
-    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'bin'],
   },
   {
     t: 'Bottom into a side wall',
@@ -2659,14 +2767,14 @@ const STEPS = [
     d: 'Drop an M3 nut into each pocket before you close that corner up. Once '
       + 'the box is together you cannot reach them. They stay put on their own - '
       + 'the pocket is cut to the nut, not to a gap.',
-    skip: ['mihrab', 'mihrab2', 'round', 'hinge', 'slide'],
+    skip: ['mihrab', 'mihrab2', 'round', 'hinge', 'slide', 'bin'],
   },
   {
     t: 'Dividers before the far walls',
     d: 'Stand the long divider in the front wall mortises, drop the crossing one '
       + 'onto it, then bring the side walls in over their tenons. Once the box is '
       + 'closed they cannot go in.',
-    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'bin'],
   },
   {
     t: 'Lid pins first',
@@ -2677,7 +2785,7 @@ const STEPS = [
   {
     t: 'Close it up',
     d: 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.',
-    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'bin'],
   },
   {
     t: 'Build the lid on its own',

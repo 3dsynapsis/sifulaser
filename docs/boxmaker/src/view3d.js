@@ -508,7 +508,8 @@ export class View3D {
     // points at the camera: box (x, y, z) -> (L - x, H - z, W - y), centred.
     const L = box.params.length;
     const W = box.params.width;
-    const H = box.params.height;
+    // A stack of bins stands as tall as the stack, and the camera has to take it in.
+    const H = box.derived.bin?.stackH ?? box.params.height;
     const lie = !!box.derived.mihrab?.lying;
     if (lie) {
       this.root.rotation.set(-Math.PI / 2, 0, Math.PI, 'ZYX');
@@ -650,7 +651,13 @@ export class View3D {
       const xIn = (box.derived.hinge?.arm ?? 0) + t;
       this.dims = [
         { label: `${fmtMm(dm.inner.l)} inside`, a: P(xIn, 0, H), b: P(L - xIn, 0, H), dir: unit([0, 0, 1]) },
-        { label: `${fmtMm(dm.inner.w)} inside`, a: P(L, t, H), b: P(L, W - t, H), dir: unit([0, 0, 1]) },
+        // A bin's floor starts behind its lip, and its back is set a board in.
+        {
+          label: `${fmtMm(dm.inner.w)} inside`,
+          a: P(L, box.derived.bin ? box.derived.bin.reach : t, H),
+          b: P(L, box.derived.bin ? W - 2 * t : W - t, H),
+          dir: unit([0, 0, 1]),
+        },
         { label: `${fmtMm(dm.inner.h)} inside`, a: P(L, 0, z0), b: P(L, 0, z1), dir: unit([1, 0, 0]) },
       ];
     } else {

@@ -104,8 +104,8 @@ function refresh(opts = {}) {
   els.stage3d.hidden = state.view !== '3d';
   els.stage2d.hidden = state.view !== '2d';
   els.tools.hidden = state.view !== '2d';
-  // Nothing moves on an open box - or on a round one made without its lid.
-  const still = state.params.style === 'open'
+  // Nothing moves on an open box - or on a round one made without its lid, or a bin.
+  const still = state.params.style === 'open' || state.params.style === 'bin'
     || (state.params.style === 'round' && state.params.roundLid === false);
   els.lidBtn.hidden = !(state.view === '3d' && !still);
   els.backdrop.hidden = state.view !== '3d';

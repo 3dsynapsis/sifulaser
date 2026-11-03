@@ -26,6 +26,11 @@
 //     side wall, under a third rail on the back wall. The front wall stops short
 //     and a handle board carries the lid: the lid and a fourth rail are tenoned
 //     into it, and that rail finishes the mitred frame round the top when shut.
+//   * bin (Bertingkat) - a parts bin that stacks. The side walls run forward to a
+//     sloped front lip, open above it. A hump on top of each side and of the back
+//     drops into a matching cut-out under the bin above, so a stack cannot shift
+//     front to back or side to side. Everything tenons through the two side walls,
+//     which go on last.
 //   * mihrab - a keel-arch front (see geom/arch.js) closed by two arch-topped
 //     doors that swing outwards on square pins: down into a base plate that
 //     stands proud of the box, up into a ceiling board at the spring line. The
@@ -68,7 +73,7 @@ import {
 } from './pattern.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'hinge' | 'slide' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'hinge' | 'slide' | 'bin' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -107,6 +112,11 @@ export const DEFAULTS = {
   // the length of two grooves binds on any warp in the board, where a pivot does
   // not care, so it starts looser than a hinged lid does.
   slideGap: 0.5,        // lid to groove, above it and at each side, mm
+
+  // ---- Bertingkat. Dividers and the floor height are shared with the other boxes.
+  binCount: 2,          // how many bins: this many sets are cut, and drawn stacked
+  binLip: 45,           // height of the front lip, % of the wall
+  stackGap: 0.3,        // hump to cut-out, so a bin drops on without a fight, mm
 
   // ---- Almari Laci (drawer cabinet) -------------------------------------
   tingkat: 2,        // levels: 1 or 2 only, equal size
@@ -344,6 +354,29 @@ function slideSizes(p, t) {
 }
 
 /**
+ * The stacking bin's proportions, from the board. The hump is two boards tall so
+ * it clears the floor of the bin above; `reach` is how far back along the depth
+ * the base stops, which is what lets the front lip lean forward over the table.
+ * One place, because dimMap and buildBox have to agree.
+ */
+function binSizes(p, t) {
+  const g = Math.min(t / 2, Math.max(0.05, numOr(p.stackGap, DEFAULTS.stackGap)));
+  const floor = p.floorOffset == null ? t : Math.max(0, numOr(p.floorOffset, t));
+  const lipMin = floor + t + 3 * t;
+  return {
+    g,
+    floor,
+    hump: 2 * t,
+    reach: 0.2,
+    lipMin,
+    pct: Math.min(90, Math.max(10, numOr(p.binLip, DEFAULTS.binLip))),
+    count: Math.max(1, Math.min(6, Math.round(numOr(p.binCount, DEFAULTS.binCount)))),
+    minW: 20 * t,
+    minH: lipMin + 3 * t + 2 * t,
+  };
+}
+
+/**
  * M3, and only M3 - one screw, one nut, one drill bit to own.
  *
  * The hard part is edge distance, not thickness. The screw has to run inside the
@@ -552,6 +585,9 @@ const r3 = (v) => Math.round(v * 1000) / 1000;
  *            z     floor top to the rim, with the lid's whole height above it.
  *   slide    z     floor top to the underside of the lower rails. Above that is
  *                  rail and lid, which is the same height the front wall gives up.
+ *   bin      y     the floor, from the foot of the front lip to the back: a fifth of
+ *                  the depth is the lip, so k = 1.25, and the back is set a board in.
+ *            z     floor top to the top of the walls, with the hump above it.
  *   almari   "inside" is the inside of ONE DRAWER, because that is where things
  *            are put - the cabinet's own interior is full of drawer.
  *            x     k = columns. Each column is drawer walls, a running gap each
@@ -633,6 +669,16 @@ export function dimMap(input = {}) {
       x: { k: 1, c: 2 * t },
       y: { k: 1, c: 2 * t },
       z: { k: 1, c: floor + t + slideSizes(p, t).band },
+    };
+  }
+  if (p.style === 'bin') {
+    const z = binSizes(p, t);
+    const k = 1 / (1 - z.reach);
+    return {
+      what: 'box',
+      x: { k: 1, c: 2 * t },
+      y: { k, c: 2 * t * k },
+      z: { k: 1, c: floor + t + z.hump },
     };
   }
   const lid = p.style === 'lidded' || p.style === 'double' || p.style === 'shoebox';
@@ -1113,6 +1159,8 @@ export function buildBox(input = {}) {
   const round = p.style === 'round';
   const hinge = p.style === 'hinge';
   const sliding = p.style === 'slide';
+  const bin = p.style === 'bin';
+  const bs = bin ? binSizes(p, t) : null;
   // The smallest hinge there is: the least pivot and the least lid, which is
   // what the box has to be able to carry whatever is asked of it afterwards.
   const hingeLeast = hinge ? hingeSizes({ ...p, pivotD: 0, lidHeight: 0 }, t) : null;
@@ -1122,18 +1170,19 @@ export function buildBox(input = {}) {
   // Two rails a side leave the sliding lid's opening six boards narrower, and it
   // still has to be an opening.
   const L = Math.max(t * 8, mihrab ? 40 : 0, mihrab2 ? m2MinL(p, t) : 0,
-    round ? Math.max(50, 16 * t) : 0, sliding ? 12 * t : 0, want.length - 2 * armX);
+    round ? Math.max(50, 16 * t) : 0, sliding || bin ? 12 * t : 0, want.length - 2 * armX);
   const Lout = L + 2 * armX;
   const m2 = mihrab2 ? m2Sizes(p, t, L) : null;
   // A round box is as wide as it is long: Length is its diameter.
   const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0,
     mihrab2 ? 5 * t + m2.e + Math.max(24, 8 * t) : 0, hinge ? hingeLeast.minW : 0,
-    sliding ? 12 * t : 0, want.width);
+    sliding ? 12 * t : 0, bin ? bs.minW : 0, want.width);
   const H = Math.max(mihrab ? mihrabMinH(t)
     : mihrab2 ? m2.B + 2 * m2.r + m2.Tb + m2.door + m2.riseMin
       : round ? roundMinH(t, p.roundLid !== false)
         : hinge ? Math.max(t * 6, hingeLeast.minH)
-          : sliding ? Math.max(t * 6, slideSizes(p, t).minH) : t * 6,
+          : sliding ? Math.max(t * 6, slideSizes(p, t).minH)
+            : bin ? Math.max(t * 6, bs.minH) : t * 6,
   want.height);
   const hs = hinge ? hingeSizes(p, t, W, H) : null;
   const lidded = p.style === 'lidded';
@@ -1147,7 +1196,7 @@ export function buildBox(input = {}) {
   // finished cabinet really is length x width x height.
   const almari = p.style === 'almari';
   const hasLid = lidded || double || shoebox;
-  const wallH = hinge ? H - hs.lidH : hasLid ? H - t : H;
+  const wallH = hinge ? H - hs.lidH : bin ? H - bs.hump : hasLid ? H - t : H;
   // Exactly two legal states, so the level arithmetic and the panel ids agree.
   // Declared up here rather than with the rest of the level maths because the
   // floor cap below needs to know how many boards are going to be stacked.
@@ -1184,6 +1233,32 @@ export function buildBox(input = {}) {
       vFront: featureLayout(zF, m),      // the front corners stop with the front wall
       railY: featureLayout(W - 2 * t, m).map((f) => ({ s: t + f.s, e: t + f.e })),
       railX: featureLayout(L - 2 * t, m).map((f) => ({ s: t + f.s, e: t + f.e })),
+    };
+  })() : null;
+
+  // ---- bin: the side profile, worked out up here for the dividers ------------
+  // In the box's own y and z: the tip of the lip is at y = 0, the back at y = W.
+  // `along` runs up the sloped front edge from its foot, `into` runs square to it
+  // towards the inside of the bin. The front board lies one board in from that edge.
+  const bn = bin ? (() => {
+    const zT = wallH;
+    const a = W * bs.reach;
+    const lipMax = Math.max(bs.lipMin, zT - 3 * t);
+    const lip = Math.min(lipMax, Math.max(bs.lipMin, (zT * bs.pct) / 100));
+    const S = Math.hypot(a, lip);
+    const along = [-a / S, lip / S];
+    const into = [lip / S, a / S];
+    return {
+      zT, a, lip, lipMax, S, along, into,
+      // Where a point on the sloped front lands, `u` up it and `n` in from it.
+      at: (u, n) => [a + u * along[0] + n * into[0], u * along[1] + n * into[1]],
+      // How far up the slope the front board starts: its lowest corner on the floor.
+      u0: (floorZ + t - t * into[1]) / along[1],
+      flat: W - a,
+      yc: (a + W) / 2,
+      yFloor: a,
+      yBack: W - 2 * t,
+      yMid: (a + W - 2 * t) / 2,
     };
   })() : null;
 
@@ -1231,7 +1306,9 @@ export function buildBox(input = {}) {
   // Under a sliding lid the rim is the foot of the lower rails, and the length
   // divider's mortise in the front wall lands right under the thumb notch.
   const divRim = sliding ? sl.zF - (sl.thumb ? sl.thumbR + 1.5 : 0) : wallH;
-  const divH = (divRim - divBase) * divFrac;
+  // In a bin the dividers are as tall as the lip: any lower and they are a kerb,
+  // and a share of an already short lip is what made them one.
+  const divH = bin ? bn.lip - divBase : (divRim - divBase) * divFrac;
   const divCross = divCount === 4;
   // Dividers and drawers want the same interior, and the combination cannot be
   // assembled - the drawer would have to pass through the divider.
@@ -1241,9 +1318,12 @@ export function buildBox(input = {}) {
   // A divider only stands square if it is pinned in more than one place, so its
   // module is capped at a sixth of the height - that always yields >= 2 tenons
   // where the wall's own module would often have given 1.
-  const divFeats = divOK
-    ? featureLayout(divH, Math.max(2, Math.min(m, divH / 6)))
-    : [];
+  // A bin's tenons start two boards up: just over the floor, the side and back
+  // walls are thinned by the cut-outs for the stack below.
+  const divFeats = !divOK ? []
+    : bin ? featureLayout(divH - 2 * t, Math.max(2, Math.min(m, (divH - 2 * t) / 6)))
+      .map((f) => ({ s: f.s + 2 * t, e: f.e + 2 * t }))
+      : featureLayout(divH, Math.max(2, Math.min(m, divH / 6)));
   /** Mortises for one divider, centred on `u` in a wall's local frame. */
   const divMortises = (u) =>
     divFeats.map((f) => shrinkRect(u - t / 2, divBase + f.s, t, f.e - f.s, fit));
@@ -1276,8 +1356,9 @@ export function buildBox(input = {}) {
   // The mihrab has no front wall and only two jointed corners, glued - its
   // doors are what comes apart. The hinge's arms lie against the side walls,
   // right where a screw head would stand. A sliding lid runs right where a nut
-  // pocket would reach in from the corner.
-  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round && !hinge && !sliding;
+  // pocket would reach in from the corner. A bin has no front wall to carry one,
+  // and its back is set in from the ends of the sides.
+  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round && !hinge && !sliding && !bin;
   const nutPocketL = pocketDepth(t);
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
@@ -1390,7 +1471,7 @@ export function buildBox(input = {}) {
   // side walls and boards carry a different set of joints. Rather than fork the
   // corner-joint maths in here with a mode flag, this style writes its own small
   // local builders, the way the lift-off lid already does.
-  if (!almari && !mihrab && !mihrab2 && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round && !bin) {
     for (const id of ['front', 'back']) {
       const g = sliding && id === 'front'
         ? buildWall(sl.zF, sl.vFront, sl.thumb ? sl.thumbR : 0)
@@ -1497,14 +1578,14 @@ export function buildBox(input = {}) {
     return { outline: dedupe(pts), holes };
   };
 
-  if (!almari && !mihrab && !mihrab2 && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round && !bin) {
     const g = buildSide((y) => W - y);
     panels.push(normalisePanel({
       id: 'left', label: PANEL_LABELS.left, outline: g.outline, holes: g.holes,
       frame: { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] },
     }));
   }
-  if (!almari && !mihrab && !mihrab2 && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round && !bin) {
     const g = buildSide((y) => y);
     panels.push(normalisePanel({
       id: 'right', label: PANEL_LABELS.right, outline: g.outline, holes: g.holes,
@@ -1513,7 +1594,7 @@ export function buildBox(input = {}) {
   }
 
   // ---- bottom -------------------------------------------------------------
-  if (!almari && !mihrab && !mihrab2 && !round) {
+  if (!almari && !mihrab && !mihrab2 && !round && !bin) {
     const x0 = t;
     const x1 = L - t;
     const y0 = t;
@@ -1553,7 +1634,7 @@ export function buildBox(input = {}) {
     ]);
   }
 
-  if (divOK) {
+  if (divOK && !bin) {
     panels.push(normalisePanel({
       id: 'divLength',
       label: PANEL_LABELS.divLength,
@@ -2031,6 +2112,189 @@ export function buildBox(input = {}) {
     slideInfo = {
       gap: g, frontH: sl.zF, lidL: x1 - x0, lidW: yE,
       openL: L - 6 * t, openW: W - 6 * t, thumbR: thumb ? thumbR : 0,
+    };
+  }
+
+  // ---- bin: a stackable parts bin -----------------------------------------
+  // Two side walls with everything tenoned through them: floor, back and the
+  // sloped front board, and across the middle a divider if there is one. The back
+  // and the front board each stand a board in from the edge of the side, which
+  // hides their end grain and leaves wood outside the mortises.
+  //
+  // Stacking is two humps and a bump. Each side has a 45 degree hump in the middle
+  // of its top edge and a matching cut-out under it, which stops the stack moving
+  // front to back. The back has a smaller one, which stops it moving side to side.
+  // The side's sit on the side's top edge either side of it. stackGap is the room
+  // all round, so a bin drops straight on. Floor tenons stay out of the cut-outs.
+  //
+  // The back stops stackGap above the floor's underside, so its foot never lands on
+  // the back below: a bin stands on its side walls and nothing else. And the floor
+  // lies level with the humps of the bin below, its edges right against their faces,
+  // so it gets a shallow relief at each. Without it a stack has no play in the place
+  // that matters and a bin a hair too wide will not go down.
+  let binInfo = null;
+  if (bin) {
+    const { g, hump } = bs;
+    const { zT, a, lip, flat, yc, yFloor, yBack, yMid, at, u0, S, along, into } = bn;
+
+    const hb = Math.max(flat / 3, 6 * t);
+    const topW = hb - 2 * hump;
+    const foot = floorZ + g;
+    const margin = Math.max(1.5, t * 0.5);
+    const hBack = Math.max(0.15 * (L - 2 * t), 3 * hump);
+
+    // One floor tenon in the free run either side of the cut-out.
+    const place = (lo, hi) => {
+      const w = Math.min(hi - lo - 2 * margin, m);
+      if (w < Math.max(3, t)) return null;
+      const s = (lo + hi - w) / 2;
+      return { s, e: s + w };
+    };
+    const floorTabs = [
+      place(yFloor, yc - hb / 2 - g),
+      place(yc + hb / 2 + g, yBack),
+    ].filter(Boolean);
+    const backFeats = featureLayout(zT - foot, m).map((f) => ({ s: f.s + foot, e: f.e + foot }));
+    const lipLen = S - u0;
+    const lipFeats = featureLayout(lipLen, Math.max(2 * t, Math.min(m, lipLen / 5)))
+      .map((f) => ({ s: f.s + u0, e: f.e + u0 }));
+
+    /** The right wall, u = y; the left is its mirror image. */
+    const sideOutline = () => dedupe([
+      [a, 0],
+      [yc - hb / 2 - g, 0],
+      [yc - topW / 2, hump + g],
+      [yc + topW / 2, hump + g],
+      [yc + hb / 2 + g, 0],
+      [W, 0],
+      [W, zT],
+      [yc + hb / 2, zT],
+      [yc + topW / 2, zT + hump],
+      [yc - topW / 2, zT + hump],
+      [yc - hb / 2, zT],
+      [a, zT],
+      [0, lip],
+    ]);
+    const sideHoles = (uOf) => {
+      const slot = (y0, y1, z0, z1) => shrinkRect(Math.min(uOf(y0), uOf(y1)), z0,
+        Math.abs(y1 - y0), z1 - z0, fit);
+      const holes = [
+        ...floorTabs.map((f) => slot(f.s, f.e, floorZ, floorZ + t)),
+        ...backFeats.map((f) => slot(yBack, yBack + t, f.s, f.e)),
+      ];
+      // On the slant, so not a rect: the same shrink, along and across the slope.
+      for (const f of lipFeats) {
+        const [s, e] = [f.s + fit / 2, f.e - fit / 2];
+        const [n0, n1] = [t + fit / 2, 2 * t - fit / 2];
+        holes.push(toCCW([at(s, n0), at(e, n0), at(e, n1), at(s, n1)]
+          .map(([y, z]) => [uOf(y), z])));
+      }
+      if (divOK && divCross) holes.push(...divMortises(uOf(yMid)));
+      return holes;
+    };
+    const add = (id, outline, holes, frame, extra = {}) => panels.push(normalisePanel({
+      id, label: PANEL_LABELS[id], outline, holes, frame, ...extra,
+    }));
+
+    add('left', sideOutline().map(([u, v]) => [W - u, v]).reverse(), sideHoles((y) => W - y),
+      { origin: [0, W, 0], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] });
+    add('right', sideOutline(), sideHoles((y) => y),
+      { origin: [L, 0, 0], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] });
+
+    // The back: symmetric, so the mirror its frame makes changes nothing.
+    {
+      const mx = L / 2;
+      const nFoot = hBack / 2 - foot + g;
+      const nTop = hBack / 2 - hump;
+      const notchZ = hump + g;
+      const notch = foot < notchZ
+        ? [[mx - nFoot, foot], [mx - nTop, notchZ], [mx + nTop, notchZ], [mx + nFoot, foot]]
+        : [];
+      const holes = divOK ? divMortises(mx) : [];
+      add('back', dedupe([
+        [t, foot],
+        ...notch,
+        ...edgeRun([L - t, foot], [L - t, zT], forWalk(backFeats, foot, zT), t),
+        [L - t, zT],
+        [mx + hBack / 2, zT],
+        [mx + hBack / 2 - hump, zT + hump],
+        [mx - hBack / 2 + hump, zT + hump],
+        [mx - hBack / 2, zT],
+        ...edgeRun([t, zT], [t, foot], forWalk(backFeats, zT, foot), t),
+      ]), holes, { origin: [L, W - t, 0], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] });
+    }
+
+    // Where the long divider's floor tenons land. It stands behind the front board.
+    const divFrontAt = (h) => {
+      const u = (divBase + h - 2 * t * into[1]) / along[1];
+      return at(u, 2 * t)[0] + g;
+    };
+    const colFeats = divOK
+      ? featureLayout(yBack - divFrontAt(0), m).map((f) => ({
+        s: f.s + divFrontAt(0), e: f.e + divFrontAt(0),
+      }))
+      : [];
+
+    {
+      const o = { slits };
+      // Tenons out, relief in, on the one edge. forWalk would drop the relief's depth.
+      const edge = [
+        ...floorTabs,
+        { s: yc - hb / 2 - g, e: yc + hb / 2 + g, depth: -g, opts: {} },
+      ].sort((f0, f1) => f0.s - f1.s);
+      const walked = (a0, b0) => (b0 > a0
+        ? edge.map((f) => ({ ...f, s: f.s - a0, e: f.e - a0 }))
+        : edge.map((f) => ({ ...f, s: a0 - f.e, e: a0 - f.s })).reverse());
+      const hw = hBack / 2 + g;
+      add('bottom', dedupe([
+        ...edgeRun([t, yFloor], [L - t, yFloor], [], 0),
+        ...edgeRun([L - t, yFloor], [L - t, yBack], walked(yFloor, yBack), t, o),
+        ...edgeRun([L - t, yBack], [t, yBack],
+          [{ s: L / 2 - t - hw, e: L / 2 - t + hw }], -g),
+        ...edgeRun([t, yBack], [t, yFloor], walked(yBack, yFloor), t, o),
+      ]), colFeats.map((f) => shrinkRect(L / 2 - t / 2, f.s, t, f.e - f.s, fit)),
+      { origin: [0, 0, floorZ + t], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+    }
+
+    // The front board lies on the slope, its foot on the floor.
+    add('front', dedupe([
+      ...edgeRun([t, u0], [L - t, u0], [], 0),
+      ...edgeRun([L - t, u0], [L - t, S], forWalk(lipFeats, u0, S), t),
+      ...edgeRun([L - t, S], [t, S], [], 0),
+      ...edgeRun([t, S], [t, u0], forWalk(lipFeats, S, u0), t),
+    ]), [], {
+      origin: [0, a + t * into[0], t * into[1]],
+      U: [1, 0, 0],
+      V: [0, along[0], along[1]],
+      N: [0, -into[0], -into[1]],
+    });
+
+    if (divOK) {
+      const half = divH / 2;
+      const slotW = Math.max(0.3, t - fit);
+      const yf0 = divFrontAt(0);
+      const yf1 = divFrontAt(divH);
+      const top = divCross
+        ? [{ s: yBack - yMid - slotW / 2, e: yBack - yMid + slotW / 2 }]
+        : [];
+      add('divLength', dedupe([
+        ...edgeRun([yf0, 0], [yBack, 0], forWalk(colFeats, yf0, yBack), t),
+        ...edgeRun([yBack, 0], [yBack, divH], divFeats, t),
+        ...edgeRun([yBack, divH], [yf1, divH], top, -half),
+      ]), [], {
+        origin: [L / 2 + t / 2, 0, divBase], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0],
+      });
+      if (divCross) {
+        add('divWidth', buildDivider(L, 'bottom'), [], {
+          origin: [0, yMid - t / 2, divBase], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0],
+        });
+      }
+    }
+
+    binInfo = {
+      count: bs.count, pitch: zT, stackH: zT * (bs.count - 1) + H,
+      lipH: lip, lipMin: bs.lipMin, lipMax: bn.lipMax, reach: a, hump, gap: g,
+      humpBase: hb, floorW: yBack - yFloor,
     };
   }
 
@@ -3501,6 +3765,27 @@ export function buildBox(input = {}) {
     pan.kerf = 2 * k; // patterns widen their struts by this so the burn can't thin them
   }
 
+  // More than one bin: every set is cut, so every set is a real panel, and each
+  // stands on the one below. Copies wear the first bin's decoration (store.decorFor)
+  // and have no tabs of their own, so artwork stays one thing to edit.
+  if (bin) {
+    const first = panels.slice();
+    for (let n = 1; n < bs.count; n++) {
+      for (const pan of first) {
+        const [ox, oy, oz] = pan.frame.origin;
+        panels.push({
+          ...pan,
+          id: `${pan.id}#${n + 1}`,
+          label: `${pan.label} ${n + 1}`,
+          copyOf: pan.id,
+          noDecor: true,
+          noPick: true,
+          frame: { ...pan.frame, origin: [ox, oy, oz + n * bn.zT] },
+        });
+      }
+    }
+  }
+
   // ---- what it measures, both ways -----------------------------------------
   // Read back off what was actually built, never off what was asked for: every
   // clamp above (a box too small to joint, a cabinet too narrow for two
@@ -3515,7 +3800,11 @@ export function buildBox(input = {}) {
         ? m2Info.inner
       : round
         ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, H - (roundInfo.lid ? 4 : 2) * t) }
-      : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, (sliding ? sl.zF : wallH) - floorZ - t) };
+      : {
+        l: L - 2 * t,
+        w: bin ? bn.yBack - bn.yFloor : W - 2 * t,
+        h: Math.max(0, (sliding ? sl.zF : wallH) - floorZ - t),
+      };
   const askedIn = measuredInside
     ? { l: p.length, w: p.width, h: p.height } : null;
   const near = (a, b) => Math.abs(a - b) <= 0.002;
@@ -3535,7 +3824,8 @@ export function buildBox(input = {}) {
       ? {
         count: divCount,
         l: (L - 3 * t) / 2,
-        w: divCount === 4 ? (W - 3 * t) / 2 : W - 2 * t,
+        w: bin ? (divCount === 4 ? (inner.w - t) / 2 : inner.w)
+          : divCount === 4 ? (W - 3 * t) / 2 : W - 2 * t,
       }
       : m2Info?.cell ?? null,
   };
@@ -3576,6 +3866,7 @@ export function buildBox(input = {}) {
       round: roundInfo,
       hinge: hingeInfo,
       slide: slideInfo,
+      bin: binInfo,
     },
     panels,
   };

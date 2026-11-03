@@ -76,7 +76,8 @@ export function currentPanel() {
 }
 
 export function decorFor(panel) {
-  return state.decor[panel.id] || [];
+  // A second bin in a stack is cut with the first one's artwork.
+  return state.decor[panel.copyOf ?? panel.id] || [];
 }
 
 export function selectedObject() {
