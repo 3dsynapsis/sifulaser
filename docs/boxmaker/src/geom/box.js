@@ -22,6 +22,10 @@
 //     ear, and a key through the disc and into the wall holds it there, so the
 //     arm turns round a disc that cannot move. The body stands in from the ends
 //     by an arm and a gap, and Length is measured across the arms.
+//   * lid (slide) - the lid runs in a groove between two rails tenoned into each
+//     side wall, under a third rail on the back wall. The front wall stops short
+//     and a handle board carries the lid: the lid and a fourth rail are tenoned
+//     into it, and that rail finishes the mitred frame round the top when shut.
 //   * mihrab - a keel-arch front (see geom/arch.js) closed by two arch-topped
 //     doors that swing outwards on square pins: down into a base plate that
 //     stands proud of the box, up into a ceiling board at the spring line. The
@@ -64,7 +68,7 @@ import {
 } from './pattern.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'hinge' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'hinge' | 'slide' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -98,6 +102,11 @@ export const DEFAULTS = {
   // styles above: here lidGap is arm to wall, and the play in the pivot hole.
   lidHeight: 15,        // top of the box to the foot of the lid, mm
   pivotD: 10,           // the disc each arm turns on, mm
+
+  // ---- Sliding Box. lidNotch is shared. Its own gap, not lidGap: a lid running
+  // the length of two grooves binds on any warp in the board, where a pivot does
+  // not care, so it starts looser than a hinged lid does.
+  slideGap: 0.5,        // lid to groove, above it and at each side, mm
 
   // ---- Almari Laci (drawer cabinet) -------------------------------------
   tingkat: 2,        // levels: 1 or 2 only, equal size
@@ -168,6 +177,8 @@ export const PANEL_ORDER = [
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
   // Hinge. The lid reuses the lift-off lid's five ids; its two sides are the arms.
   'discLeft', 'discRight', 'keyLeft', 'keyRight',
+  // Sliding Box. The lid itself reuses 'lidTop'.
+  'handle', 'railLeftTop', 'railLeftLow', 'railRightTop', 'railRightLow', 'railBack', 'lidRail',
 ];
 
 export const PANEL_LABELS = {
@@ -204,6 +215,9 @@ export const PANEL_LABELS = {
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
   discLeft: 'Disc L', discRight: 'Disc R', keyLeft: 'Key L', keyRight: 'Key R',
+  handle: 'Handle', railLeftTop: 'Rail L top', railLeftLow: 'Rail L low',
+  railRightTop: 'Rail R top', railRightLow: 'Rail R low', railBack: 'Rail back',
+  lidRail: 'Lid rail',
 };
 
 /** Least height a round box can be: base, a wall worth bending, and the lid. */
@@ -314,6 +328,19 @@ function hingeSizes(p, t, W = Infinity, H = Infinity) {
   const lidMax = Math.max(q.lidMin, Math.min(H - q.wallMin, (H - q.wallSwing) / (1 + q.lean)));
   const lidH = Math.min(lidMax, Math.max(q.lidMin, numOr(p.lidHeight, DEFAULTS.lidHeight)));
   return { ...q, g, arm: t + g, Dmin, Dmax, lidMax, lidH };
+}
+
+/**
+ * The sliding lid's stack, from the top of the box down, all in boards: a lip of
+ * wall, the top rail, the lid in its groove, the lower rail. `band` is that whole
+ * stack, which is how far the front wall stops short so the lid can come out over
+ * it. One place, because dimMap and buildBox have to agree on it.
+ */
+function slideSizes(p, t) {
+  const g = Math.min(t / 2, Math.max(0.05, numOr(p.slideGap, DEFAULTS.slideGap)));
+  const floor = p.floorOffset == null ? t : Math.max(0, numOr(p.floorOffset, t));
+  const band = 4 * t + g;
+  return { g, band, minH: floor + t + Math.max(2 * t, 6) + band };
 }
 
 /**
@@ -523,6 +550,8 @@ const r3 = (v) => Math.round(v * 1000) / 1000;
  *                  c = floor + t, plus t more under a lid.
  *   hinge    x     the walls, then an arm and a gap at each end.
  *            z     floor top to the rim, with the lid's whole height above it.
+ *   slide    z     floor top to the underside of the lower rails. Above that is
+ *                  rail and lid, which is the same height the front wall gives up.
  *   almari   "inside" is the inside of ONE DRAWER, because that is where things
  *            are put - the cabinet's own interior is full of drawer.
  *            x     k = columns. Each column is drawer walls, a running gap each
@@ -596,6 +625,14 @@ export function dimMap(input = {}) {
       x: { k: 1, c: 2 * t + 2 * z.arm },
       y: { k: 1, c: 2 * t },
       z: { k: 1, c: floor + t + z.lidH },
+    };
+  }
+  if (p.style === 'slide') {
+    return {
+      what: 'box',
+      x: { k: 1, c: 2 * t },
+      y: { k: 1, c: 2 * t },
+      z: { k: 1, c: floor + t + slideSizes(p, t).band },
     };
   }
   const lid = p.style === 'lidded' || p.style === 'double' || p.style === 'shoebox';
@@ -1075,23 +1112,28 @@ export function buildBox(input = {}) {
   const mihrab2 = p.style === 'mihrab2';
   const round = p.style === 'round';
   const hinge = p.style === 'hinge';
+  const sliding = p.style === 'slide';
   // The smallest hinge there is: the least pivot and the least lid, which is
   // what the box has to be able to carry whatever is asked of it afterwards.
   const hingeLeast = hinge ? hingeSizes({ ...p, pivotD: 0, lidHeight: 0 }, t) : null;
   // Length reads across the arms, the size the finished box stands in, so
   // everything below that builds the body is given the body's own length.
   const armX = hinge ? hingeLeast.arm : 0;
+  // Two rails a side leave the sliding lid's opening six boards narrower, and it
+  // still has to be an opening.
   const L = Math.max(t * 8, mihrab ? 40 : 0, mihrab2 ? m2MinL(p, t) : 0,
-    round ? Math.max(50, 16 * t) : 0, want.length - 2 * armX);
+    round ? Math.max(50, 16 * t) : 0, sliding ? 12 * t : 0, want.length - 2 * armX);
   const Lout = L + 2 * armX;
   const m2 = mihrab2 ? m2Sizes(p, t, L) : null;
   // A round box is as wide as it is long: Length is its diameter.
   const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0,
-    mihrab2 ? 5 * t + m2.e + Math.max(24, 8 * t) : 0, hinge ? hingeLeast.minW : 0, want.width);
+    mihrab2 ? 5 * t + m2.e + Math.max(24, 8 * t) : 0, hinge ? hingeLeast.minW : 0,
+    sliding ? 12 * t : 0, want.width);
   const H = Math.max(mihrab ? mihrabMinH(t)
     : mihrab2 ? m2.B + 2 * m2.r + m2.Tb + m2.door + m2.riseMin
       : round ? roundMinH(t, p.roundLid !== false)
-        : hinge ? Math.max(t * 6, hingeLeast.minH) : t * 6,
+        : hinge ? Math.max(t * 6, hingeLeast.minH)
+          : sliding ? Math.max(t * 6, slideSizes(p, t).minH) : t * 6,
   want.height);
   const hs = hinge ? hingeSizes(p, t, W, H) : null;
   const lidded = p.style === 'lidded';
@@ -1123,6 +1165,27 @@ export function buildBox(input = {}) {
     : floorRaw;
   const m = Math.max(3, p.fingerSize);
   const fit = p.fit;
+
+  // ---- sliding lid: the levels and the joints the walls have to know about ----
+  // Worked out up here because the walls below cut mortises for the rails, and
+  // the front wall and the dividers both stop short for the lid.
+  const sl = sliding ? (() => {
+    const { g, band } = slideSizes(p, t);
+    const zF = H - band;                 // top of the front wall, foot of the lower rails
+    // The thumb notch, in the top of the front wall, so a finger can get under
+    // the handle. A flush handle has nothing else to pull by.
+    const thumbR = Math.min(Math.max(4, Math.min(L * 0.06, 12)), zF - floorZ - t - 3, (L - 2 * t) * 0.2);
+    const thumb = (p.lidNotch ?? true) !== false && thumbR >= 2.5;
+    return {
+      g, zF, thumbR, thumb,
+      zLow: zF,                          // underside of the lower rails
+      zLid: H - 3 * t - g,               // underside of the lid
+      zTop: H - 2 * t,                   // underside of the top rails
+      vFront: featureLayout(zF, m),      // the front corners stop with the front wall
+      railY: featureLayout(W - 2 * t, m).map((f) => ({ s: t + f.s, e: t + f.e })),
+      railX: featureLayout(L - 2 * t, m).map((f) => ({ s: t + f.s, e: t + f.e })),
+    };
+  })() : null;
 
   const vFeats = featureLayout(wallH, m); // vertical corner joints
   const xFeats = featureLayout(L, m);     // floor tenons along X
@@ -1165,7 +1228,10 @@ export function buildBox(input = {}) {
   const divCount = p.divider === 2 || p.divider === 4 ? p.divider : 0;
   const divBase = floorZ + t;      // top face of the floor
   const divFrac = Math.min(1, Math.max(0.2, (p.dividerHeight ?? 60) / 100));
-  const divH = (wallH - divBase) * divFrac;
+  // Under a sliding lid the rim is the foot of the lower rails, and the length
+  // divider's mortise in the front wall lands right under the thumb notch.
+  const divRim = sliding ? sl.zF - (sl.thumb ? sl.thumbR + 1.5 : 0) : wallH;
+  const divH = (divRim - divBase) * divFrac;
   const divCross = divCount === 4;
   // Dividers and drawers want the same interior, and the combination cannot be
   // assembled - the drawer would have to pass through the divider.
@@ -1209,8 +1275,9 @@ export function buildBox(input = {}) {
   // screw never lands on a tab, and there are only ever as many as asked for.
   // The mihrab has no front wall and only two jointed corners, glued - its
   // doors are what comes apart. The hinge's arms lie against the side walls,
-  // right where a screw head would stand.
-  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round && !hinge;
+  // right where a screw head would stand. A sliding lid runs right where a nut
+  // pocket would reach in from the corner.
+  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round && !hinge && !sliding;
   const nutPocketL = pocketDepth(t);
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
@@ -1301,16 +1368,17 @@ export function buildBox(input = {}) {
   const panels = [];
 
   // ---- front / back -------------------------------------------------------
-  const buildWall = () => {
+  const buildWall = (h = wallH, feats = vFeats, notchR = 0) => {
     const x0 = t;
     const x1 = L - t;
+    const dip = notchR > 0 ? [{ s: L / 2 - t - notchR, e: L / 2 - t + notchR }] : [];
     const pts = [
       ...edgeRun([x0, 0], [x1, 0], [], 0),
-      // right edge walks upward from z = 0, left edge downward from z = wallH
-      ...edgeRun([x1, 0], [x1, wallH], withSlots(vFeats, 0, false), t),
-      ...edgeRun([x1, wallH], [x0, wallH], [], 0),
-      ...edgeRun([x0, wallH], [x0, 0],
-        withSlots(flipFeatures(vFeats, wallH), wallH, true), t),
+      // right edge walks upward from z = 0, left edge downward from z = h
+      ...edgeRun([x1, 0], [x1, h], withSlots(feats, 0, false), t),
+      ...edgeRun([x1, h], [x0, h], dip, -notchR, { arc: true }),
+      ...edgeRun([x0, h], [x0, 0],
+        withSlots(flipFeatures(feats, h), h, true), t),
     ];
     const holes = xFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
     // The length divider sits dead centre, so it lands on u = L/2 either way round.
@@ -1324,7 +1392,13 @@ export function buildBox(input = {}) {
   // local builders, the way the lift-off lid already does.
   if (!almari && !mihrab && !mihrab2 && !round) {
     for (const id of ['front', 'back']) {
-      const g = buildWall();
+      const g = sliding && id === 'front'
+        ? buildWall(sl.zF, sl.vFront, sl.thumb ? sl.thumbR : 0)
+        : buildWall();
+      // The back wall carries the top rail the lid runs under.
+      if (sliding && id === 'back') {
+        g.holes.push(...sl.railX.map((f) => shrinkRect(f.s, sl.zTop, f.e - f.s, t, fit)));
+      }
       panels.push(normalisePanel({
         id,
         label: PANEL_LABELS[id],
@@ -1367,8 +1441,34 @@ export function buildBox(input = {}) {
     return pts;
   }
 
+  /**
+   * A sliding lid's side wall. Above the front wall it stops a board back, which
+   * is where the handle lands when the lid is shut: that is the lid's stop, and
+   * the handle covers the end grain. Walked for the right wall, u = y, and mirrored
+   * for the left.
+   */
+  const buildSlideSide = (uOf) => {
+    const pts = dedupe([
+      ...edgeRun([0, 0], [W, 0], [], 0),
+      ...edgeRun([W, 0], [W, H], vFeats, -t),
+      ...edgeRun([W, H], [t, H], [], 0),
+      ...edgeRun([t, H], [t, sl.zF], [], 0),
+      ...edgeRun([t, sl.zF], [0, sl.zF], [], 0),
+      ...edgeRun([0, sl.zF], [0, 0], flipFeatures(sl.vFront, sl.zF), -t),
+    ]);
+    const outline = uOf(0) === 0 ? pts : pts.map(([u, v]) => [W - u, v]).reverse();
+    const holes = yFeats.map((f) => shrinkRect(f.s, floorZ, f.e - f.s, t, fit));
+    if (divOK && divCross) holes.push(...divMortises(W / 2));
+    // The two rails. railY is centred, so it is the same seen from either side.
+    for (const z of [sl.zTop, sl.zLow]) {
+      holes.push(...sl.railY.map((f) => shrinkRect(f.s, z, f.e - f.s, t, fit)));
+    }
+    return { outline, holes };
+  };
+
   /** `uOf` maps a box-Y coordinate to this panel's local u. */
   const buildSide = (uOf) => {
+    if (sliding) return buildSlideSide(uOf);
     const bossUs = pivots.map(uOf);
     // Finger tips sit at -ear and W+ear; the notches still bottom out on the
     // inner face of the wall they receive, so they simply get `ear` deeper.
@@ -1848,6 +1948,89 @@ export function buildBox(input = {}) {
       lidH, lidMin: hs.lidMin, lidMax: Math.min(hs.lidMax, H),
       backGap: back, stop: stopDeg,
       thumbR: thumb ? thumbR : 0,
+    };
+  }
+
+  // ---- sliding lid --------------------------------------------------------
+  // The rails are glued in and never move. Each is two boards wide and mitred at
+  // both ends, with tenons through its wall, so the top ones read as a picture
+  // frame round the lid. The lid rests on the lower rails and has slideGap above
+  // it and beside it; it goes under the back rail and stops short of the back wall
+  // by the same gap, because it is the handle landing on the walls that stops it.
+  //
+  // The lid, a fourth rail and the handle are glued up as one part. That rail
+  // lies on the lid, carried at the front, and its mitres finish the frame when
+  // the lid is shut. Both are tenoned into the same slots in the handle, stacked,
+  // so those slots are two boards tall. slideGap again keeps the handle off the
+  // front wall as it runs.
+  //
+  // Nothing is trapped: every rail goes into its own wall before the box is
+  // closed, and the finished lid slides in from the front, last.
+  let slideInfo = null;
+  if (sliding) {
+    const { g, zLid, zLow, zTop, railX, railY, thumb, thumbR } = sl;
+    const x0 = t + g;
+    const x1 = L - t - g;
+    const yF = t;
+    const yB = W - t;
+    const yE = yB - g;
+    const lidFeats = featureLayout(x1 - x0, m);
+    const lidTopZ = zLid + t;
+    const z0Handle = H - 4 * t;
+    // Far enough for the preview to read as open, not so far it looks like it fell out.
+    const move = { slide: [0, -W * 0.6, 0] };
+    const glued = { noDecor: true, noPick: true };
+
+    const add = (id, outline, holes, frame, extra = {}) => panels.push(normalisePanel({
+      id, label: PANEL_LABELS[id], outline, holes, frame, ...extra,
+    }));
+    /** Laid flat with its top face at z, in the box's own x and y. */
+    const flat = (z) => ({ origin: [0, 0, z], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] });
+
+    // Side rail, left wall: the outer edge carries the tenons, the mitres run in
+    // from its two ends. The right wall's is the same part, mirrored.
+    const sideRail = () => dedupe([
+      [t, yF],
+      [3 * t, yF + 2 * t],
+      [3 * t, yB - 2 * t],
+      ...edgeRun([t, yB], [t, yF], forWalk(railY, yB, yF), t),
+    ]);
+    const mirrorX = (ring) => ring.map(([x, y]) => [L - x, y]).reverse();
+    for (const [id, ring, z] of [
+      ['railLeftTop', sideRail(), zTop + t],
+      ['railRightTop', mirrorX(sideRail()), zTop + t],
+      ['railLeftLow', sideRail(), zLow + t],
+      ['railRightLow', mirrorX(sideRail()), zLow + t],
+    ]) add(id, ring, [], flat(z), glued);
+
+    add('railBack', dedupe([
+      [3 * t, yB - 2 * t],
+      [L - 3 * t, yB - 2 * t],
+      ...edgeRun([L - t, yB], [t, yB], forWalk(railX, L - t, t), t),
+      [t, yB],
+    ]), [], flat(zTop + t), glued);
+
+    // The lid, and the rail that rides on it: tenons along the front into the handle.
+    add('lidTop', dedupe([
+      ...edgeRun([x0, yF], [x1, yF], lidFeats, t),
+      [x1, yF],
+      [x1, yE],
+      [x0, yE],
+    ]), [], flat(lidTopZ), move);
+    add('lidRail', dedupe([
+      ...edgeRun([x0, yF], [x1, yF], lidFeats, t),
+      [x1, yF],
+      [x1 - 2 * t, yF + 2 * t],
+      [x0 + 2 * t, yF + 2 * t],
+    ]), [], flat(lidTopZ + t), { ...glued, ...move });
+
+    add('handle', rect(0, 0, L, 4 * t),
+      lidFeats.map((f) => shrinkRect(x0 + f.s, zLid - z0Handle, f.e - f.s, 2 * t, fit)),
+      { origin: [0, 0, z0Handle], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] }, move);
+
+    slideInfo = {
+      gap: g, frontH: sl.zF, lidL: x1 - x0, lidW: yE,
+      openL: L - 6 * t, openW: W - 6 * t, thumbR: thumb ? thumbR : 0,
     };
   }
 
@@ -3332,7 +3515,7 @@ export function buildBox(input = {}) {
         ? m2Info.inner
       : round
         ? { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, H - (roundInfo.lid ? 4 : 2) * t) }
-      : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, wallH - floorZ - t) };
+      : { l: L - 2 * t, w: W - 2 * t, h: Math.max(0, (sliding ? sl.zF : wallH) - floorZ - t) };
   const askedIn = measuredInside
     ? { l: p.length, w: p.width, h: p.height } : null;
   const near = (a, b) => Math.abs(a - b) <= 0.002;
@@ -3364,7 +3547,8 @@ export function buildBox(input = {}) {
     derived: {
       dims,
       // The mihrab's walls stop at the spring line; above it is the crown.
-      wallH: mihrab ? mihrabInfo.zS : mihrab2 ? m2Info.Hb : round ? t + roundInfo.hW : wallH,
+      wallH: mihrab ? mihrabInfo.zS : mihrab2 ? m2Info.Hb : round ? t + roundInfo.hW
+        : sliding ? sl.zF : wallH,
       floorZ, pivotZ, hingeR, bossR, pivots, shoulderGap,
       lid: lidInfo,
       vFeats, xFeats, yFeats,
@@ -3391,6 +3575,7 @@ export function buildBox(input = {}) {
       mihrab2: m2Info,
       round: roundInfo,
       hinge: hingeInfo,
+      slide: slideInfo,
     },
     panels,
   };

@@ -383,3 +383,37 @@ menyentuh badan, memastikan ia tersekat selepas had, laluan penutup turun dari a
 laluan kunci masuk dari luar, dan penutup tidak menembusi meja. Bahagian "hinge" dalam
 `npm test` projek sumber menyemak ukuran. Kedua-duanya hanya menyemak geometri:
 **belum diuji pada potongan sebenar**, terutama muat ketat kunci dan cakera.
+
+## Gaya Sliding Box (3 November 2026)
+
+Diminta Bos selepas melihat Sliding Lid Box di MakerCase. Mekanismenya sama, kodnya
+ditulis sendiri. Dibuat dalam projek sumber dan disalin ke sini; kad "Sliding Box",
+`style: 'slide'`.
+
+Setiap dinding sisi ada dua baris mortis untuk dua rel, dinding belakang satu baris
+untuk rel atas. Penutup berjalan dalam alur antara rel atas dan rel bawah. Dinding
+depan berhenti pendek, dan di atasnya papan pemegang membawa penutup: penutup dan rel
+keempat bertanon ke dalam slot yang sama pada pemegang, bertindan, jadi slot itu dua
+papan tinggi. Rel keempat itu melengkapkan bingkai mitre bila ditutup. Dinding sisi
+berundur satu papan di atas dinding depan: di situlah pemegang mendarat, dan itulah
+penahan penutup.
+
+Tumpuk dari atas kotak, `t` tebal papan, `g` = `slideGap`, dalam `slideSizes` dan blok
+`sl` dalam `src/geom/box.js`: bibir dinding `t`, rel atas `t`, alur `t + g`, rel bawah
+`t`. Jadi dinding depan = H - 4t - g, pemegang 4t, rel 2t lebar + tanon t, mitre 45°
+sepanjang 2t, penutup (L - 2t - 2g) × (W - t - g) termasuk tanon.
+
+Yang berbeza daripada MakerCase, sengaja:
+
+- **Kelonggaran `slideGap`, asal 0.5 mm.** MakerCase tiada langsung: alurnya setebal
+  penutup dan penutup selebar ruang, jadi papan 3 mm yang sebenarnya 3.1 mm tidak masuk.
+- **Takuk ibu jari di atas dinding depan** (`lidNotch`), supaya jari boleh masuk bawah
+  pemegang. Pembahagi berhenti di bawahnya kerana mortis pembahagi panjang di situ.
+- Pemegang `g` di atas dinding depan, supaya ia tidak bergesel semasa berjalan.
+- Skru dimatikan: penutup berjalan tepat di tempat poket nat.
+
+Ujian: `node scripts/test-boxmaker-slide.mjs` - memasang setiap panel dalam grid
+voksel, menyemak tumpuk, setiap lubang berisi, penutup keluar sepenuhnya melalui depan,
+penahan (pemegang pada dinding, rel menahan penutup) dan laluan pemasangan. Bahagian
+"sliding box" dalam `npm test` projek sumber menyemak ukuran. **Belum diuji pada
+potongan sebenar**, terutama sama ada 0.5 mm cukup untuk papan yang melengkung.

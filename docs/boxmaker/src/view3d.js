@@ -469,12 +469,13 @@ export class View3D {
           node: slider, to: new THREE.Vector3(...panel.slide),
         });
         this.root.add(slider);
-        this.meshes.push(mesh);
+        if (!panel.noPick) this.meshes.push(mesh);
         continue;
       }
 
       this.root.add(group);
-      // A hinge's disc or key has no tab to open, so a click on one does nothing.
+      // A hinge's disc or key, or a sliding lid's rail, has no tab to open, so a
+      // click on one does nothing.
       if (!panel.noPick) this.meshes.push(mesh);
     }
 
