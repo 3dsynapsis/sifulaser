@@ -173,7 +173,17 @@ function boxThumb(style, base) {
   const lid = style === 'lidded'
     ? leaf(L, T, [-3, -21]) +
       `<circle cx="${T[0] - 5}" cy="${T[1] - 2}" r="1.7" fill="${c.edge}" opacity=".55"/>`
-    : '';
+    : style === 'hinge' ? leaf(L, T, [-3, -21]) : '';
+  // Hinge: the arm comes down from the open lid, past the rim, to its ear on the
+  // near wall. That ear and the disc in it are what the style is about.
+  const hingeArm = style === 'hinge' ? (() => {
+    const e = shift([L[0] + (F[0] - L[0]) * 0.16, L[1] + (F[1] - L[1]) * 0.16], 0, 5);
+    const top = shift(L, -3, -21);
+    const line = `M${e.join(' ')}L${top.join(' ')}`;
+    return `<path d="${line}" stroke="${c.edge}" stroke-width="7" stroke-linecap="round" fill="none"/>` +
+      `<path d="${line}" stroke="${c.lid}" stroke-width="5.6" stroke-linecap="round" fill="none"/>` +
+      `<circle cx="${e[0]}" cy="${e[1]}" r="2.2" fill="${c.rim}" stroke="${c.edge}" stroke-width=".8"/>`;
+  })() : '';
   // Double: two leaves lean apart from the middle, each on its own wall.
   const leafBack = style === 'double' ? leaf(T, R, [11, -14]) : '';
   const leafFront = style === 'double' ? leaf(F, L, [-11, -14]) : '';
@@ -197,6 +207,7 @@ function boxThumb(style, base) {
   </g>
   ${leafFront}
   ${liftOff}
+  ${hingeArm}
 </svg>`;
 }
 
@@ -510,6 +521,13 @@ const STYLES = [
       + 'dovetailed shut, standing in a groove on a base plate; the lid plugs '
       + 'into the top and lifts off. Length is the diameter.',
   },
+  {
+    id: 'hinge',
+    label: 'Hinge',
+    hint: 'A lid with its own rim, on two arms that come down outside the side walls '
+      + 'and turn on wooden pivots. No metal hinge, and the lid stops on its own a '
+      + 'little past square.',
+  },
 ];
 
 const DIVIDERS = [
@@ -689,6 +707,7 @@ function overallInspector(root, ctx) {
         : p.style === 'mihrab' ? mihrabRows(p, ctx, mat)
           : p.style === 'mihrab2' ? mihrab2Rows(p, ctx, mat)
           : p.style === 'round' ? roundRows(p, ctx)
+          : p.style === 'hinge' ? hingeRows(p, ctx)
             : p.style === 'lidded' || p.style === 'double' ? lidGapRows(p, ctx) : [])));
 
   // Straight after the style: this is where everyone looks first.
@@ -774,7 +793,7 @@ function overallInspector(root, ctx) {
 
   const fitTicks = ['Looser', 'Loose', 'Standard', 'Tight', 'Tighter'];
   const d = getBox().derived;
-  const screwOn = p.joint === 'screw' && !['mihrab', 'mihrab2', 'round'].includes(p.style);
+  const screwOn = p.joint === 'screw' && !['mihrab', 'mihrab2', 'round', 'hinge'].includes(p.style);
   root.append(group('Joints', false,
     p.style === 'mihrab' ? h('p', { class: 'hint' },
       'The mihrab is glued: its two back corners are finger joints, and the doors '
@@ -785,7 +804,10 @@ function overallInspector(root, ctx) {
     p.style === 'round' ? h('p', { class: 'hint' },
       'A round box has no corners: its wall is held by the groove it stands in and '
       + 'by the dovetails at the seam, glued. The screw joint is for the four-walled styles.') : null,
-    ['mihrab', 'mihrab2', 'round'].includes(p.style) ? null : h('div', { class: 'field' },
+    p.style === 'hinge' ? h('p', { class: 'hint' },
+      'The Hinge box is glued: its arms lie against the side walls, right where a '
+      + 'screw head would stand. The pivots are what come apart.') : null,
+    ['mihrab', 'mihrab2', 'round', 'hinge'].includes(p.style) ? null : h('div', { class: 'field' },
       h('label', {}, 'Corner joint'),
       h('div', { class: 'seg' }, [
         ['standard', 'Standard'], ['screw', 'Screw'],
@@ -1083,6 +1105,56 @@ function lidGapRows(p, ctx) {
       + (two ? ` and the two leaves part by ${rnd(g, 2)} mm in the middle` : '')
       + ', and its pins reach that much further into the hinge holes. Raise it if '
       + 'the lid rubs as it swings; lower it if it rattles.'),
+  ];
+}
+
+/**
+ * The lid on arms. The two sizes change how it turns as much as how it looks, so
+ * the rows report what actually came out: both are clamped to what this box can
+ * carry, and a field showing a number the geometry refused would be a wrong drawing.
+ */
+function hingeRows(p, ctx) {
+  const d = getBox().derived.hinge;
+  if (!d) return [];
+  const set = (key, v) => { setParam(key, v); clampDecor(); ctx.refresh(); };
+  const halves = (v, round) => round(v * 2) / 2;
+  const lidMin = halves(d.lidMin, Math.ceil);
+  const pivotMin = halves(d.pivotMin, Math.ceil);
+  // Thick board needs a big pivot, and a big pivot needs a tall enough wall. The
+  // size fields go on showing what was typed, so say when the box had to grow.
+  const cab = getBox().params;
+  const grew = p.measure !== 'inside'
+    && ['length', 'width', 'height'].some((k) => cab[k] > p[k] + 0.01);
+  return [
+    grew ? h('p', { class: 'note' },
+      `On this board the pivot needs more room, so the box is `
+      + `${rnd(cab.length, 1)} × ${rnd(cab.width, 1)} × ${rnd(cab.height, 1)} mm.`) : null,
+    numberRow('Lid height (mm)', d.lidH, {
+      min: lidMin, max: Math.max(lidMin, halves(d.lidMax, Math.floor)), step: 0.5,
+      onInput: (v) => set('lidHeight', v),
+    }),
+    numberRow('Pivot diameter (mm)', d.pivotD, {
+      min: pivotMin, max: Math.max(pivotMin, halves(d.pivotMax, Math.floor)), step: 0.5,
+      onInput: (v) => set('pivotD', v),
+    }),
+    numberRow('Lid gap (mm)', p.lidGap ?? 0.3, {
+      min: 0.1, max: 1, step: 0.05,
+      onInput: (v) => set('lidGap', v),
+    }),
+    h('div', { class: 'field' },
+      h('label', {}, 'Thumb notch'),
+      segmented([{ id: true, label: 'On' }, { id: false, label: 'Off' }],
+        (p.lidNotch ?? true) !== false, (v) => set('lidNotch', v))),
+    h('p', { class: 'hint' },
+      `Length is measured across the arms: the body is ${rnd(d.bodyL, 1)} mm long, with an `
+      + `arm and a ${rnd(d.gap, 2)} mm gap at each end.`),
+    h('p', { class: 'hint' },
+      `The lid opens to about ${Math.round(d.stop)}° and stops when its back lands on the `
+      + `back of the box. That back is cut ${rnd(d.backGap, 1)} mm short on purpose, so it `
+      + 'clears the wall as it swings.'),
+    h('p', { class: 'hint' },
+      'Lid gap is the clearance between each arm and its wall, and round each disc. Raise '
+      + 'it if the arm rubs as it turns; lower it if the lid rattles.'),
   ];
 }
 
@@ -1640,6 +1712,9 @@ function dimensionRows(p, ctx) {
       + (p.style === 'mihrab2'
         ? 'Boxing something? Switch to Inside and type its size instead - the front, '
           + 'the frame band and the arch over the doors all take their share of the outside.'
+      : p.style === 'hinge'
+        ? 'Boxing something? Switch to Inside and type its size instead - the walls, the '
+          + 'arms and their gaps all take their share of the length, and the lid of the height.'
         : 'Boxing something? Switch to Inside and type its size instead - the '
           + 'walls take two board thicknesses off whatever is typed here.')));
   return rows;
@@ -2297,7 +2372,14 @@ const STEPS = [
   {
     t: 'Lay them out',
     d: 'Two long walls (front/back), two short walls (left/right), the floor, and the lid if you made one.',
-    skip: ['almari', 'mihrab', 'mihrab2', 'round'],
+    skip: ['almari', 'mihrab', 'mihrab2', 'round', 'hinge'],
+  },
+  {
+    t: 'Lay them out',
+    d: 'The body: two long walls, two short walls and the floor. The lid: its top, '
+      + 'front and back, and the two arms. The pivots: two discs and two keys, which '
+      + 'are small, so keep them somewhere they cannot get lost.',
+    only: ['hinge'],
   },
   {
     t: 'Lay them out',
@@ -2513,7 +2595,7 @@ const STEPS = [
     d: 'Drop an M3 nut into each pocket before you close that corner up. Once '
       + 'the box is together you cannot reach them. They stay put on their own - '
       + 'the pocket is cut to the nut, not to a gap.',
-    skip: ['mihrab', 'mihrab2', 'round'],
+    skip: ['mihrab', 'mihrab2', 'round', 'hinge'],
   },
   {
     t: 'Dividers before the far walls',
@@ -2532,6 +2614,32 @@ const STEPS = [
     t: 'Close it up',
     d: 'Fit the remaining side and the back wall, then press the whole box square on a flat surface.',
     skip: ['almari', 'mihrab', 'mihrab2', 'round'],
+  },
+  {
+    t: 'Build the lid on its own',
+    d: 'The front and back go between the two arms, and the top drops into the notches '
+      + 'along all four edges. The back is shorter than the front - that is the gap that '
+      + 'lets it clear the wall, not a mistake. Glue it and let it set square.',
+    only: ['hinge'],
+  },
+  {
+    t: 'Lower the lid over the box',
+    d: 'The arms slide down outside the side walls until the lid sits on the rim. The '
+      + 'round hole in each arm should now sit right over the slot in the wall.',
+    only: ['hinge'],
+  },
+  {
+    t: 'Disc, then key',
+    d: 'Drop a disc into each arm\'s hole. Push a key through the slot in the disc and '
+      + 'on into the slot in the wall until it is flush. Use a little glue on the key only '
+      + 'and keep it off the arm: the disc stays still and the arm turns round it.',
+    only: ['hinge'],
+  },
+  {
+    t: 'Open it slowly',
+    d: 'The lid should swing freely and stop a little past square, on its back. Open and '
+      + 'close it a few times before the glue on the keys sets.',
+    only: ['hinge'],
   },
   {
     t: 'Top drops in last',

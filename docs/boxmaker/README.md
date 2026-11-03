@@ -333,6 +333,53 @@ Ujian mutasi: 25 cara rosak yang munasabah, kesemuanya ditangkap.
 `src/designs.js` - senarai `TOOLS` ditambah `converter`, `rehal`, `plakbox` dan `tray` supaya reka bentuk dari
 alat itu yang muncul dalam "Reka bentuk saya" boleh dibuka (ia membawa ke
 `/<alat>/?design=<id>`). Tanpanya baris itu tidak berbuat apa-apa bila
-ditekan. Perubahan ini dibuat terus dalam salinan `docs/`: salin baris yang
-sama ke projek sumber sebelum menyalin semula alat ini, kalau tidak ia hilang
-senyap.
+ditekan. **Sudah dipindahkan ke projek sumber pada 3 November 2026.**
+
+## Gaya Hinge (3 November 2026)
+
+Diminta Bos selepas melihat Laser Hinge Box di MakerCase. Mekanismenya sama tetapi
+kodnya ditulis sendiri di sini. Dibuat dalam projek sumber (`12_Box Maker`) dan
+disalin ke sini; kad "Hinge" terakhir dalam Box Style, `style: 'hinge'`.
+
+Penutup ialah dulang cetek. Dua sisinya, lengan, melepasi tepi belakang dan berakhir
+dengan telinga bulat di luar dinding sisi. Sebaris merentas kotak di garis pivot:
+dinding, celah `lidGap`, kemudian cakera dalam satah lengan. Kunci melalui slot
+cakera dan slot dinding, rata di kedua-dua hujung, jadi cakera terpasak pada dinding
+dan hanya lengan yang berpusing. Penutup dipasang terakhir dari atas; cakera dan
+kunci masuk dari luar selepas itu, jadi tiada apa yang terperangkap.
+
+Formula, `t` tebal papan, `g` = `lidGap`, `P` = `pivotD`, `d = P/2 + t`, semua dalam
+`hingeFor` / `hingeSizes` dalam `src/geom/box.js`:
+
+- Pivot `d` dari belakang kotak dan `d` di bawah atas dinding. Jejari telinga juga
+  `d`, jadi telinga tidak melepasi belakang kotak pada mana-mana sudut.
+- Length merentas lengan: badan = Length - 2(t + g). Tinggi lengan = lidHeight + 2d.
+- Lubang lengan jejari P/2 + g, dan kaki Lid Front g di atas dinding, jadi penutup
+  yang ditutup mendarat atas bibir dan atas cakera serentak.
+- Lid Back dipendekkan sqrt(2d² - (d-t)²) - d + max(1, g + 0.5), supaya bucu dalamnya
+  melepasi bucu luar dinding belakang. Dengan t 3, P 10 dan g 0.3, nilainya sama
+  dengan MakerCase: 3.15 mm.
+- Had bukaan 2·atan((d + gap belakang) / d), kira-kira 108°: kaki Lid Back mendarat
+  pada belakang kotak. Paparan 3D berhenti 1° lebih awal.
+- Slot t × min(P/2, 2t), kunci (2t + g) × panjang slot, P sekurang-kurangnya
+  max(6, 3t), lidHeight sekurang-kurangnya gap belakang + 3t.
+
+Yang berbeza daripada MakerCase, sengaja:
+
+- `lidGap` antara lengan dan dinding (MakerCase tiada), supaya lengan tidak bergesel.
+- Takuk ibu jari pada Lid Front (`lidNotch`), kerana bibir penutup rata dengan dinding.
+- Lalai `lidHeight` 15 mm, bukan 9: Lid Back perlu cukup tinggi untuk sendi jari.
+- Pivot dan penutup yang diminta terlalu besar diapit kepada yang kotak itu mampu;
+  saiz kotak yang ditaip tidak berubah.
+- Skru dimatikan untuk gaya ini: lengan berada tepat di tempat kepala skru.
+
+Lain-lain: `src/view3d.js` - `panel.swing` (paksi dalam koordinat kotak, semua papan
+penutup berpusing sebagai satu), `panel.noPick` untuk cakera dan kunci; `src/ui.js` -
+kad dan lakaran, `hingeRows`, langkah pasang, nota Joints.
+
+Ujian: `node scripts/test-boxmaker-hinge.mjs` (dari akar repo) - memasang setiap panel
+dalam grid voksel, menyemak tumpuk pivot, memusing penutup dari 0 hingga had tanpa
+menyentuh badan, memastikan ia tersekat selepas had, laluan penutup turun dari atas,
+laluan kunci masuk dari luar, dan penutup tidak menembusi meja. Bahagian "hinge" dalam
+`npm test` projek sumber menyemak ukuran. Kedua-duanya hanya menyemak geometri:
+**belum diuji pada potongan sebenar**, terutama muat ketat kunci dan cakera.

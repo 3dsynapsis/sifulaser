@@ -17,6 +17,11 @@
 //     so it finishes flush rather than sitting in a well. This is the only style
 //     whose lid rides OUTSIDE the walls, and so the only one where the finished
 //     box is bigger than length x width.
+//   * lid (hinge) - a shallow tray whose two sides are arms running past the rim
+//     to a round ear outside each side wall. A round disc sits in a hole in the
+//     ear, and a key through the disc and into the wall holds it there, so the
+//     arm turns round a disc that cannot move. The body stands in from the ends
+//     by an arm and a gap, and Length is measured across the arms.
 //   * mihrab - a keel-arch front (see geom/arch.js) closed by two arch-topped
 //     doors that swing outwards on square pins: down into a base plate that
 //     stands proud of the box, up into a ceiling board at the spring line. The
@@ -59,7 +64,7 @@ import {
 } from './pattern.js';
 
 export const DEFAULTS = {
-  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
+  style: 'open',        // 'open' | 'lidded' | 'double' | 'shoebox' | 'hinge' | 'almari' | 'mihrab' | 'mihrab2' | 'round'
   joint: 'standard',    // 'standard' (glue) | 'screw' (M3 captive nut, demountable)
   screwsPerEdge: 2,     // screws on each vertical corner when joint = 'screw'
   divider: 0,           // interior compartments: 0 (none) | 2 | 4
@@ -87,7 +92,12 @@ export const DEFAULTS = {
   doorGap: 0.6,
   lidSlack: 0.4,        // lift-off lid: gap between its inner face and the box
   lidDrop: 35,          // lift-off lid: % of the wall height its skirt covers
-  lidNotch: true,       // lift-off lid: thumb notch in the front of the skirt
+  lidNotch: true,       // lift-off and hinge lids: thumb notch in the front of the skirt
+
+  // ---- Hinge (a lid on two arms). lidGap and lidNotch are shared with the
+  // styles above: here lidGap is arm to wall, and the play in the pivot hole.
+  lidHeight: 15,        // top of the box to the foot of the lid, mm
+  pivotD: 10,           // the disc each arm turns on, mm
 
   // ---- Almari Laci (drawer cabinet) -------------------------------------
   tingkat: 2,        // levels: 1 or 2 only, equal size
@@ -156,6 +166,8 @@ export const PANEL_ORDER = [
   // Round. 'plinth' and 'lidTop' are reused; the wall strips are never offered
   // for decoration, for the same reason as the mihrab's roof.
   'floorDisc', 'ring', 'lidPlug', 'wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6',
+  // Hinge. The lid reuses the lift-off lid's five ids; its two sides are the arms.
+  'discLeft', 'discRight', 'keyLeft', 'keyRight',
 ];
 
 export const PANEL_LABELS = {
@@ -191,6 +203,7 @@ export const PANEL_LABELS = {
   floorDisc: 'Floor', ring: 'Base ring', lidPlug: 'Lid plug',
   wall: 'Wall (flex)', wall2: 'Wall 2 (flex)', wall3: 'Wall 3 (flex)',
   wall4: 'Wall 4 (flex)', wall5: 'Wall 5 (flex)', wall6: 'Wall 6 (flex)',
+  discLeft: 'Disc L', discRight: 'Disc R', keyLeft: 'Key L', keyRight: 'Key R',
 };
 
 /** Least height a round box can be: base, a wall worth bending, and the lid. */
@@ -248,6 +261,60 @@ function m2Sizes(p, t, L) {
 
 /** Least front a Mihrab 2.0 can have: two frame bands and two doors. */
 const m2MinL = (p, t) => 2 * (m2Sizes(p, t, 0).B + Math.max(2, t) + 2) + 2 * Math.max(16, 5 * t);
+
+/** What one pivot size asks of the box. See hingeSizes. */
+function hingeFor(D, g, t, floor) {
+  const R = D / 2;
+  const d = R + t;
+  const s = Math.min(R, 2 * t);
+  const back = Math.sqrt(2 * d * d - (d - t) ** 2) - d + Math.max(1, g + 0.5);
+  const stop = 2 * Math.atan((d + back) / d);
+  const lean = Math.abs(Math.cos(stop));
+  const wallMin = Math.max(2 * d, d + s / 2 + floor + t + 1);
+  const wallSwing = d * (1 + Math.sin(stop) + lean);
+  const lidMin = back + 3 * t;
+  return {
+    D, R, d, s, back, stop, lean, wallMin, wallSwing, lidMin,
+    minW: (2 + Math.SQRT2) * d + t + 2,
+    minH: lidMin + Math.max(wallMin, wallSwing + lidMin * lean),
+  };
+}
+
+/**
+ * The hinge style's proportions, from the board and the pivot. One place, because
+ * dimMap (inside <-> outside) and buildBox have to agree on every one. Without W
+ * and H it answers what was asked for; with them, what that box can carry.
+ *
+ *   g     the lid gap: arm to wall on each side, and the play in the pivot hole.
+ *   arm   how far the body stands in from each end: one arm and one gap.
+ *   d     how far the pivot sits from the back of the box and from the top of the
+ *         wall. It is also the ear's radius, so the ear never passes the back of
+ *         the box however far the lid turns.
+ *   s     the slot's length, up the wall. Half the pivot, so the disc keeps wood
+ *         round it, and never over two boards, so the key stays stout.
+ *   back  how far the lid's back stops short of the wall. Its inner corner is the
+ *         part nearest the pivot and has to pass the wall's outer corner.
+ *   stop  how far the lid opens, in radians: past square, until the foot of the
+ *         lid's back lands on the back of the box.
+ *   wall  the wall has to carry the ear, keep the slot clear of the floor, and
+ *         hold the pivot high enough that the lid's corner, swung down behind
+ *         the box, stays off the table.
+ */
+function hingeSizes(p, t, W = Infinity, H = Infinity) {
+  const g = Math.max(0.05, numOr(p.lidGap, DEFAULTS.lidGap));
+  const floor = p.floorOffset == null ? t : Math.max(0, numOr(p.floorOffset, t));
+  const Dmin = Math.max(6, 3 * t);
+  let Dmax = Math.max(30, 6 * t);
+  const fits = (D) => {
+    const q = hingeFor(D, g, t, floor);
+    return q.minW <= W && q.minH <= H;
+  };
+  while (Dmax > Dmin && !fits(Dmax)) Dmax = Math.max(Dmin, Dmax - 0.5);
+  const q = hingeFor(Math.min(Dmax, Math.max(Dmin, numOr(p.pivotD, DEFAULTS.pivotD))), g, t, floor);
+  const lidMax = Math.max(q.lidMin, Math.min(H - q.wallMin, (H - q.wallSwing) / (1 + q.lean)));
+  const lidH = Math.min(lidMax, Math.max(q.lidMin, numOr(p.lidHeight, DEFAULTS.lidHeight)));
+  return { ...q, g, arm: t + g, Dmin, Dmax, lidMax, lidH };
+}
 
 /**
  * M3, and only M3 - one screw, one nut, one drill bit to own.
@@ -454,6 +521,8 @@ const r3 = (v) => Math.round(v * 1000) / 1000;
  *            z     floor top to the RIM of the walls. An open box has nothing
  *                  above the rim; a lid of any kind sits a board on top of it.
  *                  c = floor + t, plus t more under a lid.
+ *   hinge    x     the walls, then an arm and a gap at each end.
+ *            z     floor top to the rim, with the lid's whole height above it.
  *   almari   "inside" is the inside of ONE DRAWER, because that is where things
  *            are put - the cabinet's own interior is full of drawer.
  *            x     k = columns. Each column is drawer walls, a running gap each
@@ -518,6 +587,15 @@ export function dimMap(input = {}) {
       x: { k: 1, c: 4 * t },
       y: { k: 1, c: 5 * t + z.e },
       z: { k: 1, c: z.rise + z.Tb + 2 * z.r + z.B },
+    };
+  }
+  if (p.style === 'hinge') {
+    const z = hingeSizes(p, t);
+    return {
+      what: 'box',
+      x: { k: 1, c: 2 * t + 2 * z.arm },
+      y: { k: 1, c: 2 * t },
+      z: { k: 1, c: floor + t + z.lidH },
     };
   }
   const lid = p.style === 'lidded' || p.style === 'double' || p.style === 'shoebox';
@@ -996,16 +1074,26 @@ export function buildBox(input = {}) {
   const mihrab = p.style === 'mihrab';
   const mihrab2 = p.style === 'mihrab2';
   const round = p.style === 'round';
+  const hinge = p.style === 'hinge';
+  // The smallest hinge there is: the least pivot and the least lid, which is
+  // what the box has to be able to carry whatever is asked of it afterwards.
+  const hingeLeast = hinge ? hingeSizes({ ...p, pivotD: 0, lidHeight: 0 }, t) : null;
+  // Length reads across the arms, the size the finished box stands in, so
+  // everything below that builds the body is given the body's own length.
+  const armX = hinge ? hingeLeast.arm : 0;
   const L = Math.max(t * 8, mihrab ? 40 : 0, mihrab2 ? m2MinL(p, t) : 0,
-    round ? Math.max(50, 16 * t) : 0, want.length);
+    round ? Math.max(50, 16 * t) : 0, want.length - 2 * armX);
+  const Lout = L + 2 * armX;
   const m2 = mihrab2 ? m2Sizes(p, t, L) : null;
   // A round box is as wide as it is long: Length is its diameter.
   const W = round ? L : Math.max(t * 8, mihrab ? 40 : 0,
-    mihrab2 ? 5 * t + m2.e + Math.max(24, 8 * t) : 0, want.width);
+    mihrab2 ? 5 * t + m2.e + Math.max(24, 8 * t) : 0, hinge ? hingeLeast.minW : 0, want.width);
   const H = Math.max(mihrab ? mihrabMinH(t)
     : mihrab2 ? m2.B + 2 * m2.r + m2.Tb + m2.door + m2.riseMin
-      : round ? roundMinH(t, p.roundLid !== false) : t * 6,
+      : round ? roundMinH(t, p.roundLid !== false)
+        : hinge ? Math.max(t * 6, hingeLeast.minH) : t * 6,
   want.height);
+  const hs = hinge ? hingeSizes(p, t, W, H) : null;
   const lidded = p.style === 'lidded';
   const double = p.style === 'double';
   // A lid that lifts clean off, so the walls stop a board short and the lid's own
@@ -1017,7 +1105,7 @@ export function buildBox(input = {}) {
   // finished cabinet really is length x width x height.
   const almari = p.style === 'almari';
   const hasLid = lidded || double || shoebox;
-  const wallH = hasLid ? H - t : H;
+  const wallH = hinge ? H - hs.lidH : hasLid ? H - t : H;
   // Exactly two legal states, so the level arithmetic and the panel ids agree.
   // Declared up here rather than with the rest of the level maths because the
   // floor cap below needs to know how many boards are going to be stacked.
@@ -1120,8 +1208,9 @@ export function buildBox(input = {}) {
   // the free runs between tabs are measured and the biggest ones are used - so a
   // screw never lands on a tab, and there are only ever as many as asked for.
   // The mihrab has no front wall and only two jointed corners, glued - its
-  // doors are what comes apart.
-  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round;
+  // doors are what comes apart. The hinge's arms lie against the side walls,
+  // right where a screw head would stand.
+  const wantScrew = p.joint === 'screw' && !mihrab && !mihrab2 && !round && !hinge;
   const nutPocketL = pocketDepth(t);
   const screwReachAhead = SCREW.neck + nutPocketL;
   // Two pockets reach in from opposite edges of the same wall, so the wall has to
@@ -1302,6 +1391,9 @@ export function buildBox(input = {}) {
     }
     const r = hingeR + Math.max(0.1, fit);
     for (const u of bossUs) holes.push(ellipse(u, pivotZ, r, r, 40));
+    // The slot the key lands in. The key is what stops the disc turning, so it
+    // gets the same interference as any other tenon.
+    if (hinge) holes.push(shrinkRect(uOf(W - hs.d) - t / 2, wallH - hs.d - hs.s / 2, t, hs.s, fit));
     return { outline: dedupe(pts), holes };
   };
 
@@ -1614,6 +1706,147 @@ export function buildBox(input = {}) {
 
     lidInfo = {
       slack, drop, height: hL, outerL: oL, outerW: oW,
+      thumbR: thumb ? thumbR : 0,
+    };
+  }
+
+  // ---- hinge: a lid on two arms -------------------------------------------
+  // Built as a tray, the way the lift-off lid is: corner tabs on its front and
+  // back, its top caught in notches along the top edges so it finishes flush.
+  // Only here the tray's sides run on past the back of the rim and end in an ear
+  // lying against the side wall, and that ear is what it turns by.
+  //
+  // Everything stacks on one line across the box: wall, gap, then the disc in
+  // the arm's own plane. The key runs the whole stack, flush at both ends, so
+  // the disc is pinned to the wall and the arm is the only thing free to turn.
+  // The arms cannot spread off their discs because the lid ties them together,
+  // and the lid goes on last from above, so nothing is trapped: the disc and key
+  // go in from outside after the lid is sitting on the box.
+  //
+  // lidGap does three jobs that all come to the same millimetres. The arm clears
+  // the wall by it. The hole clears the disc by it, so the lid hangs that far
+  // down on its discs. And the lid's front stops that far above the wall, so a
+  // closed lid comes down onto the rim and onto the discs at the same moment.
+  let hingeInfo = null;
+  if (hinge) {
+    const { g, d, R, s, back, stop, lidH } = hs;
+    for (const pan of panels) pan.frame.origin[0] += armX;
+
+    const yP = W - d;
+    const zP = wallH - d;
+    const stopDeg = (stop * 180) / Math.PI;
+    // A hair short of landing, so the preview never draws the two boards touching.
+    const swing = { y: yP, z: zP, sign: -1, angle: stopDeg - 1 };
+
+    const inL = Lout - 2 * t;
+    const inW = W - 2 * t;
+    const tabX = featureLayout(inL, m).map((f) => ({ s: t + f.s, e: t + f.e }));
+    const tabY = featureLayout(inW, m).map((f) => ({ s: t + f.s, e: t + f.e }));
+
+    // A rim is often too shallow for a run of joints. One tab, half its height,
+    // holds better than one a board wide that the layout would squeeze in.
+    const rimFeats = (span) => (span >= 15
+      ? featureLayout(span, Math.max(3, Math.min(m, span / 5)))
+      : [{ s: span * 0.25, e: span * 0.75 }]);
+    const hF = lidH - g;
+    const hB = lidH - back;
+    const cF = rimFeats(hF - t);
+    const cB = rimFeats(hB - t);
+
+    // Under the arm's long edge the rim is all there is to hook a finger under,
+    // and the rim is shallow, so this is capped against it and not just the length.
+    const thumbR = Math.min(Math.max(4, Math.min(Lout * 0.06, 12)), hF - t - 1.5, inL * 0.2);
+    const thumb = (p.lidNotch ?? true) !== false && thumbR >= 2.5;
+
+    /** Front and back of the lid: tabs on the corners, notches along the top. */
+    const rim = (h, corner, withThumb) => {
+      const x0 = t;
+      const x1 = Lout - t;
+      const dip = withThumb && thumb
+        ? [{ s: inL / 2 - thumbR, e: inL / 2 + thumbR }]
+        : [];
+      return dedupe([
+        ...edgeRun([x0, 0], [x1, 0], dip, -thumbR, { arc: true }),
+        ...edgeRun([x1, 0], [x1, h], corner, t),
+        ...edgeRun([x1, h], [x0, h], forWalk(snug(tabX), x1, x0), -t),
+        ...edgeRun([x0, h], [x0, 0], flipFeatures(corner, h), t),
+      ]);
+    };
+
+    // An arm, measured along the box from the front (u) and up from the foot of
+    // the ear (v). The long edge is level with the top of the wall; past it a 45
+    // degree run comes down to the ear tangent, and the ear comes back up tangent
+    // to the back of the box.
+    const hA = 2 * d + lidH;
+    const armOutline = () => {
+      // A multiple of three, so one point lands on the very foot of the ear.
+      const steps = 33;
+      const arc = [];
+      for (let i = 0; i < steps; i++) {
+        const a = Math.PI * (1.25 + (0.75 * i) / steps);
+        arc.push([yP + d * Math.cos(a), d + d * Math.sin(a)]);
+      }
+      return dedupe([
+        [0, 2 * d],
+        [W - (2 + Math.SQRT2) * d, 2 * d],
+        ...arc,
+        ...edgeRun([W, d], [W, hA],
+          forWalk(shiftFeatures(cB, -(2 * d + back)), d, hA), -t),
+        ...edgeRun([W, hA], [0, hA], forWalk(snug(tabY), W, 0), -t),
+        ...edgeRun([0, hA], [0, 2 * d],
+          forWalk(shiftFeatures(cF, -(2 * d + g)), hA, 2 * d), -t),
+      ]);
+    };
+    const mirrored = (ring) => ring.map(([u, v]) => [W - u, v]).reverse();
+    const armHole = (u) => ellipse(u, d, R + g, R + g, 48);
+
+    const add = (id, outline, holes, frame, extra = {}) => panels.push(normalisePanel({
+      id, label: PANEL_LABELS[id], outline, holes, frame, ...extra,
+    }));
+    const onLid = { swing };
+
+    add('lidFront', rim(hF, cF, true), [],
+      { origin: [0, 0, wallH + g], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] }, onLid);
+    add('lidBack', rim(hB, cB, false), [],
+      { origin: [Lout, W, wallH + back], U: [-1, 0, 0], V: [0, 0, 1], N: [0, 1, 0] }, onLid);
+    add('lidLeft', mirrored(armOutline()), [armHole(d)],
+      { origin: [0, W, wallH - 2 * d], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] }, onLid);
+    add('lidRight', armOutline(), [armHole(yP)],
+      { origin: [Lout, 0, wallH - 2 * d], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] }, onLid);
+    {
+      const x0 = t;
+      const x1 = Lout - t;
+      const y0 = t;
+      const y1 = W - t;
+      add('lidTop', dedupe([
+        ...edgeRun([x0, y0], [x1, y0], forWalk(tabX, x0, x1), t),
+        ...edgeRun([x1, y0], [x1, y1], forWalk(tabY, y0, y1), t),
+        ...edgeRun([x1, y1], [x0, y1], forWalk(tabX, x1, x0), t),
+        ...edgeRun([x0, y1], [x0, y0], forWalk(tabY, y1, y0), t),
+      ]), [], { origin: [0, 0, H], U: [1, 0, 0], V: [0, 1, 0], N: [0, 0, 1] }, onLid);
+    }
+
+    // Small enough that nobody means to decorate them, and they do not move.
+    const fixed = { noDecor: true, noPick: true };
+    const disc = () => ellipse(0, 0, R, R, 48);
+    const discSlot = () => shrinkRect(-t / 2, -s / 2, t, s, fit);
+    add('discLeft', disc(), [discSlot()],
+      { origin: [0, yP, zP], U: [0, -1, 0], V: [0, 0, 1], N: [-1, 0, 0] }, fixed);
+    add('discRight', disc(), [discSlot()],
+      { origin: [Lout, yP, zP], U: [0, 1, 0], V: [0, 0, 1], N: [1, 0, 0] }, fixed);
+
+    const keyLen = 2 * t + g;
+    const key = () => rect(0, -s / 2, keyLen, s);
+    add('keyLeft', key(), [],
+      { origin: [0, yP - t / 2, zP], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] }, fixed);
+    add('keyRight', key(), [],
+      { origin: [Lout - keyLen, yP - t / 2, zP], U: [1, 0, 0], V: [0, 0, 1], N: [0, -1, 0] }, fixed);
+
+    hingeInfo = {
+      gap: g, arm: armX, bodyL: L, inset: d, slot: s, keyLen,
+      pivotD: hs.D, pivotMin: hs.Dmin, pivotMax: hs.Dmax, y: yP, z: zP,
+      lidH, lidMin: hs.lidMin, lidMax: Math.min(hs.lidMax, H),
+      backGap: back, stop: stopDeg,
       thumbR: thumb ? thumbR : 0,
     };
   }
@@ -3106,7 +3339,7 @@ export function buildBox(input = {}) {
   const dims = {
     measure: measuredInside ? 'inside' : 'outside',
     what: almari ? 'drawer' : 'box',
-    outer: { l: L, w: W, h: H },
+    outer: { l: Lout, w: W, h: H },
     inner,
     asked: askedIn,
     // Only meaningful when an inside size was asked for: did the box that came
@@ -3127,7 +3360,7 @@ export function buildBox(input = {}) {
   return {
     // Always the OUTSIDE size, and always marked so: feeding these params back
     // into buildBox must give this same box, not convert them a second time.
-    params: { ...p, measure: 'outside', thickness: t, length: L, width: W, height: H },
+    params: { ...p, measure: 'outside', thickness: t, length: Lout, width: W, height: H },
     derived: {
       dims,
       // The mihrab's walls stop at the spring line; above it is the crown.
@@ -3157,6 +3390,7 @@ export function buildBox(input = {}) {
       mihrab: mihrabInfo,
       mihrab2: m2Info,
       round: roundInfo,
+      hinge: hingeInfo,
     },
     panels,
   };

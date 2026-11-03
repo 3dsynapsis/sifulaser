@@ -433,6 +433,24 @@ export class View3D {
         continue;
       }
 
+      // A lid made of several boards, on one pin line given in the box's own
+      // axes. The boards face every which way, so none of them can turn about
+      // its own x - but they all carry the same line, so the lid swings as a
+      // unit with no grouping, the same trick the lift-off lid uses.
+      if (panel.swing) {
+        const { y, z, sign, angle } = panel.swing;
+        const inner = new THREE.Group();
+        inner.position.set(0, -y, -z);
+        inner.add(group);
+        const pivot = new THREE.Group();
+        pivot.position.set(0, y, z);
+        pivot.add(inner);
+        this.lidGroups.push({ pivot, sign, angle });
+        this.root.add(pivot);
+        this.meshes.push(mesh);
+        continue;
+      }
+
       if (panel.lift) {
         const riser = new THREE.Group();
         riser.add(group);
@@ -456,7 +474,8 @@ export class View3D {
       }
 
       this.root.add(group);
-      this.meshes.push(mesh);
+      // A hinge's disc or key has no tab to open, so a click on one does nothing.
+      if (!panel.noPick) this.meshes.push(mesh);
     }
 
     // Lock parts. One on a door sits in a wrapper that undoes the door's own
@@ -626,8 +645,10 @@ export class View3D {
     } else if (inBox) {
       const z0 = box.derived.floorZ + t;
       const z1 = box.derived.wallH;
+      // The hinge's arms stand outside the walls, so its walls are further in.
+      const xIn = (box.derived.hinge?.arm ?? 0) + t;
       this.dims = [
-        { label: `${fmtMm(dm.inner.l)} inside`, a: P(t, 0, H), b: P(L - t, 0, H), dir: unit([0, 0, 1]) },
+        { label: `${fmtMm(dm.inner.l)} inside`, a: P(xIn, 0, H), b: P(L - xIn, 0, H), dir: unit([0, 0, 1]) },
         { label: `${fmtMm(dm.inner.w)} inside`, a: P(L, t, H), b: P(L, W - t, H), dir: unit([0, 0, 1]) },
         { label: `${fmtMm(dm.inner.h)} inside`, a: P(L, 0, z0), b: P(L, 0, z1), dir: unit([1, 0, 0]) },
       ];
