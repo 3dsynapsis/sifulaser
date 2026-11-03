@@ -153,6 +153,16 @@ export const DEFAULTS = {
   roundLid: true,
 };
 
+/**
+ * Sizes to start from, outside, in millimetres. A4 is the one with a reason in its
+ * numbers: 297 x 210 lies flat in it on any board up to about 10 mm thick.
+ */
+export const SIZE_PRESETS = [
+  { id: 'small', label: 'Kecil', length: 150, width: 150, height: 100, hint: 'A gift, a medal, a small hamper' },
+  { id: 'shoebox', label: 'Shoebox', length: 330, width: 190, height: 120, hint: 'A pair of adult shoes' },
+  { id: 'a4', label: 'A4', length: 320, width: 230, height: 100, hint: 'A4 lying flat: certificates, documents, files' },
+];
+
 export const PANEL_ORDER = [
   'front', 'back', 'left', 'right', 'bottom', 'divLength', 'divWidth',
   'top', 'leafFront', 'leafBack',

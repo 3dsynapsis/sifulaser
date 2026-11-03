@@ -418,6 +418,20 @@ penahan (pemegang pada dinding, rel menahan penutup) dan laluan pemasangan. Baha
 "sliding box" dalam `npm test` projek sumber menyemak ukuran. **Belum diuji pada
 potongan sebenar**, terutama sama ada 0.5 mm cukup untuk papan yang melengkung.
 
+## Preset Size dan Reset (3 November 2026)
+
+Diminta Bos. Kumpulan "Preset Size" kini di atas Box Style: tiga saiz luar untuk bermula
+(`SIZE_PRESETS` dalam `src/geom/box.js`, kad dalam `presetSizes` dalam `src/ui.js`), semua
+pada satu skala supaya kad menunjukkan saiz sebenar berbanding satu sama lain.
+
+| Kad | Saiz | Untuk |
+|---|---|---|
+| Kecil | 15 × 15 × 10 cm | hadiah, medal, hamper kecil |
+| Shoebox | 33 × 19 × 12 cm | sepasang kasut dewasa |
+| A4 | 32 × 23 × 10 cm | kertas A4 rata, sijil, dokumen |
+
+Butang "Start over" di bawah panel kini "Reset", di sebelah tajuk "Overall".
+
 ## Gaya Bertingkat (3 November 2026)
 
 Diminta Bos selepas melihat Stackable Parts Bin di MakerCase. Mekanismenya sama, kodnya

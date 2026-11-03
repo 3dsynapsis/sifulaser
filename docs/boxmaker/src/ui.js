@@ -6,7 +6,7 @@ import {
   setMeasure,
 } from './store.js';
 import * as gallery from './designs.js';
-import { PANEL_LABELS, SCREW, dimMap, insideOf, buildBox } from './geom/box.js';
+import { PANEL_LABELS, SCREW, SIZE_PRESETS, dimMap, insideOf, buildBox } from './geom/box.js';
 import {
   makeObject, PROCESSES, objectRings, measureText, patternInfo, patternFitKey,
 } from './geom/decor.js';
@@ -222,6 +222,33 @@ function boxThumb(style, base) {
   ${hingeArm}
   ${slideLid}
 </svg>`;
+}
+
+/**
+ * A plain box at one fixed scale, so the preset cards show the sizes against each
+ * other: the shoe box really is bigger than the small one.
+ */
+function sizeThumb({ length, width, height }, base) {
+  const k = 0.14;
+  const a = [length * k * 0.87, -length * k * 0.4];
+  const b = [-width * k * 0.87, -width * k * 0.4];
+  const up = -height * k;
+  const F = [0, 0];
+  const R = shift(F, a[0], a[1]);
+  const L = shift(F, b[0], b[1]);
+  const T = shift(R, b[0], b[1]);
+  const lift = (q) => shift(q, 0, up);
+  const all = [F, R, L, T].flatMap((q) => [q, lift(q)]);
+  const xs = all.map((q) => q[0]);
+  const ys = all.map((q) => q[1]);
+  const ox = 48 - (Math.min(...xs) + Math.max(...xs)) / 2;
+  const oy = 37 - (Math.min(...ys) + Math.max(...ys)) / 2;
+  const face = (pts, fill) => `<polygon points="${P(pts.map((q) => shift(q, ox, oy)))}" `
+    + `fill="${fill}" stroke="${shade(base, -0.62)}" stroke-width=".9" stroke-linejoin="round"/>`;
+  return `<svg viewBox="0 0 96 74" aria-hidden="true">${
+    face([lift(F), lift(R), lift(T), lift(L)], shade(base, 0.26))
+  }${face([L, F, lift(F), lift(L)], shade(base, -0.04))
+  }${face([F, R, lift(R), lift(F)], shade(base, -0.3))}</svg>`;
 }
 
 /** Two bins, one on the other: the sloped lip and the hump are what the style is about. */
@@ -711,7 +738,18 @@ export function renderInspector(root, ctx) {
   if (sliderDragging) return; // the live control stays put until the drag ends
   root.replaceChildren();
   const obj = state.view === '2d' ? selectedObject() : null;
-  root.append(h('h2', { class: 'insp-title' }, obj ? labelFor(obj) : 'Overall'));
+  root.append(obj
+    ? h('h2', { class: 'insp-title' }, labelFor(obj))
+    : h('div', { class: 'insp-head' },
+      h('h2', { class: 'insp-title' }, 'Overall'),
+      h('button', {
+        class: 'link', type: 'button', title: 'Clear the dimensions and every decoration',
+        onclick: () => {
+          if (!confirm('Reset? This clears the dimensions and every decoration.')) return;
+          reset();
+          ctx.refresh();
+        },
+      }, 'Reset')));
   if (obj) objectInspector(root, obj, ctx);
   else overallInspector(root, ctx);
 }
@@ -736,6 +774,8 @@ function group(title, open, ...body) {
 function overallInspector(root, ctx) {
   const p = state.params;
   const mat = material();
+
+  root.append(presetSizes(mat, ctx));
 
   root.append(group('Box Style', true,
     h('div', { class: 'cards' }, STYLES.map(({ id, label, hint }) =>
@@ -945,15 +985,45 @@ function overallInspector(root, ctx) {
   ));
 
   root.append(group('Cut summary', false, ...summaryRows()));
+}
 
-  root.append(h('button', {
-    class: 'link', type: 'button',
-    onclick: () => {
-      if (!confirm('Start over? This clears the dimensions and every decoration.')) return;
-      reset();
-      ctx.refresh();
+/**
+ * Pick a size to start from. The numbers stay editable under Dimensions. A preset
+ * is an outside size whichever way those fields are being read, and a round box
+ * keeps its width equal to its diameter, the same as when the field is typed in.
+ */
+function pickSize(size) {
+  update((s) => {
+    const want = {
+      length: size.length,
+      width: s.params.style === 'round' ? size.length : size.width,
+      height: size.height,
+    };
+    Object.assign(s.params, s.params.measure === 'inside'
+      ? insideOf({ ...s.params, measure: 'outside' }, want) : want);
+  }, { geometry: true });
+  mihrabResized = false;
+  clampDecor();
+}
+
+function presetSizes(mat, ctx) {
+  const cab = getBox().params;
+  const round = cab.style === 'round';
+  const near = (a, b) => Math.abs(a - b) < 0.01;
+  const cm = (mm) => rnd(mm / 10, 1);
+  return group('Preset Size', true,
+    h('div', { class: 'cards' }, SIZE_PRESETS.map((s) => h('button', {
+      class: 'card',
+      type: 'button',
+      'aria-pressed': String(near(cab.length, s.length) && near(cab.height, s.height)
+        && (round || near(cab.width, s.width))),
+      title: s.hint,
+      onclick: () => { pickSize(s); ctx.refresh(); },
     },
-  }, 'Start over'));
+    h('span', { class: 'art', html: sizeThumb(s, mat.color) }),
+    s.label,
+    h('span', { class: 'card-sub' }, `${cm(s.length)}×${cm(s.width)}×${cm(s.height)} cm`)))),
+    h('p', { class: 'hint' }, 'A size to start from, outside. Change any number under Dimensions.'));
 }
 
 /**
