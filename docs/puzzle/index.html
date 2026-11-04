@@ -35,6 +35,11 @@
     <section class="stage" id="stage">
       <div id="stagePreview" class="stage-pane"></div>
       <div class="backdrop-pick" id="backdropPick" role="group" aria-label="Preview backdrop"></div>
+      <div class="zoom-pick" id="zoomPick" role="group" aria-label="Zoom" hidden>
+        <button type="button" id="zoomOut" title="Zoom keluar" aria-label="Zoom keluar">−</button>
+        <button type="button" id="zoomFit" title="Muat skrin" aria-label="Muat skrin">Fit</button>
+        <button type="button" id="zoomIn" title="Zoom masuk" aria-label="Zoom masuk">+</button>
+      </div>
       <div class="stage-hint" id="stageHint"></div>
     </section>
 
@@ -69,6 +74,7 @@
 
 <dialog id="saveDlg" class="dlg"></dialog>
 <dialog id="filesDlg" class="dlg"></dialog>
+<dialog id="posterDlg" class="dlg"></dialog>
 
 <script type="module" src="src/main.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->

@@ -500,3 +500,99 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   input[type="text"], input[type="number"], select, textarea { font-size: 16px; }
   input[type="range"] { height: 28px; }
 }
+
+/* ---------- poster ke puzzle (4 November 2026) ----------
+   Upload a PDF, pick a size, take the files. Poster mode borrows the stage and
+   the inspector; the top-bar buttons that act on the ordinary puzzle step aside. */
+/* A long file name must shrink rather than push the whole column past the panel. */
+.group-body { grid-template-columns: minmax(0, 1fr); }
+
+.poster-entry {
+  display: grid; gap: 3px; margin-bottom: 10px; padding: 11px 12px;
+  border: 1.5px dashed var(--accent); border-radius: var(--radius);
+  background: var(--accent-soft); cursor: pointer; font-size: 12px; color: var(--muted);
+}
+.poster-entry b { font-size: 13px; color: var(--accent); }
+.poster-entry:hover { filter: brightness(0.98); }
+.poster-entry input[hidden] { display: none; }
+
+body.poster-mode #undoBtn,
+body.poster-mode #redoBtn,
+body.poster-mode #saveBtn,
+body.poster-mode #filesBtn { display: none; }
+body.poster-mode #helpBtn { margin-right: 0; }
+.name-input:read-only { cursor: default; border-color: transparent; background: transparent; }
+
+.stage.drag-over { outline: 3px dashed var(--accent); outline-offset: -8px; }
+.preview.zoomable { cursor: grab; touch-action: none; }
+.preview.zoomable:active { cursor: grabbing; }
+
+.zoom-pick {
+  position: absolute; top: 14px; right: 14px; z-index: 5;
+  display: flex; gap: 3px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: var(--shadow);
+}
+.zoom-pick[hidden] { display: none; }
+.zoom-pick button {
+  min-width: 30px; height: 28px; padding: 0 6px; cursor: pointer;
+  border: 1px solid var(--line-strong); border-radius: 7px;
+  background: var(--surface); color: var(--text); font: 600 13px/1 inherit;
+}
+.zoom-pick button:hover { background: var(--surface-2); }
+
+.presets.three { grid-template-columns: repeat(3, 1fr); }
+.preset.no-fit span { color: var(--danger); }
+
+input[type="date"] {
+  width: 100%; padding: 7px 9px; font: inherit; font-size: 13px;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 7px;
+}
+
+.file-pick { display: block; text-align: center; }
+.file-pick input[hidden] { display: none; }
+.file-name {
+  flex: 1; min-width: 0; margin-right: 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.page-list { display: grid; gap: 4px; max-height: 230px; overflow-y: auto; }
+.page-row {
+  display: flex; align-items: center; gap: 8px; padding: 3px 6px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+}
+.page-row.open { border-color: var(--accent); background: var(--accent-soft); }
+.page-row input { flex: none; accent-color: var(--accent); }
+.page-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  border: 0; background: transparent; padding: 2px 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.page-open img, .page-blank {
+  width: 26px; height: 36px; flex: none; object-fit: contain;
+  border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line);
+}
+.page-text { display: grid; gap: 1px; min-width: 0; font-size: 11px; color: var(--muted); }
+.page-text b { font-size: 12px; color: var(--text); }
+
+.file-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 9px;
+}
+.file-row-text { flex: 1; min-width: 0; display: grid; gap: 1px; font-size: 12px; color: var(--muted); }
+.file-row-text b { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-row .ghost { flex: none; padding: 8px 10px; font-size: 12px; }
+.dlg .primary:disabled, .dlg .ghost:disabled { opacity: .55; cursor: default; }
+#posterDlg { max-height: 86vh; overflow-y: auto; }
+
+@media (max-width: 640px) {
+  input[type="date"] { font-size: 16px; }
+  .zoom-pick button { min-width: 36px; height: 34px; }
+  .file-row { flex-wrap: wrap; }
+  .file-row-text { flex-basis: 100%; }
+  .file-row .ghost { flex: 1; }
+}
+
+body.poster-mode #status { display: none; }
+input[type="date"] { color-scheme: light dark; }

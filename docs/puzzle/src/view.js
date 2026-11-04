@@ -3,6 +3,9 @@
 // sync, and what you see is literally what gets cut.
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const MAX_ZOOM = 16;
+const CUT_RED = '#e3202a';
+const MM_PER_PT = 25.4 / 72;
 
 const el = (name, attrs = {}) => {
   const n = document.createElementNS(SVG_NS, name);
@@ -10,11 +13,41 @@ const el = (name, attrs = {}) => {
   return n;
 };
 
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+/** A line that stays one pixel wide at every zoom. */
+const hairline = (d, stroke) => el('path', {
+  d,
+  fill: 'none',
+  stroke,
+  'stroke-width': 1,
+  'vector-effect': 'non-scaling-stroke',
+});
+
+function shadowDefs(size) {
+  const defs = el('defs');
+  const filter = el('filter', {
+    id: 'boardShadow', x: '-20%', y: '-20%', width: '140%', height: '140%',
+  });
+  filter.append(el('feDropShadow', {
+    dx: 0, dy: Math.max(0.6, size * 0.006),
+    stdDeviation: Math.max(0.8, size * 0.008),
+    'flood-color': '#000', 'flood-opacity': 0.28,
+  }));
+  defs.append(filter);
+  return defs;
+}
+
 export class View {
   constructor(root) {
     this.root = root;
     this.svg = el('svg', { class: 'preview', xmlns: SVG_NS });
     this.root.append(this.svg);
+    this.zoomOn = false;
+    this.base = null;
+    this.box = null;
+    this.fitKey = null;
+    this.bindZoom();
   }
 
   /**
@@ -22,6 +55,9 @@ export class View {
    * @param opts { boardColor, showBoard }
    */
   render(puzzle, opts = {}) {
+    this.zoomOn = false;
+    this.fitKey = null;
+    this.svg.classList.remove('zoomable');
     const { width, height } = puzzle.params;
     // A margin in board units keeps the stroke and the drop shadow off the edge
     // of the viewport at every aspect ratio.
@@ -30,17 +66,7 @@ export class View {
     this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     this.svg.replaceChildren();
 
-    const defs = el('defs');
-    const filter = el('filter', {
-      id: 'boardShadow', x: '-20%', y: '-20%', width: '140%', height: '140%',
-    });
-    filter.append(el('feDropShadow', {
-      dx: 0, dy: Math.max(0.6, height * 0.006),
-      stdDeviation: Math.max(0.8, height * 0.008),
-      'flood-color': '#000', 'flood-opacity': 0.28,
-    }));
-    defs.append(filter);
-    this.svg.append(defs);
+    this.svg.append(shadowDefs(height));
 
     if (opts.showBoard !== false) {
       const r = Math.max(0, Math.min(puzzle.params.cornerRadius, width / 2, height / 2));
@@ -63,5 +89,155 @@ export class View {
     line(puzzle.h, 'cut-h');
     line(puzzle.v, 'cut-v');
     line(puzzle.border, 'cut-b');
+  }
+
+  /** The clear panel: poster, bleed, cut lines and frame, in true proportion. */
+  renderPoster({ plan, puzzle, imageUrl, fitKey }) {
+    const { panel, art } = plan;
+    const m = Math.max(panel.width, panel.height) * 0.04;
+    this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
+    this.svg.replaceChildren(shadowDefs(panel.height));
+
+    this.svg.append(el('rect', {
+      x: 0, y: 0, width: panel.width, height: panel.height,
+      fill: '#e4edf3', filter: 'url(#boardShadow)',
+    }));
+
+    if (imageUrl) {
+      this.svg.append(el('image', {
+        href: imageUrl,
+        x: art.x, y: art.y, width: art.width, height: art.height,
+        preserveAspectRatio: 'none',
+      }));
+    } else {
+      this.svg.append(el('rect', {
+        x: art.x, y: art.y, width: art.width, height: art.height, fill: '#f4f6f8',
+      }));
+    }
+
+    // Everything between the puzzle's edge and the artwork's edge lands on the
+    // frame. Fading it shows at a glance what will not be on the finished puzzle.
+    const fx = (panel.width - plan.width) / 2;
+    const fy = (panel.height - plan.height) / 2;
+    const rect = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+    this.svg.append(el('path', {
+      d: `${rect(art.x, art.y, art.width, art.height)} ${rect(fx, fy, plan.width, plan.height)}`,
+      fill: '#ffffff', 'fill-opacity': 0.6, 'fill-rule': 'evenodd',
+    }));
+    this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
+
+    const lines = el('g', { transform: `translate(${fx} ${fy})` });
+    lines.append(hairline(`${puzzle.h}${puzzle.v}${puzzle.border}`, CUT_RED));
+    this.svg.append(lines);
+    this.svg.append(hairline(rect(0, 0, panel.width, panel.height), CUT_RED));
+  }
+
+  /** The job sheet, drawn from the same description the PDF is written from. */
+  renderSheet(sheet, fitKey) {
+    const { width, height } = sheet;
+    const m = Math.max(width, height) * 0.02;
+    this.showBox({ x: -m, y: -m, w: width + m * 2, h: height + m * 2 }, fitKey);
+    this.svg.replaceChildren(shadowDefs(height));
+    this.svg.append(el('rect', {
+      x: 0, y: 0, width, height, fill: '#ffffff', filter: 'url(#boardShadow)',
+    }));
+    for (const p of sheet.paths) this.svg.append(hairline(p.d, CUT_RED));
+    for (const t of sheet.texts) {
+      const node = el('text', {
+        x: t.x,
+        y: t.y,
+        'font-size': t.size * MM_PER_PT,
+        'font-family': 'Arial, Helvetica, sans-serif',
+        'text-anchor': t.anchor,
+        fill: '#231f20',
+      });
+      node.textContent = t.text;
+      this.svg.append(node);
+    }
+  }
+
+  // ---- zoom --------------------------------------------------------------
+  // Only for the poster views, where the point is to look closely at text near
+  // a cut line. The ordinary puzzle preview always fits the board.
+
+  showBox(base, fitKey) {
+    this.zoomOn = true;
+    this.svg.classList.add('zoomable');
+    this.base = base;
+    if (fitKey !== this.fitKey || !this.box) {
+      this.fitKey = fitKey;
+      this.box = { ...base };
+    }
+    this.applyBox();
+  }
+
+  applyBox() {
+    const b = this.box;
+    this.svg.setAttribute('viewBox', `${b.x} ${b.y} ${b.w} ${b.h}`);
+    this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  }
+
+  zoomAt(x, y, factor) {
+    const { base, box } = this;
+    const w = clamp(box.w / factor, base.w / MAX_ZOOM, base.w);
+    const k = w / box.w;
+    box.x = x - (x - box.x) * k;
+    box.y = y - (y - box.y) * k;
+    box.w = w;
+    box.h *= k;
+    this.keepInside();
+    this.applyBox();
+  }
+
+  keepInside() {
+    const { base, box } = this;
+    box.x = clamp(box.x, base.x, base.x + base.w - box.w);
+    box.y = clamp(box.y, base.y, base.y + base.h - box.h);
+  }
+
+  /** For the + and - buttons: zoom around the middle of what is showing. */
+  zoomBy(factor) {
+    if (!this.zoomOn) return;
+    this.zoomAt(this.box.x + this.box.w / 2, this.box.y + this.box.h / 2, factor);
+  }
+
+  zoomFit() {
+    if (!this.zoomOn) return;
+    this.box = { ...this.base };
+    this.applyBox();
+  }
+
+  bindZoom() {
+    const { svg } = this;
+    const toBox = (e) => {
+      const m = svg.getScreenCTM();
+      return m ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()) : null;
+    };
+    svg.addEventListener('wheel', (e) => {
+      if (!this.zoomOn) return;
+      e.preventDefault();
+      const p = toBox(e);
+      if (p) this.zoomAt(p.x, p.y, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+    }, { passive: false });
+
+    let drag = null;
+    svg.addEventListener('pointerdown', (e) => {
+      if (!this.zoomOn) return;
+      const m = svg.getScreenCTM();
+      if (!m) return;
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, bx: this.box.x, by: this.box.y, k: m.a };
+      svg.setPointerCapture(e.pointerId);
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      this.box.x = drag.bx - (e.clientX - drag.x) / drag.k;
+      this.box.y = drag.by - (e.clientY - drag.y) / drag.k;
+      this.keepInside();
+      this.applyBox();
+    });
+    const end = (e) => { if (drag && e.pointerId === drag.id) drag = null; };
+    svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointercancel', end);
+    svg.addEventListener('dblclick', () => this.zoomFit());
   }
 }

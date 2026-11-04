@@ -139,7 +139,7 @@ export function squareGrid(width, height, cols, rows) {
 // ---- inspector ------------------------------------------------------------
 const groupOpen = new Map();
 
-function group(title, open, ...body) {
+export function group(title, open, ...body) {
   const isOpen = groupOpen.has(title) ? groupOpen.get(title) : open;
   const node = h('details', { class: 'group', ...(isOpen ? { open: true } : {}) },
     h('summary', {}, title),
@@ -152,6 +152,19 @@ export function renderInspector(root, ctx) {
   if (sliderDragging) return;
   root.replaceChildren();
   root.append(h('h2', { class: 'insp-title' }, 'Puzzle'));
+  root.append(h('label', { class: 'poster-entry' },
+    h('input', {
+      type: 'file',
+      accept: 'application/pdf,.pdf',
+      hidden: true,
+      onchange: (e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        ctx.openPoster(file);
+      },
+    }),
+    h('b', {}, 'Ada poster PDF? Upload di sini'),
+    h('span', {}, 'Pilih A4, A3 atau A2. File cut dan file print keluar siap.')));
   const p = state.params;
   const mat = material();
   const puzzle = getPuzzle();
@@ -378,8 +391,9 @@ const STEPS = [
     + 'picking pieces out one at a time.'],
 ];
 
-export function fillHelpDialog(dlg) {
-  dlg.querySelector('#helpSteps').replaceChildren(...STEPS.map(([t, s]) =>
+export function fillHelpDialog(dlg, steps = STEPS, title = 'How to cut this') {
+  dlg.querySelector('h2').textContent = title;
+  dlg.querySelector('#helpSteps').replaceChildren(...steps.map(([t, s]) =>
     h('li', {}, t, h('br'), h('span', {}, s))));
 }
 

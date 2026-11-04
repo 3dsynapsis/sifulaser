@@ -14,6 +14,10 @@ import { signedIn } from './cloud.js';
 import {
   UNTITLED, autoName, designParams, designMaterial, designExtra, readDesign,
 } from './saved.js';
+import {
+  initPoster, posterActive, openPosterFile, renderPoster, shufflePoster, openPosterExport,
+  POSTER_STEPS,
+} from './posterFlow.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -29,6 +33,8 @@ const els = {
   redo: $('#redoBtn'),
   exportDlg: $('#exportDlg'),
   helpDlg: $('#helpDlg'),
+  posterDlg: $('#posterDlg'),
+  zoomPick: $('#zoomPick'),
 };
 
 load();
@@ -38,7 +44,9 @@ const view = new View(els.preview);
 
 const ctx = {
   refresh: () => refresh(),
+  openPoster: (file) => openPosterFile(file),
   shuffle: () => {
+    if (posterActive()) { shufflePoster(); return; }
     update((s) => { s.params.seed = Math.floor(Math.random() * 100000); },
       { geometry: true });
     refresh();
@@ -55,21 +63,62 @@ function markSaved() {
   statusTimer = setTimeout(() => { els.status.textContent = 'Saved'; }, 400);
 }
 
+const pickBackdrop = (id) => {
+  update((s) => { s.backdrop = id; }, { history: false });
+  refresh();
+};
+
 function refresh() {
-  const puzzle = getPuzzle();
   els.stage.dataset.backdrop = state.backdrop;
+  renderBackdrop(els.backdrop, pickBackdrop);
+  if (posterActive()) {
+    renderPoster();
+    return;
+  }
+  const puzzle = getPuzzle();
   view.render(puzzle, { boardColor: material().color });
   renderInspector(els.inspector, ctx);
-  renderBackdrop(els.backdrop, (id) => {
-    update((s) => { s.backdrop = id; }, { history: false });
-    refresh();
-  });
   renderActions({ undoBtn: els.undo, redoBtn: els.redo });
   els.hint.textContent =
     `${puzzle.derived.pieces} pieces · ${puzzle.params.width} x ${puzzle.params.height} mm`;
   els.hint.classList.add('show');
   markSaved();
 }
+
+// Poster mode borrows the stage and the inspector, and hides the top-bar buttons
+// that act on the ordinary puzzle: undo, redo and saving have nothing to act on
+// there, and leaving must find the ordinary puzzle exactly as it was.
+initPoster({
+  view,
+  els,
+  saveFile,
+  refresh: () => refresh(),
+  setMode: (on, name) => {
+    document.body.classList.toggle('poster-mode', on);
+    els.zoomPick.hidden = !on;
+    els.name.readOnly = on;
+    els.name.value = on ? name : state.name;
+  },
+});
+
+$('#zoomIn').addEventListener('click', () => view.zoomBy(1.5));
+$('#zoomOut').addEventListener('click', () => view.zoomBy(1 / 1.5));
+$('#zoomFit').addEventListener('click', () => view.zoomFit());
+
+// A poster can also be dropped straight on the stage.
+const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
+els.stage.addEventListener('dragover', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  els.stage.classList.add('drag-over');
+});
+els.stage.addEventListener('dragleave', () => els.stage.classList.remove('drag-over'));
+els.stage.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  els.stage.classList.remove('drag-over');
+  openPosterFile(e.dataTransfer.files[0]);
+});
 
 subscribe(() => {});
 refresh();
@@ -85,11 +134,13 @@ els.redo.addEventListener('click', () => { redo(); els.name.value = state.name; 
 $('#shuffleBtn').addEventListener('click', () => ctx.shuffle());
 
 $('#helpBtn').addEventListener('click', () => {
-  fillHelpDialog(els.helpDlg);
+  if (posterActive()) fillHelpDialog(els.helpDlg, POSTER_STEPS, 'Cara buat puzzle dari poster');
+  else fillHelpDialog(els.helpDlg);
   els.helpDlg.showModal();
 });
 
 $('#exportBtn').addEventListener('click', () => {
+  if (posterActive()) { openPosterExport(); return; }
   fillExportDialog(els.exportDlg);
   els.exportDlg.showModal();
   void saveAfterExport();
@@ -108,7 +159,7 @@ els.exportDlg.addEventListener('close', () => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (!(e.ctrlKey || e.metaKey)) return;
+  if (!(e.ctrlKey || e.metaKey) || posterActive()) return;
   const k = e.key.toLowerCase();
   if (k === 'z') {
     e.preventDefault();
