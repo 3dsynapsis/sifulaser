@@ -10,6 +10,7 @@
 //   * jenama (/shared/brand-core.js) - fail cut dapat jalur "by sifulaser.com" di
 //     bawah semua part, tanpa mengalihkan apa-apa. Fail print TIDAK berubah walau
 //     sebait: jalur itu akan tercetak.
+//   * layer FlexiPrint - fail print ada Artwork, Spot 1 dan Spot 2, nama tepat.
 
 import { pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -22,7 +23,7 @@ const { buildPuzzle } = await imp('puzzle/src/geom/puzzle.js');
 const { planPoster, puzzleParams, UV_BED_MM } = await imp('puzzle/src/geom/poster.js');
 const { buildSheet, sheetToPdf } = await imp('puzzle/src/exportJobSheet.js');
 const { openForPrint, buildPrintPdf } = await imp('puzzle/src/posterPdf.js');
-const { PDFDocument } = await imp('puzzle/vendor/pdf-lib.esm.min.js');
+const { PDFDocument, PDFName, PDFDict, PDFArray } = await imp('puzzle/vendor/pdf-lib.esm.min.js');
 const { brandFile, BAND_MM } = await imp('shared/brand-core.js');
 
 let pass = 0;
@@ -68,6 +69,14 @@ const brandedPrint = brandFile('poster-print-284x426.pdf', 'application/pdf', pr
 check('nama dapat awalan', brandedPrint.name === 'sifulaser-poster-print-284x426.pdf');
 check('kandungan sama sebait demi sebait',
   brandedPrint.data.length === print.length && brandedPrint.data.every((b, i) => b === print[i]));
+
+console.log('layer FlexiPrint dalam fail print');
+const printDoc = await PDFDocument.load(brandedPrint.data);
+const layers = printDoc.catalog.lookup(PDFName.of('OCProperties'), PDFDict)
+  .lookup(PDFName.of('OCGs'), PDFArray).asArray()
+  .map((r) => printDoc.context.lookup(r, PDFDict).lookup(PDFName.of('Name')).decodeText());
+check('tiga layer, nama Spot tepat', layers.join('|') === 'Artwork|Spot 1|Spot 2', layers.join('|'));
+check('saiz page kekal panel', Math.abs(printDoc.getPage(0).getWidth() * toMm - 312) < 0.01);
 
 console.log(`\n${pass} lulus, ${fail} gagal`);
 if (fail) process.exit(1);

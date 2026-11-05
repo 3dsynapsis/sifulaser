@@ -503,7 +503,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* ---------- poster ke puzzle (4 November 2026) ----------
    Upload a PDF, pick a size, take the files. Poster mode borrows the stage and
-   the inspector; the top-bar buttons that act on the ordinary puzzle step aside. */
+   the inspector; undo and redo, which act on the ordinary puzzle, step aside. */
 /* A long file name must shrink rather than push the whole column past the panel. */
 .group-body { grid-template-columns: minmax(0, 1fr); }
 
@@ -517,11 +517,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .poster-entry input[hidden] { display: none; }
 
 body.poster-mode #undoBtn,
-body.poster-mode #redoBtn,
-body.poster-mode #saveBtn,
-body.poster-mode #filesBtn { display: none; }
-body.poster-mode #helpBtn { margin-right: 0; }
-.name-input:read-only { cursor: default; border-color: transparent; background: transparent; }
+body.poster-mode #redoBtn { display: none; }
+.status.unsaved { color: var(--danger); font-weight: 600; }
+.save-files { display: grid; gap: 4px; }
+#saveDlg .design-list { max-height: 30vh; overflow-y: auto; }
+#saveDlg { max-height: 90vh; overflow-y: auto; }
 
 .stage.drag-over { outline: 3px dashed var(--accent); outline-offset: -8px; }
 .preview.zoomable { cursor: grab; touch-action: none; }
@@ -594,5 +594,4 @@ input[type="date"] {
   .file-row .ghost { flex: 1; }
 }
 
-body.poster-mode #status { display: none; }
 input[type="date"] { color-scheme: light dark; }

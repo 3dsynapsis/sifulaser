@@ -75,12 +75,23 @@ let openName = null;
 
 export const current = () => ({ id: openId, name: openName });
 
+/** The poster flow opens and closes jobs on its own terms, and says so here. */
+export function setOpen(id, name) {
+  openId = id;
+  openName = name;
+}
+
 export function forget() {
   designs = null;
   failure = null;
   openId = null;
   openName = null;
 }
+
+const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+/** For the label in a list. readPoster in posterSaved.js is what opens one. */
+const isPoster = (row) => typeof row?.extra === 'string' && row.extra.includes('"poster":');
 
 const when = (iso) => {
   const t = Date.parse(iso || '');
@@ -102,11 +113,11 @@ const message = (err) => (err instanceof cloud.NotSignedIn
 /**
  * Save the design on screen.
  *
- * `asNew` forces a copy; otherwise an open design is updated where it stands.
- * That distinction is the whole reason exporting three times does not leave
- * three entries called "tanpa nama" stacked on each other - which is what
- * the first version did, and it filled the list with near-duplicates within a
- * single sitting.
+ * `asNew` forces a copy; `target` overwrites that design; otherwise an open design
+ * is updated where it stands. That distinction is the whole reason exporting three
+ * times does not leave three entries called "tanpa nama" stacked on each other -
+ * which is what the first version did, and it filled the list with near-duplicates
+ * within a single sitting.
  */
 // Satu simpanan pada satu masa. Alat menyimpan bila Export dibuka DAN pada
 // setiap muat turun; dua fail yang ditekan berturut-turut, tanpa barisan ini,
@@ -120,8 +131,11 @@ export function saveCurrent(store, opts) {
   return run;
 }
 
-async function saveNow(store, { name, asNew = false } = {}) {
+async function saveNow(store, { name, asNew = false, target = null } = {}) {
   const title = String(name || store.name() || UNTITLED).trim();
+
+  // Whatever a tool must settle before its data can be read: a poster's seeds.
+  if (store.prepare) await store.prepare();
 
   // Tools that carry nothing beyond their settings leave this out entirely.
   let extra = null;
@@ -136,7 +150,7 @@ async function saveNow(store, { name, asNew = false } = {}) {
   }
 
   const id = await cloud.save({
-    id: asNew ? null : openId,
+    id: target || (asNew ? null : openId),
     name: title,
     params: store.params(),
     material: store.material(),
@@ -146,6 +160,7 @@ async function saveNow(store, { name, asNew = false } = {}) {
   openId = id;
   openName = title;
   designs = null;
+  store.onSaved?.(id, title);
   return id;
 }
 
@@ -168,13 +183,21 @@ export async function saveQuietly(store) {
   }
 }
 
-function ensureList(rerender) {
-  if (designs !== null || loading || failure) return;
-  loading = true;
-  cloud.list()
-    .then((rows) => { designs = rows; })
-    .catch((err) => { failure = message(err); })
-    .then(() => { loading = false; rerender(); });
+let pendingList = null;
+
+function ensureList(done) {
+  if (designs !== null || failure) return;
+  if (!pendingList) {
+    loading = true;
+    pendingList = cloud.list()
+      .then((rows) => { designs = rows; })
+      .catch((err) => { failure = message(err); })
+      .then(() => {
+        loading = false;
+        pendingList = null;
+      });
+  }
+  pendingList.then(done);
 }
 
 const signInBlock = (h, note) => [
@@ -197,7 +220,8 @@ export async function openById(store, id) {
     designs = rows;
     const row = rows.find((r) => r.id === id);
     if (!row || (row.tool && row.tool !== TOOL)) return false;
-    store.apply(row);
+    // A tool may answer false: the poster flow can be told to stay where it is.
+    if ((await store.apply(row)) === false) return false;
     openId = row.id;
     openName = row.name;
     return true;
@@ -206,15 +230,23 @@ export async function openById(store, id) {
   }
 }
 
-/** Body of the Save dialog. */
-export function saveDialogBody(h, store, close, rerender) {
+/**
+ * Body of the Save dialog: Save As (Boss, 5 Nov 2026).
+ *
+ * Type a name for a new file, or pick an older one to overwrite it. The rule is a
+ * desktop Save As: a name already on the list means that file, and the button says
+ * Overwrite before anything happens.
+ */
+export function saveDialogBody(h, store, close) {
   if (!cloud.signedIn()) {
     return h('div', { class: 'dlg-body' },
       h('h2', {}, 'Simpan reka bentuk'),
       ...signInBlock(h,
         'Daftar masuk untuk menyimpan. Reka bentuk disimpan pada akaun anda, '
         + 'jadi ia ada di telefon dan di komputer, dan tidak hilang bila anda '
-        + 'kosongkan data pelayar.'));
+        + 'kosongkan data pelayar.'),
+      h('div', { class: 'dlg-actions' },
+        h('button', { class: 'ghost', type: 'button', onclick: close }, 'Batal')));
   }
 
   // One name for the design, prefilled from the project name in the top bar, so
@@ -224,48 +256,146 @@ export function saveDialogBody(h, store, close, rerender) {
     type: 'text',
     value: store.name(),
     maxlength: '120',
-    placeholder: 'Nama reka bentuk',
+    placeholder: 'Nama file',
   });
 
-  let busy = false;
-  const commit = (asNew) => async () => {
-    if (busy) return;
-    busy = true;
-    failure = null;
+  // These parts repaint as the name changes. Rebuilding the whole dialog would take
+  // the cursor out of the box being typed in.
+  const warning = h('p', { class: 'warn-line', hidden: true });
+  const editing = h('p', { class: 'hint', hidden: !openId }, openId ? `Sedang edit: ${openName}` : '');
+  const listBox = h('div', { class: 'save-files' });
+  const actions = h('div', { class: 'dlg-actions' });
+
+  failure = null;
+  let saving = false;
+  let error = null;
+  let onEnter = null;
+
+  // Only this tool's designs: overwriting a Box Maker file from here would be a
+  // mistake nothing could undo.
+  const files = () => {
+    const rows = (designs || []).filter((r) => !r.tool || r.tool === TOOL);
+    return openId && !rows.some((r) => r.id === openId)
+      ? [{ id: openId, name: openName }, ...rows]
+      : rows;
+  };
+
+  const sameName = () => {
+    const wanted = input.value.trim() || UNTITLED;
+    const same = files().filter((r) => sameText(r.name, wanted));
+    return same.find((r) => r.id === openId) || same[0] || null;
+  };
+
+  let paint = () => {};
+
+  const save = async (opts) => {
+    if (saving) return;
+    saving = true;
+    error = null;
+    paint();
     try {
       const name = input.value.trim() || UNTITLED;
       store.rename(name);
-      await saveCurrent(store, { name, asNew });
+      await saveCurrent(store, { name, ...opts });
       close();
     } catch (err) {
-      failure = message(err);
-      busy = false;
-      rerender();
+      error = message(err);
+      saving = false;
+      paint();
     }
   };
 
+  const saveButton = (cls, label, opts, title) => h('button', {
+    class: cls,
+    type: 'button',
+    title,
+    disabled: saving,
+    onclick: () => save(opts),
+  }, saving && cls === 'primary' ? 'Menyimpan...' : label);
+
+  paint = () => {
+    const same = sameName();
+    const other = same && same.id !== openId;
+    warning.hidden = !error && !other;
+    warning.textContent = error
+      || (other ? `"${same.name}" akan diganti dengan yang ni. File lama tak boleh dikembalikan.` : '');
+
+    const buttons = [h('button', { class: 'ghost', type: 'button', onclick: close }, 'Batal')];
+    if (same) {
+      onEnter = { target: same.id };
+      buttons.push(saveButton('primary', 'Overwrite', onEnter));
+    } else if (openId) {
+      onEnter = { asNew: true };
+      buttons.push(
+        saveButton('ghost', 'Overwrite file asal', { target: openId }, `Ganti "${openName}" dan guna nama baru`),
+        saveButton('primary', 'Simpan sebagai baru', onEnter),
+      );
+    } else {
+      onEnter = { asNew: true };
+      buttons.push(saveButton('primary', 'Simpan', onEnter));
+    }
+    actions.replaceChildren(...buttons);
+
+    const scroll = listBox.querySelector('ul')?.scrollTop || 0;
+    const rows = files();
+    if (rows.length) {
+      const list = h('ul', { class: 'design-list' }, rows.map((row) => h('li', {
+        class: same?.id === row.id ? 'design open' : 'design',
+      },
+      h('button', {
+        class: 'design-open',
+        type: 'button',
+        onclick: () => {
+          input.value = row.name || '';
+          paint();
+          input.focus();
+        },
+      },
+      h('span', { class: 'design-name' }, row.name || 'Tanpa nama'),
+      h('span', { class: 'design-when' }, isPoster(row) ? `Poster - ${when(row.updatedAt)}` : when(row.updatedAt))))));
+      listBox.replaceChildren(h('p', { class: 'field-label' }, 'Atau pilih file lama untuk overwrite'), list);
+      list.scrollTop = scroll;
+    } else if (loading) {
+      listBox.replaceChildren(h('p', { class: 'muted' }, 'Memuatkan senarai file...'));
+    } else if (failure) {
+      listBox.replaceChildren(h('p', { class: 'muted' }, 'Senarai file lama tak dapat dimuatkan.'));
+    } else {
+      listBox.replaceChildren();
+    }
+  };
+
+  input.addEventListener('input', () => {
+    error = null;
+    paint();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !onEnter) return;
+    e.preventDefault();
+    save(onEnter);
+  });
+
+  ensureList(() => paint());
+  paint();
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  });
+
   return h('div', { class: 'dlg-body' },
-    h('h2', {}, 'Simpan reka bentuk'),
-    h('label', { class: 'field-label' }, 'Nama'),
+    h('h2', {}, 'Simpan sebagai'),
+    h('label', { class: 'field-label' }, 'Nama file'),
     input,
-    openId ? h('p', { class: 'hint' }, `Sedang mengedit: ${openName}`) : null,
+    editing,
+    warning,
     droppedExtra
       ? h('p', { class: 'warn-line' },
         'Sebahagian data reka bentuk ini terlalu besar untuk disimpan, jadi '
         + 'hanya tetapannya yang disimpan. Eksport fail potong untuk '
         + 'menyimpan selebihnya.')
       : null,
-    failure ? h('p', { class: 'warn-line' }, failure) : null,
-    h('div', { class: 'dlg-actions' },
-      h('button', { class: 'ghost', type: 'button', onclick: close }, 'Batal'),
-      openId
-        ? h('button', {
-          class: 'ghost wide', type: 'button', onclick: commit(true),
-        }, 'Simpan sebagai baharu')
-        : null,
-      h('button', {
-        class: 'primary', type: 'button', onclick: commit(false),
-      }, openId ? 'Kemas kini' : 'Simpan')));
+    listBox,
+    store.note ? h('p', { class: 'hint' }, store.note) : null,
+    actions);
 }
 
 /** Body of the gallery dialog. */
@@ -323,7 +453,7 @@ export function filesDialogBody(h, store, close, rerender) {
         title: row.tool === TOOL
           ? 'Buka reka bentuk ini'
           : `Buka dalam ${(TOOLS[row.tool] || {}).name || row.tool}`,
-        onclick: () => {
+        onclick: async () => {
           // A design made in another tool cannot be opened in this one -
           // the settings are a different shape entirely - so go to the tool
           // it belongs to and let that one open it.
@@ -333,17 +463,19 @@ export function filesDialogBody(h, store, close, rerender) {
             location.href = `${dest.path}?design=${encodeURIComponent(row.id)}`;
             return;
           }
-          store.apply(row);
+          // Closed first: opening a poster can ask something of its own, and a
+          // tool may answer false to stay where it is.
+          close();
+          if ((await store.apply(row)) === false) return;
           openId = row.id;
           openName = row.name;
-          close();
         },
       },
       h('span', { class: 'design-name' }, row.name || 'Tanpa nama'),
       h('span', { class: 'design-when' },
         row.tool && row.tool !== TOOL
           ? `${(TOOLS[row.tool] || {}).name || row.tool} - ${when(row.updatedAt)}`
-          : when(row.updatedAt))),
+          : `${isPoster(row) ? 'Poster - ' : ''}${when(row.updatedAt)}`)),
       h('button', {
         class: 'icon-btn',
         type: 'button',
@@ -355,7 +487,7 @@ export function filesDialogBody(h, store, close, rerender) {
       }, '×'))))
       : null,
 
-    h('p', { class: 'hint' }, KEPT),
+    h('p', { class: 'hint' }, store.note || KEPT),
 
     h('div', { class: 'dlg-actions' },
       h('button', { class: 'primary', type: 'button', onclick: close }, 'Tutup')));

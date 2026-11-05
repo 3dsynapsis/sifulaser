@@ -37,7 +37,8 @@ terlalu tinggi sehingga garisan bersilang.
 
 Upload PDF poster, pilih saiz, dapat semua fail kerja: **fail cut** (3 part atas
 job sheet, format sama seperti fail CorelDRAW kedai) dan **fail print** (artwork
-di tempatnya). PDF kekal dalam browser, tiada apa-apa dihantar ke mana-mana.
+di tempatnya, dengan layer Spot). PDF kekal dalam browser dan tidak dihantar ke
+mana-mana. Butang Simpan hanya menghantar tetapan ke akaun.
 
 Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
 
@@ -49,8 +50,37 @@ Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
   di sisi pendek. Lebihan itu jatuh atas frame clear.
 - Frame clear dan batang border 16 mm, backing dan border bucu R5, semua 3 mm.
 - Panel mesti muat UV bed 900 x 600 mm, kalau tidak Export ditolak.
-- PDF banyak page: tick page yang dikehendaki, setiap page dapat satu set fail, dan
-  setiap satu seed berbeza supaya keping dua puzzle tidak boleh tertukar.
+- PDF banyak page: tick page yang dikehendaki. Page saiz sama kongsi satu seed dan
+  satu fail cut, fail print satu untuk setiap page (bos, 5 November 2026). Page saiz
+  lain dapat seed dan fail cut sendiri. Keping dua poster saiz sama boleh tertukar,
+  jadi kena asingkan ikut gambar.
+
+Fail print ada tiga layer PDF (bos, 5 November 2026), supaya tidak perlu lagi buka
+Photoshop sebelum FlexiPRINT:
+
+- `Artwork` di atas, kemudian `Spot 1` dan `Spot 2`. FlexiPRINT cetak white ikut
+  **nama** layer, jadi ejaan `Spot 1` dan `Spot 2` jangan diubah (`SPOT_LAYERS`).
+- Setiap Spot ialah segi empat penuh sama saiz dan sama tempat dengan artwork, bukan
+  penuh page, sebab frame clear tidak kena white.
+- Warna Spot ialah spot colour nama yang sama, dengan alternatif hitam 100% sebagai
+  penanda. Layer `Artwork` bermula dengan segi empat tanpa dakwat, jadi hitam itu
+  tidak boleh terlihat atau tercetak, walaupun poster ada kawasan telus.
+- **Belum diuji dalam FlexiPRINT sebenar** pada masa nota ini ditulis.
+
+Simpan (bos, 5 November 2026: kerja tidak boleh hilang bila terkeluar atau tersilap):
+
+- Butang Simpan buka popup Simpan sebagai: taip nama baru, atau pilih fail lama untuk
+  overwrite. Nama yang sudah ada bermaksud fail itu, dan butangnya tertulis Overwrite.
+- Akaun simpan tetapan sahaja (`extra.poster`): saiz, tick, client, dateline, seed.
+  Seed ditulis, bukan dikira semula, supaya garisan cut kekal sama walaupun
+  `strength.js` berubah.
+- PDF kekal dalam IndexedDB browser ini, dikenal melalui hash. PC lain atau data
+  browser yang dikosongkan: alat minta PDF itu semula.
+- Draf automatik: setiap perubahan ditulis ke browser, jadi reload atau terkeluar
+  mengembalikan kerja, walaupun Simpan belum ditekan.
+- Menutup atau menukar poster yang belum disimpan bertanya dahulu.
+- Export menyimpan hanya kali pertama (seperti alat lain). Ia tidak overwrite fail
+  yang sudah ada, hanya mengingatkan; bos mahu pilih overwrite sendiri.
 
 Fail baharu dalam `src/`:
 
@@ -59,6 +89,8 @@ Fail baharu dalam `src/`:
 - `exportJobSheet.js` - job sheet: susunan part dan penulis PDF
 - `posterPdf.js` - baca PDF pelanggan dan tulis fail print
 - `posterFlow.js` - keadaan dan panel mod poster
+- `posterSaved.js` - bentuk rekod poster dalam akaun (tulen)
+- `posterVault.js` - PDF dan draf dalam IndexedDB
 - `zip.js` - ZIP tanpa mampatan untuk "Download semua"
 
 `vendor/` hanya dimuat bila seseorang upload poster (lebih kurang 2 MB):

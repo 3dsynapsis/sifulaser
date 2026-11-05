@@ -114,6 +114,14 @@ export async function pageImages(lib, page) {
 
 const pdfLib = () => import('../vendor/pdf-lib.esm.min.js');
 
+/**
+ * The layers of the print file, top to bottom. FlexiPRINT prints a layer in white
+ * going by its name, so these two must be spelled exactly so (Boss, 5 Nov 2026).
+ * They used to be added by hand in Photoshop before every print.
+ */
+export const ART_LAYER = 'Artwork';
+export const SPOT_LAYERS = ['Spot 1', 'Spot 2'];
+
 /** Parse the customer's PDF for placing its pages. Throws if it is encrypted. */
 export async function openForPrint(bytes) {
   const { PDFDocument } = await pdfLib();
@@ -125,11 +133,24 @@ export async function openForPrint(bytes) {
  * Lay the panel on the printer bed the same way round as the page and everything
  * lines up. No cut lines on it, and nothing else that could get printed.
  *
+ * Three PDF layers: the artwork on top, then Spot 1 and Spot 2, each a solid rectangle
+ * exactly the size of the artwork. They stop at the artwork rather than filling the
+ * page, because the clear frame around it takes no white.
+ *
+ * Each Spot rectangle is also painted in a spot colour of the same name. Flexi splits
+ * a layered PDF by layer, and then the colour is only a marker: 100% black, the way a
+ * spot channel marks full coverage. It must never reach the plate as black ink, so the
+ * artwork layer starts with an opaque no-ink rectangle. A poster with bare paper in it
+ * (most vector PDFs) then still looks right in any viewer, and a RIP that ignored the
+ * layers altogether would print the artwork alone, not a black panel.
+ *
  * @param source a document from openForPrint
  * @param plan   result of planPoster
  */
 export async function buildPrintPdf(source, pageIndex, plan, { title } = {}) {
-  const { PDFDocument, degrees } = await pdfLib();
+  const {
+    PDFDocument, PDFName, PDFNumber, PDFOperator, PDFString, degrees,
+  } = await pdfLib();
   const out = await PDFDocument.create();
   const srcPage = source.getPage(pageIndex);
   const box = srcPage.getCropBox();
@@ -148,6 +169,54 @@ export async function buildPrintPdf(source, pageIndex, plan, { title } = {}) {
   const artH = plan.art.height * MM_TO_PT;
   const left = plan.art.x * MM_TO_PT;
   const bottom = panelH - plan.art.y * MM_TO_PT - artH;
+
+  const ctx = out.context;
+  const name = (text) => PDFName.of(text);
+  const op = (operator, ...args) => PDFOperator.of(operator, args);
+  const layer = (text) => ctx.register(ctx.obj({ Type: 'OCG', Name: PDFString.of(text) }));
+
+  const artLayer = layer(ART_LAYER);
+  const spots = SPOT_LAYERS.map((text, i) => ({ text, key: `Spot${i + 1}`, ref: layer(text) }));
+  const panelOrder = [artLayer, ...spots.map((s) => s.ref)];
+  out.catalog.set(name('OCProperties'), ctx.obj({
+    OCGs: panelOrder,
+    D: { Name: PDFString.of('Layers'), BaseState: 'ON', Order: panelOrder },
+  }));
+
+  const marker = ctx.register(ctx.obj({
+    FunctionType: 2, Domain: [0, 1], C0: [0, 0, 0, 0], C1: [0, 0, 0, 1], N: 1,
+  }));
+  const resources = page.node.normalizedEntries().Resources;
+  resources.set(name('ColorSpace'), ctx.obj(Object.fromEntries(
+    spots.map((s) => [s.key, ['Separation', s.text, 'DeviceCMYK', marker]]),
+  )));
+  resources.set(name('Properties'), ctx.obj({
+    Art: artLayer,
+    ...Object.fromEntries(spots.map((s) => [s.key, s.ref])),
+  }));
+
+  const artRect = () => op('re', PDFNumber.of(left), PDFNumber.of(bottom), PDFNumber.of(artW), PDFNumber.of(artH));
+
+  // Painted from the bottom up, so the last Spot goes first and the artwork last.
+  for (const s of [...spots].reverse()) {
+    page.pushOperators(
+      op('BDC', name('OC'), name(s.key)),
+      op('q'),
+      op('cs', name(s.key)),
+      op('scn', PDFNumber.of(1)),
+      artRect(),
+      op('f'),
+      op('Q'),
+      op('EMC'),
+    );
+  }
+  page.pushOperators(
+    op('BDC', name('OC'), name('Art')),
+    op('q'),
+    op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
+    artRect(),
+    op('f'),
+  );
 
   // A page's /Rotate is an instruction to viewers, and an embedded page does not
   // carry it across, so the turn has to be applied here. Each case puts the
@@ -170,6 +239,7 @@ export async function buildPrintPdf(source, pageIndex, plan, { title } = {}) {
     yScale: sideways ? xScale : yScale,
     rotate: degrees(place.angle),
   });
+  page.pushOperators(op('Q'), op('EMC'));
 
   out.setTitle(title || 'Puzzle print file');
   out.setCreator('SifuLaser Puzzle Generator');

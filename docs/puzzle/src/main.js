@@ -15,9 +15,11 @@ import {
   UNTITLED, autoName, designParams, designMaterial, designExtra, readDesign,
 } from './saved.js';
 import {
-  initPoster, posterActive, openPosterFile, renderPoster, shufflePoster, openPosterExport,
+  initPoster, posterActive, openPosterFile, openPosterDesign, closePoster, renderPoster,
+  shufflePoster, openPosterExport, restorePosterDraft, renamePoster, posterStore,
   POSTER_STEPS,
 } from './posterFlow.js';
+import { readPoster } from './posterSaved.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -60,7 +62,8 @@ let statusTimer = null;
 function markSaved() {
   els.status.textContent = 'Saving...';
   clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => { els.status.textContent = 'Saved'; }, 400);
+  // A poster opened in the meantime has its own status, which must not be overwritten.
+  statusTimer = setTimeout(() => { if (!posterActive()) els.status.textContent = 'Saved'; }, 400);
 }
 
 const pickBackdrop = (id) => {
@@ -85,19 +88,29 @@ function refresh() {
   markSaved();
 }
 
-// Poster mode borrows the stage and the inspector, and hides the top-bar buttons
-// that act on the ordinary puzzle: undo, redo and saving have nothing to act on
-// there, and leaving must find the ordinary puzzle exactly as it was.
+// Poster mode borrows the stage and the inspector, and hides undo and redo, which
+// act on the ordinary puzzle. Leaving must find that puzzle exactly as it was, so the
+// design it had open waits here: a poster's Save must not land on top of it.
+let ordinaryOpen = null;
+
 initPoster({
   view,
   els,
   saveFile,
   refresh: () => refresh(),
+  openSave: () => openSaveDialog(),
+  applyRow: (row) => applyRow(row),
   setMode: (on, name) => {
     document.body.classList.toggle('poster-mode', on);
     els.zoomPick.hidden = !on;
-    els.name.readOnly = on;
     els.name.value = on ? name : state.name;
+    if (on) {
+      ordinaryOpen = gallery.current();
+      gallery.setOpen(null, null);
+    } else if (ordinaryOpen) {
+      gallery.setOpen(ordinaryOpen.id, ordinaryOpen.name);
+      ordinaryOpen = null;
+    }
   },
 });
 
@@ -124,6 +137,10 @@ subscribe(() => {});
 refresh();
 
 els.name.addEventListener('change', () => {
+  if (posterActive()) {
+    renamePoster(els.name.value);
+    return;
+  }
   update((s) => { s.name = els.name.value.trim() || 'Untitled puzzle'; },
     { history: false });
   markSaved();
@@ -276,8 +293,18 @@ const galleryStore = {
     els.name.value = state.name;
     markSaved();
   },
-  apply: (row) => applyDesign(row),
+  apply: (row) => applyRow(row),
 };
+
+const activeStore = () => (posterActive() ? posterStore : galleryStore);
+
+/** Open an account record of either kind. @returns false when nothing changed */
+async function applyRow(row) {
+  if (readPoster(row)) return openPosterDesign(row);
+  if (posterActive() && !(await closePoster())) return false;
+  applyDesign(row);
+  return true;
+}
 
 /** Open an account record: one undo step, and every control drawn again. */
 function applyDesign(row) {
@@ -305,11 +332,15 @@ async function saveAfterExport() {
 
 const dialogFiller = (build) => function fill(dlg) {
   const close = () => dlg.close();
-  dlg.replaceChildren(build(h, galleryStore, close, () => fill(dlg)));
+  dlg.replaceChildren(build(h, activeStore(), close, () => fill(dlg)));
 };
 const fillSaveDialog = dialogFiller(gallery.saveDialogBody);
 const fillFilesDialog = dialogFiller(gallery.filesDialogBody);
-$('#saveBtn').addEventListener('click', () => { fillSaveDialog($('#saveDlg')); $('#saveDlg').showModal(); });
+function openSaveDialog() {
+  fillSaveDialog($('#saveDlg'));
+  $('#saveDlg').showModal();
+}
+$('#saveBtn').addEventListener('click', openSaveDialog);
 $('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg')); $('#filesDlg').showModal(); });
 
 // The store emits on every mutation; the callers above already refresh, so this
@@ -319,13 +350,18 @@ emit();
 // Arriving from another tool's gallery: ?design=<id>. After the first paint, so
 // the tool is usable even if the account is slow to answer; the parameter is
 // dropped afterwards so a reload does not throw away the changes made since.
+// Otherwise, a poster left on screen last time comes back as it was.
 {
   const wanted = new URLSearchParams(location.search).get('design');
   if (wanted) {
-    gallery.openById(galleryStore, wanted).finally(() => {
+    gallery.openById(galleryStore, wanted).then((opened) => {
+      if (!opened) restorePosterDraft();
+    }).finally(() => {
       const url = new URL(location.href);
       url.searchParams.delete('design');
       history.replaceState(null, '', url.pathname + url.search + url.hash);
     });
+  } else {
+    restorePosterDraft();
   }
 }

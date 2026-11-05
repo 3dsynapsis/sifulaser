@@ -30,6 +30,8 @@ const C = await imp('puzzle/src/cloud.js');
 const G = await imp('puzzle/src/designs.js');
 const { buildPuzzle, DEFAULTS } = await imp('puzzle/src/geom/puzzle.js');
 const { MATERIALS } = await imp('puzzle/src/store.js');
+const P = await imp('puzzle/src/posterSaved.js');
+const { planPoster } = await imp('puzzle/src/geom/poster.js');
 
 let passed = 0;
 let failed = 0;
@@ -245,6 +247,74 @@ const encodable = (v) => v === null || ['string', 'boolean'].includes(typeof v)
     && S.readDesign(applied).state.params.cols === 20);
   applied = null;
   check('galeri: rekod alat lain tidak dibuka', (await G.openById(opener, 'p1')) === false && applied === null);
+
+  // Simpan sebagai: nama baru, overwrite file lama, dan penyediaan poster.
+  reply = (req) => ({ status: 200, body: JSON.stringify({ name: `x/designs/${req.method === 'POST' ? 'baru1' : req.url.split('/').pop()}` }) });
+  G.setOpen('abc', 'Lama');
+  check('simpan sebagai: setOpen dilaporkan oleh current', G.current().id === 'abc' && G.current().name === 'Lama');
+  calls.length = 0;
+  await G.saveCurrent(gstore, { name: 'Baru', asNew: true });
+  check('simpan sebagai: nama baru -> POST, bukan PATCH file terbuka', calls.length === 1 && calls[0].method === 'POST'
+    && calls[0].body.fields.name.stringValue === 'Baru', calls.map((c) => c.method).join());
+  check('simpan sebagai: file baru jadi file terbuka', G.current().id === 'baru1' && G.current().name === 'Baru');
+  calls.length = 0;
+  await G.saveCurrent(gstore, { name: 'Lama Punya', target: 'lama9' });
+  check('simpan sebagai: pilih file lama -> PATCH file tu sahaja', calls.length === 1 && calls[0].method === 'PATCH'
+    && calls[0].url.endsWith('/designs/lama9'), calls.map((c) => `${c.method} ${c.url}`).join());
+  check('simpan sebagai: file lama jadi file terbuka', G.current().id === 'lama9' && G.current().name === 'Lama Punya');
+  calls.length = 0;
+  await G.saveCurrent(gstore, { name: 'Lama Punya' });
+  check('simpan sebagai: tanpa pilihan -> kekal file terbuka', calls[0].method === 'PATCH' && calls[0].url.endsWith('/designs/lama9'));
+
+  // Poster: seed mesti diselesaikan sebelum data dibaca, dan rekod ikut firestore.rules.
+  const plan = planPoster(173.397, 260.096, { paper: 'A3' });
+  const job = {
+    file: {
+      name: 'Prostar.pdf', size: 99, hash: 'cd'.repeat(32), pages: 4,
+    },
+    choice: { paper: 'A3' },
+    ticked: [0, 1, 2, 3],
+    current: 0,
+    view: 'panel',
+    shuffle: 0,
+    client: 'Pejabat Kesihatan',
+    dateline: '2026-11-20',
+    seeds: [],
+  };
+  const order = [];
+  const posterStore = {
+    name: () => 'Prostar A3',
+    prepare: async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      job.seeds = [{ key: P.planKey(plan), seed: 123 }];
+      order.push('prepare');
+    },
+    params: () => {
+      order.push('params');
+      return P.posterRecord(job, plan, 123).params;
+    },
+    material: () => P.posterRecord(job, plan, 123).material,
+    extra: () => P.posterRecord(job, plan, 123).extra,
+    onSaved: (id, title) => order.push(`saved:${id}:${title}`),
+  };
+  G.setOpen(null, null);
+  calls.length = 0;
+  await G.saveCurrent(posterStore, { name: 'Prostar A3', asNew: true });
+  check('poster: seed diselesaikan dulu, baru dibaca, kemudian ditanda simpan',
+    order.join() === 'prepare,params,saved:baru1:Prostar A3', order.join());
+  const pf = calls[0].body.fields;
+  check('poster: kunci rekod ikut firestore.rules', Object.keys(pf).every((k) => allowed.includes(k)), Object.keys(pf).join());
+  check('poster: tool puzzle, params <= 40 kunci, extra <= 700000', pf.tool.stringValue === 'puzzle'
+    && Object.keys(pf.params.mapValue.fields).length <= 40 && pf.extra.stringValue.length <= 700000);
+  const stored = C.fromFields(pf);
+  const reread = P.readPoster(stored);
+  check('poster: pergi-balik melalui format Firestore', same(reread, job), JSON.stringify(reread));
+  check('poster: rekod dibaca sebagai poster, seed tersimpan', reread.seeds[0].seed === 123 && reread.seeds[0].key === '280x420:7x11');
+  check('poster: rekod masih puzzle yang sah untuk pembaca biasa', S.readDesign(stored).state.params.width === 280
+    && buildPuzzle(S.readDesign(stored).state.params).derived.pieces === 77);
+  check('poster: rekod biasa bukan poster', P.readPoster(recordOf(S.defaultState())) === null);
+  check('poster: PDF tidak dihantar ke akaun', !pf.extra.stringValue.includes('%PDF') && pf.extra.stringValue.length < 2000, `${pf.extra.stringValue.length}`);
+
   delete globalThis.fetch;
   delete globalThis.localStorage;
 }
