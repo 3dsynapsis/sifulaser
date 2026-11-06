@@ -34,6 +34,9 @@ import {
   openPoster, renderPicture, pageImages, openForPrint, buildPrintPdf,
 } from './posterPdf.js';
 import { makeZip } from './zip.js';
+import {
+  LAYER_LOOK, inspectPrint, judgeLayers, releaseLayers,
+} from './printCheck.js';
 
 const PICTURE_PX = 1800;
 const THUMB_PX = 120;
@@ -53,7 +56,11 @@ const S = {
   pins: new Map(),    // planKey -> seed: the seeds a saved job was made with
   savedKey: null,     // settingsKey() at the last save; null when never saved
   pdfKept: true,      // false when this browser refused to store the PDF
+  printCheck: null,   // the print file of the page on screen, read back (printCheck.js)
+  layerOn: {},        // which layers the File print view shows; for the eye only
 };
+const allLayersOn = () => Object.fromEntries(LAYER_LOOK.map((l) => [l.name, true]));
+S.layerOn = allLayersOn();
 
 let deps = null;
 let draftTimer = null;
@@ -260,6 +267,7 @@ function readError(err) {
 function closeSource() {
   const { source } = S;
   if (!source) return;
+  dropPrintCheck();
   for (const p of source.pages) {
     if (p.picture) URL.revokeObjectURL(p.picture);
     if (p.thumb) URL.revokeObjectURL(p.thumb);
@@ -492,6 +500,7 @@ export async function closePoster() {
   S.client = '';
   S.dateline = '';
   S.choice = { paper: 'A3' };
+  S.layerOn = allLayersOn();
   vault.clearDraft().catch(() => {});
   if (hash) vault.releaseFile(hash).catch(() => {});
   deps.els.status.classList.remove('unsaved');
@@ -543,6 +552,21 @@ function renderStage() {
   const page = currentPage();
   const plan = planFor(page);
   ensurePicture(page);
+  if (S.stageView === 'print') {
+    const check = printCheckFor(page, plan);
+    deps.view.renderPrint({
+      plan,
+      layers: check.layers,
+      order: LAYER_LOOK.map((l) => l.name),
+      on: S.layerOn,
+      fitKey: `print:${S.current}:${plan.width}x${plan.height}`,
+    });
+    deps.els.hint.textContent = check.state === 'building'
+      ? 'Membaca file print...'
+      : `File print ${size(plan.panel.width, plan.panel.height)}`;
+    deps.els.hint.classList.add('show');
+    return;
+  }
   const puzzle = previewPuzzle(plan);
   const fitKey = `${S.current}:${plan.width}x${plan.height}`;
   if (S.stageView === 'sheet') {
@@ -724,10 +748,99 @@ function previewGroup() {
     },
   }, label);
   return group('Preview', true,
-    h('div', { class: 'seg' }, choice('panel', 'Panel + artwork'), choice('sheet', 'Job sheet')),
+    h('div', { class: 'seg seg-3' },
+      choice('panel', 'Panel + artwork'), choice('sheet', 'Job sheet'), choice('print', 'File print')),
+    S.stageView === 'print'
+      ? layerPanel()
+      : h('p', { class: 'hint' },
+        'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
+        + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'));
+}
+
+// ---- the print file's layers ------------------------------------------------
+// Boss, 6 Nov 2026: a place to check the layers before the file goes to FlexiPrint,
+// with an eye on each to switch it off and look underneath.
+
+/** The print file of this page at this size, built and read back once. */
+function printCheckFor(page, plan) {
+  const key = `${page.index}|${planKey(plan)}|${S.fileHash}`;
+  if (S.printCheck?.key === key) return S.printCheck;
+  dropPrintCheck();
+  const check = {
+    key, state: 'building', layers: null, results: null, error: null,
+  };
+  S.printCheck = check;
+  (async () => {
+    // The very file the File print button gives, not a likeness of it.
+    const file = await printFile(page);
+    return inspectPrint(S.source.lib, new Uint8Array(await file.blob.arrayBuffer()));
+  })().then((found) => {
+    if (S.printCheck !== check) {
+      releaseLayers(found.layers);
+      return;
+    }
+    check.layers = found.layers;
+    check.results = judgeLayers(found, plan, found.tolMm);
+    check.state = 'ready';
+    if (S.stageView === 'print') renderPoster();
+  }).catch((err) => {
+    if (S.printCheck !== check) return;
+    check.state = 'error';
+    check.error = printError(err);
+    if (S.stageView === 'print') renderPoster();
+  });
+  return check;
+}
+
+function dropPrintCheck() {
+  if (S.printCheck) releaseLayers(S.printCheck.layers);
+  S.printCheck = null;
+}
+
+const EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
+  + '<path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_SHUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
+  + '<path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><path d="M3 3l18 18"/></svg>';
+
+function layerPanel() {
+  const check = S.printCheck;
+  const rows = LAYER_LOOK.map((look) => {
+    const on = S.layerOn[look.name];
+    return h('div', { class: on ? 'layer-row' : 'layer-row off' },
+      h('button', {
+        type: 'button',
+        class: 'eye',
+        'aria-pressed': String(on),
+        'aria-label': `${on ? 'Sembunyi' : 'Tunjuk'} ${look.name}`,
+        title: `${on ? 'Sembunyi' : 'Tunjuk'} ${look.name}`,
+        html: on ? EYE_OPEN : EYE_SHUT,
+        onclick: () => {
+          S.layerOn[look.name] = !on;
+          renderPoster();
+        },
+      }),
+      h('span', { class: look.colour ? 'swatch' : 'swatch art', style: look.colour ? `background:${look.colour}` : null }),
+      h('span', { class: 'layer-text' }, h('b', {}, look.name), h('span', {}, look.role)));
+  });
+  const clear = h('div', { class: 'layer-row legend' },
+    h('span', { class: 'eye-space' }),
+    h('span', { class: 'swatch clear' }),
+    h('span', { class: 'layer-text' }, h('b', {}, 'Kawasan kosong'), h('span', {}, 'Clear, tiada dakwat')));
+
+  let status;
+  if (!check || check.state === 'building') status = [h('p', { class: 'hint' }, 'Membaca file print...')];
+  else if (check.state === 'error') status = [h('p', { class: 'warn' }, check.error)];
+  else {
+    status = check.results.map((r) => h('p', { class: r.ok ? 'check-ok' : 'warn' },
+      `${r.ok ? '✓' : '✗'} ${r.text}`));
+  }
+  return [
+    h('div', { class: 'layer-list' }, rows, clear),
+    ...status,
     h('p', { class: 'hint' },
-      'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
-      + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'));
+      'Dibaca dari file print sebenar. Warna untuk mata sahaja, file print tak berubah. '
+      + 'Tutup mata Artwork untuk tengok Spot di bawahnya.'),
+  ];
 }
 
 function jobGroup() {
@@ -934,7 +1047,7 @@ export const POSTER_STEPS = [
   ['Cut acrylic clear dulu',
     'Garisan puzzle dulu, frame last. Jangan keluarkan pieces lagi.'],
   ['UV print atas panel tu',
-    'Buka file print terus dalam FlexiPrint, layer Spot 1 dan Spot 2 dah ada. Letak panel atas bed tanpa keluarkan pieces, ikut arah file print. Lebihan artwork jatuh atas frame, jadi tepi puzzle tak tinggal kosong.'],
+    'Semak layer dulu di Preview, File print. Buka file print terus dalam FlexiPrint, layer Spot 1 dan Spot 2 dah ada. Letak panel atas bed tanpa keluarkan pieces, ikut arah file print. Lebihan artwork jatuh atas frame, jadi tepi puzzle tak tinggal kosong.'],
   ['Keluarkan pieces',
     'Frame clear habis fungsi selepas ni.'],
   ['Cut border dan backing',

@@ -67,6 +67,18 @@ Photoshop sebelum FlexiPRINT:
   tidak boleh terlihat atau tercetak, walaupun poster ada kawasan telus.
 - **Belum diuji dalam FlexiPRINT sebenar** pada masa nota ini ditulis.
 
+Semak layer sebelum download (bos, 6 November 2026): Preview > **File print**.
+Alat membina fail print yang sama seperti butang File print, kemudian membacanya
+semula dengan PDF.js (`src/printCheck.js`), pembaca yang tiada kaitan dengan
+pdf-lib yang menulisnya. Setiap layer ada ikon mata untuk on/off, macam Photoshop.
+
+- Warna untuk mata sahaja, fail tidak berubah: kawasan kosong (clear, tiada
+  dakwat) petak-petak kelabu, Artwork warna asal, Spot 1 magenta `#e6007e`, Spot 2
+  cyan `#00a0e9`. Spot dilukis lut sinar, jadi bila dua-dua on warnanya jadi ungu.
+- Semakan automatik: nama tiga layer tepat, Artwork di tempatnya, dan setiap Spot
+  penuh dan sama saiz dengan artwork. Salah satu gagal, barisnya merah.
+- Ini hanya mengesahkan fail. Ia tidak menjamin FlexiPRINT membacanya.
+
 Simpan (bos, 5 November 2026: kerja tidak boleh hilang bila terkeluar atau tersilap):
 
 - Butang Simpan buka popup Simpan sebagai: taip nama baru, atau pilih fail lama untuk
@@ -91,6 +103,7 @@ Fail baharu dalam `src/`:
 - `posterFlow.js` - keadaan dan panel mod poster
 - `posterSaved.js` - bentuk rekod poster dalam akaun (tulen)
 - `posterVault.js` - PDF dan draf dalam IndexedDB
+- `printCheck.js` - baca semula layer fail print untuk Preview > File print
 - `zip.js` - ZIP tanpa mampatan untuk "Download semua"
 
 `vendor/` hanya dimuat bila seseorang upload poster (lebih kurang 2 MB):

@@ -75,7 +75,7 @@ export function cleanPoster(raw) {
     choice: cleanChoice(raw.choice),
     ticked,
     current: isWhole(raw.current, 0, pages - 1) ? raw.current : 0,
-    view: raw.view === 'sheet' ? 'sheet' : 'panel',
+    view: ['sheet', 'print'].includes(raw.view) ? raw.view : 'panel',
     shuffle: isWhole(raw.shuffle, 0, Number.MAX_SAFE_INTEGER) ? raw.shuffle : 0,
     client: typeof raw.client === 'string' ? raw.client.slice(0, TEXT_MAX) : '',
     dateline: DATE.test(raw.dateline) ? raw.dateline : '',

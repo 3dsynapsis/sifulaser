@@ -14,6 +14,7 @@ const el = (name, attrs = {}) => {
 };
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const outline = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
 
 /** A line that stays one pixel wide at every zoom. */
 const hairline = (d, stroke) => el('path', {
@@ -154,6 +155,54 @@ export class View {
       node.textContent = t.text;
       this.svg.append(node);
     }
+  }
+
+  /**
+   * The print file, one picture per layer as read back from the PDF (printCheck.js),
+   * stacked as in the file and each shown or hidden by its eye. Clear acrylic is a
+   * checkerboard, so that nothing on it can be mistaken for white.
+   *
+   * @param layers { [name]: { url } }, or null while the file is being read
+   * @param order  layer names top to bottom
+   * @param on     { [name]: boolean }
+   */
+  renderPrint({ plan, layers, order, on, fitKey }) {
+    const { panel } = plan;
+    const m = Math.max(panel.width, panel.height) * 0.04;
+    this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
+
+    const defs = shadowDefs(panel.height);
+    const cell = Math.max(panel.width, panel.height) / 90;
+    const checker = el('pattern', {
+      id: 'clearChecker', width: cell * 2, height: cell * 2, patternUnits: 'userSpaceOnUse',
+    });
+    checker.append(
+      el('rect', { width: cell * 2, height: cell * 2, fill: '#ffffff' }),
+      el('rect', { width: cell, height: cell, fill: '#d9dde2' }),
+      el('rect', { x: cell, y: cell, width: cell, height: cell, fill: '#d9dde2' }),
+    );
+    defs.append(checker);
+    this.svg.replaceChildren(defs);
+    this.svg.append(el('rect', {
+      x: 0, y: 0, width: panel.width, height: panel.height,
+      fill: 'url(#clearChecker)', filter: 'url(#boardShadow)',
+    }));
+
+    // Bottom up, the way the file paints them. The Spot pictures are see-through, so
+    // with both on the two colours mix, and it shows at once that both are there.
+    for (const name of [...order].reverse()) {
+      const layer = layers?.[name];
+      if (layer && on[name]) {
+        this.svg.append(el('image', {
+          href: layer.url,
+          x: 0, y: 0, width: panel.width, height: panel.height,
+          preserveAspectRatio: 'none',
+          opacity: name === order[0] ? 1 : 0.6,
+          'data-layer': name,
+        }));
+      }
+    }
+    this.svg.append(hairline(outline(0, 0, panel.width, panel.height), '#8a94a3'));
   }
 
   // ---- zoom --------------------------------------------------------------
