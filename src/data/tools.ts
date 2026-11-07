@@ -594,9 +594,9 @@ const TARGETS: RankedTarget[] = [
     keywordFold: fold('kelas pakej harga training akses penuh langganan bayar'),
   },
   {
-    // Rujukan peserta Kelas Website AI - dicapai dari langkah 4, bukan tile.
+    // Slide peserta Kelas Website AI - dicapai dari langkah 4, bukan tile.
     title: 'Kelas Website AI',
-    line: 'Rujukan peserta: modul, prompt dan langkah',
+    line: 'Slide modul untuk peserta kelas',
     href: WEB_AI_CLASS.href,
     accent: 'var(--color-g4-accent)',
     haystack: fold(

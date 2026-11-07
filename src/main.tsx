@@ -38,8 +38,8 @@ import { canAccessMaintenance } from './lib/access'
 import { useHashRoute } from './hooks/useHashRoute'
 import './index.css'
 
-// Dimuat secara malas: isi kelas hanya untuk peserta, dan 95% pelawat datang
-// dari telefon ke halaman utama - mereka tidak patut memuat turunnya.
+// Dimuat secara malas: hanya peserta kelas yang membukanya, dan 95% pelawat
+// datang dari telefon ke halaman utama - mereka tidak perlu memuat turunnya.
 const KelasWebPage = lazy(() =>
   import('./pages/KelasWebPage').then((mod) => ({ default: mod.KelasWebPage })),
 )

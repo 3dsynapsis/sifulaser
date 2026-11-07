@@ -7,21 +7,21 @@
 // supaya kelas baharu nanti cuma perlu id baharu - firestore.rules tidak perlu
 // diubah lagi.
 //
-// Hanya admin boleh menulis medan ini (lihat firestore.rules). Isi kelas itu
-// sendiri ada dalam bundle awam, jadi kunci ini memisahkan peserta daripada
+// Hanya admin boleh menulis medan ini (lihat firestore.rules). Pautan slide
+// kelas ada dalam bundle awam, jadi kunci ini memisahkan peserta daripada
 // pelawat, bukan rahsia - sama seperti panduan maintenance.
 
 export const WEB_AI_COURSE = 'website-ai'
 
 /**
  * Nama dan pautan Kelas Website AI untuk kad halaman utama dan carian. Di sini
- * dan bukan dalam data/kelasWeb.ts supaya halaman utama tidak menarik seluruh
- * isi kelas ke dalam bundle utama - halaman kelas dimuat secara malas.
+ * dan bukan dalam data/kelasWeb.ts supaya halaman utama tidak menarik senarai
+ * modul ke dalam bundle utama - halaman kelas dimuat secara malas.
  */
 export const WEB_AI_CLASS = {
   title: 'Bina Website Sendiri Dengan AI',
   cardTitle: 'Kelas Bina Website Sendiri Dengan AI',
-  cardDesc: 'Rujukan peserta: Modul 1 hingga 5, prompt dan langkah.',
+  cardDesc: 'Slide Modul 1 hingga 5 untuk peserta kelas.',
   href: '#/kelas-web',
 }
 

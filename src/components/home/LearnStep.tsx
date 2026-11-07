@@ -10,8 +10,8 @@ const TAP = { scale: 0.97 }
 /**
  * Langkah 4. Tidak memakai grid tile seperti langkah lain kerana isinya bukan
  * alat: tips terkini Sifu Hisham dengan tajuk sebenar episodnya (inilah
- * "tips design" yang menjadi sebab revamp ini), kelas, rujukan Kelas Website
- * AI, dan rak mesin kecil di bawah sekali - mesin kini perkara terakhir, bukan
+ * "tips design" yang menjadi sebab revamp ini), kelas, slide Kelas Website AI,
+ * dan rak mesin kecil di bawah sekali - mesin kini perkara terakhir, bukan
  * wajah laman.
  */
 export const LearnStep = ({ paid, loading }: { paid: boolean; loading: boolean }) => {
@@ -53,7 +53,7 @@ export const LearnStep = ({ paid, loading }: { paid: boolean; loading: boolean }
         <ArrowRight className="kcard-arrow" size={18} strokeWidth={2.5} aria-hidden="true" />
       </m.a>
 
-      {/* Rujukan peserta Kelas Website AI. Kad cerah, bukan gelap: ia bukan
+      {/* Slide peserta Kelas Website AI. Kad cerah, bukan gelap: ia bukan
           jualan, dan kad gelap di atas kekal satu-satunya jualan langkah ini. */}
       <m.a href={WEB_AI_CLASS.href} className="wcard" variants={pop} whileTap={TAP}>
         <span className="wcard-icon">

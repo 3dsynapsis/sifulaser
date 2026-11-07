@@ -36,7 +36,8 @@ const parseRoute = (hash: string): Route => {
   const path = hash.replace(/^#\/?/, '').replace(/\/$/, '')
   // Blog ada pautan dalam untuk setiap episod (#/blog/81).
   if (path === 'blog' || path.startsWith('blog/')) return 'blog'
-  // Rujukan Kelas Website AI: senarai modul, dan satu modul (#/kelas-web/modul-1).
+  // Kelas Website AI: senarai modul. Pautan lama #/kelas-web/modul-1 (halaman
+  // modul yang sudah dibuang) jatuh ke senarai yang sama.
   if (path === 'kelas-web' || path.startsWith('kelas-web/')) return 'kelasweb'
   switch (path) {
     case 'simulator':
