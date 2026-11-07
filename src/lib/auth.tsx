@@ -19,6 +19,7 @@ import {
 import type { User } from 'firebase/auth'
 import { IS_CONFIGURED, loadFirebase } from './firebase'
 import { publishSession, safeNext } from './session'
+import { toCourses } from './courses'
 
 interface AuthValue {
   /** true jika Firebase sudah dikonfigurasi (butang login dipaparkan). */
@@ -29,6 +30,8 @@ interface AuthValue {
   paidUntil: Date | null
   /** true jika pelanggan ini peserta kelas bersemuka. */
   isClassParticipant: boolean
+  /** Id kelas AI yang akaun ini sudah ditanda hadir (lihat lib/courses.ts). */
+  courses: string[]
   /** true semasa status login/bayaran masih dimuatkan. */
   loading: boolean
   signIn: () => Promise<void>
@@ -58,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [paid, setPaid] = useState(false)
   const [paidUntil, setPaidUntil] = useState<Date | null>(null)
   const [classParticipant, setClassParticipant] = useState(false)
+  const [courses, setCourses] = useState<string[]>([])
   const [loading, setLoading] = useState(IS_CONFIGURED)
   const [error, setError] = useState<string | null>(null)
   const signInRef = useRef<(() => Promise<void>) | null>(null)
@@ -95,6 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setPaid(false)
             setPaidUntil(null)
             setClassParticipant(false)
+            setCourses([])
             setLoading(false)
           }
         })
@@ -136,12 +141,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setPaid(false)
             setPaidUntil(null)
             setClassParticipant(false)
+            setCourses([])
           } else {
             const data = snapshot.data()
             const expiry = toDate(data.paidUntil)
             setPaid(isStillValid(data.paid, expiry))
             setPaidUntil(expiry)
             setClassParticipant(data.plan === 'class')
+            setCourses(toCourses(data.kursus))
           }
           setLoading(false)
         },
@@ -149,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setPaid(false)
           setPaidUntil(null)
           setClassParticipant(false)
+          setCourses([])
           setLoading(false)
         },
       )
@@ -225,12 +233,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       paid: IS_CONFIGURED ? paid : true,
       paidUntil,
       isClassParticipant: classParticipant,
+      courses,
       loading,
       signIn,
       signOut,
       error,
     }),
-    [user, paid, paidUntil, classParticipant, loading, signIn, signOut, error],
+    [user, paid, paidUntil, classParticipant, courses, loading, signIn, signOut, error],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -246,6 +255,7 @@ export const useAuth = (): AuthValue => {
       paid: true,
       paidUntil: null,
       isClassParticipant: false,
+      courses: [],
       loading: false,
       signIn: async () => {},
       signOut: async () => {},

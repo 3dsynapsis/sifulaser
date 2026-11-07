@@ -1,4 +1,4 @@
-import { StrictMode, type ReactNode } from 'react'
+import { StrictMode, Suspense, lazy, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { HomePage } from './pages/HomePage'
@@ -37,6 +37,12 @@ import { AuthProvider, useAuth } from './lib/auth'
 import { canAccessMaintenance } from './lib/access'
 import { useHashRoute } from './hooks/useHashRoute'
 import './index.css'
+
+// Dimuat secara malas: isi kelas hanya untuk peserta, dan 95% pelawat datang
+// dari telefon ke halaman utama - mereka tidak patut memuat turunnya.
+const KelasWebPage = lazy(() =>
+  import('./pages/KelasWebPage').then((mod) => ({ default: mod.KelasWebPage })),
+)
 
 const CenteredShell = ({ children }: { children: ReactNode }) => (
   <div className="min-h-screen bg-canvas">
@@ -136,6 +142,18 @@ const Root = () => {
       return <AboutPage />
     case 'blog':
       return <BlogPage />
+    case 'kelasweb':
+      return (
+        <Suspense
+          fallback={
+            <CenteredShell>
+              <div className="card h-40 animate-pulse" />
+            </CenteredShell>
+          }
+        >
+          <KelasWebPage />
+        </Suspense>
+      )
     case 'weekly':
       return <MaintenanceRoute guide={WEEKLY_GUIDE} />
     case 'yearly':

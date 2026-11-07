@@ -32,11 +32,15 @@ service cloud.firestore {
         && request.resource.data.paidUntil == null
         && request.resource.data.plan == null;
 
-      // Hanya admin boleh menukar status bayaran dan penanda pakej,
-      // dan hanya medan tersebut sahaja.
+      // Hanya admin boleh menukar status bayaran, penanda pakej dan senarai
+      // kelas AI yang dihadiri (`kursus`, lihat src/lib/courses.ts), dan hanya
+      // medan tersebut sahaja. `kursus` tiada dalam senarai `create` di atas,
+      // jadi pengguna tidak boleh menanda diri sendiri sebagai peserta.
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['paid', 'paidUntil', 'plan']);
+             .hasOnly(['paid', 'paidUntil', 'plan', 'kursus'])
+        && (!('kursus' in request.resource.data)
+            || request.resource.data.kursus is list);
 
       allow delete: if false;
 

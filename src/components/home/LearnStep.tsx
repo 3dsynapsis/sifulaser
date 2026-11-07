@@ -1,7 +1,8 @@
-import { ArrowRight, GraduationCap, LockKeyhole } from 'lucide-react'
+import { ArrowRight, GraduationCap, LockKeyhole, MonitorSmartphone } from 'lucide-react'
 import { m } from 'motion/react'
 import { BLOG_POSTS } from '../../data/blog'
 import { machineShelf } from '../../data/tools'
+import { WEB_AI_CLASS } from '../../lib/courses'
 import { gridStagger, pop } from './ToolCards'
 
 const TAP = { scale: 0.97 }
@@ -9,8 +10,9 @@ const TAP = { scale: 0.97 }
 /**
  * Langkah 4. Tidak memakai grid tile seperti langkah lain kerana isinya bukan
  * alat: tips terkini Sifu Hisham dengan tajuk sebenar episodnya (inilah
- * "tips design" yang menjadi sebab revamp ini), kelas, dan rak mesin kecil di
- * bawah sekali - mesin kini perkara terakhir, bukan wajah laman.
+ * "tips design" yang menjadi sebab revamp ini), kelas, rujukan Kelas Website
+ * AI, dan rak mesin kecil di bawah sekali - mesin kini perkara terakhir, bukan
+ * wajah laman.
  */
 export const LearnStep = ({ paid, loading }: { paid: boolean; loading: boolean }) => {
   // Episod terbaharu ialah nombor terbesar, bukan entri terakhir: tatasusunan
@@ -49,6 +51,19 @@ export const LearnStep = ({ paid, loading }: { paid: boolean; loading: boolean }
           <span className="kcard-desc">Belajar terus dengan Sifu Hisham. Lihat pakej dan harga.</span>
         </span>
         <ArrowRight className="kcard-arrow" size={18} strokeWidth={2.5} aria-hidden="true" />
+      </m.a>
+
+      {/* Rujukan peserta Kelas Website AI. Kad cerah, bukan gelap: ia bukan
+          jualan, dan kad gelap di atas kekal satu-satunya jualan langkah ini. */}
+      <m.a href={WEB_AI_CLASS.href} className="wcard" variants={pop} whileTap={TAP}>
+        <span className="wcard-icon">
+          <MonitorSmartphone size={24} strokeWidth={2} aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="wcard-title">{WEB_AI_CLASS.cardTitle}</span>
+          <span className="wcard-desc">{WEB_AI_CLASS.cardDesc}</span>
+        </span>
+        <ArrowRight className="wcard-arrow" size={18} strokeWidth={2.5} aria-hidden="true" />
       </m.a>
 
       <m.a href="#/blog" className="learn-all" variants={pop}>

@@ -45,6 +45,7 @@ import {
 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import type { Route } from '../hooks/useHashRoute'
+import { WEB_AI_CLASS } from '../lib/courses'
 
 export type GroupId = 'harga' | 'idea' | 'fail' | 'belajar'
 
@@ -591,6 +592,18 @@ const TARGETS: RankedTarget[] = [
     haystack: fold('kelas pakej harga training akses penuh langganan bayar'),
     titleFold: fold('kelas & pakej'),
     keywordFold: fold('kelas pakej harga training akses penuh langganan bayar'),
+  },
+  {
+    // Rujukan peserta Kelas Website AI - dicapai dari langkah 4, bukan tile.
+    title: 'Kelas Website AI',
+    line: 'Rujukan peserta: modul, prompt dan langkah',
+    href: WEB_AI_CLASS.href,
+    accent: 'var(--color-g4-accent)',
+    haystack: fold(
+      'kelas website ai bina laman web sendiri claude code codex prompt modul rujukan peserta github domain',
+    ),
+    titleFold: fold('kelas website ai'),
+    keywordFold: fold('website ai claude code codex prompt modul rujukan peserta'),
   },
   {
     title: 'Home',
