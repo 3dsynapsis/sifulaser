@@ -8,15 +8,18 @@
 // Setiap deck mesti dikongsi "Anyone with the link" melalui menu Share di
 // claude.ai. Kalau tidak, peserta akan nampak halaman log masuk claude.ai.
 
+import { DoorOpen, Flag, type LucideIcon } from 'lucide-react'
 import { WEB_AI_CLASS, WEB_AI_COURSE } from '../lib/courses'
 
 export interface KelasModule {
   /** Kunci senarai sahaja. */
   slug: string
-  /** "Modul 1" ... atau "Selepas kelas". */
+  /** "Pembukaan", "Modul 1" ... atau "Selepas kelas". */
   label: string
-  /** Nombor dalam bulatan; null untuk Selepas kelas. */
+  /** Nombor dalam bulatan untuk modul. */
   number: number | null
+  /** Ikon dalam bulatan untuk Pembukaan dan Selepas kelas, yang tiada nombor. */
+  Icon?: LucideIcon
   title: string
   summary: string
   duration: string
@@ -33,7 +36,18 @@ export const KELAS_WEB = {
   meta: ['5 modul', 'Claude Code atau Codex', 'Tanpa tulis kod'],
 }
 
+/** Ikut turutan kelas: Pembukaan, Modul 1 hingga 5, kemudian Selepas kelas. */
 export const KELAS_MODULES: KelasModule[] = [
+  {
+    slug: 'pembukaan',
+    label: 'Pembukaan',
+    number: null,
+    Icon: DoorOpen,
+    title: 'Pengenalan Kelas',
+    summary: 'Matlamat, kos, kelebihan bina sendiri dan jadual hari ini.',
+    duration: '15 minit',
+    deckUrl: 'https://claude.ai/artifact/PX7QpUKnjA5RJALtBpDCtu',
+  },
   {
     slug: 'modul-1',
     label: 'Modul 1',
@@ -83,6 +97,7 @@ export const KELAS_MODULES: KelasModule[] = [
     slug: 'selepas',
     label: 'Selepas kelas',
     number: null,
+    Icon: Flag,
     title: 'Selepas Kelas',
     summary: 'Ringkasan dan langkah selepas kelas.',
     duration: 'Penutup',

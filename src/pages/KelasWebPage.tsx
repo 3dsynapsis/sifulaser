@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Flag, LockKeyhole, LogIn, MessageCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, LockKeyhole, LogIn, MessageCircle } from 'lucide-react'
 import { SiteHeader } from '../components/SiteHeader'
 import { KELAS_MODULES, KELAS_WEB, type KelasModule } from '../data/kelasWeb'
 import {
@@ -58,7 +58,7 @@ const ModuleBadge = ({ kelas }: { kelas: KelasModule }) => (
     style={{ backgroundColor: ACCENT }}
     aria-hidden="true"
   >
-    {kelas.number ?? <Flag className="h-5 w-5" />}
+    {kelas.number ?? (kelas.Icon ? <kelas.Icon className="h-5 w-5" /> : null)}
   </span>
 )
 

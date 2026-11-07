@@ -21,7 +21,7 @@ export const WEB_AI_COURSE = 'website-ai'
 export const WEB_AI_CLASS = {
   title: 'Bina Website Sendiri Dengan AI',
   cardTitle: 'Kelas Bina Website Sendiri Dengan AI',
-  cardDesc: 'Slide Modul 1 hingga 5 untuk peserta kelas.',
+  cardDesc: 'Slide Pembukaan hingga Modul 5 untuk peserta kelas.',
   href: '#/kelas-web',
 }
 
