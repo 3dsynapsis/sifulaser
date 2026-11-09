@@ -1298,15 +1298,23 @@
   .tcard-well {
     aspect-ratio: 4 / 3;
   }
-  /* Kad episod merentang dua baris supaya dua kad kelas bertindan di kanan. */
   .learn {
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-areas:
+      'ep kelas'
+      'all all'
+      'shelf shelf';
+    gap: 14px;
+  }
+  /* Selepas log masuk ada kad Kelas Website AI: kad episod merentang dua
+     baris supaya dua kad kelas bertindan di kanan. Tanpa kad itu, baris
+     kosong 'ep web' akan meninggalkan lubang di bawah kad Kelas & Training. */
+  .learn--web {
     grid-template-areas:
       'ep kelas'
       'ep web'
       'all all'
       'shelf shelf';
-    gap: 14px;
   }
   .ecard {
     grid-area: ep;

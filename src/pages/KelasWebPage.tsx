@@ -18,8 +18,11 @@ import { WEB_AI_COURSE } from '../lib/courses'
  * di tengah - Boss mahu peserta terus ke slide (7 Nov 2026). Pautan lama
  * #/kelas-web/modul-1 jatuh ke halaman ini juga.
  *
- * Senarai modul terbuka kepada semua (jadi silibus); pautan slide untuk
- * peserta sahaja = akaun yang admin tandakan dalam Panel Admin
+ * Tiga keadaan:
+ *   - belum log masuk: permintaan log masuk sahaja, tiada senarai modul
+ *   - log masuk, belum ditanda: senarai modul berkunci + WhatsApp Sifu
+ *   - peserta: senarai modul, setiap kad membuka slide
+ * Peserta = akaun yang admin tandakan dalam Panel Admin
  * (users/{uid}.kursus mengandungi 'website-ai'). Rekod itu didengar secara
  * langsung, jadi kunci terbuka sendiri sebaik admin menanda.
  *
@@ -120,10 +123,10 @@ const AccessNotice = ({
       {access === 'signin' ? (
         <>
           <div>
-            <h2 className="text-base font-bold text-ink sm:text-lg">Slide untuk peserta kelas</h2>
+            <h2 className="text-base font-bold text-ink sm:text-lg">Log masuk untuk lihat kelas</h2>
             <p className="mt-1 text-sm text-muted">
-              Log masuk dengan akaun Google anda. Selepas Sifu tandakan akaun anda sebagai
-              peserta, semua modul terbuka.
+              Halaman ini hanya untuk pengguna yang log masuk. Log masuk dengan akaun Google
+              anda.
             </p>
           </div>
           <button
@@ -209,39 +212,46 @@ export const KelasWebPage = () => {
           Utama
         </a>
 
-        <header className="card flex flex-col gap-3 p-4 sm:p-5">
-          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: INK }}>
-            Kelas · Slide peserta
-          </p>
-          <h1 className="text-2xl font-extrabold leading-tight text-ink sm:text-3xl">
-            {KELAS_WEB.title}
-          </h1>
-          <p className="text-[15px] leading-relaxed text-muted">{KELAS_WEB.intro}</p>
-          <ul className="flex flex-wrap gap-2">
-            {KELAS_WEB.meta.map((item) => (
-              <li
-                key={item}
-                className="rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </header>
-
+        {/* Sebelum log masuk, pelawat tidak nampak apa-apa tentang kelas -
+            hanya permintaan log masuk (Boss, 9 Nov 2026). Semasa status log
+            masuk dimuatkan, rangka kosong supaya senarai tidak terpancar. */}
         {access === 'loading' ? (
-          <div className="card h-28 animate-pulse" />
-        ) : access === 'open' ? null : (
-          <AccessNotice access={access} email={email} />
+          <div className="card h-40 animate-pulse" />
+        ) : access === 'signin' ? (
+          <AccessNotice access="signin" email={email} />
+        ) : (
+          <>
+            <header className="card flex flex-col gap-3 p-4 sm:p-5">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: INK }}>
+                Kelas · Slide peserta
+              </p>
+              <h1 className="text-2xl font-extrabold leading-tight text-ink sm:text-3xl">
+                {KELAS_WEB.title}
+              </h1>
+              <p className="text-[15px] leading-relaxed text-muted">{KELAS_WEB.intro}</p>
+              <ul className="flex flex-wrap gap-2">
+                {KELAS_WEB.meta.map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </header>
+
+            {access === 'pending' ? <AccessNotice access="pending" email={email} /> : null}
+
+            <ol className="flex flex-col gap-3" aria-label="Modul kelas">
+              {KELAS_MODULES.map((kelas) => (
+                <ModuleCard key={kelas.slug} kelas={kelas} open={open} />
+              ))}
+            </ol>
+
+            {open ? <HelpCard /> : null}
+          </>
         )}
-
-        <ol className="flex flex-col gap-3" aria-label="Modul kelas">
-          {KELAS_MODULES.map((kelas) => (
-            <ModuleCard key={kelas.slug} kelas={kelas} open={open} />
-          ))}
-        </ol>
-
-        {open ? <HelpCard /> : null}
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Search } from 'lucide-react'
 import { searchTools } from '../data/tools'
+import { useAuth } from '../lib/auth'
 
 /**
  * Carian direktori: setiap alat, Kelas & Pakej dan Home (lihat TARGETS dalam
@@ -23,7 +24,10 @@ export const ToolSearch = ({
   const wrapRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
-  const results = useMemo(() => searchTools(query), [query])
+  // Kelas Website AI hanya muncul dalam carian selepas log masuk.
+  const { configured, user } = useAuth()
+  const signedIn = !configured || Boolean(user)
+  const results = useMemo(() => searchTools(query, 6, signedIn), [query, signedIn])
 
   useEffect(() => setActive(0), [query])
 

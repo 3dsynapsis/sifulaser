@@ -567,6 +567,8 @@ const ACCENT_BY_GROUP: Record<GroupId, string> = {
 interface RankedTarget extends SearchTarget {
   titleFold: string
   keywordFold: string
+  /** Hanya untuk pengguna yang sudah log masuk (Kelas Website AI). */
+  membersOnly?: boolean
 }
 
 const TARGETS: RankedTarget[] = [
@@ -595,6 +597,8 @@ const TARGETS: RankedTarget[] = [
   },
   {
     // Slide peserta Kelas Website AI - dicapai dari langkah 4, bukan tile.
+    // Boss mahu kelas ini tidak kelihatan langsung sebelum log masuk.
+    membersOnly: true,
     title: 'Kelas Website AI',
     line: 'Slide modul untuk peserta kelas',
     href: WEB_AI_CLASS.href,
@@ -617,10 +621,10 @@ const TARGETS: RankedTarget[] = [
 ]
 
 /** Padanan substring lipat-huruf. Tajuk > kata kunci > keterangan. */
-export const searchTools = (query: string, limit = 6): SearchTarget[] => {
+export const searchTools = (query: string, limit = 6, signedIn = false): SearchTarget[] => {
   const q = fold(query.trim())
   if (!q) return []
-  return TARGETS.filter((t) => t.haystack.includes(q))
+  return TARGETS.filter((t) => t.haystack.includes(q) && (signedIn || !t.membersOnly))
     .map((t, index) => ({
       target: t,
       rank: t.titleFold.includes(q) ? 0 : t.keywordFold.includes(q) ? 1 : 2,

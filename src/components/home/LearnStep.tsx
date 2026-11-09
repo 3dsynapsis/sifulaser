@@ -2,6 +2,7 @@ import { ArrowRight, GraduationCap, LockKeyhole, MonitorSmartphone } from 'lucid
 import { m } from 'motion/react'
 import { BLOG_POSTS } from '../../data/blog'
 import { machineShelf } from '../../data/tools'
+import { useAuth } from '../../lib/auth'
 import { WEB_AI_CLASS } from '../../lib/courses'
 import { gridStagger, pop } from './ToolCards'
 
@@ -19,10 +20,15 @@ export const LearnStep = ({ paid, loading }: { paid: boolean; loading: boolean }
   // itu disusun tangan dan tiada apa-apa yang menjamin urutannya.
   const latest = BLOG_POSTS.reduce((a, b) => (b.episode > a.episode ? b : a))
   const shelf = machineShelf()
+  // Kelas Website AI hanya untuk pengguna yang log masuk (Boss, 9 Nov 2026):
+  // pelawat lain tidak nampak kadnya langsung. Tanpa Firebase (pembangunan
+  // tempatan) tiada log masuk, jadi kad dipaparkan.
+  const { configured, user } = useAuth()
+  const showWebClass = !configured || (!loading && Boolean(user))
 
   return (
     <m.div
-      className="learn"
+      className={showWebClass ? 'learn learn--web' : 'learn'}
       variants={gridStagger}
       initial="hidden"
       whileInView="show"
@@ -55,16 +61,18 @@ export const LearnStep = ({ paid, loading }: { paid: boolean; loading: boolean }
 
       {/* Slide peserta Kelas Website AI. Kad cerah, bukan gelap: ia bukan
           jualan, dan kad gelap di atas kekal satu-satunya jualan langkah ini. */}
-      <m.a href={WEB_AI_CLASS.href} className="wcard" variants={pop} whileTap={TAP}>
-        <span className="wcard-icon">
-          <MonitorSmartphone size={24} strokeWidth={2} aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="wcard-title">{WEB_AI_CLASS.cardTitle}</span>
-          <span className="wcard-desc">{WEB_AI_CLASS.cardDesc}</span>
-        </span>
-        <ArrowRight className="wcard-arrow" size={18} strokeWidth={2.5} aria-hidden="true" />
-      </m.a>
+      {showWebClass ? (
+        <m.a href={WEB_AI_CLASS.href} className="wcard" variants={pop} whileTap={TAP}>
+          <span className="wcard-icon">
+            <MonitorSmartphone size={24} strokeWidth={2} aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="wcard-title">{WEB_AI_CLASS.cardTitle}</span>
+            <span className="wcard-desc">{WEB_AI_CLASS.cardDesc}</span>
+          </span>
+          <ArrowRight className="wcard-arrow" size={18} strokeWidth={2.5} aria-hidden="true" />
+        </m.a>
+      ) : null}
 
       <m.a href="#/blog" className="learn-all" variants={pop}>
         Semua episod Sifu Hisham
