@@ -5,7 +5,6 @@
 
 import type { User } from 'firebase/auth'
 import { ACCESS_PERIOD_YEARS } from './access'
-import { toCourses } from './courses'
 import { loadFirebase } from './firebase'
 
 export const ADMIN_EMAIL = '3dsynapsis@gmail.com'
@@ -24,8 +23,6 @@ export interface AdminUserRow {
   paidUntil: Date | null
   /** null jika belum pernah membeli. */
   plan: PaidPlan | null
-  /** Kelas AI yang ditanda hadir (lihat lib/courses.ts). */
-  kursus: string[]
   createdAt: Date | null
 }
 
@@ -79,7 +76,6 @@ export const subscribeUsers = (
               paid: data.paid === true,
               paidUntil: toDate(data.paidUntil),
               plan: toPlan(data.plan),
-              kursus: toCourses(data.kursus),
               createdAt: toDate(data.createdAt),
             }
           })
@@ -137,27 +133,6 @@ export const setPlan = async (uid: string, plan: PaidPlan): Promise<void> => {
   if (!pending) return
   const { db, storeApi } = await pending
   await storeApi.updateDoc(storeApi.doc(db, 'users', uid), { plan })
-}
-
-/** true jika akaun ini ditanda hadir kelas AI tersebut. */
-export const hasCourse = (row: AdminUserRow, course: string): boolean =>
-  row.kursus.includes(course)
-
-/**
- * Buka atau tutup rujukan satu kelas AI untuk akaun ini. Berasingan daripada
- * Akses Penuh: tidak menyentuh paid, paidUntil atau plan.
- */
-export const setCourse = async (
-  uid: string,
-  course: string,
-  on: boolean,
-): Promise<void> => {
-  const pending = loadFirebase()
-  if (!pending) return
-  const { db, storeApi } = await pending
-  await storeApi.updateDoc(storeApi.doc(db, 'users', uid), {
-    kursus: on ? storeApi.arrayUnion(course) : storeApi.arrayRemove(course),
-  })
 }
 
 /** Tarik balik akses serta-merta. */

@@ -6,7 +6,6 @@ import {
   GraduationCap,
   ChartNoAxesColumn,
   MailWarning,
-  MonitorSmartphone,
   ShieldCheck,
   Undo2,
   UserRound,
@@ -14,18 +13,15 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import {
-  hasCourse,
   isAccessActive,
   isAdmin,
   isClassParticipant,
   grantAccess,
   revokeAccess,
-  setCourse,
   subscribeUsers,
   type AdminUserRow,
 } from '../lib/admin'
 import { ACCESS_PERIOD_LABEL } from '../lib/access'
-import { WEB_AI_COURSE } from '../lib/courses'
 import {
   IS_MAIL_CONFIGURED,
   sendAccessEmail,
@@ -33,19 +29,14 @@ import {
 } from '../lib/mail'
 import { CLASS_SEAT_LIMIT } from '../data/plans'
 
-type Filter = 'semua' | 'akses' | 'kelas' | 'web' | 'percuma'
+type Filter = 'semua' | 'akses' | 'kelas' | 'percuma'
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'semua', label: 'Semua' },
   { id: 'akses', label: 'Akses Penuh' },
   { id: 'kelas', label: 'Peserta Kelas' },
-  { id: 'web', label: 'Kelas Website AI' },
   { id: 'percuma', label: 'Percuma' },
 ]
-
-/** Warna Kelas Website AI di panel ini - lain daripada ungu kelas laser. */
-const WEB_COLOR = '#0f766e'
-const WEB_SOFT = '#e9f6f4'
 
 const formatDate = (date: Date | null): string =>
   date
@@ -83,11 +74,9 @@ export const AdminPage = () => {
           ? true
           : filter === 'kelas'
             ? isClassParticipant(row)
-            : filter === 'web'
-              ? hasCourse(row, WEB_AI_COURSE)
-              : filter === 'akses'
-                ? active
-                : !active
+            : filter === 'akses'
+              ? active
+              : !active
       if (!matchFilter) return false
       if (!needle) return true
       return (
@@ -147,30 +136,6 @@ export const AdminPage = () => {
       setNotice(`Email pemberitahuan dihantar kepada ${row.email}.`)
     } else {
       setMailFailed(row.email)
-    }
-    setBusyUid(null)
-  }
-
-  /**
-   * Buka atau tutup rujukan Kelas Website AI. Tiada email automatik: peserta
-   * biasanya sedang menunggu di kelas atau di WhatsApp, dan halaman rujukan
-   * terbuka sendiri sebaik akaun ditanda.
-   */
-  const toggleWebClass = async (row: AdminUserRow) => {
-    const on = !hasCourse(row, WEB_AI_COURSE)
-    setBusyUid(row.uid)
-    setError(null)
-    setNotice(null)
-    setMailFailed(null)
-    try {
-      await setCourse(row.uid, WEB_AI_COURSE, on)
-      setNotice(
-        on
-          ? `Rujukan Kelas Website AI dibuka untuk ${row.email}.`
-          : `Rujukan Kelas Website AI ditutup untuk ${row.email}.`,
-      )
-    } catch {
-      setError('Tindakan gagal. Sila cuba lagi.')
     }
     setBusyUid(null)
   }
@@ -382,7 +347,6 @@ export const AdminPage = () => {
               const active = isAccessActive(row)
               const expired = row.paid && !active
               const kelas = isClassParticipant(row)
-              const web = hasCourse(row, WEB_AI_COURSE)
               const busy = busyUid === row.uid
 
               return (
@@ -411,15 +375,6 @@ export const AdminPage = () => {
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#f4effd] px-2 py-0.5 text-[11px] font-bold text-[#6d28d9]">
                           <GraduationCap className="h-3 w-3" aria-hidden="true" />
                           Peserta Kelas
-                        </span>
-                      ) : null}
-                      {web ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
-                          style={{ backgroundColor: WEB_SOFT, color: WEB_COLOR }}
-                        >
-                          <MonitorSmartphone className="h-3 w-3" aria-hidden="true" />
-                          Kelas Website AI
                         </span>
                       ) : null}
                       <span className="text-[11px] text-muted">
@@ -455,22 +410,6 @@ export const AdminPage = () => {
                       <GraduationCap className="h-4 w-4" aria-hidden="true" />
                       {kelas ? 'Lanjut Kelas' : 'Beri Kelas'}
                     </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void toggleWebClass(row)}
-                      className={`inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 ${
-                        web ? 'border bg-surface' : 'text-white'
-                      }`}
-                      style={
-                        web
-                          ? { borderColor: WEB_COLOR, color: WEB_COLOR }
-                          : { backgroundColor: WEB_COLOR }
-                      }
-                    >
-                      <MonitorSmartphone className="h-4 w-4" aria-hidden="true" />
-                      {web ? 'Tutup Kelas Web' : 'Beri Kelas Web'}
-                    </button>
                     {row.paid ? (
                       <button
                         type="button"
@@ -495,9 +434,8 @@ export const AdminPage = () => {
         )}
 
         <p className="pb-4 text-center text-xs text-muted">
-          Butang oren dan ungu memberi akses digital {ACCESS_PERIOD_LABEL}; butang
-          ungu menandakan pelanggan sebagai peserta kelas bersemuka. Butang hijau
-          membuka rujukan Kelas Website AI sahaja - tiada kaitan dengan Akses Penuh.
+          Kedua-dua butang memberi akses digital {ACCESS_PERIOD_LABEL}; butang
+          ungu menandakan pelanggan sebagai peserta kelas bersemuka.
           {IS_MAIL_CONFIGURED
             ? ' Pelanggan menerima email pemberitahuan automatik.'
             : ' Email automatik belum diaktifkan — kunci EmailJS belum diisi.'}

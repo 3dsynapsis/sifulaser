@@ -53,18 +53,9 @@ export const paymentProofWhatsappUrl = (email?: string | null): string => {
 }
 
 /**
- * Peserta Kelas Website AI minta akses rujukan kelas. Nombor yang sama dengan
- * pengesahan bayaran, sebab orang yang sama menandakan akaun dalam Panel Admin.
+ * Peserta Kelas Website AI yang tersangkut selepas kelas boleh terus WhatsApp
+ * pengajar - nombor yang sama dengan pengesahan bayaran.
  */
-export const classAccessWhatsappUrl = (email?: string | null): string => {
-  const base =
-    'Salam Sifu, saya peserta Kelas Bina Website Sendiri Dengan AI. ' +
-    'Tolong buka rujukan kelas untuk akaun saya.'
-  const text = email ? `${base}\n\nEmail akaun saya: ${email}` : base
-  return `https://wa.me/${PAYMENT_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
-}
-
-/** Peserta yang tersangkut selepas kelas boleh terus WhatsApp pengajar. */
 export const classHelpWhatsappUrl = (): string =>
   `https://wa.me/${PAYMENT_WHATSAPP_NUMBER}?text=${encodeURIComponent(
     'Salam Sifu, saya peserta Kelas Bina Website Sendiri Dengan AI. Saya tersangkut di: ',

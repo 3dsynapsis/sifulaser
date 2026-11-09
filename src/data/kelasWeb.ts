@@ -9,7 +9,7 @@
 // claude.ai. Kalau tidak, peserta akan nampak halaman log masuk claude.ai.
 
 import { DoorOpen, Flag, type LucideIcon } from 'lucide-react'
-import { WEB_AI_CLASS, WEB_AI_COURSE } from '../lib/courses'
+import { WEB_AI_CLASS } from '../lib/courses'
 
 export interface KelasModule {
   /** Kunci senarai sahaja. */
@@ -28,7 +28,6 @@ export interface KelasModule {
 }
 
 export const KELAS_WEB = {
-  course: WEB_AI_COURSE,
   title: WEB_AI_CLASS.title,
   intro:
     'Slide setiap modul kelas. Tekan modul untuk buka slide, bila-bila masa anda ' +
