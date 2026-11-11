@@ -1360,6 +1360,106 @@ export function openPosterExport() {
     return btn;
   };
 
+  // ---- Share to WhatsApp (Boss, 11 Nov 2026) ----------------------------------
+  // The cut files go to whoever runs the laser and the print files to whoever runs
+  // the UV printer, so each row can be ticked and the ticked files shared at once.
+  //
+  // A phone opens the share sheet only within a few seconds of the tap, and a print
+  // run takes longer than that to build. So a file is built the moment it is ticked,
+  // and Share opens the sheet straight away. Files are branded exactly as a
+  // download would be: the cut files carry "by sifulaser.com", the print files not.
+  const shareItems = [];
+  const share = h('button', { type: 'button', class: 'ghost share-btn', disabled: true }, 'Share');
+  const paintShare = () => {
+    const chosen = shareItems.filter((i) => i.on);
+    const waiting = chosen.some((i) => !i.file && !i.error);
+    share.disabled = !chosen.length || waiting;
+    share.textContent = waiting ? 'Menyediakan...' : chosen.length ? `Share (${chosen.length})` : 'Share';
+    const failed = chosen.find((i) => i.error);
+    if (failed) {
+      message.textContent = failed.error;
+      message.hidden = false;
+    }
+  };
+  const prepare = (item) => {
+    if (item.building) return;
+    item.building = (async () => {
+      const out = await forZip(await item.make());
+      return new File([out.data], out.name, { type: 'application/pdf' });
+    })().then((file) => {
+      item.file = file;
+      paintShare();
+    }, (err) => {
+      item.error = printError(err);
+      paintShare();
+    });
+  };
+  /** A file row with a box to tick it for sharing. */
+  const shareRow = (item, ...content) => {
+    const box = h('input', {
+      type: 'checkbox',
+      class: 'share-pick',
+      'aria-label': `Pilih ${item.title} untuk share`,
+      title: 'Pilih untuk share ke WhatsApp',
+      onchange: (e) => {
+        item.on = e.target.checked;
+        if (item.on) prepare(item);
+        paintShare();
+      },
+    });
+    item.box = box;
+    shareItems.push(item);
+    return h('div', { class: 'file-row' }, box, ...content);
+  };
+  const pickKinds = (kinds) => {
+    for (const item of shareItems) {
+      item.on = kinds.includes(item.kind);
+      item.box.checked = item.on;
+      if (item.on) prepare(item);
+    }
+    paintShare();
+  };
+  const shareText = (chosen) => {
+    const lines = [`*${S.name}*`];
+    if (S.client) lines.push(`Client: ${S.client}`);
+    if (S.dateline) lines.push(`Dateline: ${formatDate(S.dateline)}`);
+    for (const item of chosen) lines.push(`- ${item.note}`);
+    return lines.join('\n');
+  };
+  // Where the browser cannot hand files to an app (most desktops without the share
+  // sheet), nothing can: a WhatsApp link carries text only. So the files download
+  // and WhatsApp opens with the note, for the files to be attached by hand.
+  const shareByHand = (chosen, text, openWhatsApp) => {
+    if (openWhatsApp) window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+    for (const item of chosen) {
+      deps.saveFile({ blob: item.file, name: item.file.name, type: item.file.type });
+    }
+    message.textContent = 'Browser ni tak boleh hantar file terus. File dah didownload: lampirkan dalam WhatsApp.';
+    message.hidden = false;
+  };
+  share.addEventListener('click', () => {
+    const chosen = shareItems.filter((i) => i.on && i.file);
+    if (!chosen.length) return;
+    const files = chosen.map((i) => i.file);
+    const text = shareText(chosen);
+    message.hidden = true;
+    let canShare = false;
+    try {
+      canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files });
+    } catch {
+      canShare = false;
+    }
+    if (!canShare) {
+      shareByHand(chosen, text, true);
+      return;
+    }
+    // Nothing is awaited before this: the tap has to still count when it runs.
+    navigator.share({ files, text, title: S.name }).catch((err) => {
+      if (err?.name === 'AbortError') return;   // the person closed the sheet
+      shareByHand(chosen, text, false);
+    });
+  });
+
   const multiPage = S.source.pages.length > 1;
   const sizes = sizesOf(ready);
   const forPages = (pages) => {
@@ -1370,28 +1470,46 @@ export function openPosterExport() {
   };
   const labels = (pages) => pages.map((p) => (S.files.length > 1 ? p.label : `page ${p.index + 1}`)).join(', ');
 
-  const cutRows = sizes.map(({ plan, pages }) => h('div', { class: 'file-row' },
-    h('div', { class: 'file-row-text' },
-      h('b', {}, 'File cut'),
-      h('span', {}, `${size(plan.width, plan.height)}, ${plan.pieces} pieces${forPages(pages)}`)),
-    fileButton('File cut', () => cutFile(plan))));
+  const cutRows = sizes.map(({ plan, pages }) => shareRow({
+    kind: 'cut',
+    title: `file cut ${size(plan.width, plan.height)}`,
+    make: () => cutFile(plan),
+    note: `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces: cut ${pages.length} kali. `
+      + 'Garisan puzzle dulu, frame last. Border dan backing atas acrylic putih 3mm.',
+  },
+  h('div', { class: 'file-row-text' },
+    h('b', {}, 'File cut'),
+    h('span', {}, `${size(plan.width, plan.height)}, ${plan.pieces} pieces${forPages(pages)}`)),
+  fileButton('File cut', () => cutFile(plan))));
 
   // Print: one file per bed load (Boss, 11 Nov 2026). A single panel's file stays
   // to hand for printing one again, folded away.
   const runs = printRuns(ready);
-  const runRows = runs.map((run, i) => h('div', { class: 'file-row' },
-    h('div', { class: 'file-row-text' },
-      h('b', {}, runs.length > 1 ? `File print UV, run ${i + 1} dari ${runs.length}` : 'File print UV'),
-      h('span', {}, `${run.pages.length} panel, ${size(run.width, run.height)}${multiPage ? `: ${labels(run.pages)}` : ''}`)),
-    fileButton('File print', () => runFile(run, i + 1))));
+  const runRows = runs.map((run, i) => shareRow({
+    kind: 'run',
+    title: `file print UV run ${i + 1}`,
+    make: () => runFile(run, i + 1),
+    note: `File print UV${runs.length > 1 ? ` run ${i + 1}` : ''}: ${run.pages.length} panel, ${size(run.width, run.height)}. `
+      + `Letak panel rapat tepi ke tepi dari bucu kiri atas bed${multiPage ? ` (${labels(run.pages)})` : ''}.`,
+  },
+  h('div', { class: 'file-row-text' },
+    h('b', {}, runs.length > 1 ? `File print UV, run ${i + 1} dari ${runs.length}` : 'File print UV'),
+    h('span', {}, `${run.pages.length} panel, ${size(run.width, run.height)}${multiPage ? `: ${labels(run.pages)}` : ''}`)),
+  fileButton('File print', () => runFile(run, i + 1))));
 
   const singleRows = ready.map((p) => {
     const { art } = planFor(p);
-    return h('div', { class: 'file-row' },
-      h('div', { class: 'file-row-text' },
-        h('b', {}, multiPage ? (S.files.length > 1 ? p.label : `Page ${p.index + 1}`) : baseName(S.source.name)),
-        h('span', {}, `Artwork ${size(art.width, art.height)}${p.turned ? ', diputar 90°' : ''}`)),
-      fileButton('File print', () => printFile(p)));
+    const name = multiPage ? (S.files.length > 1 ? p.label : `Page ${p.index + 1}`) : baseName(S.source.name);
+    return shareRow({
+      kind: 'single',
+      title: `file print ${name}`,
+      make: () => printFile(p),
+      note: `File print satu panel: ${name}.`,
+    },
+    h('div', { class: 'file-row-text' },
+      h('b', {}, name),
+      h('span', {}, `Artwork ${size(art.width, art.height)}${p.turned ? ', diputar 90°' : ''}`)),
+    fileButton('File print', () => printFile(p)));
   });
   const singles = ready.length > 1
     ? h('details', { class: 'print-singles' }, h('summary', {}, 'File print satu panel (untuk ulang print)'), ...singleRows)
@@ -1401,16 +1519,26 @@ export function openPosterExport() {
   const layout = S.cards ? cardLayout() : null;
   const cardsReady = layout && layout.fitsBed;
   const cardRows = cardsReady ? [
-    h('div', { class: 'file-row' },
-      h('div', { class: 'file-row-text' },
-        h('b', {}, 'Kad A6: File cut'),
-        h('span', {}, `Sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad`)),
-      fileButton('File cut', () => cardCutFile(layout))),
-    h('div', { class: 'file-row' },
-      h('div', { class: 'file-row-text' },
-        h('b', {}, 'Kad A6: File print'),
-        h('span', {}, `Bleed ${CARD_BLEED_MM} mm, dengan Spot 1 dan Spot 2`)),
-      fileButton('File print', () => cardPrintFile(layout))),
+    shareRow({
+      kind: 'cardCut',
+      title: 'file cut kad A6',
+      make: () => cardCutFile(layout),
+      note: `Kad A6 file cut: sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad, acrylic clear 3mm. Kad dulu, frame last.`,
+    },
+    h('div', { class: 'file-row-text' },
+      h('b', {}, 'Kad A6: File cut'),
+      h('span', {}, `Sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad`)),
+    fileButton('File cut', () => cardCutFile(layout))),
+    shareRow({
+      kind: 'cardPrint',
+      title: 'file print kad A6',
+      make: () => cardPrintFile(layout),
+      note: 'Kad A6 file print: UV print atas sheet kad tanpa keluarkan kad.',
+    },
+    h('div', { class: 'file-row-text' },
+      h('b', {}, 'Kad A6: File print'),
+      h('span', {}, `Bleed ${CARD_BLEED_MM} mm, dengan Spot 1 dan Spot 2`)),
+    fileButton('File print', () => cardPrintFile(layout))),
   ] : [];
   const cardWarning = layout && !layout.fitsBed
     ? h('p', { class: 'warn-line' }, `Kad A6: sheet ${size(layout.sheet.width, layout.sheet.height)} tak muat UV bed. Kurangkan page.`)
@@ -1451,10 +1579,17 @@ export function openPosterExport() {
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
         + 'Spot 1 dan Spot 2 di bawah setiap artwork.')
       : null,
+    shareItems.length
+      ? h('div', { class: 'share-bar' },
+        h('span', {}, 'Pilih untuk share:'),
+        h('button', { type: 'button', class: 'ghost', onclick: () => pickKinds(['cut', 'cardCut']) }, 'File cut (laser)'),
+        h('button', { type: 'button', class: 'ghost', onclick: () => pickKinds(['run', 'cardPrint']) }, 'File print (UV)'))
+      : null,
     savedLine,
     message,
     h('div', { class: 'dlg-actions' },
       h('button', { type: 'button', class: 'ghost', onclick: () => dlg.close() }, 'Tutup'),
+      shareItems.length ? share : null,
       all)));
   dlg.showModal();
   saveOnExport(savedLine);

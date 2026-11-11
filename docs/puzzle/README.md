@@ -76,6 +76,17 @@ landscape: 4 satu run (2 x 2, 658 x 484 mm). Panel yang tak muat bed ikut arah
 biasa diputar. File print satu panel masih ada dalam Export, dilipat, untuk ulang
 print; ZIP hanya ambil file cut, run dan kad.
 
+Share ke WhatsApp (bos, 11 November 2026): dalam Export, setiap baris file ada kotak
+tick. Butang "File cut (laser)" dan "File print (UV)" pilih kumpulan sekali, dan
+Share hantar semua file yang di-tick dengan nota job (client, dateline, cara cut atau
+letak panel).
+
+- File dibina sebaik di-tick, sebab telefon cuma buka menu share beberapa saat
+  selepas ditekan, dan run print ambil masa lebih lama untuk dibina.
+- Jenama sama macam download: file cut ada "by sifulaser.com", file print tiada.
+- Browser yang tak boleh share file (kebanyakan desktop tanpa menu share): file
+  didownload dan WhatsApp dibuka dengan nota; file dilampirkan sendiri.
+
 Fail print ada tiga layer PDF (bos, 5 November 2026), supaya tidak perlu lagi buka
 Photoshop sebelum FlexiPRINT:
 

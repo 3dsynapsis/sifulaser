@@ -583,6 +583,14 @@ input[type="date"] {
 .turn-note { margin: 0; font-size: 12px; color: var(--accent); }
 .print-singles summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 4px 0; }
 .print-singles .file-row { margin-top: 6px; }
+
+/* Share to WhatsApp (Boss, 11 Nov 2026): tick the files, then Share. */
+.share-pick { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.share-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.share-bar .ghost { padding: 6px 10px; font-size: 12px; }
+@media (max-width: 640px) {
+  .file-row .share-pick + .file-row-text { flex-basis: calc(100% - 28px); }
+}
 .file-pick input[hidden] { display: none; }
 .file-name {
   flex: 1; min-width: 0; margin-right: 10px;
