@@ -731,7 +731,7 @@ function renderStage() {
       fitKey: `cards:${layout.sheet.width}x${layout.sheet.height}`,
     });
     deps.els.hint.textContent = check.state === 'building'
-      ? 'Membina file print kad (gambar 300 dpi)...'
+      ? 'Membina file print kad (gambar CMYK 300 dpi)...'
       : `Sheet kad ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad`;
     deps.els.hint.classList.add('show');
     return;
@@ -745,7 +745,7 @@ function renderStage() {
       on: S.layerOn,
       fitKey: `print:${check.key}`,
     });
-    deps.els.hint.textContent = check.state === 'building' ? 'Membina file print (gambar 300 dpi)...' : check.label;
+    deps.els.hint.textContent = check.state === 'building' ? 'Membina file print (gambar CMYK 300 dpi)...' : check.label;
     deps.els.hint.classList.add('show');
     return;
   }
@@ -1053,7 +1053,7 @@ function layerPanel() {
     h('span', { class: 'layer-text' }, h('b', {}, 'Kawasan kosong'), h('span', {}, 'Tiada dakwat')));
 
   let status;
-  if (!check || check.state === 'building') status = [h('p', { class: 'hint' }, 'Membina file print (gambar 300 dpi)...')];
+  if (!check || check.state === 'building') status = [h('p', { class: 'hint' }, 'Membina file print (gambar CMYK 300 dpi)...')];
   else if (check.state === 'error') status = [h('p', { class: 'warn' }, check.error)];
   else {
     status = check.results.map((r) => h('p', { class: r.ok ? 'check-ok' : 'warn' },
@@ -1599,7 +1599,7 @@ export function openPosterExport() {
       ? h('p', { class: 'note' },
         'File cut: cut ikut bilangan UNIT dalam file. Garisan puzzle dulu, frame last. '
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
-        + 'Poster dalam file print ialah gambar 300 dpi, macam file Photoshop designer, jadi ringan dibuka. '
+        + 'Poster dalam file print ialah gambar CMYK 300 dpi, macam file Photoshop designer, jadi ringan dibuka. '
         + 'Spot 1 dan Spot 2 (white) sama saiz dengan setiap artwork. '
         + 'Kalau dibuka di telefon atau Chrome, file print nampak kotak merah atas poster: itu Spot, normal.')
       : null,

@@ -7,12 +7,12 @@
 //   pdf-lib   writes the print file: the poster's picture on a page the size of the
 //             panel, and the Spot layers over it.
 //
-// The print file carries the poster as a 300 dpi picture, like the designer's
+// The print file carries the poster as a 300 dpi CMYK picture, like the designer's
 // Photoshop files (Boss, 11 Nov 2026). Placing the customer's page as it is kept it
 // vector, but a poster made with transparency effects (the A4 job from CorelDRAW has
 // up to 490 transparency groups a page) made the file slow in Acrobat and fell apart
-// when CorelDRAW opened it. The cost: a browser can only draw RGB, so a CMYK poster's
-// colours pass through RGB, and black text prints from all four inks.
+// when CorelDRAW opened it. A browser only draws RGB, so the picture is turned back
+// into CMYK before it is saved (cmykJpeg.js); black comes back as K alone.
 // buildLayeredPrint can still place a page as it is, should that ever be wanted back.
 //
 // Both are imported only when somebody actually uploads a poster: about 2 MB that
@@ -154,7 +154,7 @@ function workingCanvas(width, height) {
  * @param box  the part of it that is printed, same units: the picture is exactly this
  * @param turn how far the page turns clockwise on top of its own /Rotate, 0 or a
  *             multiple of 90
- * @returns { jpg: Uint8Array, dpi }
+ * @returns { jpg: Uint8Array, dpi }: a CMYK JPEG, see cmykJpeg.js
  */
 export async function pagePicture(page, art, box, turn = 0) {
   const rotation = (((page.rotate + turn) % 360) + 360) % 360;
@@ -174,6 +174,7 @@ export async function pagePicture(page, art, box, turn = 0) {
   // and moves it so the box starts at the canvas corner.
   const pxX = width / box.width;
   const pxY = height / box.height;
+  let pixels;
   try {
     await page.render({
       canvasContext: surface.ctx,
@@ -185,12 +186,71 @@ export async function pagePicture(page, art, box, turn = 0) {
       intent: 'print',
       annotationMode: 0,   // AnnotationMode.DISABLE: the page's own drawing only
     }).promise;
-    const blob = await new Promise((resolve) => { surface.canvas.toBlob(resolve, 'image/jpeg', 0.92); });
-    if (!blob) throw Object.assign(new Error('The print picture could not be saved'), { code: 'canvas' });
-    return { jpg: new Uint8Array(await blob.arrayBuffer()), dpi: Math.round(width / (box.width / 25.4)) };
+    pixels = surface.ctx.getImageData(0, 0, width, height).data;
   } finally {
     surface.canvas.width = 0;
   }
+  const jpg = await toCmykJpeg(pixels, width, height);
+  return { jpg, dpi: Math.round(width / (box.width / 25.4)) };
+}
+
+// ---- RGB pixels to a CMYK JPEG, in a worker ------------------------------------
+
+const JPEG_QUALITY = 92;
+let workerReady = null;
+let nextJob = 0;
+const jobs = new Map();
+
+/**
+ * The worker, once it has said it is running, or null where none can start (an old
+ * browser, or a module that would not load): then the work is done on the page.
+ */
+function cmykWorker() {
+  if (!workerReady) {
+    workerReady = new Promise((resolve) => {
+      let worker;
+      try {
+        worker = new Worker(new URL('./cmykWorker.js', import.meta.url), { type: 'module' });
+      } catch {
+        resolve(null);
+        return;
+      }
+      const give = (value) => { clearTimeout(timer); resolve(value); };
+      const timer = setTimeout(() => { worker.terminate(); give(null); }, 15000);
+      worker.onerror = () => { worker.terminate(); give(null); };
+      worker.onmessage = ({ data }) => {
+        if (!data.ready) return;
+        worker.onmessage = ({ data: done }) => {
+          const job = jobs.get(done.id);
+          if (!job) return;
+          jobs.delete(done.id);
+          if (done.error) job.reject(new Error(done.error));
+          else job.resolve(new Uint8Array(done.jpg));
+        };
+        worker.onerror = () => {
+          for (const job of jobs.values()) job.reject(new Error('The CMYK worker stopped'));
+          jobs.clear();
+          workerReady = null;
+        };
+        give(worker);
+      };
+      worker.postMessage({ ping: true });
+    });
+  }
+  return workerReady;
+}
+
+async function toCmykJpeg(pixels, width, height) {
+  const worker = await cmykWorker();
+  if (!worker) {
+    const { rgbaToCmyk, encodeCmykJpeg } = await import('./cmykJpeg.js');
+    return encodeCmykJpeg(rgbaToCmyk(pixels, width * height), width, height, JPEG_QUALITY);
+  }
+  const id = ++nextJob;
+  return new Promise((resolve, reject) => {
+    jobs.set(id, { resolve, reject });
+    worker.postMessage({ id, rgba: pixels.buffer, width, height, quality: JPEG_QUALITY }, [pixels.buffer]);
+  });
 }
 
 const pdfLib = () => import('../vendor/pdf-lib.esm.min.js');
