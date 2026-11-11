@@ -1020,8 +1020,9 @@ function previewGroup() {
       : h('p', { class: 'hint' }, P.puzzle
         ? 'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
           + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'
-        : 'Merah ialah garisan cut panel. Garis putus-putus ialah tepi poster, dan kawasan pudar '
-          + 'ialah bleed yang jatuh atas border. Zoom dan semak teks tak terlalu rapat dengan tepi.'));
+        : 'Merah ialah garisan cut panel. Biru ialah tepi gambar yang dicetak: poster dan bleed '
+          + '2 mm, semuanya nampak lepas print sebab tiada cut di situ. Antara biru dan merah ialah '
+          + 'acrylic kosong tanpa dakwat.'));
 }
 
 // ---- the print file's layers ------------------------------------------------
@@ -1705,5 +1706,5 @@ export const PANEL_STEPS = [
   ['UV print atas panel',
     'Semak layer dulu di Preview, File print. Letak panel atas bed rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
   ['Siap',
-    'Border 16 mm keliling poster tiada dakwat. Bleed 2 mm jatuh atas border, jadi tepi poster tak tinggal kosong.'],
+    'Border 16 mm keliling poster. Bleed 2 mm dicetak atas border dan kekal nampak, jadi acrylic kosong dari tepi gambar ke tepi panel lebih kurang 14 mm.'],
 ];

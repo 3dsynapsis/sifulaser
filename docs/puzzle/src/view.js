@@ -133,27 +133,26 @@ export class View {
       }));
     }
 
-    // Everything between the puzzle's edge and the artwork's edge lands on the
-    // frame. Fading it shows at a glance what will not be on the finished puzzle.
-    const fx = (panel.width - plan.width) / 2;
-    const fy = (panel.height - plan.height) / 2;
     const rect = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
-    this.svg.append(el('path', {
-      d: `${rect(art.x, art.y, art.width, art.height)} ${rect(fx, fy, plan.width, plan.height)}`,
-      fill: '#ffffff', 'fill-opacity': 0.6, 'fill-rule': 'evenodd',
-    }));
-    this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
-
-    // No puzzle on a UV File panel (Boss, 11 Nov 2026): the poster's own edge is drawn
-    // instead, faintly, to show where the bleed starts.
     if (puzzle) {
+      // Everything between the puzzle's edge and the artwork's edge lands on the
+      // frame. Fading it shows at a glance what will not be on the finished puzzle.
+      const fx = (panel.width - plan.width) / 2;
+      const fy = (panel.height - plan.height) / 2;
+      this.svg.append(el('path', {
+        d: `${rect(art.x, art.y, art.width, art.height)} ${rect(fx, fy, plan.width, plan.height)}`,
+        fill: '#ffffff', 'fill-opacity': 0.6, 'fill-rule': 'evenodd',
+      }));
+      this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
       const lines = el('g', { transform: `translate(${fx} ${fy})` });
       lines.append(hairline(`${puzzle.h}${puzzle.v}${puzzle.border}`, CUT_RED));
       this.svg.append(lines);
     } else {
-      const edge = hairline(rect(fx, fy, plan.width, plan.height), '#1259d8');
-      edge.setAttribute('stroke-dasharray', '4 3');
-      this.svg.append(edge);
+      // A UV File panel (Boss, 11 Nov 2026) is not cut at the poster's edge, so its
+      // bleed is printed and stays in sight. Nothing is faded: the picture is drawn as
+      // it will print, the blue line is where the print ends, and between it and the
+      // red cut is bare acrylic.
+      this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
     }
     this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
   }
