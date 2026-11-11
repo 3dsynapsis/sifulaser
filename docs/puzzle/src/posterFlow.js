@@ -29,13 +29,17 @@ import {
   PAPERS, UV_BED_MM, LOW_DPI, GOOD_DPI, planPoster, puzzleParams, effectiveDpi, pixelsFor,
 } from './geom/poster.js';
 import { rankSeeds } from './geom/strength.js';
-import { buildSheet, sheetToPdf } from './exportJobSheet.js';
 import {
-  openPoster, renderPicture, pageImages, openForPrint, buildPrintPdf,
+  buildSheet, buildCardSheet, sheetToPdf, translatePath,
+} from './exportJobSheet.js';
+import {
+  openPoster, renderPicture, pageImages, openForPrint, buildPrintPdf, buildCardPrintPdf,
 } from './posterPdf.js';
+import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
+import { borderPath } from './geom/puzzle.js';
 import { makeZip } from './zip.js';
 import {
-  LAYER_LOOK, inspectPrint, judgeLayers, releaseLayers,
+  LAYER_LOOK, inspectPrint, judgeLayers, judgeCards, releaseLayers,
 } from './printCheck.js';
 
 const PICTURE_PX = 1800;
@@ -57,6 +61,8 @@ const S = {
   savedKey: null,     // settingsKey() at the last save; null when never saved
   pdfKept: true,      // false when this browser refused to store the PDF
   printCheck: null,   // the print file of the page on screen, read back (printCheck.js)
+  cards: false,       // make the A6 reference cards too (Boss, 11 Nov 2026)
+  cardCheck: null,    // the cards' print file, read back
   layerOn: {},        // which layers the File print view shows; for the eye only
 };
 const allLayersOn = () => Object.fromEntries(LAYER_LOOK.map((l) => [l.name, true]));
@@ -157,6 +163,7 @@ function job() {
     client: S.client,
     dateline: S.dateline,
     seeds: knownSeeds(),
+    cards: S.cards,
   };
 }
 
@@ -169,6 +176,7 @@ const settingsKey = () => JSON.stringify({
   shuffle: S.shuffle,
   client: S.client,
   dateline: S.dateline,
+  cards: S.cards,
 });
 
 export const posterDirty = () => posterActive() && settingsKey() !== S.savedKey;
@@ -268,6 +276,7 @@ function closeSource() {
   const { source } = S;
   if (!source) return;
   dropPrintCheck();
+  dropCardCheck();
   for (const p of source.pages) {
     if (p.picture) URL.revokeObjectURL(p.picture);
     if (p.thumb) URL.revokeObjectURL(p.thumb);
@@ -317,6 +326,7 @@ function applyJob(saved) {
   S.dateline = saved.dateline;
   S.shuffle = saved.shuffle;
   S.stageView = saved.view;
+  S.cards = saved.cards;
   S.current = Math.min(saved.current, pages.length - 1);
   S.pins.clear();
   for (const s of saved.seeds) S.pins.set(s.key, s.seed);
@@ -501,6 +511,7 @@ export async function closePoster() {
   S.dateline = '';
   S.choice = { paper: 'A3' };
   S.layerOn = allLayersOn();
+  S.cards = false;
   vault.clearDraft().catch(() => {});
   if (hash) vault.releaseFile(hash).catch(() => {});
   deps.els.status.classList.remove('unsaved');
@@ -552,10 +563,27 @@ function renderStage() {
   const page = currentPage();
   const plan = planFor(page);
   ensurePicture(page);
+  if (S.stageView === 'cards' && S.cards) {
+    const layout = cardLayout();
+    const check = cardCheckFor(layout);
+    deps.view.renderPrint({
+      size: layout.sheet,
+      layers: check.layers,
+      order: LAYER_LOOK.map((l) => l.name),
+      on: S.layerOn,
+      cuts: layout.cards.map((c) => translateCard(c)),
+      fitKey: `cards:${layout.sheet.width}x${layout.sheet.height}`,
+    });
+    deps.els.hint.textContent = check.state === 'building'
+      ? 'Membaca file print kad...'
+      : `Sheet kad ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad`;
+    deps.els.hint.classList.add('show');
+    return;
+  }
   if (S.stageView === 'print') {
     const check = printCheckFor(page, plan);
     deps.view.renderPrint({
-      plan,
+      size: plan.panel,
       layers: check.layers,
       order: LAYER_LOOK.map((l) => l.name),
       on: S.layerOn,
@@ -616,6 +644,7 @@ function renderPanel() {
     resultGroup(page, plan),
     previewGroup(),
     jobGroup(),
+    cardGroup(),
     h('button', { class: 'link', type: 'button', onclick: closePoster },
       'Tutup poster, balik ke puzzle biasa'),
   );
@@ -748,9 +777,10 @@ function previewGroup() {
     },
   }, label);
   return group('Preview', true,
-    h('div', { class: 'seg seg-3' },
-      choice('panel', 'Panel + artwork'), choice('sheet', 'Job sheet'), choice('print', 'File print')),
-    S.stageView === 'print'
+    h('div', { class: S.cards ? 'seg seg-3 seg-4' : 'seg seg-3' },
+      choice('panel', 'Panel + artwork'), choice('sheet', 'Job sheet'), choice('print', 'File print'),
+      S.cards ? choice('cards', 'Kad A6') : null),
+    S.stageView === 'print' || (S.stageView === 'cards' && S.cards)
       ? layerPanel()
       : h('p', { class: 'hint' },
         'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
@@ -803,7 +833,7 @@ const EYE_SHUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
   + '<path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><path d="M3 3l18 18"/></svg>';
 
 function layerPanel() {
-  const check = S.printCheck;
+  const check = S.stageView === 'cards' ? S.cardCheck : S.printCheck;
   const rows = LAYER_LOOK.map((look) => {
     const on = S.layerOn[look.name];
     return h('div', { class: on ? 'layer-row' : 'layer-row off' },
@@ -839,8 +869,107 @@ function layerPanel() {
     ...status,
     h('p', { class: 'hint' },
       'Dibaca dari file print sebenar. Warna untuk mata sahaja, file print tak berubah. '
-      + 'Tutup mata Artwork untuk tengok Spot di bawahnya.'),
+      + 'Tutup mata Artwork untuk tengok Spot di bawahnya.'
+      + (S.stageView === 'cards' ? ' Merah ialah garisan cut kad, frame paling akhir.' : '')),
   ];
+}
+
+// ---- reference cards (Boss, 11 Nov 2026) -------------------------------------
+// One A6 card for each ticked page, all on one sheet: cut once, printed once.
+
+const cardPages = () => S.source.pages.filter((p) => p.ticked);
+const cardLayout = () => layoutCards(cardPages());
+
+/** A card's outline, where it sits on the sheet. */
+const translateCard = (c) => translatePath(`${borderPath(c.width, c.height, CARD_CORNER_MM)} Z`, c.x, c.y);
+
+function cardCheckFor(layout) {
+  const key = `${layout.cards.map((c) => c.index).join(',')}|${S.fileHash}`;
+  if (S.cardCheck?.key === key) return S.cardCheck;
+  dropCardCheck();
+  const check = {
+    key, state: 'building', layers: null, results: null, error: null,
+  };
+  S.cardCheck = check;
+  (async () => {
+    const file = await cardPrintFile(layout);
+    return inspectPrint(S.source.lib, new Uint8Array(await file.blob.arrayBuffer()), layout.cards.map((c) => c.clip));
+  })().then((found) => {
+    if (S.cardCheck !== check) {
+      releaseLayers(found.layers);
+      return;
+    }
+    check.layers = found.layers;
+    check.results = judgeCards(found, layout);
+    check.state = 'ready';
+    if (S.stageView === 'cards') renderPoster();
+  }).catch((err) => {
+    if (S.cardCheck !== check) return;
+    check.state = 'error';
+    check.error = printError(err);
+    if (S.stageView === 'cards') renderPoster();
+  });
+  return check;
+}
+
+function dropCardCheck() {
+  if (S.cardCheck) releaseLayers(S.cardCheck.layers);
+  S.cardCheck = null;
+}
+
+function cardGroup() {
+  const toggle = h('label', { class: 'check' },
+    h('input', {
+      type: 'checkbox',
+      ...(S.cards ? { checked: true } : {}),
+      onchange: (e) => {
+        S.cards = e.target.checked;
+        if (!S.cards && S.stageView === 'cards') S.stageView = 'panel';
+        renderPoster();
+        changed();
+      },
+    }),
+    'Buat kad A6, satu untuk setiap page');
+  if (!S.cards) {
+    return group('Kad rujukan A6', true, toggle,
+      h('p', { class: 'hint' }, 'Gambar penuh setiap poster, untuk rujukan bila pieces bercampur.'));
+  }
+  const layout = cardLayout();
+  const stat = (label, value) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value));
+  if (!layout) {
+    return group('Kad rujukan A6', true, toggle, h('p', { class: 'warn' }, 'Tiada page di-tick.'));
+  }
+  const sizes = [...new Set(layout.cards.map((c) => size(c.width, c.height)))];
+  return group('Kad rujukan A6', true, toggle,
+    layout.fitsBed ? null : h('p', { class: 'warn' },
+      `Sheet ${size(layout.sheet.width, layout.sheet.height)} tak muat UV bed ${UV_BED_MM.long} x ${UV_BED_MM.short} mm. `
+      + 'Kurangkan page yang di-tick.'),
+    stat('Kad', sizes.length === 1 ? sizes[0] : 'ikut ratio page'),
+    stat('Bleed', `${CARD_BLEED_MM} mm keliling`),
+    stat('Susunan', `${layout.cols} x ${layout.rows}, ${layout.cards.length} kad`),
+    stat('Sheet', size(layout.sheet.width, layout.sheet.height)),
+    h('p', { class: 'hint' }, 'Cut kad dulu, frame last. UV print atas sheet tu tanpa keluarkan kad. Tengok di Preview, Kad A6.'));
+}
+
+async function cardCutFile(layout) {
+  const sheet = buildCardSheet(layout, jobMeta());
+  const body = sheetToPdf(sheet, { title: `${S.source.name} - kad A6 cut` });
+  return {
+    blob: new Blob([body], { type: 'application/pdf' }),
+    name: `${baseName(S.source.name)}-kad-a6-cut-${rnd(layout.sheet.width, 1)}x${rnd(layout.sheet.height, 1)}.pdf`,
+    type: 'application/pdf',
+  };
+}
+
+async function cardPrintFile(layout) {
+  if (!S.source.printDoc) S.source.printDoc = openForPrint(S.source.bytes);
+  const doc = await S.source.printDoc;
+  const bytes = await buildCardPrintPdf(doc, layout, { title: `${S.source.name} - kad A6 print` });
+  return {
+    blob: new Blob([bytes], { type: 'application/pdf' }),
+    name: `${baseName(S.source.name)}-kad-a6-print-${rnd(layout.sheet.width, 1)}x${rnd(layout.sheet.height, 1)}.pdf`,
+    type: 'application/pdf',
+  };
 }
 
 function jobGroup() {
@@ -1007,12 +1136,35 @@ export function openPosterExport() {
       fileButton('File print', () => printFile(p)));
   });
 
-  const all = h('button', { type: 'button', class: 'primary', ...(ready.length ? {} : { disabled: true }) },
+  // The reference cards: one sheet for every ticked page, whatever its puzzle size.
+  const layout = S.cards ? cardLayout() : null;
+  const cardsReady = layout && layout.fitsBed;
+  const cardRows = cardsReady ? [
+    h('div', { class: 'file-row' },
+      h('div', { class: 'file-row-text' },
+        h('b', {}, 'Kad A6: File cut'),
+        h('span', {}, `Sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad`)),
+      fileButton('File cut', () => cardCutFile(layout))),
+    h('div', { class: 'file-row' },
+      h('div', { class: 'file-row-text' },
+        h('b', {}, 'Kad A6: File print'),
+        h('span', {}, `Bleed ${CARD_BLEED_MM} mm, dengan Spot 1 dan Spot 2`)),
+      fileButton('File print', () => cardPrintFile(layout))),
+  ] : [];
+  const cardWarning = layout && !layout.fitsBed
+    ? h('p', { class: 'warn-line' }, `Kad A6: sheet ${size(layout.sheet.width, layout.sheet.height)} tak muat UV bed. Kurangkan page.`)
+    : null;
+
+  const all = h('button', { type: 'button', class: 'primary', ...(ready.length || cardsReady ? {} : { disabled: true }) },
     'Download semua (ZIP)');
   all.addEventListener('click', busy(all, async () => {
     const files = [];
     for (const { plan } of sizes) files.push(await forZip(await cutFile(plan)));
     for (const p of ready) files.push(await forZip(await printFile(p)));
+    if (cardsReady) {
+      files.push(await forZip(await cardCutFile(layout)));
+      files.push(await forZip(await cardPrintFile(layout)));
+    }
     const zip = makeZip(files);
     deps.saveFile({
       blob: new Blob([zip], { type: 'application/zip' }),
@@ -1027,6 +1179,8 @@ export function openPosterExport() {
     ticked.length ? null : h('p', { class: 'warn-line' }, 'Tiada page dipilih. Tick sekurang-kurangnya satu page.'),
     ...cutRows,
     ...printRows,
+    ...cardRows,
+    cardWarning,
     ...blocked.map((p) => h('p', { class: 'warn-line' },
       `Page ${p.index + 1}: ${blockedReason(planFor(p))}`)),
     first
@@ -1055,4 +1209,6 @@ export const POSTER_STEPS = [
   ['Lekat jadi tray',
     'Double tape di belakang border, lekat atas backing.'],
   ['Susun pieces dalam tray', 'Siap.'],
+  ['Kad rujukan A6, kalau ada',
+    'Cut sheet kad dulu, frame last. UV print atas sheet tu tanpa keluarkan kad, ikut arah file print kad. Kemudian keluarkan kad.'],
 ];

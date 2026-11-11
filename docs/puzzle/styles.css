@@ -528,6 +528,7 @@ body.poster-mode #redoBtn { display: none; }
   flex: 1 1 0; min-width: 0; padding: 6px 4px;
   white-space: normal; line-height: 1.25;   /* narrow panel: a label may take two lines */
 }
+.seg.seg-4 button { font-size: 11px; }
 .layer-list { display: grid; gap: 4px; }
 .layer-row {
   display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px;

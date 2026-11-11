@@ -51,6 +51,83 @@ export function opaqueBox(rgba, width, height) {
 }
 
 /**
+ * How much of each area a layer paints, and how much it paints outside them all.
+ * Areas are in pixels; each is read a pixel inside its edge, and "outside" a pixel
+ * beyond it, so a soft edge counts for neither.
+ * @returns { inside: [fraction], outside: fraction of everything painted }
+ */
+export function coverage(rgba, width, height, areas) {
+  const inside = areas.map(() => ({ hit: 0, all: 0 }));
+  let painted = 0;
+  let stray = 0;
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      const on = rgba[row + x * 4 + 3] > 127;
+      if (on) painted++;
+      let near = false;
+      for (let i = 0; i < areas.length; i++) {
+        const a = areas[i];
+        if (x >= a.x - 1 && x < a.x + a.w + 1 && y >= a.y - 1 && y < a.y + a.h + 1) {
+          near = true;
+          if (x >= a.x + 1 && x < a.x + a.w - 1 && y >= a.y + 1 && y < a.y + a.h - 1) {
+            inside[i].all++;
+            if (on) inside[i].hit++;
+          }
+        }
+      }
+      if (on && !near) stray++;
+    }
+  }
+  return {
+    inside: inside.map((s) => (s.all ? s.hit / s.all : 0)),
+    outside: painted ? stray / painted : 0,
+  };
+}
+
+const namesLine = (names) => {
+  const want = [ART_LAYER, ...SPOT_LAYERS];
+  if (names.length === want.length && want.every((n, i) => names[i] === n)) {
+    return { ok: true, text: `${want.length} layer, nama tepat: ${want.join(', ')}` };
+  }
+  const missing = want.filter((n) => !names.includes(n));
+  return {
+    ok: false,
+    text: missing.length
+      ? `Layer tiada atau salah eja: ${missing.join(', ')}. Dalam file: ${names.join(', ') || 'tiada layer'}`
+      : `Susunan layer lain dari biasa: ${names.join(', ')}`,
+  };
+};
+
+/**
+ * The reference cards' print file, against its layout: every layer must fill every
+ * card's bleed box and paint nothing on the frame.
+ * @param found from inspectPrint, given the cards' clip boxes as areas
+ */
+export function judgeCards(found, layout) {
+  const out = [namesLine(found.names)];
+  const n = layout.cards.length;
+  const clip = layout.cards[0].clip;
+  for (const name of [ART_LAYER, ...SPOT_LAYERS]) {
+    const cov = found.coverage?.[name];
+    const what = name === ART_LAYER ? 'gambar' : 'white';
+    if (!cov) {
+      out.push({ ok: false, text: `${name} kosong` });
+      continue;
+    }
+    const thin = cov.inside.map((f, i) => (f < 0.98 ? i + 1 : 0)).filter(Boolean);
+    if (thin.length) {
+      out.push({ ok: false, text: `${name} tak penuh pada kad ${thin.join(', ')}` });
+    } else if (cov.outside > 0.005) {
+      out.push({ ok: false, text: `${name} ada ${what} di luar kad, atas frame` });
+    } else {
+      out.push({ ok: true, text: `${name} penuh pada ${n} kad, ${size(clip.width, clip.height)} setiap satu` });
+    }
+  }
+  return out;
+}
+
+/**
  * What the file holds, against what was asked for.
  *
  * @param found { names: string[], boxes: { [layer]: { x, y, w, h, fill } } }, boxes in mm
@@ -59,21 +136,8 @@ export function opaqueBox(rgba, width, height) {
  * @returns [{ ok, text }]
  */
 export function judgeLayers(found, plan, tolMm = 1) {
-  const want = [ART_LAYER, ...SPOT_LAYERS];
   const { names, boxes } = found;
-  const out = [];
-
-  if (names.length === want.length && want.every((n, i) => names[i] === n)) {
-    out.push({ ok: true, text: `${want.length} layer, nama tepat: ${want.join(', ')}` });
-  } else {
-    const missing = want.filter((n) => !names.includes(n));
-    out.push({
-      ok: false,
-      text: missing.length
-        ? `Layer tiada atau salah eja: ${missing.join(', ')}. Dalam file: ${names.join(', ') || 'tiada layer'}`
-        : `Susunan layer lain dari biasa: ${names.join(', ')}`,
-    });
-  }
+  const out = [namesLine(names)];
 
   const { art } = plan;
   const near = (a, b) => Math.abs(a - b) <= tolMm;
@@ -126,10 +190,12 @@ async function renderAlone(doc, page, groups, id, viewport) {
  * Open a print file and read each layer.
  * @param lib   the PDF.js module
  * @param bytes the PDF; handed to PDF.js, so the caller must not use it afterwards
- * @returns { names, boxes, layers: { [layer]: { url } }, tolMm }
+ * @param areas optional [{ x, y, width, height }] in mm: also measure how much of each
+ *              every layer fills, and how much it paints outside them
+ * @returns { names, boxes, coverage, layers: { [layer]: { url } }, tolMm }
  *          url is a PNG of the whole page with only that layer, tinted for Spot layers
  */
-export async function inspectPrint(lib, bytes) {
+export async function inspectPrint(lib, bytes, areas = null) {
   const doc = await lib.getDocument({ data: bytes, isEvalSupported: false }).promise;
   const layers = {};
   try {
@@ -143,11 +209,17 @@ export async function inspectPrint(lib, bytes) {
     const viewport = page.getViewport({ scale });
     const mmPerPx = 25.4 / 72 / scale;
     const boxes = {};
+    const covered = {};
+    const pxAreas = areas && areas.map((a) => ({
+      x: a.x / mmPerPx, y: a.y / mmPerPx, w: a.width / mmPerPx, h: a.height / mmPerPx,
+    }));
     for (const look of LAYER_LOOK) {
       const id = idOf.get(look.name);
       if (id) {
         const { canvas, ctx } = await renderAlone(doc, page, groups, id, viewport);
-        const box = opaqueBox(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const box = opaqueBox(pixels, canvas.width, canvas.height);
+        if (pxAreas) covered[look.name] = coverage(pixels, canvas.width, canvas.height, pxAreas);
         if (box) {
           boxes[look.name] = {
             x: box.x * mmPerPx, y: box.y * mmPerPx, w: box.w * mmPerPx, h: box.h * mmPerPx, fill: box.fill,
@@ -163,7 +235,9 @@ export async function inspectPrint(lib, bytes) {
         canvas.width = 0;
       }
     }
-    return { names, boxes, layers, tolMm: 2 * mmPerPx };
+    return {
+      names, boxes, coverage: covered, layers, tolMm: 2 * mmPerPx,
+    };
   } catch (err) {
     releaseLayers(layers);
     throw err;

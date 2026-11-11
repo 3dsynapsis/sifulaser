@@ -147,28 +147,40 @@ export async function openForPrint(bytes) {
  * @param source a document from openForPrint
  * @param plan   result of planPoster
  */
-export async function buildPrintPdf(source, pageIndex, plan, { title } = {}) {
+export function buildPrintPdf(source, pageIndex, plan, opts = {}) {
+  return buildLayeredPrint(source, plan.panel, [{ pageIndex, art: plan.art, box: plan.art }], opts);
+}
+
+/**
+ * The reference cards' print file (Boss, 11 Nov 2026): one sheet, every card's
+ * picture clipped to the card and its bleed, and the same three layers. The Spot
+ * white fills each card's bleed box, not the sheet: the frame stays clear.
+ *
+ * @param layout result of layoutCards
+ */
+export function buildCardPrintPdf(source, layout, opts = {}) {
+  return buildLayeredPrint(source, layout.sheet, layout.cards.map((c) => ({
+    pageIndex: c.index, art: c.art, box: c.clip,
+  })), { title: 'Kad rujukan A6', ...opts });
+}
+
+/**
+ * One page with pictures placed on it, in three layers.
+ *
+ * @param size       { width, height } of the page, mm
+ * @param placements [{ pageIndex, art, box }]: `art` is where the source page goes and
+ *                   `box` what is printed of it, both { x, y, width, height } in mm from
+ *                   the page's top-left. The Spot white and the no-ink base fill `box`;
+ *                   a picture bigger than its box is clipped to it.
+ */
+async function buildLayeredPrint(source, size, placements, { title } = {}) {
   const {
     PDFDocument, PDFName, PDFNumber, PDFOperator, PDFString, degrees,
   } = await pdfLib();
   const out = await PDFDocument.create();
-  const srcPage = source.getPage(pageIndex);
-  const box = srcPage.getCropBox();
-  const embedded = await out.embedPage(srcPage, {
-    left: box.x,
-    bottom: box.y,
-    right: box.x + box.width,
-    top: box.y + box.height,
-  });
-
-  const panelW = plan.panel.width * MM_TO_PT;
-  const panelH = plan.panel.height * MM_TO_PT;
-  const page = out.addPage([panelW, panelH]);
-
-  const artW = plan.art.width * MM_TO_PT;
-  const artH = plan.art.height * MM_TO_PT;
-  const left = plan.art.x * MM_TO_PT;
-  const bottom = panelH - plan.art.y * MM_TO_PT - artH;
+  const pageW = size.width * MM_TO_PT;
+  const pageH = size.height * MM_TO_PT;
+  const page = out.addPage([pageW, pageH]);
 
   const ctx = out.context;
   const name = (text) => PDFName.of(text);
@@ -195,50 +207,66 @@ export async function buildPrintPdf(source, pageIndex, plan, { title } = {}) {
     ...Object.fromEntries(spots.map((s) => [s.key, s.ref])),
   }));
 
-  const artRect = () => op('re', PDFNumber.of(left), PDFNumber.of(bottom), PDFNumber.of(artW), PDFNumber.of(artH));
+  // mm from the top-left -> points from the bottom-left
+  const rect = (r) => op('re', PDFNumber.of(r.x * MM_TO_PT), PDFNumber.of(pageH - (r.y + r.height) * MM_TO_PT),
+    PDFNumber.of(r.width * MM_TO_PT), PDFNumber.of(r.height * MM_TO_PT));
+  const same = (a, b) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 
   // Painted from the bottom up, so the last Spot goes first and the artwork last.
   for (const s of [...spots].reverse()) {
-    page.pushOperators(
-      op('BDC', name('OC'), name(s.key)),
-      op('q'),
-      op('cs', name(s.key)),
-      op('scn', PDFNumber.of(1)),
-      artRect(),
-      op('f'),
-      op('Q'),
-      op('EMC'),
-    );
+    page.pushOperators(op('BDC', name('OC'), name(s.key)), op('q'), op('cs', name(s.key)), op('scn', PDFNumber.of(1)));
+    for (const p of placements) page.pushOperators(rect(p.box), op('f'));
+    page.pushOperators(op('Q'), op('EMC'));
   }
-  page.pushOperators(
-    op('BDC', name('OC'), name('Art')),
-    op('q'),
-    op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
-    artRect(),
-    op('f'),
-  );
 
-  // A page's /Rotate is an instruction to viewers, and an embedded page does not
-  // carry it across, so the turn has to be applied here. Each case puts the
-  // rotated page's lower-left corner back on the artwork's lower-left corner.
-  const turn = ((srcPage.getRotation().angle % 360) + 360) % 360;
-  const sideways = turn === 90 || turn === 270;
-  const xScale = artW / (sideways ? box.height : box.width);
-  const yScale = artH / (sideways ? box.width : box.height);
-  const place = {
-    0: { x: left, y: bottom, angle: 0 },
-    90: { x: left, y: bottom + artH, angle: -90 },
-    180: { x: left + artW, y: bottom + artH, angle: 180 },
-    270: { x: left + artW, y: bottom, angle: 90 },
-  }[turn] || { x: left, y: bottom, angle: 0 };
+  page.pushOperators(op('BDC', name('OC'), name('Art')), op('q'));
+  const embeddedPages = new Map();
+  for (const p of placements) {
+    const srcPage = source.getPage(p.pageIndex);
+    const crop = srcPage.getCropBox();
+    if (!embeddedPages.has(p.pageIndex)) {
+      embeddedPages.set(p.pageIndex, await out.embedPage(srcPage, {
+        left: crop.x,
+        bottom: crop.y,
+        right: crop.x + crop.width,
+        top: crop.y + crop.height,
+      }));
+    }
+    page.pushOperators(op('q'));
+    if (!same(p.box, p.art)) page.pushOperators(rect(p.box), op('W'), op('n'));
+    page.pushOperators(
+      op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
+      rect(p.box),
+      op('f'),
+    );
 
-  page.drawPage(embedded, {
-    x: place.x,
-    y: place.y,
-    xScale: sideways ? yScale : xScale,
-    yScale: sideways ? xScale : yScale,
-    rotate: degrees(place.angle),
-  });
+    const artW = p.art.width * MM_TO_PT;
+    const artH = p.art.height * MM_TO_PT;
+    const left = p.art.x * MM_TO_PT;
+    const bottom = pageH - p.art.y * MM_TO_PT - artH;
+    // A page's /Rotate is an instruction to viewers, and an embedded page does not
+    // carry it across, so the turn has to be applied here. Each case puts the
+    // rotated page's lower-left corner back on the artwork's lower-left corner.
+    const turn = ((srcPage.getRotation().angle % 360) + 360) % 360;
+    const sideways = turn === 90 || turn === 270;
+    const xScale = artW / (sideways ? crop.height : crop.width);
+    const yScale = artH / (sideways ? crop.width : crop.height);
+    const place = {
+      0: { x: left, y: bottom, angle: 0 },
+      90: { x: left, y: bottom + artH, angle: -90 },
+      180: { x: left + artW, y: bottom + artH, angle: 180 },
+      270: { x: left + artW, y: bottom, angle: 90 },
+    }[turn] || { x: left, y: bottom, angle: 0 };
+
+    page.drawPage(embeddedPages.get(p.pageIndex), {
+      x: place.x,
+      y: place.y,
+      xScale: sideways ? yScale : xScale,
+      yScale: sideways ? xScale : yScale,
+      rotate: degrees(place.angle),
+    });
+    page.pushOperators(op('Q'));
+  }
   page.pushOperators(op('Q'), op('EMC'));
 
   out.setTitle(title || 'Puzzle print file');

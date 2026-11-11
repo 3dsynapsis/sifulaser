@@ -79,6 +79,23 @@ pdf-lib yang menulisnya. Setiap layer ada ikon mata untuk on/off, macam Photosho
   penuh dan sama saiz dengan artwork. Salah satu gagal, barisnya merah.
 - Ini hanya mengesahkan fail. Ia tidak menjamin FlexiPRINT membacanya.
 
+Kad rujukan A6 (bos, 11 November 2026): satu kad gambar penuh untuk setiap page yang
+di-tick, supaya client boleh rujuk bila pieces bercampur. Suis dalam kumpulan "Kad
+rujukan A6"; semua kad atas satu sheet, jadi laser cut sekali dan UV print sekali.
+Peraturan dalam `src/geom/cards.js`:
+
+- Kad ikut A6 seperti puzzle ikut A3: sisi panjang 148 mm, sisi pendek ikut ratio
+  poster. Poster 2:3 jadi kad 98.67 x 148 mm.
+- Bleed 2 mm keliling setiap kad (bos), gambar dipotong (clip) tepat di situ.
+- Jarak antara kad 4 mm, dua kali bleed: bleed kad sebelah bertemu tanpa bertindih.
+- Frame 10 mm keliling, dicut paling akhir. Bucu kad R3.
+- Susunan grid yang paling kecil yang muat UV bed. 4 page jadi 2 x 2, sheet
+  221.34 x 320 mm.
+- Fail print kad ada tiga layer yang sama. Spot penuh di bawah setiap kad dan bleed,
+  bukan atas frame. Preview > Kad A6 menyemak semula setiap kad.
+- Kesan bleed: 2 mm tepi poster jatuh di luar kad. Teks yang lebih rapat dari itu
+  pada saiz A6 terpotong sedikit (sampel Prostar page 2, "penyusuan susu ibu").
+
 Simpan (bos, 5 November 2026: kerja tidak boleh hilang bila terkeluar atau tersilap):
 
 - Butang Simpan buka popup Simpan sebagai: taip nama baru, atau pilih fail lama untuk
@@ -104,6 +121,7 @@ Fail baharu dalam `src/`:
 - `posterSaved.js` - bentuk rekod poster dalam akaun (tulen)
 - `posterVault.js` - PDF dan draf dalam IndexedDB
 - `printCheck.js` - baca semula layer fail print untuk Preview > File print
+- `geom/cards.js` - saiz, bleed dan susunan kad rujukan A6 (tulen)
 - `zip.js` - ZIP tanpa mampatan untuk "Download semua"
 
 `vendor/` hanya dimuat bila seseorang upload poster (lebih kurang 2 MB):

@@ -280,6 +280,7 @@ const encodable = (v) => v === null || ['string', 'boolean'].includes(typeof v)
     client: 'Pejabat Kesihatan',
     dateline: '2026-11-20',
     seeds: [],
+    cards: true,
   };
   const order = [];
   const posterStore = {

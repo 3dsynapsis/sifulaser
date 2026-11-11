@@ -162,12 +162,13 @@ export class View {
    * stacked as in the file and each shown or hidden by its eye. Clear acrylic is a
    * checkerboard, so that nothing on it can be mistaken for white.
    *
+   * @param size   { width, height } of the file's page, mm
    * @param layers { [name]: { url } }, or null while the file is being read
    * @param order  layer names top to bottom
    * @param on     { [name]: boolean }
+   * @param cuts   optional path data in page mm, drawn on top as cut lines
    */
-  renderPrint({ plan, layers, order, on, fitKey }) {
-    const { panel } = plan;
+  renderPrint({ size: panel, layers, order, on, cuts = [], fitKey }) {
     const m = Math.max(panel.width, panel.height) * 0.04;
     this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
 
@@ -202,7 +203,8 @@ export class View {
         }));
       }
     }
-    this.svg.append(hairline(outline(0, 0, panel.width, panel.height), '#8a94a3'));
+    for (const d of cuts) this.svg.append(hairline(d, CUT_RED));
+    this.svg.append(hairline(outline(0, 0, panel.width, panel.height), cuts.length ? CUT_RED : '#8a94a3'));
   }
 
   // ---- zoom --------------------------------------------------------------
