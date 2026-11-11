@@ -2,12 +2,18 @@
 //
 // Two libraries, because they do different jobs and neither does both:
 //
-//   pdf.js    draws a page to a picture for the preview, and reports the page size
-//             and the pictures inside it.
-//   pdf-lib   places the customer's page, untouched, on a new page for the printer.
-//             Their vector artwork stays vector and their images keep every pixel,
-//             so the print is as sharp as the file they supplied. Rendering the
-//             page to a picture first would throw that away.
+//   pdf.js    draws a page to a picture: for the preview, and at 300 dpi for the print
+//             file. It also reports the page size and the pictures inside it.
+//   pdf-lib   writes the print file: the poster's picture on a page the size of the
+//             panel, and the Spot layers over it.
+//
+// The print file carries the poster as a 300 dpi picture, like the designer's
+// Photoshop files (Boss, 11 Nov 2026). Placing the customer's page as it is kept it
+// vector, but a poster made with transparency effects (the A4 job from CorelDRAW has
+// up to 490 transparency groups a page) made the file slow in Acrobat and fell apart
+// when CorelDRAW opened it. The cost: a browser can only draw RGB, so a CMYK poster's
+// colours pass through RGB, and black text prints from all four inks.
+// buildLayeredPrint can still place a page as it is, should that ever be wanted back.
 //
 // Both are imported only when somebody actually uploads a poster: about 2 MB that
 // the ordinary puzzle tool never needs. Nothing leaves the browser.
@@ -112,6 +118,81 @@ export async function pageImages(lib, page) {
   return out;
 }
 
+/** The poster's resolution in the print file: the designer's Photoshop files are 300 dpi. */
+export const PRINT_DPI = 300;
+// A canvas this many pixels takes about 200 MB while it is drawn. A panel bigger than
+// that is drawn at a lower resolution rather than not at all (A2 at 300 dpi is 34
+// million; the whole 900 x 600 mm bed comes out at 240 dpi).
+const MAX_PICTURE_PX = 48e6;
+const MIN_PICTURE_DPI = 150;
+
+/**
+ * A canvas of this size that really draws. Browsers fail on big canvases in different
+ * ways, iOS Safari by drawing nothing past about 16 million pixels, so one pixel is
+ * written in the far corner and read back.
+ */
+function workingCanvas(width, height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#010203';
+    ctx.fillRect(width - 1, height - 1, 1, 1);
+    const [r, g, b] = ctx.getImageData(width - 1, height - 1, 1, 1).data;
+    if (r === 1 && g === 2 && b === 3) return { canvas, ctx };
+  }
+  canvas.width = 0;
+  return null;
+}
+
+/**
+ * One page drawn as the picture the print file carries.
+ *
+ * @param page a pdf.js page
+ * @param art  where the whole page goes, mm from the top-left of the print page
+ * @param box  the part of it that is printed, same units: the picture is exactly this
+ * @param turn how far the page turns clockwise on top of its own /Rotate, 0 or a
+ *             multiple of 90
+ * @returns { jpg: Uint8Array, dpi }
+ */
+export async function pagePicture(page, art, box, turn = 0) {
+  const rotation = (((page.rotate + turn) % 360) + 360) % 360;
+  const view = page.getViewport({ scale: 1, rotation });
+  const squareInches = (box.width / 25.4) * (box.height / 25.4);
+  let surface = null;
+  let dpi = Math.min(PRINT_DPI, Math.sqrt(MAX_PICTURE_PX / squareInches));
+  let width = 0;
+  let height = 0;
+  for (; dpi >= MIN_PICTURE_DPI && !surface; dpi *= 0.8) {
+    width = Math.max(1, Math.round((box.width / 25.4) * dpi));
+    height = Math.max(1, Math.round((box.height / 25.4) * dpi));
+    surface = workingCanvas(width, height);
+  }
+  if (!surface) throw Object.assign(new Error('The print picture is too big for this browser'), { code: 'canvas' });
+  // pdf.js lays the page out at one pixel a point; this stretches it over the artwork
+  // and moves it so the box starts at the canvas corner.
+  const pxX = width / box.width;
+  const pxY = height / box.height;
+  try {
+    await page.render({
+      canvasContext: surface.ctx,
+      viewport: view,
+      transform: [(art.width * pxX) / view.width, 0, 0, (art.height * pxY) / view.height,
+        (art.x - box.x) * pxX, (art.y - box.y) * pxY],
+      // The print intent draws without waiting for animation frames, which a tab in
+      // the background never gets.
+      intent: 'print',
+      annotationMode: 0,   // AnnotationMode.DISABLE: the page's own drawing only
+    }).promise;
+    const blob = await new Promise((resolve) => { surface.canvas.toBlob(resolve, 'image/jpeg', 0.92); });
+    if (!blob) throw Object.assign(new Error('The print picture could not be saved'), { code: 'canvas' });
+    return { jpg: new Uint8Array(await blob.arrayBuffer()), dpi: Math.round(width / (box.width / 25.4)) };
+  } finally {
+    surface.canvas.width = 0;
+  }
+}
+
 const pdfLib = () => import('../vendor/pdf-lib.esm.min.js');
 
 /**
@@ -194,13 +275,15 @@ export function buildCardPrintPdf(layout, resolve, opts = {}) {
  * One page with pictures placed on it, in three layers.
  *
  * @param size       { width, height } of the page, mm
- * @param placements [{ doc, pageIndex, art, box, turn }]: `doc` is a document from
- *                   openForPrint, so one page can carry pictures from several PDFs.
- *                   `art` is where the source page goes and `box` what is printed of it,
- *                   both { x, y, width, height } in mm from the page's top-left, and
- *                   `turn` how far the picture is turned clockwise, 0 or a multiple of 90.
- *                   The Spot white and the no-ink base fill `box`; a picture bigger than
- *                   its box is clipped to it.
+ * @param placements [{ jpg, box }]: a picture from pagePicture, laid exactly over `box`,
+ *                   { x, y, width, height } in mm from the page's top-left. This is
+ *                   what the tool writes.
+ *                   Or [{ doc, pageIndex, art, box, turn }] to place a page as it is:
+ *                   `doc` is a document from openForPrint, so one page can carry pages
+ *                   from several PDFs, `art` is where the page goes and `box` what is
+ *                   printed of it, and `turn` how far it is turned clockwise, 0 or a
+ *                   multiple of 90. A page bigger than its box is clipped to it.
+ *                   Either way the Spot white and the no-ink base fill `box`.
  */
 export async function buildLayeredPrint(size, placements, { title } = {}) {
   const {
@@ -247,8 +330,26 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
 
   // Painted from the bottom up: the artwork first, then Spot 2, and Spot 1 on top.
   page.pushOperators(op('BDC', name('OC'), name('Art')), op('q'));
+  const noInkBase = (box) => page.pushOperators(
+    op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
+    rect(box),
+    op('f'),
+  );
   const embedded = new Map();   // doc -> page index -> embedded page, each one once
   for (const p of placements) {
+    if (p.jpg) {
+      const picture = await out.embedJpg(p.jpg);
+      page.pushOperators(op('q'));
+      noInkBase(p.box);
+      page.drawImage(picture, {
+        x: p.box.x * MM_TO_PT,
+        y: pageH - (p.box.y + p.box.height) * MM_TO_PT,
+        width: p.box.width * MM_TO_PT,
+        height: p.box.height * MM_TO_PT,
+      });
+      page.pushOperators(op('Q'));
+      continue;
+    }
     const srcPage = p.doc.getPage(p.pageIndex);
     const crop = srcPage.getCropBox();
     if (!embedded.has(p.doc)) embedded.set(p.doc, new Map());
@@ -263,11 +364,7 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     }
     page.pushOperators(op('q'));
     if (!same(p.box, p.art)) page.pushOperators(rect(p.box), op('W'), op('n'));
-    page.pushOperators(
-      op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
-      rect(p.box),
-      op('f'),
-    );
+    noInkBase(p.box);
 
     const artW = p.art.width * MM_TO_PT;
     const artH = p.art.height * MM_TO_PT;

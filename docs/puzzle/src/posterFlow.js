@@ -42,7 +42,7 @@ import {
   buildSheet, buildCardSheet, sheetToPdf, translatePath,
 } from './exportJobSheet.js';
 import {
-  openPoster, renderPicture, pageImages, openForPrint, buildPrintPdf, buildCardPrintPdf, buildLayeredPrint,
+  openPoster, renderPicture, pageImages, pagePicture, buildLayeredPrint,
 } from './posterPdf.js';
 import { planRuns, turnBox } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
@@ -58,7 +58,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 const S = {
   source: null,       // { name, lib, pages }: every page of every PDF, in the job's order
-  files: [],          // the PDFs: { name, size, hash, bytes, doc, printDoc, pages }
+  files: [],          // the PDFs: { name, size, hash, bytes, doc, pages }
   name: '',           // what this job is called, shown in the top bar
   nameAuto: true,     // the name came from the files, not from a person
   choice: { paper: 'A3' },
@@ -448,7 +448,7 @@ export async function openPosterFiles(fileList, restore = null, { add = false } 
       await vault.putFile(hash, one.name, one.bytes);
     } catch { /* opens anyway; there will be no draft to come back to */ }
     opened.push({
-      name: one.name, size: one.bytes.length, hash, bytes: one.bytes, lib: one.lib, doc: one.doc, pages: one.pages, printDoc: null,
+      name: one.name, size: one.bytes.length, hash, bytes: one.bytes, lib: one.lib, doc: one.doc, pages: one.pages,
     });
   }
   if (problems.length) complain(problems.join('\n'));
@@ -731,7 +731,7 @@ function renderStage() {
       fitKey: `cards:${layout.sheet.width}x${layout.sheet.height}`,
     });
     deps.els.hint.textContent = check.state === 'building'
-      ? 'Membaca file print kad...'
+      ? 'Membina file print kad (gambar 300 dpi)...'
       : `Sheet kad ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad`;
     deps.els.hint.classList.add('show');
     return;
@@ -745,7 +745,7 @@ function renderStage() {
       on: S.layerOn,
       fitKey: `print:${check.key}`,
     });
-    deps.els.hint.textContent = check.state === 'building' ? 'Membaca file print...' : check.label;
+    deps.els.hint.textContent = check.state === 'building' ? 'Membina file print (gambar 300 dpi)...' : check.label;
     deps.els.hint.classList.add('show');
     return;
   }
@@ -1053,7 +1053,7 @@ function layerPanel() {
     h('span', { class: 'layer-text' }, h('b', {}, 'Kawasan kosong'), h('span', {}, 'Tiada dakwat')));
 
   let status;
-  if (!check || check.state === 'building') status = [h('p', { class: 'hint' }, 'Membaca file print...')];
+  if (!check || check.state === 'building') status = [h('p', { class: 'hint' }, 'Membina file print (gambar 300 dpi)...')];
   else if (check.state === 'error') status = [h('p', { class: 'warn' }, check.error)];
   else {
     status = check.results.map((r) => h('p', { class: r.ok ? 'check-ok' : 'warn' },
@@ -1160,11 +1160,14 @@ async function cardCutFile(layout) {
 }
 
 async function cardPrintFile(layout) {
-  const docs = await printDocs();
-  const bytes = await buildCardPrintPdf(layout, (index) => {
-    const p = S.source.pages[index];
-    return { doc: docs[p.fileIndex], pageIndex: p.pageInFile, turn: p.turned ? 90 : 0 };
-  }, { title: `${S.source.name} - kad A6 print` });
+  // Each card is its page's picture clipped to the card and its bleed. The Spot white
+  // fills the same box, not the sheet: the frame stays clear.
+  const placements = [];
+  for (const c of layout.cards) {
+    const p = S.source.pages[c.index];
+    placements.push({ jpg: (await pictureFor(p, c.art, c.clip, p.turned ? 90 : 0)).jpg, box: c.clip });
+  }
+  const bytes = await buildLayeredPrint(layout.sheet, placements, { title: `${S.source.name} - kad A6 print` });
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
     name: `${baseName(S.source.name)}-kad-a6-print-${rnd(layout.sheet.width, 1)}x${rnd(layout.sheet.height, 1)}.pdf`,
@@ -1213,12 +1216,21 @@ export function shufflePoster() {
 
 const pageTag = (page) => (S.source.pages.length > 1 ? `-p${page.index + 1}` : '');
 
-/** Each PDF parsed for writing, once. */
-function printDocs() {
-  return Promise.all(S.files.map((f) => {
-    if (!f.printDoc) f.printDoc = openForPrint(f.bytes);
-    return f.printDoc;
-  }));
+/**
+ * A page drawn as the 300 dpi picture a print file carries, once for each place it is
+ * put: the layer check and the Export after it ask for the same one. A few are kept
+ * per page (its panel, its card, and a size it was just at), each a JPEG of 1 to 2 MB.
+ */
+function pictureFor(page, art, box, turn) {
+  const key = [art.x, art.y, art.width, art.height, box.x, box.y, box.width, box.height, turn].join(',');
+  if (!page.pictures) page.pictures = new Map();
+  if (!page.pictures.has(key)) {
+    const made = pagePicture(page.obj, art, box, turn);
+    made.catch(() => { if (page.pictures.get(key) === made) page.pictures.delete(key); });
+    page.pictures.set(key, made);
+    if (page.pictures.size > 4) page.pictures.delete(page.pictures.keys().next().value);
+  }
+  return page.pictures.get(key);
 }
 
 /** Ticked pages that can be made at this size. */
@@ -1249,10 +1261,14 @@ function runBoxes(run) {
 
 /** One print file for one bed load: the cut panels laid edge to edge from the corner. */
 async function runFile(run, number) {
-  const docs = await printDocs();
-  const bytes = await buildLayeredPrint({ width: run.width, height: run.height }, runBoxes(run).map((b) => ({
-    doc: docs[b.page.fileIndex], pageIndex: b.page.pageInFile, art: b.box, box: b.box, turn: b.turn,
-  })), { title: `${S.source.name} - print run ${number}` });
+  // One picture at a time: each one needs a canvas of up to 200 MB while it is drawn.
+  const placements = [];
+  for (const b of runBoxes(run)) {
+    placements.push({ jpg: (await pictureFor(b.page, b.box, b.box, b.turn)).jpg, box: b.box });
+  }
+  const bytes = await buildLayeredPrint({ width: run.width, height: run.height }, placements, {
+    title: `${S.source.name} - print run ${number}`,
+  });
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
     name: `${baseName(S.source.name)}-print-run${number}-${rnd(run.width, 1)}x${rnd(run.height, 1)}.pdf`,
@@ -1278,10 +1294,8 @@ async function cutFile(plan, units = unitsFor(plan)) {
 /** One panel's print file on its own, for printing a single panel again. */
 async function printFile(page) {
   const plan = planFor(page);
-  const docs = await printDocs();
-  const bytes = await buildPrintPdf(docs[page.fileIndex], page.pageInFile, plan, {
-    title: `${S.source.name} - print`, turn: page.turned ? 90 : 0,
-  });
+  const { jpg } = await pictureFor(page, plan.art, plan.art, page.turned ? 90 : 0);
+  const bytes = await buildLayeredPrint(plan.panel, [{ jpg, box: plan.art }], { title: `${S.source.name} - print` });
   const stem = S.files.length > 1 ? baseName(page.label) : `${baseName(S.source.name)}${pageTag(page)}`;
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
@@ -1307,7 +1321,10 @@ async function forZip(file) {
 }
 
 function printError(err) {
-  return err?.constructor?.name === 'EncryptedPDFError' || /encrypted/i.test(err?.message || '')
+  if (err?.code === 'canvas') {
+    return 'Browser ni tak cukup memori untuk lukis gambar print sebesar ni. Cuba di komputer, atau tutup tab lain.';
+  }
+  return err?.constructor?.name === 'EncryptedPDFError' || /encrypted|password/i.test(err?.message || '')
     ? 'PDF ni ada perlindungan, jadi file print tak dapat dibina. Minta file tanpa perlindungan.'
     : 'File tak dapat dibina. Cuba simpan semula PDF tu sebagai PDF biasa.';
 }
@@ -1582,6 +1599,7 @@ export function openPosterExport() {
       ? h('p', { class: 'note' },
         'File cut: cut ikut bilangan UNIT dalam file. Garisan puzzle dulu, frame last. '
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
+        + 'Poster dalam file print ialah gambar 300 dpi, macam file Photoshop designer, jadi ringan dibuka. '
         + 'Spot 1 dan Spot 2 (white) sama saiz dengan setiap artwork. '
         + 'Kalau dibuka di telefon atau Chrome, file print nampak kotak merah atas poster: itu Spot, normal.')
       : null,
