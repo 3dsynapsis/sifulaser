@@ -1,6 +1,6 @@
 // The UV File tab (Boss, 11 Nov 2026): the Puzzle tab's poster flow with no puzzle.
 //
-// Put a PDF in and out come the panel's cut file (its outline, 16 mm border, R5
+// Put a PDF in and out come the panel's cut file (its outline, 10 mm border, R5
 // corners) and the UV print file (the poster as a CMYK picture, 2 mm bleed, Spot 1 and
 // Spot 2 under it). Sizes, Save, the draft, Export, Share and the layer check are the
 // Puzzle tab's own code: posterFlow.js run with product 'panel'. Only the page around
@@ -14,6 +14,7 @@ import {
   initPoster, posterActive, openPosterFiles, openPosterDesign, renderPoster,
   openPosterExport, restorePosterDraft, renamePoster, posterStore, PANEL_STEPS,
 } from './posterFlow.js';
+import { PANEL_BORDER_MM, PANEL_BLEED_MM } from './geom/panel.js';
 
 // First, before anything reads them: this tab's designs and draft are its own.
 gallery.useTool('uvfile', 'UV file tanpa nama');
@@ -82,8 +83,8 @@ function renderEmpty() {
       h('p', { class: 'hint' },
         'Boleh pilih banyak PDF sekali. PDF kekal dalam browser ni dan tak dihantar ke mana-mana.')),
     group('Apa yang keluar', true,
-      stat('Border', '16 mm keliling, bucu R5'),
-      stat('Bleed', '2 mm atas border'),
+      stat('Border', `${PANEL_BORDER_MM} mm keliling, bucu R5`),
+      stat('Bleed', `${PANEL_BLEED_MM} mm atas border`),
       stat('Saiz', 'A4, A3, A2, tinggi sendiri, atau saiz asal PDF'),
       stat('Material', 'Acrylic putih 3mm, atau clear 2, 3, 5mm'),
       stat('File cut', 'Garis luar panel, material tertulis'),

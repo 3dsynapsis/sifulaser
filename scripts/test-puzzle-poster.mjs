@@ -79,17 +79,20 @@ check('tiga layer, nama Spot tepat', layers.join('|') === 'Artwork|Spot 1|Spot 2
 check('saiz page kekal panel', Math.abs(printDoc.getPage(0).getWidth() * toMm - 312) < 0.01);
 
 // UV File Generator (bos, 11 Nov 2026): tab /uvfile/ jalan atas kod yang sama, tanpa
-// puzzle. Panel sama saiz dengan puzzle, bleed 2 mm, fail cut garis luar panel sahaja.
+// puzzle. Border 10 mm (bukan frame 16 mm puzzle, untuk jimat material), bleed 2 mm,
+// fail cut garis luar panel sahaja.
 console.log('UV File Generator: panel tanpa puzzle');
 const { planPanel } = await imp('puzzle/src/geom/panel.js');
 const { buildPanelSheet } = await imp('puzzle/src/exportJobSheet.js');
 const panel = planPanel(173.397, 260.096, { paper: 'A3' });
 check('poster 280 x 420', panel.width === 280 && panel.height === 420, `${panel.width}x${panel.height}`);
-check('panel 312 x 452, sama dengan puzzle', panel.panel.width === 312 && panel.panel.height === 452);
+check('panel 300 x 440 (border 10 mm)', panel.panel.width === 300 && panel.panel.height === 440,
+  `${panel.panel.width}x${panel.panel.height}`);
 check('artwork 284 x 426 (bleed 2 mm, ratio kekal)', panel.art.width === 284 && panel.art.height === 426);
+check('artwork 8 mm kiri, 7 mm atas', panel.art.x === 8 && panel.art.y === 7);
 check('tiada keping', panel.pieces === 0);
 const own = planPanel(297, 420, { actual: true });
-check('saiz asal PDF: panel 329 x 452', own.panel.width === 329 && own.panel.height === 452);
+check('saiz asal PDF: panel 317 x 440', own.panel.width === 317 && own.panel.height === 440);
 const panelSheet = buildPanelSheet(panel, { units: 3 });
 check('satu garisan potong sahaja', panelSheet.paths.length === 1 && panelSheet.paths[0].id === 'frame');
 check('label acrylic putih dan unit',

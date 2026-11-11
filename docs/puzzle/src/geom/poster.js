@@ -92,8 +92,10 @@ export function chooseGrid(width, height, target = PIECE_MM) {
 /**
  * Where the artwork sits relative to the panel's top-left corner, in mm.
  * @param bleed the least overrun on each side, long and short: the puzzle's by default
+ * @param frame how far the poster's edge is in from the panel's: the puzzle's frame by
+ *              default, the UV File panel's border otherwise
  */
-export function artFor(width, height, ratio, bleed = { long: BLEED_LONG_MM, short: BLEED_SHORT_MM }) {
+export function artFor(width, height, ratio, bleed = { long: BLEED_LONG_MM, short: BLEED_SHORT_MM }, frame = FRAME_MM) {
   const long = Math.max(width, height);
   const short = Math.min(width, height);
   const scale = Math.max(
@@ -109,8 +111,8 @@ export function artFor(width, height, ratio, bleed = { long: BLEED_LONG_MM, shor
     height: artH,
     bleedX,
     bleedY,
-    x: r2(FRAME_MM - bleedX),
-    y: r2(FRAME_MM - bleedY),
+    x: r2(frame - bleedX),
+    y: r2(frame - bleedY),
   };
 }
 
@@ -119,10 +121,13 @@ export function fitsBed(w, h, bed = UV_BED_MM) {
   return Math.max(w, h) <= bed.long && Math.min(w, h) <= bed.short;
 }
 
-/** The tallest puzzle of this ratio whose panel still fits the bed, in whole mm. */
-export function largestHeightForBed(ratio, bed = UV_BED_MM) {
+/**
+ * The tallest puzzle of this ratio whose panel still fits the bed, in whole mm.
+ * @param frame the panel's edge round the poster: the puzzle's frame by default
+ */
+export function largestHeightForBed(ratio, bed = UV_BED_MM, frame = FRAME_MM) {
   const q = Math.min(ratio, 1 / ratio);   // short side as a fraction of the long
-  const long = Math.min(bed.long - 2 * FRAME_MM, (bed.short - 2 * FRAME_MM) / q);
+  const long = Math.min(bed.long - 2 * frame, (bed.short - 2 * frame) / q);
   return Math.floor(ratio > 1 ? long * q : long);
 }
 

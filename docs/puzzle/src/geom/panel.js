@@ -1,21 +1,23 @@
 // The UV File tab's product (Boss, 11 Nov 2026): the customer's poster printed on a
-// panel with a 16 mm border, and nothing cut inside it. Pure arithmetic, no DOM.
+// panel with a 10 mm border, and nothing cut inside it. Pure arithmetic, no DOM.
 //
-// The sizes follow the Puzzle tab's rules (geom/poster.js), so the two tabs make the
-// same panel for the same poster:
+// The poster's size follows the Puzzle tab's rules (geom/poster.js):
 //
 //   * a paper's long side, or a typed height, and the poster's own ratio for the other
 //     side; or, here only, the PDF's own size, for a file that is already to size;
-//   * the border is the puzzle's frame, 16 mm on every side, with R5 outer corners;
-//   * the artwork runs at least 2 mm past the poster's edge onto the border, so a
-//     print that lands a little off leaves no bare edge. The ratio stays locked, so
-//     one side gets a little more;
+//   * the border is 10 mm on every side, with R5 outer corners. It began as the
+//     puzzle's 16 mm frame; Boss cut it to 10 mm the same day, to save material. A
+//     puzzle's frame holds its pieces in; a panel's border only frames the print;
+//   * the artwork runs 2 mm past the poster's edge onto the border. Nothing is cut
+//     there, so it is printed and stays in sight: 8 mm of bare acrylic is left round
+//     it. The ratio stays locked, so one side gets a little more;
 //   * the panel has to fit the UV printer bed, 900 x 600 mm.
 
 import {
-  FRAME_MM, fitPoster, fitsBed, largestHeightForBed, artFor,
+  fitPoster, fitsBed, largestHeightForBed, artFor, UV_BED_MM,
 } from './poster.js';
 
+export const PANEL_BORDER_MM = 10;
 export const PANEL_BLEED_MM = 2;
 export const PANEL_MIN_MM = 20;    // below this there is no picture worth a panel
 
@@ -50,7 +52,7 @@ export function planPanel(posterW, posterH, choice = {}) {
   const { width, height } = choice.actual
     ? { width: r1(posterW), height: r1(posterH) }
     : fitPoster(posterW, posterH, choice);
-  const panel = { width: r2(width + 2 * FRAME_MM), height: r2(height + 2 * FRAME_MM) };
+  const panel = { width: r2(width + 2 * PANEL_BORDER_MM), height: r2(height + 2 * PANEL_BORDER_MM) };
   return {
     ratio,
     width,
@@ -58,10 +60,11 @@ export function planPanel(posterW, posterH, choice = {}) {
     cols: 0,
     rows: 0,
     pieces: 0,
-    art: artFor(width, height, ratio, { long: PANEL_BLEED_MM, short: PANEL_BLEED_MM }),
+    border: PANEL_BORDER_MM,
+    art: artFor(width, height, ratio, { long: PANEL_BLEED_MM, short: PANEL_BLEED_MM }, PANEL_BORDER_MM),
     panel,
     fitsBed: fitsBed(panel.width, panel.height),
-    maxHeight: largestHeightForBed(ratio),
+    maxHeight: largestHeightForBed(ratio, UV_BED_MM, PANEL_BORDER_MM),
     tooSmall: Math.min(width, height) < PANEL_MIN_MM,
   };
 }

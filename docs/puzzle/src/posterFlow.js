@@ -47,8 +47,9 @@ import {
 import { planRuns, turnBox } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
 import { borderPath } from './geom/puzzle.js';
-import { FRAME_MM } from './geom/poster.js';
-import { planPanel, PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
+import {
+  planPanel, PANEL_MATERIALS, panelMaterial, PANEL_BORDER_MM, PANEL_BLEED_MM,
+} from './geom/panel.js';
 import { buildPanelSheet } from './exportJobSheet.js';
 import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
@@ -1042,7 +1043,7 @@ function resultGroup(page, plan) {
     stat('Bleed kiri/kanan', mm(art.bleedX)),
     stat('Bleed atas/bawah', mm(art.bleedY)),
     stat('Panel', size(panel.width, panel.height)),
-    P.puzzle ? stat('Backing', size(panel.width, panel.height)) : stat('Border', `${FRAME_MM} mm keliling`),
+    P.puzzle ? stat('Backing', size(panel.width, panel.height)) : stat('Border', `${plan.border} mm keliling`),
     stat('Letak artwork', `${mm(art.x)} kiri, ${mm(art.y)} atas`));
 }
 
@@ -1756,5 +1757,6 @@ export const PANEL_STEPS = [
   ['UV print atas panel',
     'Semak layer dulu di Preview, File print. Letak panel atas bed rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
   ['Siap',
-    'Border 16 mm keliling poster. Bleed 2 mm dicetak atas border dan kekal nampak, jadi acrylic kosong dari tepi gambar ke tepi panel lebih kurang 14 mm.'],
+    `Border ${PANEL_BORDER_MM} mm keliling poster. Bleed ${PANEL_BLEED_MM} mm dicetak atas border dan kekal nampak, `
+      + `jadi acrylic kosong dari tepi gambar ke tepi panel lebih kurang ${PANEL_BORDER_MM - PANEL_BLEED_MM} mm.`],
 ];
