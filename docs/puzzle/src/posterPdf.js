@@ -115,12 +115,23 @@ export async function pageImages(lib, page) {
 const pdfLib = () => import('../vendor/pdf-lib.esm.min.js');
 
 /**
- * The layers of the print file, top to bottom. FlexiPRINT prints a layer in white
- * going by its name, so these two must be spelled exactly so (Boss, 5 Nov 2026).
+ * The layers of the print file. FlexiPRINT prints white from the spot colours named
+ * Spot 1 and Spot 2, so these two must be spelled exactly so (Boss, 5 Nov 2026).
  * They used to be added by hand in Photoshop before every print.
  */
 export const ART_LAYER = 'Artwork';
 export const SPOT_LAYERS = ['Spot 1', 'Spot 2'];
+
+// How a Spot looks on a screen that does not separate inks: red, tint t giving
+// (1, 1-t, 1-t) in CalRGB. These are the exact function and colour space in the
+// designer's Photoshop samples, which FlexiPRINT reads. Only the name turns into white.
+const SPOT_SCREEN_COLOUR = '{dup dup -1.000000 mul 1.0 add 3 1 roll -1.000000 mul 1.0 add 3 1 roll 0.000000 mul 1.0 add 3 1 roll}';
+const CAL_RGB = {
+  BlackPoint: [0, 0, 0],
+  Gamma: [2.2, 2.2, 2.2],
+  Matrix: [0.412384, 0.212646, 0.0193176, 0.35759, 0.715164, 0.119171, 0.180496, 0.0721893, 0.950546],
+  WhitePoint: [0.950455, 1, 1.08905],
+};
 
 /** Parse the customer's PDF for placing its pages. Throws if it is encrypted. */
 export async function openForPrint(bytes) {
@@ -129,20 +140,31 @@ export async function openForPrint(bytes) {
 }
 
 /**
- * The print file: a page the size of the clear panel with the poster in its place.
+ * The print file: a page the size of the panel with the poster in its place.
  * Lay the panel on the printer bed the same way round as the page and everything
  * lines up. No cut lines on it, and nothing else that could get printed.
  *
- * Three PDF layers: the artwork on top, then Spot 1 and Spot 2, each a solid rectangle
+ * Three PDF layers: the artwork, and over it Spot 1 and Spot 2, each a solid rectangle
  * exactly the size of the artwork. They stop at the artwork rather than filling the
- * page, because the clear frame around it takes no white.
+ * page, because the frame around it takes no white.
  *
- * Each Spot rectangle is also painted in a spot colour of the same name. Flexi splits
- * a layered PDF by layer, and then the colour is only a marker: 100% black, the way a
- * spot channel marks full coverage. It must never reach the plate as black ink, so the
- * artwork layer starts with an opaque no-ink rectangle. A poster with bare paper in it
- * (most vector PDFs) then still looks right in any viewer, and a RIP that ignored the
- * layers altogether would print the artwork alone, not a black panel.
+ * FlexiPRINT takes its white from the spot colours, not from the PDF layers: it splits
+ * the page into one plate per ink, and the plates named Spot 1 and Spot 2 become white
+ * (the designer's Photoshop samples, 11 Nov 2026). So each Spot rectangle is painted
+ * in a spot colour of its name, with overprint on, which adds the spot's own plate
+ * and leaves the poster's colours under it alone.
+ *
+ * Until 11 Nov 2026 the Spots were painted under the poster with no overprint, and
+ * the poster erased them: both plates came out empty and Flexi found no white.
+ * Photoshop instead keeps its spot channels under the picture and sets the picture to
+ * overprint. That does not hold for a customer's PDF, which can turn overprint off
+ * again inside itself (CorelDRAW does), so here the Spots go on top.
+ *
+ * The cost: a viewer that does not separate inks (a phone, a browser) shows the Spots
+ * as red boxes over the poster. Acrobat's Output Preview, and the plates, are right.
+ *
+ * The artwork layer starts with an opaque no-ink rectangle, so the layer covers its
+ * whole box even where the poster is bare paper, which the layer check relies on.
  *
  * @param source a document from openForPrint
  * @param plan   result of planPoster
@@ -196,19 +218,23 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
 
   const artLayer = layer(ART_LAYER);
   const spots = SPOT_LAYERS.map((text, i) => ({ text, key: `Spot${i + 1}`, ref: layer(text) }));
-  const panelOrder = [artLayer, ...spots.map((s) => s.ref)];
+  // Acrobat's layers panel lists them top first: the Spots are painted over the artwork.
   out.catalog.set(name('OCProperties'), ctx.obj({
-    OCGs: panelOrder,
-    D: { Name: PDFString.of('Layers'), BaseState: 'ON', Order: panelOrder },
+    OCGs: [artLayer, ...spots.map((s) => s.ref)],
+    D: { Name: PDFString.of('Layers'), BaseState: 'ON', Order: [...spots.map((s) => s.ref), artLayer] },
   }));
 
-  const marker = ctx.register(ctx.obj({
-    FunctionType: 2, Domain: [0, 1], C0: [0, 0, 0, 0], C1: [0, 0, 0, 1], N: 1,
+  const screenColour = ctx.register(ctx.stream(SPOT_SCREEN_COLOUR, {
+    FunctionType: 4, Domain: [0, 1], Range: [0, 1, 0, 1, 0, 1],
   }));
+  const calRgb = ctx.obj(['CalRGB', ctx.obj(CAL_RGB)]);
   const resources = page.node.normalizedEntries().Resources;
   resources.set(name('ColorSpace'), ctx.obj(Object.fromEntries(
-    spots.map((s) => [s.key, ['Separation', s.text, 'DeviceCMYK', marker]]),
+    spots.map((s) => [s.key, ctx.register(ctx.obj(['Separation', s.text, calRgb, screenColour]))]),
   )));
+  resources.set(name('ExtGState'), ctx.obj({
+    Overprint: ctx.obj({ Type: 'ExtGState', OP: true, op: true }),
+  }));
   resources.set(name('Properties'), ctx.obj({
     Art: artLayer,
     ...Object.fromEntries(spots.map((s) => [s.key, s.ref])),
@@ -219,13 +245,7 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     PDFNumber.of(r.width * MM_TO_PT), PDFNumber.of(r.height * MM_TO_PT));
   const same = (a, b) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 
-  // Painted from the bottom up, so the last Spot goes first and the artwork last.
-  for (const s of [...spots].reverse()) {
-    page.pushOperators(op('BDC', name('OC'), name(s.key)), op('q'), op('cs', name(s.key)), op('scn', PDFNumber.of(1)));
-    for (const p of placements) page.pushOperators(rect(p.box), op('f'));
-    page.pushOperators(op('Q'), op('EMC'));
-  }
-
+  // Painted from the bottom up: the artwork first, then Spot 2, and Spot 1 on top.
   page.pushOperators(op('BDC', name('OC'), name('Art')), op('q'));
   const embedded = new Map();   // doc -> page index -> embedded page, each one once
   for (const p of placements) {
@@ -278,6 +298,18 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     page.pushOperators(op('Q'));
   }
   page.pushOperators(op('Q'), op('EMC'));
+
+  for (const s of [...spots].reverse()) {
+    page.pushOperators(
+      op('BDC', name('OC'), name(s.key)),
+      op('q'),
+      op('gs', name('Overprint')),
+      op('cs', name(s.key)),
+      op('scn', PDFNumber.of(1)),
+    );
+    for (const p of placements) page.pushOperators(rect(p.box), op('f'));
+    page.pushOperators(op('Q'), op('EMC'));
+  }
 
   out.setTitle(title || 'Puzzle print file');
   out.setCreator('SifuLaser Puzzle Generator');

@@ -1582,7 +1582,8 @@ export function openPosterExport() {
       ? h('p', { class: 'note' },
         'File cut: cut ikut bilangan UNIT dalam file. Garisan puzzle dulu, frame last. '
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
-        + 'Spot 1 dan Spot 2 di bawah setiap artwork.')
+        + 'Spot 1 dan Spot 2 (white) sama saiz dengan setiap artwork. '
+        + 'Kalau dibuka di telefon atau Chrome, file print nampak kotak merah atas poster: itu Spot, normal.')
       : null,
     shareItems.length
       ? h('div', { class: 'share-bar' },

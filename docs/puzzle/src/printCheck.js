@@ -11,7 +11,11 @@
 
 import { ART_LAYER, SPOT_LAYERS } from './posterPdf.js';
 
-/** Top to bottom, as in the file. */
+/**
+ * Top to bottom as the ink sits on the panel: the picture over its white. In the file
+ * the Spots are painted last, over the artwork with overprint (see posterPdf.js), but
+ * a preview drawn that way would hide the poster under two coloured boxes.
+ */
 export const LAYER_LOOK = [
   { name: ART_LAYER, colour: null, role: 'Layer normal, warna asal' },
   { name: SPOT_LAYERS[0], colour: '#e6007e', role: 'White, ditunjuk magenta' },
