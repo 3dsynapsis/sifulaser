@@ -94,6 +94,9 @@ const panelSheet = buildPanelSheet(panel, { units: 3 });
 check('satu garisan potong sahaja', panelSheet.paths.length === 1 && panelSheet.paths[0].id === 'frame');
 check('label acrylic putih dan unit',
   panelSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|3 UNIT');
+check('material lain tertulis dalam fail cut',
+  buildPanelSheet(panel, { units: 2, material: 'Acrylic Clear 5mm' }).texts.slice(3).map((t) => t.text).join('|')
+    === 'Acrylic Clear 5mm|2 UNIT');
 const panelCut = brandFile('poster-cut-280x420.pdf', 'application/pdf',
   new TextEncoder().encode(sheetToPdf(panelSheet)));
 check('fail cut panel dapat jenama', new TextDecoder('latin1').decode(panelCut.data).includes('/sifulaser-brand'));

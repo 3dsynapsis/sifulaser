@@ -176,11 +176,15 @@ export function buildSheet(plan, puzzle, meta = {}) {
  * its size, and the label says how many to cut.
  *
  * @param plan result of planPanel
- * @param meta { client, dateline, units }
+ * @param meta { client, dateline, units, material }: material is the label to write,
+ *             as PANEL_MATERIALS has it (Boss, 11 Nov 2026); white 3mm when absent
  */
 export function buildPanelSheet(plan, meta = {}) {
   const { panel } = plan;
   const units = Math.max(1, Math.round(Number(meta.units) || 1));
+  const material = typeof meta.material === 'string' && meta.material.trim()
+    ? meta.material.trim()
+    : 'Acrylic Putih 3mm';
   const width = Math.max(PAGE_W, panel.width + 2 * GAP);
   const height = Math.max(PAGE_H, PART_TOP + panel.height + BOTTOM);
   const xPanel = (width - panel.width) / 2;
@@ -192,7 +196,7 @@ export function buildPanelSheet(plan, meta = {}) {
   }];
   const texts = [];
   jobHead(texts, width, meta, `PANEL UV ${panel.width} x ${panel.height} mm, poster ${plan.width} x ${plan.height} mm`);
-  partLabel(texts, ['Acrylic Putih 3mm', `${units} UNIT`], xPanel + panel.width / 2, panel.width + GAP - 8);
+  partLabel(texts, [material, `${units} UNIT`], xPanel + panel.width / 2, panel.width + GAP - 8);
 
   return {
     width,

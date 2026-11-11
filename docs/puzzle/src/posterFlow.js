@@ -48,7 +48,7 @@ import { planRuns, turnBox } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
 import { borderPath } from './geom/puzzle.js';
 import { FRAME_MM } from './geom/poster.js';
-import { planPanel } from './geom/panel.js';
+import { planPanel, PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
 import { buildPanelSheet } from './exportJobSheet.js';
 import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
@@ -71,6 +71,7 @@ const PRODUCTS = {
     puzzle: true,
     cards: true,
     actualSize: false,
+    materials: false,   // always white 3mm, panel and backing
     plan: planPoster,
     title: 'Poster ke puzzle',
     close: 'Tutup poster, balik ke puzzle biasa',
@@ -83,6 +84,7 @@ const PRODUCTS = {
     puzzle: false,
     cards: false,
     actualSize: true,
+    materials: true,    // PANEL_MATERIALS, picked above the size (Boss, 11 Nov 2026)
     plan: planPanel,
     title: 'UV File',
     close: 'Tutup PDF',
@@ -100,6 +102,7 @@ const S = {
   name: '',           // what this job is called, shown in the top bar
   nameAuto: true,     // the name came from the files, not from a person
   choice: { paper: 'A3' },
+  material: PANEL_MATERIALS[0].id,  // the UV File tab's panel; the puzzle has no choice
   client: '',
   dateline: '',
   current: 0,
@@ -230,6 +233,7 @@ function job() {
     dateline: S.dateline,
     seeds: knownSeeds(),
     cards: S.cards,
+    ...(P.materials ? { material: S.material } : {}),
   };
 }
 
@@ -243,6 +247,8 @@ const settingsKey = () => JSON.stringify({
   client: S.client,
   dateline: S.dateline,
   cards: S.cards,
+  // Only where there is a choice, so a puzzle draft saved before reads as saved still.
+  ...(P.materials ? { material: S.material } : {}),
 });
 
 export const posterDirty = () => posterActive() && settingsKey() !== S.savedKey;
@@ -300,7 +306,8 @@ export const posterStore = {
     changed();
   },
   get note() {
-    return `Yang disimpan ke akaun ialah tetapan: saiz, page, ${P.puzzle ? 'seed, ' : ''}client dan dateline. `
+    return `Yang disimpan ke akaun ialah tetapan: ${P.materials ? 'material, ' : ''}saiz, page, `
+      + `${P.puzzle ? 'seed, ' : ''}client dan dateline. `
       + 'PDF kekal dalam browser ni. Kalau buka di PC lain, kena pilih PDF tu semula.';
   },
   // Runs inside the save, so that two saves in a row wait for each other.
@@ -441,6 +448,7 @@ function applyJob(saved) {
   S.shuffle = saved.shuffle;
   S.stageView = saved.view;
   S.cards = saved.cards;
+  S.material = panelMaterial(saved.material).id;
   S.current = Math.min(saved.current, pages.length - 1);
   S.pins.clear();
   for (const s of saved.seeds) S.pins.set(s.key, s.seed);
@@ -713,6 +721,7 @@ export async function closePoster() {
   S.client = '';
   S.dateline = '';
   S.choice = { paper: 'A3' };
+  S.material = PANEL_MATERIALS[0].id;
   S.layerOn = allLayersOn();
   S.cards = false;
   vault.clearDraft().catch(() => {});
@@ -804,7 +813,12 @@ function renderStage() {
     deps.view.renderSheet(puzzle ? buildSheet(plan, puzzle, meta) : buildPanelSheet(plan, meta), `sheet:${fitKey}`);
   } else {
     deps.view.renderPoster({
-      plan, puzzle, imageUrl: page.picture, turn: page.turned ? 90 : 0, fitKey: `panel:${fitKey}`,
+      plan,
+      puzzle,
+      imageUrl: page.picture,
+      turn: page.turned ? 90 : 0,
+      fitKey: `panel:${fitKey}`,
+      clear: P.materials && panelMaterial(S.material).clear,
     });
   }
   deps.els.hint.textContent = P.puzzle
@@ -817,7 +831,13 @@ const formatDate = (value) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
   return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '';
 };
-const jobMeta = () => ({ client: S.client, dateline: formatDate(S.dateline) });
+const jobMeta = () => ({
+  client: S.client,
+  dateline: formatDate(S.dateline),
+  // The UV File tab writes its material on the cut file; the puzzle's is fixed.
+  ...(P.materials ? { material: materialLabel() } : {}),
+});
+const materialLabel = () => panelMaterial(S.material).label;
 
 /** Why this page cannot be made at this size, or null. */
 function blockedReason(plan) {
@@ -856,6 +876,7 @@ function renderPanel() {
   root.replaceChildren(...[
     h('h2', { class: 'insp-title' }, P.title),
     fileGroup(),
+    P.materials && materialGroup(),
     sizeGroup(page),
     resultGroup(page, plan),
     previewGroup(),
@@ -925,6 +946,30 @@ function pageList() {
           h('b', {}, S.files.length > 1 ? p.label : `Page ${p.index + 1}`),
           h('span', {}, `${size(plan.width, plan.height)}${p.turned ? ', diputar 90°' : ''}`))));
   }));
+}
+
+/**
+ * What the panel is cut from (UV File tab, Boss, 11 Nov 2026). It changes the words on
+ * the cut file and in the notes, and the panel's colour in the preview; the shapes and
+ * the print file stay as they are.
+ */
+function materialGroup() {
+  return group('Material', true,
+    h('div', { class: 'presets four' }, PANEL_MATERIALS.map((m) => h('button', {
+      class: 'preset',
+      type: 'button',
+      'aria-pressed': String(S.material === m.id),
+      title: m.label,
+      onclick: () => {
+        if (S.material === m.id) return;
+        S.material = m.id;
+        renderPoster();
+        changed();
+      },
+    },
+    h('b', {}, m.kind),
+    h('span', {}, m.thick)))),
+    h('p', { class: 'hint' }, `File cut tulis: ${materialLabel()}.`));
 }
 
 function sizeGroup(page) {
@@ -1561,13 +1606,14 @@ export function openPosterExport() {
     note: P.puzzle
       ? `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit: `
         + 'panel dan backing acrylic putih 3mm. Garisan puzzle dulu, frame last.'
-      : `File cut panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit: acrylic putih 3mm.`,
+      : `File cut panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit: ${materialLabel()}.`,
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, 'File cut'),
     h('span', {}, P.puzzle
       ? `${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit${forPages(pages)}`
-      : `Panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit${forPages(pages)}`)),
+      : `Panel ${size(plan.panel.width, plan.panel.height)}, ${materialLabel()}, `
+        + `${pages.length} unit${forPages(pages)}`)),
   fileButton('File cut', () => cutFile(plan, pages.length))));
 
   // Print: one file per bed load (Boss, 11 Nov 2026). A single panel's file stays
@@ -1577,12 +1623,16 @@ export function openPosterExport() {
     kind: 'run',
     title: `file print UV run ${i + 1}`,
     make: () => runFile(run, i + 1),
-    note: `File print UV${runs.length > 1 ? ` run ${i + 1}` : ''}: ${run.pages.length} panel, ${size(run.width, run.height)}. `
+    // The UV operator sets the head's height by the panel's thickness, so the
+    // material goes in the note too.
+    note: `File print UV${runs.length > 1 ? ` run ${i + 1}` : ''}: ${run.pages.length} panel`
+      + `${P.materials ? ` ${materialLabel()}` : ''}, ${size(run.width, run.height)}. `
       + `Letak panel rapat tepi ke tepi dari bucu kiri atas bed${multiPage ? ` (${labels(run.pages)})` : ''}.`,
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, runs.length > 1 ? `File print UV, run ${i + 1} dari ${runs.length}` : 'File print UV'),
-    h('span', {}, `${run.pages.length} panel, ${size(run.width, run.height)}${multiPage ? `: ${labels(run.pages)}` : ''}`)),
+    h('span', {}, `${run.pages.length} panel${P.materials ? ` ${materialLabel()}` : ''}, `
+      + `${size(run.width, run.height)}${multiPage ? `: ${labels(run.pages)}` : ''}`)),
   fileButton('File print', () => runFile(run, i + 1))));
 
   const singleRows = ready.map((p) => {
@@ -1701,8 +1751,8 @@ export const POSTER_STEPS = [
 
 /** The UV File tab's steps (Boss, 11 Nov 2026). */
 export const PANEL_STEPS = [
-  ['Cut panel acrylic putih',
-    'Ikut bilangan UNIT dalam file cut: satu garis luar untuk setiap panel, bucu R5.'],
+  ['Cut panel acrylic',
+    'Ikut material dan bilangan UNIT yang tertulis dalam file cut: satu garis luar untuk setiap panel, bucu R5.'],
   ['UV print atas panel',
     'Semak layer dulu di Preview, File print. Letak panel atas bed rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
   ['Siap',

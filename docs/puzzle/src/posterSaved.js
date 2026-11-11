@@ -20,11 +20,10 @@
 // Pure: no DOM. Tested by tools/test-poster.js.
 
 import { PAPERS, HEIGHT_MIN_MM, puzzleParams } from './geom/poster.js';
+import { PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
 import { designParams, designMaterial } from './saved.js';
 
 const MATERIAL = 'acrylic-clear';
-const PANEL_MATERIAL = 'acrylic-white';
-const PANEL_MATERIAL_NAME = 'Acrylic Putih 3 mm'; // what the list of saved designs shows
 const HEIGHT_MAX_MM = 2000; // the same as the box in the panel
 const SEED_MAX = 99999;     // the same as saved.js
 const PAGES_MAX = 5000;     // a record is data from a server: it must not hang the tab
@@ -116,6 +115,9 @@ export function cleanPoster(raw) {
     dateline: DATE.test(raw.dateline) ? raw.dateline : '',
     seeds: cleanSeeds(raw.seeds),
     cards: raw.cards === true,
+    // The UV File tab's material (Boss, 11 Nov 2026). Only a UV job has one, so a
+    // puzzle job keeps the shape it always had.
+    ...(PANEL_MATERIALS.some((m) => m.id === raw.material) ? { material: raw.material } : {}),
   };
 }
 
@@ -130,9 +132,11 @@ export function posterRecord(job, plan, seed) {
 
 /**
  * The UV File tab's record (Boss, 11 Nov 2026): no puzzle, so params are just the
- * sizes on screen, and the job inside extra as for a puzzle poster.
+ * sizes on screen, and the job inside extra as for a puzzle poster. `material` is what
+ * the list of saved designs shows, written as on the cut file.
  */
 export function panelRecord(job, plan) {
+  const material = panelMaterial(job?.material);
   return {
     params: {
       width: plan.width,
@@ -140,8 +144,8 @@ export function panelRecord(job, plan) {
       panelWidth: plan.panel.width,
       panelHeight: plan.panel.height,
     },
-    material: PANEL_MATERIAL_NAME,
-    extra: { material: PANEL_MATERIAL, poster: cleanPoster(job) },
+    material: material.label,
+    extra: { material: material.id, poster: cleanPoster(job) },
   };
 }
 

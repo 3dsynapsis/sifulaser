@@ -100,17 +100,19 @@ export class View {
    * @param turn 90 when the poster lies turned clockwise on the panel (a portrait
    *             poster in a landscape job, Boss's option A)
    */
-  renderPoster({ plan, puzzle, imageUrl, turn = 0, fitKey }) {
+  /** @param clear the panel is clear acrylic (UV File tab), not white */
+  renderPoster({ plan, puzzle, imageUrl, turn = 0, fitKey, clear = false }) {
     const { panel, art } = plan;
     const m = Math.max(panel.width, panel.height) * 0.04;
     this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
     this.svg.replaceChildren(shadowDefs(panel.height));
 
     // White acrylic (Boss, 11 Nov 2026; it was clear before), its outer corners
-    // rounded like the backing it stacks on.
+    // rounded like the backing it stacks on. A UV File panel may be clear acrylic:
+    // tinted, so the border shows what it is.
     this.svg.append(el('rect', {
       x: 0, y: 0, width: panel.width, height: panel.height, rx: CORNER_MM, ry: CORNER_MM,
-      fill: '#fbfbf8', filter: 'url(#boardShadow)',
+      fill: clear ? '#cfe3e8' : '#fbfbf8', filter: 'url(#boardShadow)',
     }));
 
     if (imageUrl && turn === 90) {

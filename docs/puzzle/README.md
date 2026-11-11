@@ -221,10 +221,13 @@ Ujian: `node scripts/test-puzzle-designs.mjs` (di repo laman ini).
 ## UV File Generator (11 November 2026)
 
 Tab baharu `sifulaser.com/uvfile/` (halaman React `#/uvfile`) ialah aliran poster
-ini **tanpa puzzle**: PDF poster jadi panel acrylic putih dengan border 16 mm (bucu
-R5) dan bleed 2 mm, fail cut (garis luar panel sahaja, "Acrylic Putih 3mm, N UNIT")
-dan fail print UV yang sama seperti di sini (gambar CMYK 300 dpi, Spot 1 dan Spot 2
-di bawah). Ada pilihan "Asal" untuk PDF yang sudah ikut saiz.
+ini **tanpa puzzle**: PDF poster jadi panel acrylic dengan border 16 mm (bucu R5)
+dan bleed 2 mm, fail cut (garis luar panel sahaja, label material dan "N UNIT") dan
+fail print UV yang sama seperti di sini (gambar CMYK 300 dpi, Spot 1 dan Spot 2 di
+bawah). Ada pilihan "Asal" untuk PDF yang sudah ikut saiz, dan pilihan Material di
+atas saiz: Acrylic Putih 3mm (default), Clear 2mm, 3mm atau 5mm (`PANEL_MATERIALS`
+dalam `src/geom/panel.js`). Material mengubah tulisan dalam fail cut, nota Export
+dan WhatsApp, dan rekod Simpan; fail print kekal sama.
 
 Ia **tiada kod sendiri**: `docs/uvfile/index.html` memuatkan `/puzzle/styles.css`
 dan `/puzzle/src/uvMain.js` dari folder ini. Jadi:

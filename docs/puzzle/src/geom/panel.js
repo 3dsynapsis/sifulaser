@@ -19,6 +19,23 @@ import {
 export const PANEL_BLEED_MM = 2;
 export const PANEL_MIN_MM = 20;    // below this there is no picture worth a panel
 
+/**
+ * What a panel is cut from (Boss, 11 Nov 2026). `label` is written on the cut file as
+ * it stands here, and goes into the notes and the saved design. The first is the
+ * default: the white 3mm the tab began with, so a job saved before there was a choice
+ * still reads as what it was. The print file is the same for all: clear acrylic needs
+ * the white under the picture as much as white acrylic does.
+ */
+export const PANEL_MATERIALS = [
+  { id: 'acrylic-white-3', label: 'Acrylic Putih 3mm', kind: 'Putih', thick: '3 mm', clear: false },
+  { id: 'acrylic-clear-2', label: 'Acrylic Clear 2mm', kind: 'Clear', thick: '2 mm', clear: true },
+  { id: 'acrylic-clear-3', label: 'Acrylic Clear 3mm', kind: 'Clear', thick: '3 mm', clear: true },
+  { id: 'acrylic-clear-5', label: 'Acrylic Clear 5mm', kind: 'Clear', thick: '5 mm', clear: true },
+];
+
+/** The material by id. One this list does not know is the default. */
+export const panelMaterial = (id) => PANEL_MATERIALS.find((m) => m.id === id) || PANEL_MATERIALS[0];
+
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
 
