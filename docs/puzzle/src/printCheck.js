@@ -100,14 +100,15 @@ const namesLine = (names) => {
 };
 
 /**
- * The reference cards' print file, against its layout: every layer must fill every
- * card's bleed box and paint nothing on the frame.
- * @param found from inspectPrint, given the cards' clip boxes as areas
+ * A print file holding several pictures, against where they should be: every layer
+ * must fill every box and paint nothing outside them.
+ * @param found from inspectPrint, given the same boxes as areas
+ * @param noun  what a box is, for the sentence: 'kad' or 'panel'
  */
-export function judgeCards(found, layout) {
+export function judgeBoxes(found, boxes, noun) {
   const out = [namesLine(found.names)];
-  const n = layout.cards.length;
-  const clip = layout.cards[0].clip;
+  const n = boxes.length;
+  const first = boxes[0];
   for (const name of [ART_LAYER, ...SPOT_LAYERS]) {
     const cov = found.coverage?.[name];
     const what = name === ART_LAYER ? 'gambar' : 'white';
@@ -117,15 +118,18 @@ export function judgeCards(found, layout) {
     }
     const thin = cov.inside.map((f, i) => (f < 0.98 ? i + 1 : 0)).filter(Boolean);
     if (thin.length) {
-      out.push({ ok: false, text: `${name} tak penuh pada kad ${thin.join(', ')}` });
+      out.push({ ok: false, text: `${name} tak penuh pada ${noun} ${thin.join(', ')}` });
     } else if (cov.outside > 0.005) {
-      out.push({ ok: false, text: `${name} ada ${what} di luar kad, atas frame` });
+      out.push({ ok: false, text: `${name} ada ${what} di luar ${noun}` });
     } else {
-      out.push({ ok: true, text: `${name} penuh pada ${n} kad, ${size(clip.width, clip.height)} setiap satu` });
+      out.push({ ok: true, text: `${name} penuh pada ${n} ${noun}, ${size(first.width, first.height)} setiap satu` });
     }
   }
   return out;
 }
+
+/** The reference cards' print file: every layer fills every card's bleed box. */
+export const judgeCards = (found, layout) => judgeBoxes(found, layout.cards.map((c) => c.clip), 'kad');
 
 /**
  * What the file holds, against what was asked for.

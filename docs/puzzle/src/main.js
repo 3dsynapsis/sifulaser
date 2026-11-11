@@ -15,7 +15,7 @@ import {
   UNTITLED, autoName, designParams, designMaterial, designExtra, readDesign,
 } from './saved.js';
 import {
-  initPoster, posterActive, openPosterFile, openPosterDesign, closePoster, renderPoster,
+  initPoster, posterActive, openPosterFiles, openPosterDesign, closePoster, renderPoster,
   shufflePoster, openPosterExport, restorePosterDraft, renamePoster, posterStore,
   POSTER_STEPS,
 } from './posterFlow.js';
@@ -46,7 +46,7 @@ const view = new View(els.preview);
 
 const ctx = {
   refresh: () => refresh(),
-  openPoster: (file) => openPosterFile(file),
+  openPoster: (files) => openPosterFiles(files),
   shuffle: () => {
     if (posterActive()) { shufflePoster(); return; }
     update((s) => { s.params.seed = Math.floor(Math.random() * 100000); },
@@ -130,7 +130,7 @@ els.stage.addEventListener('drop', (e) => {
   if (!hasFiles(e)) return;
   e.preventDefault();
   els.stage.classList.remove('drag-over');
-  openPosterFile(e.dataTransfer.files[0]);
+  openPosterFiles(e.dataTransfer.files);
 });
 
 subscribe(() => {});

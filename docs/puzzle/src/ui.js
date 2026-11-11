@@ -156,15 +156,16 @@ export function renderInspector(root, ctx) {
     h('input', {
       type: 'file',
       accept: 'application/pdf,.pdf',
+      multiple: true,
       hidden: true,
       onchange: (e) => {
-        const file = e.target.files[0];
+        const files = [...e.target.files];
         e.target.value = '';
-        ctx.openPoster(file);
+        ctx.openPoster(files);
       },
     }),
     h('b', {}, 'Ada poster PDF? Upload di sini'),
-    h('span', {}, 'Pilih A4, A3 atau A2. File cut dan file print keluar siap.')));
+    h('span', {}, 'Boleh pilih banyak PDF sekali. Pilih A4, A3 atau A2, file cut dan file print keluar siap.')));
   const p = state.params;
   const mat = material();
   const puzzle = getPuzzle();

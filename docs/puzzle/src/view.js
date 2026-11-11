@@ -92,8 +92,12 @@ export class View {
     line(puzzle.border, 'cut-b');
   }
 
-  /** The clear panel: poster, bleed, cut lines and frame, in true proportion. */
-  renderPoster({ plan, puzzle, imageUrl, fitKey }) {
+  /**
+   * The clear panel: poster, bleed, cut lines and frame, in true proportion.
+   * @param turn 90 when the poster lies turned clockwise on the panel (a portrait
+   *             poster in a landscape job, Boss's option A)
+   */
+  renderPoster({ plan, puzzle, imageUrl, turn = 0, fitKey }) {
     const { panel, art } = plan;
     const m = Math.max(panel.width, panel.height) * 0.04;
     this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
@@ -104,7 +108,15 @@ export class View {
       fill: '#e4edf3', filter: 'url(#boardShadow)',
     }));
 
-    if (imageUrl) {
+    if (imageUrl && turn === 90) {
+      // Drawn upright at the turned size, then turned onto the artwork's box.
+      this.svg.append(el('image', {
+        href: imageUrl,
+        x: 0, y: 0, width: art.height, height: art.width,
+        preserveAspectRatio: 'none',
+        transform: `translate(${art.x + art.width} ${art.y}) rotate(90)`,
+      }));
+    } else if (imageUrl) {
       this.svg.append(el('image', {
         href: imageUrl,
         x: art.x, y: art.y, width: art.width, height: art.height,

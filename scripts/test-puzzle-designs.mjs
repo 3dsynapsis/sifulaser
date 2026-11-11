@@ -269,9 +269,9 @@ const encodable = (v) => v === null || ['string', 'boolean'].includes(typeof v)
   // Poster: seed mesti diselesaikan sebelum data dibaca, dan rekod ikut firestore.rules.
   const plan = planPoster(173.397, 260.096, { paper: 'A3' });
   const job = {
-    file: {
+    files: [{
       name: 'Prostar.pdf', size: 99, hash: 'cd'.repeat(32), pages: 4,
-    },
+    }],
     choice: { paper: 'A3' },
     ticked: [0, 1, 2, 3],
     current: 0,

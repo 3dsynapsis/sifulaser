@@ -148,7 +148,9 @@ export async function openForPrint(bytes) {
  * @param plan   result of planPoster
  */
 export function buildPrintPdf(source, pageIndex, plan, opts = {}) {
-  return buildLayeredPrint(source, plan.panel, [{ pageIndex, art: plan.art, box: plan.art }], opts);
+  return buildLayeredPrint(plan.panel, [{
+    doc: source, pageIndex, art: plan.art, box: plan.art, turn: opts.turn || 0,
+  }], opts);
 }
 
 /**
@@ -156,11 +158,13 @@ export function buildPrintPdf(source, pageIndex, plan, opts = {}) {
  * picture clipped to the card and its bleed, and the same three layers. The Spot
  * white fills each card's bleed box, not the sheet: the frame stays clear.
  *
- * @param layout result of layoutCards
+ * @param layout  result of layoutCards
+ * @param resolve (page index in the job) => { doc, pageIndex, turn }: where that page's
+ *                picture comes from, and how far to turn it
  */
-export function buildCardPrintPdf(source, layout, opts = {}) {
-  return buildLayeredPrint(source, layout.sheet, layout.cards.map((c) => ({
-    pageIndex: c.index, art: c.art, box: c.clip,
+export function buildCardPrintPdf(layout, resolve, opts = {}) {
+  return buildLayeredPrint(layout.sheet, layout.cards.map((c) => ({
+    ...resolve(c.index), art: c.art, box: c.clip,
   })), { title: 'Kad rujukan A6', ...opts });
 }
 
@@ -168,12 +172,15 @@ export function buildCardPrintPdf(source, layout, opts = {}) {
  * One page with pictures placed on it, in three layers.
  *
  * @param size       { width, height } of the page, mm
- * @param placements [{ pageIndex, art, box }]: `art` is where the source page goes and
- *                   `box` what is printed of it, both { x, y, width, height } in mm from
- *                   the page's top-left. The Spot white and the no-ink base fill `box`;
- *                   a picture bigger than its box is clipped to it.
+ * @param placements [{ doc, pageIndex, art, box, turn }]: `doc` is a document from
+ *                   openForPrint, so one page can carry pictures from several PDFs.
+ *                   `art` is where the source page goes and `box` what is printed of it,
+ *                   both { x, y, width, height } in mm from the page's top-left, and
+ *                   `turn` how far the picture is turned clockwise, 0 or a multiple of 90.
+ *                   The Spot white and the no-ink base fill `box`; a picture bigger than
+ *                   its box is clipped to it.
  */
-async function buildLayeredPrint(source, size, placements, { title } = {}) {
+export async function buildLayeredPrint(size, placements, { title } = {}) {
   const {
     PDFDocument, PDFName, PDFNumber, PDFOperator, PDFString, degrees,
   } = await pdfLib();
@@ -220,10 +227,12 @@ async function buildLayeredPrint(source, size, placements, { title } = {}) {
   }
 
   page.pushOperators(op('BDC', name('OC'), name('Art')), op('q'));
-  const embeddedPages = new Map();
+  const embedded = new Map();   // doc -> page index -> embedded page, each one once
   for (const p of placements) {
-    const srcPage = source.getPage(p.pageIndex);
+    const srcPage = p.doc.getPage(p.pageIndex);
     const crop = srcPage.getCropBox();
+    if (!embedded.has(p.doc)) embedded.set(p.doc, new Map());
+    const embeddedPages = embedded.get(p.doc);
     if (!embeddedPages.has(p.pageIndex)) {
       embeddedPages.set(p.pageIndex, await out.embedPage(srcPage, {
         left: crop.x,
@@ -245,9 +254,10 @@ async function buildLayeredPrint(source, size, placements, { title } = {}) {
     const left = p.art.x * MM_TO_PT;
     const bottom = pageH - p.art.y * MM_TO_PT - artH;
     // A page's /Rotate is an instruction to viewers, and an embedded page does not
-    // carry it across, so the turn has to be applied here. Each case puts the
-    // rotated page's lower-left corner back on the artwork's lower-left corner.
-    const turn = ((srcPage.getRotation().angle % 360) + 360) % 360;
+    // carry it across, so the turn has to be applied here, with any turn the job
+    // asks for on top. Each case puts the turned page's lower-left corner back on
+    // the artwork's lower-left corner.
+    const turn = (((srcPage.getRotation().angle + (p.turn || 0)) % 360) + 360) % 360;
     const sideways = turn === 90 || turn === 270;
     const xScale = artW / (sideways ? crop.height : crop.width);
     const yScale = artH / (sideways ? crop.width : crop.height);

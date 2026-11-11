@@ -16,13 +16,22 @@
 //   Simpan   the Save As dialog: a name, or overwrite an older file. Settings go to
 //            the account, and the PDF stays in this browser (posterSaved.js).
 //   guard    closing or replacing a job with unsaved changes asks first.
+//
+// A job can hold several PDFs (Boss, 11 Nov 2026: a client sent five one-page files).
+// They are sorted by name and their pages numbered across all of them, so the rest
+// of this file sees one list of pages, wherever each came from. And a job lies one
+// way round (option A): when its pages are mixed portrait and landscape, the fewer
+// are turned 90° clockwise, so every panel takes the same cut file.
+//
+// Print files are laid out for the UV bed (Boss, 11 Nov 2026): the cut panels go on it
+// edge to edge, so one print file covers a whole bed load (geom/runs.js).
 
 import { h, group, rnd } from './ui.js';
 import * as gallery from './designs.js';
 import { signedIn } from './cloud.js';
 import * as vault from './posterVault.js';
 import {
-  planKey, posterRecord, readPoster, cleanPoster,
+  planKey, posterRecord, readPoster, cleanPoster, jobNameOf,
 } from './posterSaved.js';
 import { buildPuzzle } from './geom/puzzle.js';
 import {
@@ -33,13 +42,14 @@ import {
   buildSheet, buildCardSheet, sheetToPdf, translatePath,
 } from './exportJobSheet.js';
 import {
-  openPoster, renderPicture, pageImages, openForPrint, buildPrintPdf, buildCardPrintPdf,
+  openPoster, renderPicture, pageImages, openForPrint, buildPrintPdf, buildCardPrintPdf, buildLayeredPrint,
 } from './posterPdf.js';
+import { planRuns, turnBox } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
 import { borderPath } from './geom/puzzle.js';
 import { makeZip } from './zip.js';
 import {
-  LAYER_LOOK, inspectPrint, judgeLayers, judgeCards, releaseLayers,
+  LAYER_LOOK, inspectPrint, judgeLayers, judgeCards, judgeBoxes, releaseLayers,
 } from './printCheck.js';
 
 const PICTURE_PX = 1800;
@@ -47,9 +57,10 @@ const THUMB_PX = 120;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const S = {
-  source: null,
+  source: null,       // { name, lib, pages }: every page of every PDF, in the job's order
+  files: [],          // the PDFs: { name, size, hash, bytes, doc, printDoc, pages }
   name: '',           // what this job is called, shown in the top bar
-  fileHash: '',
+  nameAuto: true,     // the name came from the files, not from a person
   choice: { paper: 'A3' },
   client: '',
   dateline: '',
@@ -77,7 +88,17 @@ export function initPoster(d) { deps = d; }
 export const posterActive = () => Boolean(S.source);
 
 const currentPage = () => S.source.pages[S.current];
-const planFor = (page) => planPoster(page.widthMm, page.heightMm, S.choice);
+
+/** A page's size the way it lies in this job: turned, if it is turned. */
+const lyingSize = (page) => (page.turned
+  ? { w: page.heightMm, h: page.widthMm }
+  : { w: page.widthMm, h: page.heightMm });
+const planFor = (page) => {
+  const { w, h: hh } = lyingSize(page);
+  return planPoster(w, hh, S.choice);
+};
+const filesKey = () => S.files.map((f) => f.hash || f.name).join(',');
+const r2 = (v) => Math.round(v * 100) / 100;
 const size = (w, h) => `${rnd(w, 1)} x ${rnd(h, 1)} mm`;
 const mm = (v) => `${rnd(v, 1)} mm`;
 
@@ -152,9 +173,9 @@ function knownSeeds() {
 function job() {
   const { source } = S;
   return {
-    file: {
-      name: source.name, size: source.bytes.length, hash: S.fileHash, pages: source.pages.length,
-    },
+    files: S.files.map((f) => ({
+      name: f.name, size: f.size, hash: f.hash, pages: f.pages.length,
+    })),
     choice: S.choice,
     ticked: source.pages.filter((p) => p.ticked).map((p) => p.index),
     current: S.current,
@@ -170,7 +191,7 @@ function job() {
 /** What counts as a change worth saving. Looking at another page does not. */
 const settingsKey = () => JSON.stringify({
   name: S.name,
-  hash: S.fileHash,
+  hash: filesKey(),
   choice: S.choice,
   ticked: S.source.pages.filter((p) => p.ticked).map((p) => p.index),
   shuffle: S.shuffle,
@@ -228,6 +249,7 @@ export const posterStore = {
   extra: () => record().extra,
   rename: (name) => {
     S.name = name;
+    S.nameAuto = false;
     deps.els.name.value = name;
     changed();
   },
@@ -237,8 +259,10 @@ export const posterStore = {
   prepare: async () => {
     await pinSeeds();
     try {
-      await vault.putFile(S.fileHash, S.source.name, S.source.bytes);
-      await vault.keepFile(S.fileHash);
+      for (const f of S.files) {
+        await vault.putFile(f.hash, f.name, f.bytes);
+        await vault.keepFile(f.hash);
+      }
       S.pdfKept = true;
     } catch {
       S.pdfKept = false;
@@ -255,12 +279,50 @@ export const posterStore = {
 
 /** The name box in the top bar. */
 export function renamePoster(name) {
-  posterStore.rename(name.trim() || nameOf(S.source.name));
+  if (name.trim()) posterStore.rename(name.trim());
+  else {
+    posterStore.rename(S.source.name);
+    S.nameAuto = true;
+  }
 }
 
 // ---- opening and closing --------------------------------------------------
 
 const nameOf = (fileName) => fileName.replace(/\.pdf$/i, '').trim() || 'Poster';
+
+/** File order: by name, numbers in their proper places, so 2 comes before 10. */
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+
+
+/**
+ * Option A (Boss, 11 Nov 2026): the job lies the way most of its pages do, a tie
+ * going landscape, and a page the other way round is turned 90° clockwise. Then a
+ * portrait A4 and a landscape A4 make the same panel and share one cut file.
+ */
+function settleTurns(pages) {
+  const wide = (p) => p.widthMm > p.heightMm + 0.5;
+  const tall = (p) => p.heightMm > p.widthMm + 0.5;
+  const jobWide = pages.filter(wide).length >= pages.filter(tall).length;
+  for (const p of pages) p.turned = jobWide ? tall(p) : wide(p);
+}
+
+/** Number the pages across the files, in the files' order. */
+function lineUp(files) {
+  const pages = [];
+  files.forEach((f, fileIndex) => {
+    f.pages.forEach((page, pageInFile) => {
+      Object.assign(page, {
+        index: pages.length,
+        fileIndex,
+        pageInFile,
+        label: f.pages.length > 1 ? `${nameOf(f.name)} p${pageInFile + 1}` : nameOf(f.name),
+      });
+      pages.push(page);
+    });
+  });
+  settleTurns(pages);
+  return pages;
+}
 
 const baseName = (name) => name.replace(/\.pdf$/i, '').trim()
   .replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'poster';
@@ -272,16 +334,20 @@ function readError(err) {
   return 'PDF ni tak dapat dibaca. Cuba simpan semula sebagai PDF biasa.';
 }
 
-function closeSource() {
-  const { source } = S;
-  if (!source) return;
-  dropPrintCheck();
-  dropCardCheck();
-  for (const p of source.pages) {
+function forgetFile(f) {
+  for (const p of f.pages) {
     if (p.picture) URL.revokeObjectURL(p.picture);
     if (p.thumb) URL.revokeObjectURL(p.thumb);
   }
-  source.doc.destroy().catch(() => {});
+  f.doc.destroy().catch(() => {});
+}
+
+function closeSource() {
+  if (!S.source) return;
+  dropPrintCheck();
+  dropCardCheck();
+  for (const f of S.files) forgetFile(f);
+  S.files = [];
   S.source = null;
 }
 
@@ -334,121 +400,221 @@ function applyJob(saved) {
 }
 
 /**
- * @param restore when opening a saved job or the draft:
- *   { saved, name, design: { id, name }, savedKey, quiet }
- *   savedKey undefined means work it out, from whether this is the PDF that was saved.
- * @returns whether the poster is now open
+ * Open PDFs as one job.
+ *
+ * @param fileList File objects, any number
+ * @param restore  when opening a saved job or the draft:
+ *   { saved, name, design: { id, name }, savedKey, quiet }; the files then come in the
+ *   saved order and every one of them must open. savedKey undefined means work it out,
+ *   from whether these are the PDFs that were saved.
+ * @param add      true: add these to the job already open, rather than replace it
+ * @returns whether a poster is now open
  */
-export async function openPosterFile(file, restore = null) {
-  if (!file) return false;
+export async function openPosterFiles(fileList, restore = null, { add = false } = {}) {
   const complain = (text) => { if (!restore?.quiet) alert(text); };
-  if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || '')) {
-    complain('Fail ni bukan PDF. Pilih poster dalam format PDF.');
-    return false;
+  const chosen = [...(fileList || [])].filter(Boolean);
+  if (!chosen.length) return false;
+  const pdfs = chosen.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''));
+  if (pdfs.length < chosen.length) {
+    complain(chosen.length === 1
+      ? 'File ni bukan PDF. Pilih poster dalam format PDF.'
+      : `${chosen.length - pdfs.length} file bukan PDF, jadi tak dimasukkan.`);
   }
-  if (!restore && !(await confirmLeave())) return false;
+  if (!pdfs.length) return false;
+  const adding = add && posterActive();
+  if (!restore && !adding && !(await confirmLeave())) return false;
   const wasActive = posterActive();
-  deps.els.hint.textContent = 'Membaca PDF...';
+  deps.els.hint.textContent = pdfs.length > 1 ? `Membaca ${pdfs.length} PDF...` : 'Membaca PDF...';
   deps.els.hint.classList.add('show');
-  let source;
-  try {
-    source = await openPoster(file);
-  } catch (err) {
-    complain(readError(err));
-    deps.refresh();
-    return false;
-  }
-  if (!source.pages.length) {
-    complain('PDF ni tiada page.');
-    deps.refresh();
-    return false;
-  }
-  let hash = '';
-  try {
-    hash = await vault.hashBytes(source.bytes);
-    await vault.putFile(hash, source.name, source.bytes);
-  } catch { /* opens anyway; there will be no draft to come back to */ }
 
-  // Replacing the PDF of a job that is already saved is the same job with a better
-  // file: the sample swapped for the client's final one. Name and shapes stay.
-  const sameJob = !restore && wasActive && gallery.current().id;
-  closeSource();
-  S.source = source;
-  S.fileHash = hash;
-  S.current = 0;
-  S.stageView = 'panel';
+  const opened = [];
+  const problems = [];
+  for (const file of pdfs) {
+    let one;
+    try {
+      one = await openPoster(file);
+    } catch (err) {
+      problems.push(pdfs.length > 1 ? `${file.name}: ${readError(err)}` : readError(err));
+      continue;
+    }
+    if (!one.pages.length) {
+      problems.push(pdfs.length > 1 ? `${file.name}: PDF ni tiada page.` : 'PDF ni tiada page.');
+      one.doc.destroy().catch(() => {});
+      continue;
+    }
+    let hash = '';
+    try {
+      hash = await vault.hashBytes(one.bytes);
+      await vault.putFile(hash, one.name, one.bytes);
+    } catch { /* opens anyway; there will be no draft to come back to */ }
+    opened.push({
+      name: one.name, size: one.bytes.length, hash, bytes: one.bytes, lib: one.lib, doc: one.doc, pages: one.pages, printDoc: null,
+    });
+  }
+  if (problems.length) complain(problems.join('\n'));
+  // A saved job needs all of its files back, or its page numbers would point elsewhere.
+  if (!opened.length || (restore && opened.length < pdfs.length)) {
+    for (const f of opened) forgetFile(f);
+    deps.refresh();
+    return false;
+  }
+
+  let files;
+  let keep = null;
+  if (adding) {
+    // A file already in the job is not added twice.
+    const fresh = opened.filter((o) => !S.files.some((f) => f.hash && f.hash === o.hash));
+    for (const o of opened) if (!fresh.includes(o)) forgetFile(o);
+    if (!fresh.length) {
+      deps.refresh();
+      return true;
+    }
+    // A file named like one already in the job is the newer copy of it (the client's
+    // corrected A4 PUZZLE 1): it takes that file's place, and its pages keep their ticks.
+    const sameName = (a, b) => a.name.toLowerCase() === b.name.toLowerCase();
+    const replaced = S.files.filter((f) => fresh.some((o) => sameName(o, f)));
+    const shown = currentPage();
+    keep = { page: shown, label: shown.label };
+    for (const old of replaced) {
+      const newer = fresh.find((o) => sameName(o, old));
+      newer.pages.forEach((page, i) => { if (old.pages[i]) page.ticked = old.pages[i].ticked; });
+      forgetFile(old);
+      if (old.hash) vault.releaseFile(old.hash).catch(() => {});
+    }
+    files = [...S.files.filter((f) => !replaced.includes(f)), ...fresh].sort(byName);
+    dropPrintCheck();
+    dropCardCheck();
+  } else {
+    // Replacing the PDFs of a job that is already saved is the same job with better
+    // files: the sample swapped for the client's final one. Name and shapes stay.
+    const sameJob = !restore && wasActive && gallery.current().id;
+    closeSource();
+    files = restore ? opened : opened.sort(byName);
+    S.current = 0;
+    S.stageView = 'panel';
+    if (!restore && !sameJob) {
+      S.shuffle = 0;
+      S.pins.clear();
+      S.savedKey = null;
+      S.nameAuto = true;
+    }
+  }
+
+  S.files = files;
+  S.source = { name: jobNameOf(files.map((f) => f.name)), lib: files[0].lib, pages: lineUp(files) };
+  if (keep) {
+    // Stay on the page that was on screen, or on its newer copy.
+    const same = S.source.pages.includes(keep.page) ? keep.page : S.source.pages.find((p) => p.label === keep.label);
+    S.current = same ? same.index : Math.min(S.current, S.source.pages.length - 1);
+  }
   if (restore) {
     applyJob(restore.saved);
     S.name = restore.name;
-  } else if (!sameJob) {
-    S.shuffle = 0;
-    S.pins.clear();
-    S.name = nameOf(source.name);
-    S.savedKey = null;
+    S.nameAuto = false;
+  } else if (S.nameAuto) {
+    S.name = S.source.name;
   }
   if (!wasActive) deps.setMode(true, S.name);
   else deps.els.name.value = S.name;
   if (restore) {
     gallery.setOpen(restore.design?.id ?? null, restore.design?.name ?? null);
+    const same = files.length === restore.saved.files.length
+      && files.every((f, i) => f.hash && f.hash === restore.saved.files[i].hash);
     if (restore.savedKey !== undefined) S.savedKey = restore.savedKey;
-    else S.savedKey = hash && hash === restore.saved.file.hash ? settingsKey() : null;
+    else S.savedKey = same ? settingsKey() : null;
   }
   deps.refresh();
-  loadThumbs(source);
+  loadThumbs(S.source);
   changed();
   return true;
 }
 
 /**
- * The PDF a saved job needs, when this browser no longer has it: another PC, or
- * browsing data cleared. Resolves to a File, or null if the person backs out.
+ * The PDFs a saved job needs that this browser no longer has: another PC, or
+ * browsing data cleared. The person picks them, any number at once; each is matched
+ * by its content first and then by its name. Resolves to the job's files in its
+ * order, or null if the person backs out.
+ *
+ * @param found what the browser still has, null where it has not
  */
-function askForPdf(saved) {
+function askForPdfs(saved, found) {
   return new Promise((resolve) => {
     const dlg = deps.els.posterDlg;
-    const finish = (file) => {
-      resolve(file);
+    const files = [...found];
+    const differs = new Set();
+    const finish = (value) => {
+      resolve(value);
       dlg.close();
     };
-    const useAnyway = h('button', { type: 'button', class: 'primary', hidden: true }, 'Guna file ni');
-    const warning = h('p', { class: 'warn-line', hidden: true });
-    let chosen = null;
-    useAnyway.addEventListener('click', () => finish(chosen));
+    const list = h('div', { class: 'missing-list' });
+    const open = h('button', { type: 'button', class: 'primary', disabled: true }, 'Buka');
+    open.addEventListener('click', () => finish(files));
+    const paint = () => {
+      list.replaceChildren(...saved.files.map((f, i) => {
+        if (found[i]) return null;
+        const state = !files[i] ? 'belum dipilih' : differs.has(i) ? 'lain daripada yang disimpan' : 'ada';
+        return h('p', { class: files[i] && !differs.has(i) ? 'check-ok' : 'warn-line' },
+          `${files[i] && !differs.has(i) ? '✓' : '•'} ${f.name}: ${state}`);
+      }));
+      open.disabled = files.some((f) => !f);
+    };
     dlg.addEventListener('close', () => resolve(null), { once: true });
+    const missing = saved.files.filter((f, i) => !found[i]).length;
     dlg.replaceChildren(h('div', { class: 'dlg-body' },
       h('h2', {}, 'Pilih PDF poster'),
       h('p', { class: 'muted' },
-        `Design ni guna file "${saved.file.name}". File tu tiada dalam browser ni, jadi pilih file yang sama.`),
+        `Design ni guna ${saved.files.length} file PDF. ${missing} tiada dalam browser ni, jadi pilih file yang sama. `
+        + 'Boleh pilih semua sekali.'),
+      list,
       h('label', { class: 'ghost file-pick' },
         h('input', {
           type: 'file',
           accept: 'application/pdf,.pdf',
+          multiple: true,
           hidden: true,
           onchange: async (e) => {
-            const file = e.target.files[0];
+            const picked = [...e.target.files];
             e.target.value = '';
-            if (!file) return;
-            let hash = '';
-            try {
-              hash = await vault.hashBytes(await file.arrayBuffer());
-            } catch { /* cannot tell, so treat it as different */ }
-            if (hash && hash === saved.file.hash) {
-              finish(file);
-              return;
+            for (const file of picked) {
+              let hash = '';
+              try {
+                hash = await vault.hashBytes(await file.arrayBuffer());
+              } catch { /* cannot tell, so it can only match by name */ }
+              let at = saved.files.findIndex((f, i) => !found[i] && f.hash && f.hash === hash);
+              if (at < 0) {
+                at = saved.files.findIndex((f, i) => !found[i] && !files[i]
+                  && f.name.toLowerCase() === file.name.toLowerCase());
+                if (at >= 0) differs.add(at);
+              } else {
+                differs.delete(at);
+              }
+              if (at >= 0) files[at] = file;
             }
-            chosen = file;
-            warning.textContent = `"${file.name}" lain daripada file yang disimpan dulu. Saiz dan bentuk puzzle kekal, tapi artwork ikut file ni.`;
-            warning.hidden = false;
-            useAnyway.hidden = false;
+            paint();
           },
         }),
         'Pilih PDF'),
-      warning,
+      h('p', { class: 'hint' }, 'File yang lain daripada yang disimpan tetap boleh dibuka: saiz dan bentuk puzzle kekal, artwork ikut file baru.'),
       h('div', { class: 'dlg-actions' },
         h('button', { type: 'button', class: 'ghost', onclick: () => finish(null) }, 'Batal'),
-        useAnyway)));
+        open)));
+    paint();
     dlg.showModal();
   });
+}
+
+/** The saved job's files from this browser; asks for any it lacks unless told not to. */
+async function gatherFiles(saved, { ask = true } = {}) {
+  const found = await Promise.all(saved.files.map(async (f) => {
+    if (!f.hash) return null;
+    try {
+      return await vault.getFile(f.hash);
+    } catch {
+      return null;
+    }
+  }));
+  if (found.every(Boolean)) return found;
+  return ask ? askForPdfs(saved, found) : null;
 }
 
 /** Open a job from the account. @returns false when nothing changed */
@@ -456,15 +622,9 @@ export async function openPosterDesign(row) {
   const saved = readPoster(row);
   if (!saved) return false;
   if (!(await confirmLeave())) return false;
-  let file = null;
-  if (saved.file.hash) {
-    try {
-      file = await vault.getFile(saved.file.hash);
-    } catch { /* same as not having it */ }
-  }
-  if (!file) file = await askForPdf(saved);
-  if (!file) return false;
-  return openPosterFile(file, { saved, name: row.name, design: { id: row.id, name: row.name } });
+  const files = await gatherFiles(saved);
+  if (!files) return false;
+  return openPosterFiles(files, { saved, name: row.name, design: { id: row.id, name: row.name } });
 }
 
 /** Whatever was on screen last time, put back. Called once when the tool starts. */
@@ -477,15 +637,10 @@ export async function restorePosterDraft() {
   }
   if (!draft || posterActive()) return false;
   const saved = cleanPoster(draft.job);
-  let file = null;
-  if (saved?.file.hash) {
-    try {
-      file = await vault.getFile(saved.file.hash);
-    } catch { /* same as not having it */ }
-  }
-  const opened = file && await openPosterFile(file, {
+  const files = saved && await gatherFiles(saved, { ask: false });
+  const opened = files && await openPosterFiles(files, {
     saved,
-    name: typeof draft.name === 'string' && draft.name ? draft.name : nameOf(saved.file.name),
+    name: typeof draft.name === 'string' && draft.name ? draft.name : jobNameOf(saved.files.map((f) => f.name)),
     design: { id: draft.designId, name: draft.designName },
     savedKey: draft.savedKey ?? null,
     quiet: true,
@@ -498,11 +653,11 @@ export async function restorePosterDraft() {
 /** @returns whether it closed */
 export async function closePoster() {
   if (!(await confirmLeave())) return false;
-  const hash = S.fileHash;
+  const hashes = S.files.map((f) => f.hash).filter(Boolean);
   closeSource();
   clearTimeout(draftTimer);
-  S.fileHash = '';
   S.name = '';
+  S.nameAuto = true;
   S.savedKey = null;
   S.pdfKept = true;
   S.shuffle = 0;
@@ -513,7 +668,7 @@ export async function closePoster() {
   S.layerOn = allLayersOn();
   S.cards = false;
   vault.clearDraft().catch(() => {});
-  if (hash) vault.releaseFile(hash).catch(() => {});
+  for (const hash of hashes) vault.releaseFile(hash).catch(() => {});
   deps.els.status.classList.remove('unsaved');
   deps.setMode(false);
   deps.refresh();
@@ -544,6 +699,7 @@ async function loadThumbs(source) {
   if (source.pages.length < 2) return;
   for (const page of source.pages) {
     if (S.source !== source) return;
+    if (page.thumb) continue;
     try {
       page.thumb = await renderPicture(page, THUMB_PX);
       if (S.source === source) renderPanel();
@@ -583,15 +739,13 @@ function renderStage() {
   if (S.stageView === 'print') {
     const check = printCheckFor(page, plan);
     deps.view.renderPrint({
-      size: plan.panel,
+      size: check.size,
       layers: check.layers,
       order: LAYER_LOOK.map((l) => l.name),
       on: S.layerOn,
-      fitKey: `print:${S.current}:${plan.width}x${plan.height}`,
+      fitKey: `print:${check.key}`,
     });
-    deps.els.hint.textContent = check.state === 'building'
-      ? 'Membaca file print...'
-      : `File print ${size(plan.panel.width, plan.panel.height)}`;
+    deps.els.hint.textContent = check.state === 'building' ? 'Membaca file print...' : check.label;
     deps.els.hint.classList.add('show');
     return;
   }
@@ -600,7 +754,9 @@ function renderStage() {
   if (S.stageView === 'sheet') {
     deps.view.renderSheet(buildSheet(plan, puzzle, jobMeta()), `sheet:${fitKey}`);
   } else {
-    deps.view.renderPoster({ plan, puzzle, imageUrl: page.picture, fitKey: `panel:${fitKey}` });
+    deps.view.renderPoster({
+      plan, puzzle, imageUrl: page.picture, turn: page.turned ? 90 : 0, fitKey: `panel:${fitKey}`,
+    });
   }
   deps.els.hint.textContent = `${plan.pieces} pieces · ${plan.width} x ${plan.height} mm`;
   deps.els.hint.classList.add('show');
@@ -625,11 +781,18 @@ function blockedReason(plan) {
 
 function resolutionWarning(page, plan) {
   if (!page.images?.length) return null;
-  const dpi = Math.min(...page.images.map((im) => effectiveDpi(im, plan)));
+  // A turned page's pictures lie the other way round on the panel.
+  const lying = page.turned
+    ? page.images.map((im) => ({
+      pxW: im.pxH, pxH: im.pxW, fracW: im.fracH, fracH: im.fracW,
+    }))
+    : page.images;
+  const dpi = Math.min(...lying.map((im) => effectiveDpi(im, plan)));
   if (dpi >= LOW_DPI) return null;
   const px = pixelsFor(plan);
+  const [w, hh] = page.turned ? [px.h, px.w] : [px.w, px.h];
   return `Resolusi artwork rendah: lebih kurang ${Math.round(dpi)} dpi pada saiz ni, jadi print `
-    + `boleh nampak kabur. Elok minta file ${px.w} x ${px.h} px (${GOOD_DPI} dpi).`;
+    + `boleh nampak kabur. Elok minta file ${w} x ${hh} px (${GOOD_DPI} dpi).`;
 }
 
 function renderPanel() {
@@ -653,25 +816,35 @@ function renderPanel() {
 
 function fileGroup() {
   const { source } = S;
-  const replace = h('label', { class: 'ghost file-pick' },
+  const picker = (label, title, open) => h('label', { class: 'ghost file-pick', title },
     h('input', {
       type: 'file',
       accept: 'application/pdf,.pdf',
+      multiple: true,
       hidden: true,
       onchange: (e) => {
-        const f = e.target.files[0];
+        const files = [...e.target.files];
         e.target.value = '';
-        openPosterFile(f);
+        open(files);
       },
     }),
-    'Tukar PDF');
+    label);
   const single = source.pages.length === 1;
+  const many = S.files.length > 1;
+  const turned = source.pages.filter((p) => p.turned).length;
   return group('Poster', true,
     h('div', { class: 'stat' },
-      h('span', { class: 'file-name', title: source.name }, source.name),
+      h('span', { class: 'file-name', title: S.files.map((f) => f.name).join('\n') },
+        many ? `${S.files.length} file PDF` : S.files[0].name),
       h('b', {}, single ? '1 page' : `${source.pages.length} page`)),
     single ? null : pageList(),
-    replace,
+    turned
+      ? h('p', { class: 'turn-note' },
+        `${turned} poster diputar 90° supaya semua guna satu bentuk puzzle dan satu file cut.`)
+      : null,
+    h('div', { class: 'row-actions' },
+      picker('Tambah PDF', 'Masukkan PDF lain ke job ni', (files) => openPosterFiles(files, null, { add: true })),
+      picker('Tukar PDF', 'Ganti semua PDF dalam job ni', (files) => openPosterFiles(files))),
     h('p', { class: 'hint' },
       'PDF kekal dalam browser ni dan tak dihantar ke mana-mana. Simpan cuma hantar tetapan ke akaun anda.'));
 }
@@ -688,7 +861,7 @@ function pageList() {
     return h('div', { class: p.index === S.current ? 'page-row open' : 'page-row' },
       h('input', {
         type: 'checkbox',
-        'aria-label': `Buat page ${p.index + 1}`,
+        'aria-label': `Buat ${p.label}`,
         ...(p.ticked ? { checked: true } : {}),
         onchange: (e) => {
           p.ticked = e.target.checked;
@@ -698,8 +871,8 @@ function pageList() {
       h('button', { type: 'button', class: 'page-open', onclick: open },
         p.thumb ? h('img', { src: p.thumb, alt: '' }) : h('span', { class: 'page-blank' }),
         h('span', { class: 'page-text' },
-          h('b', {}, `Page ${p.index + 1}`),
-          h('span', {}, size(plan.width, plan.height)))));
+          h('b', {}, S.files.length > 1 ? p.label : `Page ${p.index + 1}`),
+          h('span', {}, `${size(plan.width, plan.height)}${p.turned ? ', diputar 90°' : ''}`))));
   }));
 }
 
@@ -707,7 +880,8 @@ function sizeGroup(page) {
   const isCustom = S.choice.height != null;
   return group('Saiz output', true,
     h('div', { class: 'presets three' }, PAPERS.map((paper) => {
-      const plan = planPoster(page.widthMm, page.heightMm, { paper: paper.id });
+      const { w, h: hh } = lyingSize(page);
+      const plan = planPoster(w, hh, { paper: paper.id });
       return h('button', {
         class: plan.fitsBed ? 'preset' : 'preset no-fit',
         type: 'button',
@@ -791,26 +965,45 @@ function previewGroup() {
 // Boss, 6 Nov 2026: a place to check the layers before the file goes to FlexiPrint,
 // with an eye on each to switch it off and look underneath.
 
-/** The print file of this page at this size, built and read back once. */
+/**
+ * The print file this page goes out in, built and read back once: the run that holds
+ * it, as Export gives it (Boss, 11 Nov 2026), or the page alone when it is not in one.
+ */
 function printCheckFor(page, plan) {
-  const key = `${page.index}|${planKey(plan)}|${S.fileHash}`;
+  const runs = printRuns(readyPages());
+  const at = runs.findIndex((r) => r.pages.includes(page));
+  const run = at >= 0 ? runs[at] : null;
+  const key = run
+    ? `run|${run.pages.map((p) => p.index).join(',')}|${planKey(plan)}|${filesKey()}`
+    : `page|${page.index}|${planKey(plan)}|${filesKey()}`;
   if (S.printCheck?.key === key) return S.printCheck;
   dropPrintCheck();
   const check = {
-    key, state: 'building', layers: null, results: null, error: null,
+    key,
+    state: 'building',
+    layers: null,
+    results: null,
+    error: null,
+    size: run ? { width: run.width, height: run.height } : plan.panel,
+    label: run
+      ? `Run ${at + 1} dari ${runs.length}: ${run.pages.length} panel, ${size(run.width, run.height)}`
+      : `File print ${size(plan.panel.width, plan.panel.height)}`,
   };
   S.printCheck = check;
   (async () => {
-    // The very file the File print button gives, not a likeness of it.
-    const file = await printFile(page);
-    return inspectPrint(S.source.lib, new Uint8Array(await file.blob.arrayBuffer()));
+    // The very file the Export button gives, not a likeness of it.
+    const file = run ? await runFile(run, at + 1) : await printFile(page);
+    const bytes = new Uint8Array(await file.blob.arrayBuffer());
+    return run ? inspectPrint(S.source.lib, bytes, runBoxes(run).map((b) => b.box)) : inspectPrint(S.source.lib, bytes);
   })().then((found) => {
     if (S.printCheck !== check) {
       releaseLayers(found.layers);
       return;
     }
     check.layers = found.layers;
-    check.results = judgeLayers(found, plan, found.tolMm);
+    check.results = run
+      ? judgeBoxes(found, runBoxes(run).map((b) => b.box), 'panel')
+      : judgeLayers(found, plan, found.tolMm);
     check.state = 'ready';
     if (S.stageView === 'print') renderPoster();
   }).catch((err) => {
@@ -878,13 +1071,16 @@ function layerPanel() {
 // One A6 card for each ticked page, all on one sheet: cut once, printed once.
 
 const cardPages = () => S.source.pages.filter((p) => p.ticked);
-const cardLayout = () => layoutCards(cardPages());
+const cardLayout = () => layoutCards(cardPages().map((p) => {
+  const { w, h: hh } = lyingSize(p);
+  return { index: p.index, widthMm: w, heightMm: hh };
+}));
 
 /** A card's outline, where it sits on the sheet. */
 const translateCard = (c) => translatePath(`${borderPath(c.width, c.height, CARD_CORNER_MM)} Z`, c.x, c.y);
 
 function cardCheckFor(layout) {
-  const key = `${layout.cards.map((c) => c.index).join(',')}|${S.fileHash}`;
+  const key = `${layout.cards.map((c) => c.index).join(',')}|${filesKey()}`;
   if (S.cardCheck?.key === key) return S.cardCheck;
   dropCardCheck();
   const check = {
@@ -962,9 +1158,11 @@ async function cardCutFile(layout) {
 }
 
 async function cardPrintFile(layout) {
-  if (!S.source.printDoc) S.source.printDoc = openForPrint(S.source.bytes);
-  const doc = await S.source.printDoc;
-  const bytes = await buildCardPrintPdf(doc, layout, { title: `${S.source.name} - kad A6 print` });
+  const docs = await printDocs();
+  const bytes = await buildCardPrintPdf(layout, (index) => {
+    const p = S.source.pages[index];
+    return { doc: docs[p.fileIndex], pageIndex: p.pageInFile, turn: p.turned ? 90 : 0 };
+  }, { title: `${S.source.name} - kad A6 print` });
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
     name: `${baseName(S.source.name)}-kad-a6-print-${rnd(layout.sheet.width, 1)}x${rnd(layout.sheet.height, 1)}.pdf`,
@@ -1013,6 +1211,53 @@ export function shufflePoster() {
 
 const pageTag = (page) => (S.source.pages.length > 1 ? `-p${page.index + 1}` : '');
 
+/** Each PDF parsed for writing, once. */
+function printDocs() {
+  return Promise.all(S.files.map((f) => {
+    if (!f.printDoc) f.printDoc = openForPrint(f.bytes);
+    return f.printDoc;
+  }));
+}
+
+/** Ticked pages that can be made at this size. */
+const readyPages = () => S.source.pages.filter((p) => p.ticked && !blockedReason(planFor(p)));
+
+/** Every ready panel, size by size, run by run, as it goes on the bed. */
+function printRuns(pages) {
+  const runs = [];
+  for (const { plan, pages: group } of sizesOf(pages)) {
+    for (const run of planRuns(group.length, plan.panel)) {
+      runs.push({ ...run, plan, pages: group.slice(run.first, run.first + run.count) });
+    }
+  }
+  return runs;
+}
+
+/** Where each panel's artwork lands on a run's page, and how far it turns. */
+function runBoxes(run) {
+  const art = run.turned ? turnBox(run.plan.art, run.plan.panel.height) : run.plan.art;
+  return run.pages.map((page, i) => ({
+    page,
+    box: {
+      x: r2(run.slots[i].x + art.x), y: r2(run.slots[i].y + art.y), width: art.width, height: art.height,
+    },
+    turn: (page.turned ? 90 : 0) + (run.turned ? 90 : 0),
+  }));
+}
+
+/** One print file for one bed load: the cut panels laid edge to edge from the corner. */
+async function runFile(run, number) {
+  const docs = await printDocs();
+  const bytes = await buildLayeredPrint({ width: run.width, height: run.height }, runBoxes(run).map((b) => ({
+    doc: docs[b.page.fileIndex], pageIndex: b.page.pageInFile, art: b.box, box: b.box, turn: b.turn,
+  })), { title: `${S.source.name} - print run ${number}` });
+  return {
+    blob: new Blob([bytes], { type: 'application/pdf' }),
+    name: `${baseName(S.source.name)}-print-run${number}-${rnd(run.width, 1)}x${rnd(run.height, 1)}.pdf`,
+    type: 'application/pdf',
+  };
+}
+
 /** One size, one cut file: every page at this size is cut from it. */
 async function cutFile(plan) {
   const puzzle = await finalPuzzle(plan);
@@ -1025,14 +1270,17 @@ async function cutFile(plan) {
   };
 }
 
+/** One panel's print file on its own, for printing a single panel again. */
 async function printFile(page) {
   const plan = planFor(page);
-  if (!S.source.printDoc) S.source.printDoc = openForPrint(S.source.bytes);
-  const doc = await S.source.printDoc;
-  const bytes = await buildPrintPdf(doc, page.index, plan, { title: `${S.source.name} - print` });
+  const docs = await printDocs();
+  const bytes = await buildPrintPdf(docs[page.fileIndex], page.pageInFile, plan, {
+    title: `${S.source.name} - print`, turn: page.turned ? 90 : 0,
+  });
+  const stem = S.files.length > 1 ? baseName(page.label) : `${baseName(S.source.name)}${pageTag(page)}`;
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
-    name: `${baseName(S.source.name)}${pageTag(page)}-print-${rnd(plan.art.width, 1)}x${rnd(plan.art.height, 1)}.pdf`,
+    name: `${stem}-print-${rnd(plan.art.width, 1)}x${rnd(plan.art.height, 1)}.pdf`,
     type: 'application/pdf',
   };
 }
@@ -1120,6 +1368,7 @@ export function openPosterExport() {
       ? ', untuk semua page'
       : `, untuk page ${pages.map((p) => p.index + 1).join(', ')}`;
   };
+  const labels = (pages) => pages.map((p) => (S.files.length > 1 ? p.label : `page ${p.index + 1}`)).join(', ');
 
   const cutRows = sizes.map(({ plan, pages }) => h('div', { class: 'file-row' },
     h('div', { class: 'file-row-text' },
@@ -1127,14 +1376,26 @@ export function openPosterExport() {
       h('span', {}, `${size(plan.width, plan.height)}, ${plan.pieces} pieces${forPages(pages)}`)),
     fileButton('File cut', () => cutFile(plan))));
 
-  const printRows = ready.map((p) => {
+  // Print: one file per bed load (Boss, 11 Nov 2026). A single panel's file stays
+  // to hand for printing one again, folded away.
+  const runs = printRuns(ready);
+  const runRows = runs.map((run, i) => h('div', { class: 'file-row' },
+    h('div', { class: 'file-row-text' },
+      h('b', {}, runs.length > 1 ? `File print UV, run ${i + 1} dari ${runs.length}` : 'File print UV'),
+      h('span', {}, `${run.pages.length} panel, ${size(run.width, run.height)}${multiPage ? `: ${labels(run.pages)}` : ''}`)),
+    fileButton('File print', () => runFile(run, i + 1))));
+
+  const singleRows = ready.map((p) => {
     const { art } = planFor(p);
     return h('div', { class: 'file-row' },
       h('div', { class: 'file-row-text' },
-        h('b', {}, multiPage ? `Page ${p.index + 1}` : baseName(S.source.name)),
-        h('span', {}, `Artwork ${size(art.width, art.height)}, dengan Spot 1 dan Spot 2`)),
+        h('b', {}, multiPage ? (S.files.length > 1 ? p.label : `Page ${p.index + 1}`) : baseName(S.source.name)),
+        h('span', {}, `Artwork ${size(art.width, art.height)}${p.turned ? ', diputar 90°' : ''}`)),
       fileButton('File print', () => printFile(p)));
   });
+  const singles = ready.length > 1
+    ? h('details', { class: 'print-singles' }, h('summary', {}, 'File print satu panel (untuk ulang print)'), ...singleRows)
+    : null;
 
   // The reference cards: one sheet for every ticked page, whatever its puzzle size.
   const layout = S.cards ? cardLayout() : null;
@@ -1160,7 +1421,7 @@ export function openPosterExport() {
   all.addEventListener('click', busy(all, async () => {
     const files = [];
     for (const { plan } of sizes) files.push(await forZip(await cutFile(plan)));
-    for (const p of ready) files.push(await forZip(await printFile(p)));
+    for (const [i, run] of runs.entries()) files.push(await forZip(await runFile(run, i + 1)));
     if (cardsReady) {
       files.push(await forZip(await cardCutFile(layout)));
       files.push(await forZip(await cardPrintFile(layout)));
@@ -1178,15 +1439,17 @@ export function openPosterExport() {
     h('h2', {}, 'Download file'),
     ticked.length ? null : h('p', { class: 'warn-line' }, 'Tiada page dipilih. Tick sekurang-kurangnya satu page.'),
     ...cutRows,
-    ...printRows,
+    ...runRows,
+    singles,
     ...cardRows,
     cardWarning,
     ...blocked.map((p) => h('p', { class: 'warn-line' },
-      `Page ${p.index + 1}: ${blockedReason(planFor(p))}`)),
+      `${S.files.length > 1 ? p.label : `Page ${p.index + 1}`}: ${blockedReason(planFor(p))}`)),
     first
       ? h('p', { class: 'note' },
-        `File cut: garisan puzzle dulu, frame last. File print: artwork ${size(first.art.width, first.art.height)}, `
-        + `${mm(first.art.x)} dari kiri dan ${mm(first.art.y)} dari atas panel. Spot 1 dan Spot 2 di bawahnya, sama saiz.`)
+        'File cut: satu set, cut berulang ikut bilangan panel. Garisan puzzle dulu, frame last. '
+        + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
+        + 'Spot 1 dan Spot 2 di bawah setiap artwork.')
       : null,
     savedLine,
     message,
@@ -1201,7 +1464,7 @@ export const POSTER_STEPS = [
   ['Cut acrylic clear dulu',
     'Garisan puzzle dulu, frame last. Jangan keluarkan pieces lagi.'],
   ['UV print atas panel tu',
-    'Semak layer dulu di Preview, File print. Buka file print terus dalam FlexiPrint, layer Spot 1 dan Spot 2 dah ada. Letak panel atas bed tanpa keluarkan pieces, ikut arah file print. Lebihan artwork jatuh atas frame, jadi tepi puzzle tak tinggal kosong.'],
+    'Semak layer dulu di Preview, File print. Letak panel atas bed tanpa keluarkan pieces, rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPrint, layer Spot 1 dan Spot 2 dah ada. Lebihan artwork jatuh atas frame, jadi tepi puzzle tak tinggal kosong.'],
   ['Keluarkan pieces',
     'Frame clear habis fungsi selepas ni.'],
   ['Cut border dan backing',

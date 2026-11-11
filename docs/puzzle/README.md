@@ -55,6 +55,27 @@ Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
   lain dapat seed dan fail cut sendiri. Keping dua poster saiz sama boleh tertukar,
   jadi kena asingkan ikut gambar.
 
+Banyak PDF dalam satu job (bos, 11 November 2026): client boleh hantar satu PDF untuk
+setiap poster. Upload, drag, Tambah PDF dan Tukar PDF terima banyak file sekali.
+
+- File disusun ikut nama (1, 2, ... 10), page dinombor merentas semua file, dan
+  senarai serta nama file keluar guna nama PDF. Nama job ialah bahagian yang sama
+  dalam semua nama file ("A4 PUZZLE").
+- Tambah PDF dengan nama yang sama dengan file dalam job menggantikan file lama
+  (versi client yang dibetulkan), dan tick page dikekalkan.
+- Pilihan A: job ikut arah kebanyakan page (seri jadi landscape). Page arah lain
+  diputar 90 darjah ikut arah jam dalam preview, file print dan kad, jadi semua
+  poster A4 kongsi satu panel dan satu file cut.
+- Rekod simpanan ada `files` (senarai). Rekod lama dengan `file` dibaca sebagai
+  senarai satu file. PC lain: tab minta semua PDF yang tiada sekali gus.
+
+File print gabungan (bos, 11 November 2026): file cut kekal satu set dan dicut
+berulang. Panel yang dah dicut diletak rapat tepi ke tepi dari bucu kiri atas bed
+UV 900 x 600 mm, jadi satu file print untuk satu run (`geom/runs.js`). Panel A4
+landscape: 4 satu run (2 x 2, 658 x 484 mm). Panel yang tak muat bed ikut arah
+biasa diputar. File print satu panel masih ada dalam Export, dilipat, untuk ulang
+print; ZIP hanya ambil file cut, run dan kad.
+
 Fail print ada tiga layer PDF (bos, 5 November 2026), supaya tidak perlu lagi buka
 Photoshop sebelum FlexiPRINT:
 
@@ -122,6 +143,7 @@ Fail baharu dalam `src/`:
 - `posterVault.js` - PDF dan draf dalam IndexedDB
 - `printCheck.js` - baca semula layer fail print untuk Preview > File print
 - `geom/cards.js` - saiz, bleed dan susunan kad rujukan A6 (tulen)
+- `geom/runs.js` - susunan panel atas bed UV untuk file print gabungan (tulen)
 - `zip.js` - ZIP tanpa mampatan untuk "Download semua"
 
 `vendor/` hanya dimuat bila seseorang upload poster (lebih kurang 2 MB):
