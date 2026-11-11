@@ -65,3 +65,10 @@ alat itu yang muncul dalam "Reka bentuk saya" boleh dibuka (ia membawa ke
 ditekan. Perubahan ini dibuat terus dalam salinan `docs/`: salin baris yang
 sama ke projek sumber sebelum menyalin semula alat ini, kalau tidak ia hilang
 senyap.
+
+## Perubahan terus: UV File Generator dalam galeri (11 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvfile` (UV File Generator, `/uvfile/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+Sama seperti di atas: salin baris itu ke projek sumber sebelum menyalin semula alat
+ini, kalau tidak ia hilang senyap.

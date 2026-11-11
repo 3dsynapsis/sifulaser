@@ -14,7 +14,7 @@
 // The callers carry on without it: a save still reaches the account, and the PDF is
 // asked for again when the job is opened.
 
-const DB_NAME = 'sifulaser-puzzle-poster';
+let DB_NAME = 'sifulaser-puzzle-poster';
 const FILES = 'files';
 const META = 'meta';
 const DRAFT = 'draft';
@@ -23,6 +23,15 @@ const MAX_BYTES = 1024 ** 3;
 const PDF = 'application/pdf';
 
 let opening = null;
+
+/**
+ * Keep this tab's PDFs and draft apart from another's: the UV File tab (Boss, 11 Nov
+ * 2026) has a job on screen of its own, which must not come back in the Puzzle tab.
+ * Call before anything else here.
+ */
+export function useDatabase(name) {
+  if (!opening) DB_NAME = name;
+}
 
 function connect() {
   if (!opening) {

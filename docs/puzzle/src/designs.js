@@ -33,13 +33,23 @@ export const TOOLS = {
   rehal: { name: 'Rehal', path: '/rehal/' },
   plakbox: { name: 'Plak Box', path: '/plakbox/' },
   tray: { name: 'Tray Organizer', path: '/tray/' },
+  uvfile: { name: 'UV File Generator', path: '/uvfile/' },
 };
 
-/** The tool this copy of the gallery is running inside. */
-export const TOOL = 'puzzle';
+/**
+ * The tool this copy of the gallery is running inside. The UV File tab runs on this
+ * same code and says so with useTool, so its designs stay its own.
+ */
+export let TOOL = 'puzzle';
 
 /** Nama bila pengguna tidak menamakannya. */
-const UNTITLED = 'Puzzle tanpa nama';
+let UNTITLED = 'Puzzle tanpa nama';
+
+/** Run as another tool that shares this code. Call before anything else here. */
+export function useTool(tool, untitled) {
+  TOOL = tool;
+  UNTITLED = untitled;
+}
 
 /** Apa yang disimpan, dalam bahasa pengguna - baris kecil di bawah galeri. */
 const KEPT = 'Yang disimpan ialah tetapannya - saiz papan, bilangan keping, saiz tab, '
@@ -91,7 +101,9 @@ export function forget() {
 const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
 /** For the label in a list. readPoster in posterSaved.js is what opens one. */
-const isPoster = (row) => typeof row?.extra === 'string' && row.extra.includes('"poster":');
+// In the Puzzle tab a poster job sits among ordinary puzzles, so it is labelled; in the
+// UV File tab every job is one.
+const isPoster = (row) => TOOL === 'puzzle' && typeof row?.extra === 'string' && row.extra.includes('"poster":');
 
 const when = (iso) => {
   const t = Date.parse(iso || '');

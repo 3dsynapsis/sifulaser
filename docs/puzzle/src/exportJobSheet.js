@@ -88,6 +88,30 @@ function fitSize(lines, size, room) {
   return widest > room ? (size * room) / widest : size;
 }
 
+/** The job, top of the page: client, dateline, and what is being made. */
+function jobHead(texts, width, meta, what) {
+  const headX = width * (298 / PAGE_W);
+  const head = [
+    `Nama Client: ${plainText(meta.client)}`,
+    `Dateline: ${plainText(meta.dateline)}`,
+    what,
+  ];
+  const headSize = fitSize(head, SIZE.header, width - headX - 20);
+  head.forEach((text, i) => {
+    texts.push({ x: headX, y: 99 + i * 51.15, size: headSize, text, anchor: 'start' });
+  });
+}
+
+/** A label above a part, its last line a fixed distance above the part. */
+function partLabel(texts, lines, cx, room) {
+  const s = fitSize(lines, SIZE.large, room);
+  const step = sizeMm(s) * LINE_STEP;
+  const last = PART_TOP - 17;
+  lines.forEach((text, i) => {
+    texts.push({ x: cx, y: last - (lines.length - 1 - i) * step, size: s, text, anchor: 'middle' });
+  });
+}
+
 /**
  * @param plan    result of planPoster
  * @param puzzle  result of buildPuzzle at plan's size
@@ -129,31 +153,10 @@ export function buildSheet(plan, puzzle, meta = {}) {
   });
 
   const texts = [];
-
-  // The job, top of the page.
-  const headX = width * (298 / PAGE_W);
-  const head = [
-    `Nama Client: ${plainText(meta.client)}`,
-    `Dateline: ${plainText(meta.dateline)}`,
-    `PUZZLE ${plan.width} x ${plan.height} mm, ${plan.pieces} pieces`,
-  ];
-  const headSize = fitSize(head, SIZE.header, width - headX - 20);
-  head.forEach((text, i) => {
-    texts.push({ x: headX, y: 99 + i * 51.15, size: headSize, text, anchor: 'start' });
-  });
-
-  // A label above each part, its last line a fixed distance above the part.
-  const label = (lines, size, cx, room, top) => {
-    const s = fitSize(lines, size, room);
-    const step = sizeMm(s) * LINE_STEP;
-    const last = top - 17;
-    lines.forEach((text, i) => {
-      texts.push({ x: cx, y: last - (lines.length - 1 - i) * step, size: s, text, anchor: 'middle' });
-    });
-  };
+  jobHead(texts, width, meta, `PUZZLE ${plan.width} x ${plan.height} mm, ${plan.pieces} pieces`);
   const room = panel.width + GAP - 8;
-  label(['Acrylic Putih 3mm', `${units} UNIT`], SIZE.large, xPanel + panel.width / 2, room, PART_TOP);
-  label(['Acrylic Putih 3mm', `${units} UNIT`], SIZE.large, xBacking + panel.width / 2, room, PART_TOP);
+  partLabel(texts, ['Acrylic Putih 3mm', `${units} UNIT`], xPanel + panel.width / 2, room);
+  partLabel(texts, ['Acrylic Putih 3mm', `${units} UNIT`], xBacking + panel.width / 2, room);
 
   return {
     width,
@@ -164,6 +167,39 @@ export function buildSheet(plan, puzzle, meta = {}) {
       panel: { x: xPanel, y: PART_TOP, width: panel.width, height: panel.height },
       backing: { x: xBacking, y: PART_TOP, width: panel.width, height: panel.height },
     },
+  };
+}
+
+/**
+ * The UV File tab's cut file (Boss, 11 Nov 2026): the panel's outline and nothing
+ * inside it, the poster to be printed on it after. One outline serves every panel at
+ * its size, and the label says how many to cut.
+ *
+ * @param plan result of planPanel
+ * @param meta { client, dateline, units }
+ */
+export function buildPanelSheet(plan, meta = {}) {
+  const { panel } = plan;
+  const units = Math.max(1, Math.round(Number(meta.units) || 1));
+  const width = Math.max(PAGE_W, panel.width + 2 * GAP);
+  const height = Math.max(PAGE_H, PART_TOP + panel.height + BOTTOM);
+  const xPanel = (width - panel.width) / 2;
+
+  const paths = [{
+    id: 'frame',
+    stroke: 'cut',
+    d: translatePath(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, xPanel, PART_TOP),
+  }];
+  const texts = [];
+  jobHead(texts, width, meta, `PANEL UV ${panel.width} x ${panel.height} mm, poster ${plan.width} x ${plan.height} mm`);
+  partLabel(texts, ['Acrylic Putih 3mm', `${units} UNIT`], xPanel + panel.width / 2, panel.width + GAP - 8);
+
+  return {
+    width,
+    height,
+    paths,
+    texts,
+    parts: { panel: { x: xPanel, y: PART_TOP, width: panel.width, height: panel.height } },
   };
 }
 

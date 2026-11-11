@@ -144,9 +144,17 @@ export class View {
     }));
     this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
 
-    const lines = el('g', { transform: `translate(${fx} ${fy})` });
-    lines.append(hairline(`${puzzle.h}${puzzle.v}${puzzle.border}`, CUT_RED));
-    this.svg.append(lines);
+    // No puzzle on a UV File panel (Boss, 11 Nov 2026): the poster's own edge is drawn
+    // instead, faintly, to show where the bleed starts.
+    if (puzzle) {
+      const lines = el('g', { transform: `translate(${fx} ${fy})` });
+      lines.append(hairline(`${puzzle.h}${puzzle.v}${puzzle.border}`, CUT_RED));
+      this.svg.append(lines);
+    } else {
+      const edge = hairline(rect(fx, fy, plan.width, plan.height), '#1259d8');
+      edge.setAttribute('stroke-dasharray', '4 3');
+      this.svg.append(edge);
+    }
     this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
   }
 

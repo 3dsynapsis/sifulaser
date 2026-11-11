@@ -30,6 +30,7 @@ import {
   Crosshair,
   House,
   KeyRound,
+  Layers,
   LayoutGrid,
   Luggage,
   Newspaper,
@@ -385,6 +386,36 @@ export const TOOLS: ToolEntry[] = [
     variant: 'icon',
     keywords: ['svg', 'dxf', 'pdf', 'tukar', 'format', 'convert', 'autocad', 'lightburn', 'fail'],
     Icon: ArrowRightLeft,
+  },
+  {
+    // Boss, 11 Nov 2026: Puzzle Generator tanpa puzzle. PDF poster pelanggan jadi
+    // panel acrylic putih dengan border 16 mm, file cut, dan file print UV
+    // (gambar CMYK, Spot 1 dan Spot 2 di bawah) yang terus dibuka di FlexiPRINT.
+    // Kodnya kod Puzzle Generator (docs/puzzle/), jadi satu pembetulan untuk dua-dua.
+    title: 'UV File Generator',
+    shortDescription: 'PDF poster jadi file cut dan file print UV.',
+    description:
+      'Masukkan PDF poster dan dapat panel dengan border 16 mm dan bleed 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.',
+    href: '#/uvfile',
+    group: 'fail',
+    variant: 'icon',
+    keywords: [
+      'uv print',
+      'uv',
+      'flexiprint',
+      'spot',
+      'white',
+      'poster',
+      'panel',
+      'border',
+      'bleed',
+      'cmyk',
+      'akrilik',
+      'acrylic',
+      'pdf',
+      'cetak',
+    ],
+    Icon: Layers,
   },
 
   // ---- 4. BELAJAR LEBIH ----

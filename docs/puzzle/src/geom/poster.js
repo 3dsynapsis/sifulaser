@@ -89,13 +89,16 @@ export function chooseGrid(width, height, target = PIECE_MM) {
   return { cols: best.cols, rows: best.rows };
 }
 
-/** Where the artwork sits relative to the panel's top-left corner, in mm. */
-export function artFor(width, height, ratio) {
+/**
+ * Where the artwork sits relative to the panel's top-left corner, in mm.
+ * @param bleed the least overrun on each side, long and short: the puzzle's by default
+ */
+export function artFor(width, height, ratio, bleed = { long: BLEED_LONG_MM, short: BLEED_SHORT_MM }) {
   const long = Math.max(width, height);
   const short = Math.min(width, height);
   const scale = Math.max(
-    (long + 2 * BLEED_LONG_MM) / long,
-    (short + 2 * BLEED_SHORT_MM) / short,
+    (long + 2 * bleed.long) / long,
+    (short + 2 * bleed.short) / short,
   );
   const artH = r2(height * scale);
   const artW = r2(artH * ratio);

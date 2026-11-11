@@ -635,3 +635,20 @@ input[type="date"] {
 }
 
 input[type="date"] { color-scheme: light dark; }
+
+/* ---- UV File tab (Boss, 11 Nov 2026) ----------------------------------------- */
+/* Four sizes there: the three papers and the PDF's own size. */
+.presets.four { grid-template-columns: repeat(4, 1fr); }
+/* Before any PDF is in, the stage is one big place to put it. */
+.uv-drop {
+  position: absolute; inset: 28px; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 24px; text-align: center; cursor: pointer;
+  border: 2px dashed var(--line-strong); border-radius: 16px;
+  color: var(--muted); background: var(--surface);
+}
+.uv-drop[hidden] { display: none; }
+.uv-drop:hover, .stage.drag-over .uv-drop { border-color: var(--accent); color: var(--accent); }
+.uv-drop b { font-size: 18px; color: var(--text); }
+.uv-drop-icon { font-size: 40px; line-height: 1; }
+.uv-intro { margin: 0 0 10px; line-height: 1.5; }

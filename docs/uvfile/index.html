@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UV File Generator - file print UV dengan Spot 1 dan Spot 2</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🖨️</text></svg>">
+<!-- The UV File tab runs on the Puzzle tab's code (Boss, 11 Nov 2026): one poster flow,
+     one print file with its Spot layers, one fix for both. On the site that code lives
+     under /puzzle/; the local dev server (tools/serve.js) answers that path too. -->
+<link rel="stylesheet" href="/puzzle/styles.css">
+</head>
+<body class="uv-tool">
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🖨️</span>
+      <input id="projectName" class="name-input" value="UV File" spellcheck="false" aria-label="Nama job">
+      <span id="status" class="status"></span>
+    </div>
+
+    <div class="midbar"></div>
+
+    <div class="actions">
+      <button class="icon-btn" id="helpBtn" title="Cara guna">?</button>
+      <button class="soft" id="saveBtn" disabled>Simpan</button>
+      <button class="ghost quiet" id="filesBtn" title="Reka bentuk saya" aria-label="Reka bentuk saya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="files-label">Reka bentuk saya</span></button>
+      <button class="primary" id="exportBtn" disabled>Export</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage" id="stage" data-backdrop="light">
+      <div id="stagePreview" class="stage-pane"></div>
+      <label class="uv-drop" id="uvDrop">
+        <input type="file" id="uvDropInput" accept="application/pdf,.pdf" multiple hidden>
+        <span class="uv-drop-icon" aria-hidden="true">⇪</span>
+        <b>Masukkan PDF poster</b>
+        <span>Seret ke sini, atau tekan untuk pilih. Boleh banyak PDF sekali.</span>
+      </label>
+      <div class="zoom-pick" id="zoomPick" role="group" aria-label="Zoom" hidden>
+        <button type="button" id="zoomOut" title="Zoom keluar" aria-label="Zoom keluar">−</button>
+        <button type="button" id="zoomFit" title="Muat skrin" aria-label="Muat skrin">Fit</button>
+        <button type="button" id="zoomIn" title="Zoom masuk" aria-label="Zoom masuk">+</button>
+      </div>
+      <div class="stage-hint" id="stageHint"></div>
+    </section>
+
+    <aside class="inspector" id="inspector"></aside>
+  </main>
+</div>
+
+<dialog id="helpDlg" class="dlg">
+  <form method="dialog" class="dlg-body">
+    <h2>Cara guna</h2>
+    <ol class="steps" id="helpSteps"></ol>
+    <div class="dlg-actions"><button value="ok" class="primary">Faham</button></div>
+  </form>
+</dialog>
+
+<dialog id="saveDlg" class="dlg"></dialog>
+<dialog id="filesDlg" class="dlg"></dialog>
+<dialog id="posterDlg" class="dlg"></dialog>
+
+<script type="module" src="/puzzle/src/uvMain.js"></script>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "64b33f01984840f982c28feb1569fb91"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Sign in before download. Served from the site, so it is absent when a
+     tool is run on its own during development - and absent means export
+     works, which is the right way for a funnel to fail. -->
+<script type="module" src="/shared/export-gate.js"></script>
+</body>
+</html>

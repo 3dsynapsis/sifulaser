@@ -78,5 +78,32 @@ const layers = printDoc.catalog.lookup(PDFName.of('OCProperties'), PDFDict)
 check('tiga layer, nama Spot tepat', layers.join('|') === 'Artwork|Spot 1|Spot 2', layers.join('|'));
 check('saiz page kekal panel', Math.abs(printDoc.getPage(0).getWidth() * toMm - 312) < 0.01);
 
+// UV File Generator (bos, 11 Nov 2026): tab /uvfile/ jalan atas kod yang sama, tanpa
+// puzzle. Panel sama saiz dengan puzzle, bleed 2 mm, fail cut garis luar panel sahaja.
+console.log('UV File Generator: panel tanpa puzzle');
+const { planPanel } = await imp('puzzle/src/geom/panel.js');
+const { buildPanelSheet } = await imp('puzzle/src/exportJobSheet.js');
+const panel = planPanel(173.397, 260.096, { paper: 'A3' });
+check('poster 280 x 420', panel.width === 280 && panel.height === 420, `${panel.width}x${panel.height}`);
+check('panel 312 x 452, sama dengan puzzle', panel.panel.width === 312 && panel.panel.height === 452);
+check('artwork 284 x 426 (bleed 2 mm, ratio kekal)', panel.art.width === 284 && panel.art.height === 426);
+check('tiada keping', panel.pieces === 0);
+const own = planPanel(297, 420, { actual: true });
+check('saiz asal PDF: panel 329 x 452', own.panel.width === 329 && own.panel.height === 452);
+const panelSheet = buildPanelSheet(panel, { units: 3 });
+check('satu garisan potong sahaja', panelSheet.paths.length === 1 && panelSheet.paths[0].id === 'frame');
+check('label acrylic putih dan unit',
+  panelSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|3 UNIT');
+const panelCut = brandFile('poster-cut-280x420.pdf', 'application/pdf',
+  new TextEncoder().encode(sheetToPdf(panelSheet)));
+check('fail cut panel dapat jenama', new TextDecoder('latin1').decode(panelCut.data).includes('/sifulaser-brand'));
+const panelPrint = await buildPrintPdf(await openForPrint(await src.save()), 0, panel);
+const brandedPanelPrint = brandFile('poster-print-284x426.pdf', 'application/pdf', panelPrint);
+check('fail print panel tidak berubah sebait',
+  brandedPanelPrint.data.length === panelPrint.length && brandedPanelPrint.data.every((b, i) => b === panelPrint[i]));
+const panelLayers = (await PDFDocument.load(panelPrint)).catalog.lookup(PDFName.of('OCProperties'), PDFDict)
+  .lookup(PDFName.of('OCGs'), PDFArray);
+check('fail print panel ada tiga layer', panelLayers.size() === 3, panelLayers.size());
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 if (fail) process.exit(1);

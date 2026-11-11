@@ -49,6 +49,7 @@ Tulisan, kod QR, ubah saiz dan tukar format fail.
 - [QR Generator](https://sifulaser.com/qr/): Tukar link jadi kod QR untuk laser. Saiz mm sebenar, ada bingkai keychain.
 - [Template Adjuster](https://sifulaser.com/adjust/): Fail SVG dari internet tak padan material anda? Ubah saiz dan tebalnya.
 - [Converter File](https://sifulaser.com/converter/): Tukar format fail vektor tanpa mengubah saiz, bentuk atau kedudukan lukisan.
+- [UV File Generator](https://sifulaser.com/uvfile/): Masukkan PDF poster dan dapat panel dengan border 16 mm dan bleed 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.
 
 ## Belajar lebih
 

@@ -23,6 +23,8 @@ import { PAPERS, HEIGHT_MIN_MM, puzzleParams } from './geom/poster.js';
 import { designParams, designMaterial } from './saved.js';
 
 const MATERIAL = 'acrylic-clear';
+const PANEL_MATERIAL = 'acrylic-white';
+const PANEL_MATERIAL_NAME = 'Acrylic Putih 3 mm'; // what the list of saved designs shows
 const HEIGHT_MAX_MM = 2000; // the same as the box in the panel
 const SEED_MAX = 99999;     // the same as saved.js
 const PAGES_MAX = 5000;     // a record is data from a server: it must not hang the tab
@@ -61,6 +63,8 @@ const isWhole = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
 function cleanChoice(choice) {
   if (choice && PAPERS.some((p) => p.id === choice.paper)) return { paper: choice.paper };
+  // The PDF's own size: the UV File tab only (Boss, 11 Nov 2026).
+  if (choice && choice.actual === true) return { actual: true };
   if (choice && typeof choice.height === 'number' && Number.isFinite(choice.height)) {
     return { height: Math.min(HEIGHT_MAX_MM, Math.max(HEIGHT_MIN_MM, choice.height)) };
   }
@@ -121,6 +125,23 @@ export function posterRecord(job, plan, seed) {
     params: designParams({ params: puzzleParams(plan, seed) }),
     material: designMaterial({ material: MATERIAL }),
     extra: { material: MATERIAL, splitLayers: false, poster: cleanPoster(job) },
+  };
+}
+
+/**
+ * The UV File tab's record (Boss, 11 Nov 2026): no puzzle, so params are just the
+ * sizes on screen, and the job inside extra as for a puzzle poster.
+ */
+export function panelRecord(job, plan) {
+  return {
+    params: {
+      width: plan.width,
+      height: plan.height,
+      panelWidth: plan.panel.width,
+      panelHeight: plan.panel.height,
+    },
+    material: PANEL_MATERIAL_NAME,
+    extra: { material: PANEL_MATERIAL, poster: cleanPoster(job) },
   };
 }
 

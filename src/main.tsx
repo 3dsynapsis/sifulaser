@@ -11,6 +11,7 @@ import { QrPage } from './pages/QrPage'
 import { AdjustPage } from './pages/AdjustPage'
 import { ConverterPage } from './pages/ConverterPage'
 import { UvPrintPage } from './pages/UvPrintPage'
+import { UvFilePage } from './pages/UvFilePage'
 import { LaserCutPage } from './pages/LaserCutPage'
 import { TopperPage } from './pages/TopperPage'
 import { KeychainPage } from './pages/KeychainPage'
@@ -123,6 +124,8 @@ const Root = () => {
       return <ConverterPage />
     case 'uvprint':
       return <UvPrintPage />
+    case 'uvfile':
+      return <UvFilePage />
     case 'lasercut':
       return <LaserCutPage />
     case 'topper':

@@ -47,6 +47,10 @@ import {
 import { planRuns, turnBox } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
 import { borderPath } from './geom/puzzle.js';
+import { FRAME_MM } from './geom/poster.js';
+import { planPanel } from './geom/panel.js';
+import { buildPanelSheet } from './exportJobSheet.js';
+import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
 import {
   LAYER_LOOK, inspectPrint, judgeLayers, judgeCards, judgeBoxes, releaseLayers,
@@ -55,6 +59,40 @@ import {
 const PICTURE_PX = 1800;
 const THUMB_PX = 120;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * What a job makes. The Puzzle tab makes a puzzle; the UV File tab (Boss, 11 Nov 2026)
+ * the same panel with the poster printed on it and nothing cut inside. Everything else
+ * here - the PDFs, the sizes, the print file with its Spot layers, Save, Export and
+ * Share - is one piece of code for both, so a fix to one is a fix to the other.
+ */
+const PRODUCTS = {
+  puzzle: {
+    puzzle: true,
+    cards: true,
+    actualSize: false,
+    plan: planPoster,
+    title: 'Poster ke puzzle',
+    close: 'Tutup poster, balik ke puzzle biasa',
+    tooSmall: 'Saiz ni terlalu kecil untuk dijadikan puzzle.',
+    turned: (n) => `${n} poster diputar 90° supaya semua guna satu bentuk puzzle dan satu file cut.`,
+    sheetLabel: 'Job sheet',
+    zip: 'puzzle',
+  },
+  panel: {
+    puzzle: false,
+    cards: false,
+    actualSize: true,
+    plan: planPanel,
+    title: 'UV File',
+    close: 'Tutup PDF',
+    tooSmall: 'Saiz ni terlalu kecil untuk dijadikan panel.',
+    turned: (n) => `${n} poster diputar 90° supaya semua guna satu saiz panel dan satu file cut.`,
+    sheetLabel: 'File cut',
+    zip: 'uv',
+  },
+};
+let P = PRODUCTS.puzzle;
 
 const S = {
   source: null,       // { name, lib, pages }: every page of every PDF, in the job's order
@@ -82,8 +120,14 @@ S.layerOn = allLayersOn();
 let deps = null;
 let draftTimer = null;
 
-/** @param d { view, els, saveFile, refresh, setMode, openSave, applyRow } */
-export function initPoster(d) { deps = d; }
+/**
+ * @param d { view, els, saveFile, refresh, setMode, openSave, applyRow, product }:
+ *          product is 'puzzle' (the default) or 'panel' for the UV File tab
+ */
+export function initPoster(d) {
+  deps = d;
+  P = PRODUCTS[d.product] || PRODUCTS.puzzle;
+}
 
 export const posterActive = () => Boolean(S.source);
 
@@ -95,7 +139,7 @@ const lyingSize = (page) => (page.turned
   : { w: page.widthMm, h: page.heightMm });
 const planFor = (page) => {
   const { w, h: hh } = lyingSize(page);
-  return planPoster(w, hh, S.choice);
+  return P.plan(w, hh, S.choice);
 };
 const filesKey = () => S.files.map((f) => f.hash || f.name).join(',');
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -158,6 +202,7 @@ function sizesOf(pages) {
 
 /** Seeds already known. Never starts ranking: this runs on every change. */
 function knownSeeds() {
+  if (!P.puzzle) return [];
   const out = [];
   for (const { plan, key } of sizesOf(S.source.pages)) {
     let seed = pinned(plan);
@@ -231,6 +276,7 @@ function changed() {
 
 /** Fix the seed at every size, so what is saved is what will be cut. */
 async function pinSeeds() {
+  if (!P.puzzle) return;
   for (const { plan, key } of sizesOf(S.source.pages)) {
     if (pinned(plan) === null) S.pins.set(key, pick(await rankFor(plan).promise));
   }
@@ -238,7 +284,7 @@ async function pinSeeds() {
 
 const record = () => {
   const plan = planFor(currentPage());
-  return posterRecord(job(), plan, pinned(plan) ?? 1);
+  return P.puzzle ? posterRecord(job(), plan, pinned(plan) ?? 1) : panelRecord(job(), plan);
 };
 
 /** What the Save dialog and the gallery may see and change while a poster is open. */
@@ -253,8 +299,10 @@ export const posterStore = {
     deps.els.name.value = name;
     changed();
   },
-  note: 'Yang disimpan ke akaun ialah tetapan: saiz, page, seed, client dan dateline. '
-    + 'PDF kekal dalam browser ni. Kalau buka di PC lain, kena pilih PDF tu semula.',
+  get note() {
+    return `Yang disimpan ke akaun ialah tetapan: saiz, page, ${P.puzzle ? 'seed, ' : ''}client dan dateline. `
+      + 'PDF kekal dalam browser ni. Kalau buka di PC lain, kena pilih PDF tu semula.';
+  },
   // Runs inside the save, so that two saves in a row wait for each other.
   prepare: async () => {
     await pinSeeds();
@@ -749,16 +797,19 @@ function renderStage() {
     deps.els.hint.classList.add('show');
     return;
   }
-  const puzzle = previewPuzzle(plan);
+  const puzzle = P.puzzle ? previewPuzzle(plan) : null;
   const fitKey = `${S.current}:${plan.width}x${plan.height}`;
   if (S.stageView === 'sheet') {
-    deps.view.renderSheet(buildSheet(plan, puzzle, { ...jobMeta(), units: unitsFor(plan) }), `sheet:${fitKey}`);
+    const meta = { ...jobMeta(), units: unitsFor(plan) };
+    deps.view.renderSheet(puzzle ? buildSheet(plan, puzzle, meta) : buildPanelSheet(plan, meta), `sheet:${fitKey}`);
   } else {
     deps.view.renderPoster({
       plan, puzzle, imageUrl: page.picture, turn: page.turned ? 90 : 0, fitKey: `panel:${fitKey}`,
     });
   }
-  deps.els.hint.textContent = `${plan.pieces} pieces · ${plan.width} x ${plan.height} mm`;
+  deps.els.hint.textContent = P.puzzle
+    ? `${plan.pieces} pieces · ${plan.width} x ${plan.height} mm`
+    : `Panel ${size(plan.panel.width, plan.panel.height)} · poster ${plan.width} x ${plan.height} mm`;
   deps.els.hint.classList.add('show');
 }
 
@@ -770,7 +821,7 @@ const jobMeta = () => ({ client: S.client, dateline: formatDate(S.dateline) });
 
 /** Why this page cannot be made at this size, or null. */
 function blockedReason(plan) {
-  if (plan.tooSmall) return 'Saiz ni terlalu kecil untuk dijadikan puzzle.';
+  if (plan.tooSmall) return P.tooSmall;
   if (!plan.fitsBed) {
     return `Panel ${size(plan.panel.width, plan.panel.height)} tak muat UV bed `
       + `${UV_BED_MM.long} x ${UV_BED_MM.short} mm. Tinggi paling besar untuk poster ni: `
@@ -800,17 +851,18 @@ function renderPanel() {
   const scroll = root.scrollTop;
   const page = currentPage();
   const plan = planFor(page);
-  root.replaceChildren(
-    h('h2', { class: 'insp-title' }, 'Poster ke puzzle'),
+  // replaceChildren writes a null out as the word "null", so a group this product has
+  // not got is left out of the list rather than passed as null.
+  root.replaceChildren(...[
+    h('h2', { class: 'insp-title' }, P.title),
     fileGroup(),
     sizeGroup(page),
     resultGroup(page, plan),
     previewGroup(),
     jobGroup(),
-    cardGroup(),
-    h('button', { class: 'link', type: 'button', onclick: closePoster },
-      'Tutup poster, balik ke puzzle biasa'),
-  );
+    P.cards && cardGroup(),
+    h('button', { class: 'link', type: 'button', onclick: closePoster }, P.close),
+  ].filter(Boolean));
   root.scrollTop = scroll;
 }
 
@@ -838,10 +890,7 @@ function fileGroup() {
         many ? `${S.files.length} file PDF` : S.files[0].name),
       h('b', {}, single ? '1 page' : `${source.pages.length} page`)),
     single ? null : pageList(),
-    turned
-      ? h('p', { class: 'turn-note' },
-        `${turned} poster diputar 90° supaya semua guna satu bentuk puzzle dan satu file cut.`)
-      : null,
+    turned ? h('p', { class: 'turn-note' }, P.turned(turned)) : null,
     h('div', { class: 'row-actions' },
       picker('Tambah PDF', 'Masukkan PDF lain ke job ni', (files) => openPosterFiles(files, null, { add: true })),
       picker('Tukar PDF', 'Ganti semua PDF dalam job ni', (files) => openPosterFiles(files))),
@@ -880,24 +929,29 @@ function pageList() {
 
 function sizeGroup(page) {
   const isCustom = S.choice.height != null;
-  return group('Saiz output', true,
-    h('div', { class: 'presets three' }, PAPERS.map((paper) => {
-      const { w, h: hh } = lyingSize(page);
-      const plan = planPoster(w, hh, { paper: paper.id });
-      return h('button', {
-        class: plan.fitsBed ? 'preset' : 'preset no-fit',
-        type: 'button',
-        'aria-pressed': String(!isCustom && S.choice.paper === paper.id),
-        title: `${paper.id}: ${size(plan.width, plan.height)}, ${plan.pieces} pieces`,
-        onclick: () => {
-          S.choice = { paper: paper.id };
-          renderPoster();
-          changed();
-        },
+  const { w, h: hh } = lyingSize(page);
+  const preset = (id, label, choice, pressed) => {
+    const plan = P.plan(w, hh, choice);
+    return h('button', {
+      class: plan.fitsBed ? 'preset' : 'preset no-fit',
+      type: 'button',
+      'aria-pressed': String(pressed),
+      title: `${label}: ${size(plan.width, plan.height)}${P.puzzle ? `, ${plan.pieces} pieces` : ''}`,
+      onclick: () => {
+        S.choice = choice;
+        renderPoster();
+        changed();
       },
-      h('b', {}, paper.id),
-      h('span', {}, `${rnd(plan.width, 0)} x ${rnd(plan.height, 0)}`));
-    })),
+    },
+    h('b', {}, id),
+    h('span', {}, `${rnd(plan.width, 0)} x ${rnd(plan.height, 0)}`));
+  };
+  const papers = PAPERS.map((paper) => preset(paper.id, paper.id, { paper: paper.id },
+    !isCustom && S.choice.paper === paper.id));
+  // A file already made to size prints at its own size (UV File tab, Boss, 11 Nov 2026).
+  if (P.actualSize) papers.push(preset('Asal', 'Saiz asal PDF', { actual: true }, S.choice.actual === true));
+  return group('Saiz output', true,
+    h('div', { class: P.actualSize ? 'presets four' : 'presets three' }, papers),
     h('div', { class: 'field' },
       h('label', { for: 'posterHeight' }, 'Atau taip tinggi sendiri (mm)'),
       h('input', {
@@ -917,7 +971,8 @@ function sizeGroup(page) {
         },
       })),
     h('p', { class: 'hint' },
-      'Sisi panjang poster ikut sisi panjang kertas. Sisi pendek ikut ratio poster, tak dipaksa.'));
+      'Sisi panjang poster ikut sisi panjang kertas. Sisi pendek ikut ratio poster, tak dipaksa.'
+      + (P.actualSize ? ' Asal: ikut saiz PDF tu sendiri.' : '')));
 }
 
 function resultGroup(page, plan) {
@@ -931,14 +986,18 @@ function resultGroup(page, plan) {
     page.pictureFailed
       ? h('p', { class: 'warn' }, 'Preview page ni tak dapat dilukis. Semak file sebelum print.')
       : null,
-    stat('Puzzle', size(plan.width, plan.height)),
-    stat('Pieces', `${plan.cols} x ${plan.rows} = ${plan.pieces}`),
-    stat('Saiz piece', size(plan.pieceW, plan.pieceH)),
+    ...(P.puzzle
+      ? [
+        stat('Puzzle', size(plan.width, plan.height)),
+        stat('Pieces', `${plan.cols} x ${plan.rows} = ${plan.pieces}`),
+        stat('Saiz piece', size(plan.pieceW, plan.pieceH)),
+      ]
+      : [stat('Poster', size(plan.width, plan.height))]),
     stat('Artwork print', size(art.width, art.height)),
     stat('Bleed kiri/kanan', mm(art.bleedX)),
     stat('Bleed atas/bawah', mm(art.bleedY)),
     stat('Panel', size(panel.width, panel.height)),
-    stat('Backing', size(panel.width, panel.height)),
+    P.puzzle ? stat('Backing', size(panel.width, panel.height)) : stat('Border', `${FRAME_MM} mm keliling`),
     stat('Letak artwork', `${mm(art.x)} kiri, ${mm(art.y)} atas`));
 }
 
@@ -954,13 +1013,15 @@ function previewGroup() {
   }, label);
   return group('Preview', true,
     h('div', { class: S.cards ? 'seg seg-3 seg-4' : 'seg seg-3' },
-      choice('panel', 'Panel + artwork'), choice('sheet', 'Job sheet'), choice('print', 'File print'),
+      choice('panel', 'Panel + artwork'), choice('sheet', P.sheetLabel), choice('print', 'File print'),
       S.cards ? choice('cards', 'Kad A6') : null),
     S.stageView === 'print' || (S.stageView === 'cards' && S.cards)
       ? layerPanel()
-      : h('p', { class: 'hint' },
-        'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
-        + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'));
+      : h('p', { class: 'hint' }, P.puzzle
+        ? 'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
+          + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'
+        : 'Merah ialah garisan cut panel. Garis putus-putus ialah tepi poster, dan kawasan pudar '
+          + 'ialah bleed yang jatuh atas border. Zoom dan semak teks tak terlalu rapat dengan tepi.'));
 }
 
 // ---- the print file's layers ------------------------------------------------
@@ -1281,8 +1342,8 @@ const unitsFor = (plan) => readyPages().filter((p) => planKey(planFor(p)) === pl
 
 /** One size, one cut file: every page at this size is cut from it, `units` times. */
 async function cutFile(plan, units = unitsFor(plan)) {
-  const puzzle = await finalPuzzle(plan);
-  const sheet = buildSheet(plan, puzzle, { ...jobMeta(), units });
+  const meta = { ...jobMeta(), units };
+  const sheet = P.puzzle ? buildSheet(plan, await finalPuzzle(plan), meta) : buildPanelSheet(plan, meta);
   const body = sheetToPdf(sheet, { title: `${S.source.name} - cut` });
   return {
     blob: new Blob([body], { type: 'application/pdf' }),
@@ -1496,12 +1557,16 @@ export function openPosterExport() {
     kind: 'cut',
     title: `file cut ${size(plan.width, plan.height)}`,
     make: () => cutFile(plan, pages.length),
-    note: `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit: `
-      + 'panel dan backing acrylic putih 3mm. Garisan puzzle dulu, frame last.',
+    note: P.puzzle
+      ? `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit: `
+        + 'panel dan backing acrylic putih 3mm. Garisan puzzle dulu, frame last.'
+      : `File cut panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit: acrylic putih 3mm.`,
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, 'File cut'),
-    h('span', {}, `${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit${forPages(pages)}`)),
+    h('span', {}, P.puzzle
+      ? `${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit${forPages(pages)}`
+      : `Panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit${forPages(pages)}`)),
   fileButton('File cut', () => cutFile(plan, pages.length))));
 
   // Print: one file per bed load (Boss, 11 Nov 2026). A single panel's file stays
@@ -1579,7 +1644,7 @@ export function openPosterExport() {
     const zip = makeZip(files);
     deps.saveFile({
       blob: new Blob([zip], { type: 'application/zip' }),
-      name: `${baseName(S.source.name)}-puzzle.zip`,
+      name: `${baseName(S.source.name)}-${P.zip}.zip`,
       type: 'application/zip',
     });
   }));
@@ -1597,10 +1662,10 @@ export function openPosterExport() {
       `${S.files.length > 1 ? p.label : `Page ${p.index + 1}`}: ${blockedReason(planFor(p))}`)),
     first
       ? h('p', { class: 'note' },
-        'File cut: cut ikut bilangan UNIT dalam file. Garisan puzzle dulu, frame last. '
+        `File cut: cut ikut bilangan UNIT dalam file.${P.puzzle ? ' Garisan puzzle dulu, frame last.' : ''} `
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
-        + 'Poster dalam file print ialah gambar CMYK 300 dpi, macam file Photoshop designer, jadi ringan dibuka. '
-        + 'Spot 1 dan Spot 2 (white) di bawah setiap poster, sama saiz, macam file Photoshop designer.')
+        + 'Poster dalam file print ialah gambar CMYK 300 dpi, jadi ringan dibuka. Spot 1 dan Spot 2 '
+        + '(white) di bawah setiap poster, sama saiz, macam file Photoshop designer.')
       : null,
     shareItems.length
       ? h('div', { class: 'share-bar' },
@@ -1631,4 +1696,14 @@ export const POSTER_STEPS = [
   ['Susun pieces dalam tray', 'Siap.'],
   ['Kad rujukan A6, kalau ada',
     'Cut sheet kad dulu, frame last. UV print atas sheet tu tanpa keluarkan kad, ikut arah file print kad. Kemudian keluarkan kad.'],
+];
+
+/** The UV File tab's steps (Boss, 11 Nov 2026). */
+export const PANEL_STEPS = [
+  ['Cut panel acrylic putih',
+    'Ikut bilangan UNIT dalam file cut: satu garis luar untuk setiap panel, bucu R5.'],
+  ['UV print atas panel',
+    'Semak layer dulu di Preview, File print. Letak panel atas bed rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
+  ['Siap',
+    'Border 16 mm keliling poster tiada dakwat. Bleed 2 mm jatuh atas border, jadi tepi poster tak tinggal kosong.'],
 ];

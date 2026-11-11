@@ -474,3 +474,9 @@ tersekat ke empat arah, ada kelonggaran dalam takuk, dinding sisi keluar lurus, 
 salinan sama. Bahagian "bertingkat" dalam `npm test` projek sumber menyemak ukuran.
 **Belum diuji pada potongan sebenar**, terutama kestabilan susunan yang tinggi: bibir
 condong ke depan menjadikan bahagian depan lebih berat bila diisi.
+
+## Senarai alat galeri: UV File Generator (11 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvfile` (UV File Generator, `/uvfile/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+Baris ini sudah ada dalam projek sumber (12_Box Maker) juga.

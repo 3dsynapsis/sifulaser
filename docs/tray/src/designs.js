@@ -33,6 +33,7 @@ export const TOOLS = {
   rehal: { name: 'Rehal', path: '/rehal/' },
   plakbox: { name: 'Plak Box', path: '/plakbox/' },
   tray: { name: 'Tray Organizer', path: '/tray/' },
+  uvfile: { name: 'UV File Generator', path: '/uvfile/' },
 };
 
 /** The tool this copy of the gallery is running inside. */
