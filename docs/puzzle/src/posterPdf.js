@@ -285,24 +285,24 @@ export async function openForPrint(bytes) {
  * Lay the panel on the printer bed the same way round as the page and everything
  * lines up. No cut lines on it, and nothing else that could get printed.
  *
- * Three PDF layers: the artwork, and over it Spot 1 and Spot 2, each a solid rectangle
- * exactly the size of the artwork. They stop at the artwork rather than filling the
- * page, because the frame around it takes no white.
+ * Three PDF layers: the artwork, and Spot 1 and Spot 2, each a solid rectangle exactly
+ * the size of the artwork. They stop at the artwork rather than filling the page,
+ * because the frame around it takes no white.
  *
  * FlexiPRINT takes its white from the spot colours, not from the PDF layers: it splits
  * the page into one plate per ink, and the plates named Spot 1 and Spot 2 become white
- * (the designer's Photoshop samples, 11 Nov 2026). So each Spot rectangle is painted
- * in a spot colour of its name, with overprint on, which adds the spot's own plate
- * and leaves the poster's colours under it alone.
+ * (the designer's Photoshop samples, 11 Nov 2026). So each Spot rectangle is painted in
+ * a spot colour of its name, and overprint keeps every plate whole: whatever is painted
+ * later leaves the plates it does not use alone.
  *
- * Until 11 Nov 2026 the Spots were painted under the poster with no overprint, and
- * the poster erased them: both plates came out empty and Flexi found no white.
- * Photoshop instead keeps its spot channels under the picture and sets the picture to
- * overprint. That does not hold for a customer's PDF, which can turn overprint off
- * again inside itself (CorelDRAW does), so here the Spots go on top.
+ * Until 11 Nov 2026 the Spots were painted under the poster with no overprint, and the
+ * poster erased them: both plates came out empty and Flexi found no white.
  *
- * The cost: a viewer that does not separate inks (a phone, a browser) shows the Spots
- * as red boxes over the poster. Acrobat's Output Preview, and the plates, are right.
+ * Now, as Photoshop saves spot channels, the Spots go under the poster and the poster
+ * overprints them. Any viewer then shows the poster (Boss did not want two red boxes),
+ * and the plates come out whole. That holds for the tool's own pictures. A customer's
+ * page placed as it is can turn overprint off again inside itself (CorelDRAW does) and
+ * erase the white, so with any such page the Spots go on top instead.
  *
  * The artwork layer starts with an opaque no-ink rectangle, so the layer covers its
  * whole box even where the poster is bare paper, which the layer check relies on.
@@ -361,10 +361,14 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
 
   const artLayer = layer(ART_LAYER);
   const spots = SPOT_LAYERS.map((text, i) => ({ text, key: `Spot${i + 1}`, ref: layer(text) }));
-  // Acrobat's layers panel lists them top first: the Spots are painted over the artwork.
+  // The tool's own pictures overprint the Spots from above; a page placed as it is
+  // cannot be trusted to, so then the Spots go on top (see buildPrintPdf).
+  const spotsUnder = placements.every((p) => p.jpg);
+  // Acrobat's layers panel lists them top first.
+  const spotRefs = spots.map((s) => s.ref);
   out.catalog.set(name('OCProperties'), ctx.obj({
-    OCGs: [artLayer, ...spots.map((s) => s.ref)],
-    D: { Name: PDFString.of('Layers'), BaseState: 'ON', Order: [...spots.map((s) => s.ref), artLayer] },
+    OCGs: [artLayer, ...spotRefs],
+    D: { Name: PDFString.of('Layers'), BaseState: 'ON', Order: spotsUnder ? [artLayer, ...spotRefs] : [...spotRefs, artLayer] },
   }));
 
   const screenColour = ctx.register(ctx.stream(SPOT_SCREEN_COLOUR, {
@@ -388,8 +392,27 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     PDFNumber.of(r.width * MM_TO_PT), PDFNumber.of(r.height * MM_TO_PT));
   const same = (a, b) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 
-  // Painted from the bottom up: the artwork first, then Spot 2, and Spot 1 on top.
+  // Each Spot with overprint on, so Spot 1 leaves Spot 2's plate whole, and either one
+  // painted over the poster leaves the poster's plates whole.
+  const paintSpots = () => {
+    for (const s of [...spots].reverse()) {
+      page.pushOperators(
+        op('BDC', name('OC'), name(s.key)),
+        op('q'),
+        op('gs', name('Overprint')),
+        op('cs', name(s.key)),
+        op('scn', PDFNumber.of(1)),
+      );
+      for (const p of placements) page.pushOperators(rect(p.box), op('f'));
+      page.pushOperators(op('Q'), op('EMC'));
+    }
+  };
+
+  // Painted from the bottom up: Spot 2, Spot 1, then the poster over them, overprinting;
+  // or with a page placed as it is, the poster first and the Spots over it.
+  if (spotsUnder) paintSpots();
   page.pushOperators(op('BDC', name('OC'), name('Art')), op('q'));
+  if (spotsUnder) page.pushOperators(op('gs', name('Overprint')));
   const noInkBase = (box) => page.pushOperators(
     op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
     rect(box),
@@ -455,18 +478,7 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     page.pushOperators(op('Q'));
   }
   page.pushOperators(op('Q'), op('EMC'));
-
-  for (const s of [...spots].reverse()) {
-    page.pushOperators(
-      op('BDC', name('OC'), name(s.key)),
-      op('q'),
-      op('gs', name('Overprint')),
-      op('cs', name(s.key)),
-      op('scn', PDFNumber.of(1)),
-    );
-    for (const p of placements) page.pushOperators(rect(p.box), op('f'));
-    page.pushOperators(op('Q'), op('EMC'));
-  }
+  if (!spotsUnder) paintSpots();
 
   out.setTitle(title || 'Puzzle print file');
   out.setCreator('SifuLaser Puzzle Generator');

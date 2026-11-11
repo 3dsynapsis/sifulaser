@@ -1600,8 +1600,7 @@ export function openPosterExport() {
         'File cut: cut ikut bilangan UNIT dalam file. Garisan puzzle dulu, frame last. '
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
         + 'Poster dalam file print ialah gambar CMYK 300 dpi, macam file Photoshop designer, jadi ringan dibuka. '
-        + 'Spot 1 dan Spot 2 (white) sama saiz dengan setiap artwork. '
-        + 'Kalau dibuka di telefon atau Chrome, file print nampak kotak merah atas poster: itu Spot, normal.')
+        + 'Spot 1 dan Spot 2 (white) di bawah setiap poster, sama saiz, macam file Photoshop designer.')
       : null,
     shareItems.length
       ? h('div', { class: 'share-bar' },
