@@ -96,7 +96,7 @@ export class View {
   }
 
   /**
-   * The clear panel: poster, bleed, cut lines and frame, in true proportion.
+   * The panel: poster, bleed, cut lines and frame, in true proportion.
    * @param turn 90 when the poster lies turned clockwise on the panel (a portrait
    *             poster in a landscape job, Boss's option A)
    */
@@ -176,7 +176,7 @@ export class View {
 
   /**
    * The print file, one picture per layer as read back from the PDF (printCheck.js),
-   * stacked as in the file and each shown or hidden by its eye. Clear acrylic is a
+   * stacked as in the file and each shown or hidden by its eye. Where no ink goes is a
    * checkerboard, so that nothing on it can be mistaken for white.
    *
    * @param size   { width, height } of the file's page, mm

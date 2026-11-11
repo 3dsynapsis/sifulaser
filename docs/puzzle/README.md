@@ -47,7 +47,7 @@ Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
 - Taip tinggi: tinggi itu yang dipakai, apa pun arah poster.
 - Keping kekal lebih kurang 40 mm. Papan lebih besar bermakna lebih banyak keping.
 - Artwork lebih besar dari puzzle: sekurang-kurangnya 3 mm di sisi panjang dan 2 mm
-  di sisi pendek. Lebihan itu jatuh atas frame clear.
+  di sisi pendek. Lebihan itu jatuh atas frame.
 - Frame 16 mm, bucu luar frame dan backing sama R5 supaya panel tersusun tepat atas
   backing (bos, 11 November 2026). Panel dan backing acrylic putih 3 mm. Sejak
   11 November 2026 tiada lagi 4 batang border putih (bos): frame panel jadi dinding
@@ -97,7 +97,7 @@ Photoshop sebelum FlexiPRINT:
 - `Artwork` di atas, kemudian `Spot 1` dan `Spot 2`. FlexiPRINT cetak white ikut
   **nama** layer, jadi ejaan `Spot 1` dan `Spot 2` jangan diubah (`SPOT_LAYERS`).
 - Setiap Spot ialah segi empat penuh sama saiz dan sama tempat dengan artwork, bukan
-  penuh page, sebab frame clear tidak kena white.
+  penuh page, sebab frame tidak kena white.
 - Warna Spot ialah spot colour nama yang sama, dengan alternatif hitam 100% sebagai
   penanda. Layer `Artwork` bermula dengan segi empat tanpa dakwat, jadi hitam itu
   tidak boleh terlihat atau tercetak, walaupun poster ada kawasan telus.
@@ -108,7 +108,7 @@ Alat membina fail print yang sama seperti butang File print, kemudian membacanya
 semula dengan PDF.js (`src/printCheck.js`), pembaca yang tiada kaitan dengan
 pdf-lib yang menulisnya. Setiap layer ada ikon mata untuk on/off, macam Photoshop.
 
-- Warna untuk mata sahaja, fail tidak berubah: kawasan kosong (clear, tiada
+- Warna untuk mata sahaja, fail tidak berubah: kawasan kosong (tiada
   dakwat) petak-petak kelabu, Artwork warna asal, Spot 1 magenta `#e6007e`, Spot 2
   cyan `#00a0e9`. Spot dilukis lut sinar, jadi bila dua-dua on warnanya jadi ungu.
 - Semakan automatik: nama tiga layer tepat, Artwork di tempatnya, dan setiap Spot

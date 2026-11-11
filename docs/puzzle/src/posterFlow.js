@@ -1050,7 +1050,7 @@ function layerPanel() {
   const clear = h('div', { class: 'layer-row legend' },
     h('span', { class: 'eye-space' }),
     h('span', { class: 'swatch clear' }),
-    h('span', { class: 'layer-text' }, h('b', {}, 'Kawasan kosong'), h('span', {}, 'Clear, tiada dakwat')));
+    h('span', { class: 'layer-text' }, h('b', {}, 'Kawasan kosong'), h('span', {}, 'Tiada dakwat')));
 
   let status;
   if (!check || check.state === 'building') status = [h('p', { class: 'hint' }, 'Membaca file print...')];
@@ -1528,7 +1528,7 @@ export function openPosterExport() {
       kind: 'cardCut',
       title: 'file cut kad A6',
       make: () => cardCutFile(layout),
-      note: `Kad A6 file cut: sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad, acrylic clear 3mm. Kad dulu, frame last.`,
+      note: `Kad A6 file cut: sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad, acrylic putih 3mm. Kad dulu, frame last.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'Kad A6: File cut'),

@@ -172,7 +172,7 @@ const CARD_MARGIN = 20;   // round the card sheet on its page
 const CARD_HEAD = 64;     // room above it for the job and the material
 
 /**
- * The reference cards' cut file (Boss, 11 Nov 2026): every card on one clear sheet,
+ * The reference cards' cut file (Boss, 11 Nov 2026): every card on one white sheet,
  * the job written above it. Cards first as one compound path, the sheet's frame last,
  * for the same reason the puzzle comes before its frame.
  *
@@ -208,7 +208,7 @@ export function buildCardSheet(layout, meta = {}) {
   const texts = head.map((text, i) => ({
     x: x0, y: 14 + i * 13, size: headSize, text, anchor: 'start',
   }));
-  const material = ['Acrylic Clear 3mm, 1 UNIT'];
+  const material = ['Acrylic Putih 3mm, 1 UNIT'];
   texts.push({
     x: x0 + sheet.width / 2, y: CARD_HEAD - 6, size: fitSize(material, 30, room), text: material[0], anchor: 'middle',
   });
