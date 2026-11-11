@@ -48,7 +48,8 @@ Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
 - Keping kekal lebih kurang 40 mm. Papan lebih besar bermakna lebih banyak keping.
 - Artwork lebih besar dari puzzle: sekurang-kurangnya 3 mm di sisi panjang dan 2 mm
   di sisi pendek. Lebihan itu jatuh atas frame clear.
-- Frame 16 mm, backing bucu R5, panel dan backing acrylic putih 3 mm. Sejak
+- Frame 16 mm, bucu luar frame dan backing sama R5 supaya panel tersusun tepat atas
+  backing (bos, 11 November 2026). Panel dan backing acrylic putih 3 mm. Sejak
   11 November 2026 tiada lagi 4 batang border putih (bos): frame panel jadi dinding
   tray, dilekat atas backing. Label setiap part tulis bilangan UNIT, iaitu jumlah
   puzzle yang guna file cut tu.

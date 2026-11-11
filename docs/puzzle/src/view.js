@@ -2,6 +2,9 @@
 // preview is the export scaled to fit - there is no second renderer to keep in
 // sync, and what you see is literally what gets cut.
 
+import { CORNER_MM } from './geom/poster.js';
+import { borderPath } from './geom/puzzle.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_ZOOM = 16;
 const CUT_RED = '#e3202a';
@@ -103,9 +106,10 @@ export class View {
     this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
     this.svg.replaceChildren(shadowDefs(panel.height));
 
-    // White acrylic (Boss, 11 Nov 2026; it was clear before).
+    // White acrylic (Boss, 11 Nov 2026; it was clear before), its outer corners
+    // rounded like the backing it stacks on.
     this.svg.append(el('rect', {
-      x: 0, y: 0, width: panel.width, height: panel.height,
+      x: 0, y: 0, width: panel.width, height: panel.height, rx: CORNER_MM, ry: CORNER_MM,
       fill: '#fbfbf8', filter: 'url(#boardShadow)',
     }));
 
@@ -143,7 +147,7 @@ export class View {
     const lines = el('g', { transform: `translate(${fx} ${fy})` });
     lines.append(hairline(`${puzzle.h}${puzzle.v}${puzzle.border}`, CUT_RED));
     this.svg.append(lines);
-    this.svg.append(hairline(rect(0, 0, panel.width, panel.height), CUT_RED));
+    this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
   }
 
   /** The job sheet, drawn from the same description the PDF is written from. */

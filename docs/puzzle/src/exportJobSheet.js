@@ -16,6 +16,10 @@
 // The cutting order is deliberate. Paths are written puzzle lines, puzzle edge,
 // frame. If the frame goes first the panel is free of the sheet before the pieces
 // are, and they shift as the rest is cut.
+//
+// The frame's outer corners are rounded R5 like the backing's, because the panel is
+// stacked on the backing and the two have to line up (Boss, 11 Nov 2026). The
+// puzzle's own edge inside it stays square: that is the edge of the pieces.
 
 import { parsePath, pathToOps, byteLength } from './exportPdf.js';
 import { borderPath } from './geom/puzzle.js';
@@ -114,7 +118,7 @@ export function buildSheet(plan, puzzle, meta = {}) {
   paths.push({
     id: 'frame',
     stroke: 'cut',
-    d: translatePath(rectPath(panel.width, panel.height), xPanel, PART_TOP),
+    d: translatePath(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, xPanel, PART_TOP),
   });
 
   // The backing.
