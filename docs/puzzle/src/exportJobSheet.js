@@ -1,23 +1,21 @@
-// The job sheet: one page holding all three parts of the product, laid out the
-// way the shop already draws them in CorelDRAW.
+// The job sheet: one page holding both parts of the product, laid out the way the
+// shop already draws them in CorelDRAW.
 //
-//   Clear 3 mm   - the puzzle inside its frame
-//   White 3 mm   - four mitred border strips, double tape on the back
+//   White 3 mm   - the puzzle inside its frame
 //   White 3 mm   - the backing
+//
+// Until 11 Nov 2026 the panel was clear and a third part, four white border strips,
+// made the tray's wall. Boss dropped the strips and moved the panel to white acrylic.
+// Each label says how many units the file is cut for: one cut file serves every
+// puzzle at its size, so a job of five posters says 5 UNIT (Boss, 11 Nov 2026).
 //
 // The sheet is a plain description first (`buildSheet`) and a PDF second
 // (`sheetToPdf`). The preview draws the same description, so what is on screen is
 // what gets written.
 //
-// Two things are deliberate:
-//
-//   * Cutting order. Paths are written puzzle lines, puzzle edge, frame. If the
-//     frame goes first the panel is free of the sheet before the pieces are, and
-//     they shift as the rest is cut.
-//   * The border strips stand a little apart. Touching, each diagonal would be two
-//     coincident lines and the laser would run it twice. They are separate objects
-//     because they get moved onto offcuts anyway, which is why the border is four
-//     strips and not one frame in the first place: it saves material.
+// The cutting order is deliberate. Paths are written puzzle lines, puzzle edge,
+// frame. If the frame goes first the panel is free of the sheet before the pieces
+// are, and they shift as the rest is cut.
 
 import { parsePath, pathToOps, byteLength } from './exportPdf.js';
 import { borderPath } from './geom/puzzle.js';
@@ -30,7 +28,6 @@ const PAGE_H = 900;
 const GAP = 64;
 const PART_TOP = 382;
 const BOTTOM = 63;
-const STRIP_GAP = 3;     // how far each border strip stands off its assembled place
 
 const STROKE = { cut: 0.5669, hair: 0.216 };   // pt: 0.2 mm, and Corel's hairline
 const SIZE = { header: 129.82, large: 109.46, small: 75.2 };  // pt
@@ -81,26 +78,6 @@ export function translatePath(d, dx, dy) {
 
 const rectPath = (w, h) => `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`;
 
-/**
- * The four border strips in their assembled positions, origin at the outer
- * top-left. The rounded outer corner is split at its midpoint, so each strip owns
- * half of each corner. All four run the same way round the outside.
- */
-export function borderStrips(W, H, band = FRAME_MM, R = CORNER_MM) {
-  const k = round3(R * (1 - Math.SQRT1_2));
-  const arc = (x, y) => `A ${R} ${R} 0 0 0 ${round3(x)} ${round3(y)}`;
-  return {
-    top: `M ${k} ${k} L ${band} ${band} L ${W - band} ${band} L ${round3(W - k)} ${k} `
-      + `${arc(W - R, 0)} L ${R} 0 ${arc(k, k)} Z`,
-    left: `M ${k} ${k} ${arc(0, R)} L 0 ${H - R} ${arc(k, H - k)} `
-      + `L ${band} ${H - band} L ${band} ${band} Z`,
-    bottom: `M ${k} ${round3(H - k)} ${arc(R, H)} L ${W - R} ${H} ${arc(W - k, H - k)} `
-      + `L ${W - band} ${H - band} L ${band} ${H - band} Z`,
-    right: `M ${round3(W - k)} ${round3(H - k)} ${arc(W, H - R)} L ${W} ${R} ${arc(W - k, k)} `
-      + `L ${W - band} ${band} L ${W - band} ${H - band} Z`,
-  };
-}
-
 /** Largest size, up to `size`, at which every line fits in `room` mm. */
 function fitSize(lines, size, room) {
   const widest = Math.max(...lines.map((t) => textWidthMm(t, size)));
@@ -110,47 +87,37 @@ function fitSize(lines, size, room) {
 /**
  * @param plan    result of planPoster
  * @param puzzle  result of buildPuzzle at plan's size
- * @param meta    { client, dateline }
+ * @param meta    { client, dateline, units }: units is how many puzzles this file
+ *                is cut for, 1 when not said
  */
 export function buildSheet(plan, puzzle, meta = {}) {
   const { panel } = plan;
-  const borderW = panel.width + 2 * STRIP_GAP;
-  const borderH = panel.height + 2 * STRIP_GAP;
-  const content = panel.width + GAP + borderW + GAP + panel.width;
+  const units = Math.max(1, Math.round(Number(meta.units) || 1));
+  const content = panel.width + GAP + panel.width;
 
   const width = Math.max(PAGE_W, content + 2 * GAP);
-  const height = Math.max(PAGE_H, PART_TOP + panel.height + STRIP_GAP + BOTTOM);
+  const height = Math.max(PAGE_H, PART_TOP + panel.height + BOTTOM);
   const x0 = (width - content) / 2;
-  const xClear = x0;
-  const xBorder = xClear + panel.width + GAP;
-  const xBacking = xBorder + borderW + GAP;
+  const xPanel = x0;
+  const xBacking = xPanel + panel.width + GAP;
 
   const paths = [];
 
-  // Clear: puzzle lines, then the puzzle's own edge, as one compound path. The
+  // The panel: puzzle lines, then the puzzle's own edge, as one compound path. The
   // frame stays a separate object after it, so it is the last thing cut.
   const puzzleD = `${puzzle.h}${puzzle.v}${borderPath(plan.width, plan.height, 0)}`;
   paths.push({
     id: 'puzzle',
     stroke: 'hair',
-    d: translatePath(puzzleD, xClear + FRAME_MM, PART_TOP + FRAME_MM),
+    d: translatePath(puzzleD, xPanel + FRAME_MM, PART_TOP + FRAME_MM),
   });
   paths.push({
     id: 'frame',
     stroke: 'cut',
-    d: translatePath(rectPath(panel.width, panel.height), xClear, PART_TOP),
+    d: translatePath(rectPath(panel.width, panel.height), xPanel, PART_TOP),
   });
 
-  // White: the strips, each pushed outwards from where it sits when assembled.
-  const strips = borderStrips(panel.width, panel.height);
-  const bx = xBorder + STRIP_GAP;
-  const by = PART_TOP;
-  paths.push({ id: 'strip-top', stroke: 'cut', d: translatePath(strips.top, bx, by - STRIP_GAP) });
-  paths.push({ id: 'strip-left', stroke: 'cut', d: translatePath(strips.left, bx - STRIP_GAP, by) });
-  paths.push({ id: 'strip-right', stroke: 'cut', d: translatePath(strips.right, bx + STRIP_GAP, by) });
-  paths.push({ id: 'strip-bottom', stroke: 'cut', d: translatePath(strips.bottom, bx, by + STRIP_GAP) });
-
-  // White: the backing.
+  // The backing.
   paths.push({
     id: 'backing',
     stroke: 'cut',
@@ -181,10 +148,8 @@ export function buildSheet(plan, puzzle, meta = {}) {
     });
   };
   const room = panel.width + GAP - 8;
-  label(['Acrylic Clear 3mm', '1 UNIT'], SIZE.large, xClear + panel.width / 2, room, PART_TOP);
-  label(['Border', 'Acrylic Putih 3mm', 'Belakang Double Tape', '1 UNIT'], SIZE.small,
-    xBorder + borderW / 2, room, PART_TOP - STRIP_GAP);
-  label(['Acrylic Putih 3mm', '1 UNIT'], SIZE.large, xBacking + panel.width / 2, room, PART_TOP);
+  label(['Acrylic Putih 3mm', `${units} UNIT`], SIZE.large, xPanel + panel.width / 2, room, PART_TOP);
+  label(['Acrylic Putih 3mm', `${units} UNIT`], SIZE.large, xBacking + panel.width / 2, room, PART_TOP);
 
   return {
     width,
@@ -192,8 +157,7 @@ export function buildSheet(plan, puzzle, meta = {}) {
     paths,
     texts,
     parts: {
-      clear: { x: xClear, y: PART_TOP, width: panel.width, height: panel.height },
-      border: { x: xBorder, y: PART_TOP - STRIP_GAP, width: borderW, height: borderH },
+      panel: { x: xPanel, y: PART_TOP, width: panel.width, height: panel.height },
       backing: { x: xBacking, y: PART_TOP, width: panel.width, height: panel.height },
     },
   };

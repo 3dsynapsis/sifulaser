@@ -752,7 +752,7 @@ function renderStage() {
   const puzzle = previewPuzzle(plan);
   const fitKey = `${S.current}:${plan.width}x${plan.height}`;
   if (S.stageView === 'sheet') {
-    deps.view.renderSheet(buildSheet(plan, puzzle, jobMeta()), `sheet:${fitKey}`);
+    deps.view.renderSheet(buildSheet(plan, puzzle, { ...jobMeta(), units: unitsFor(plan) }), `sheet:${fitKey}`);
   } else {
     deps.view.renderPoster({
       plan, puzzle, imageUrl: page.picture, turn: page.turned ? 90 : 0, fitKey: `panel:${fitKey}`,
@@ -865,6 +865,8 @@ function pageList() {
         ...(p.ticked ? { checked: true } : {}),
         onchange: (e) => {
           p.ticked = e.target.checked;
+          // The units on the job sheet, the print runs and the cards all follow the ticks.
+          renderPoster();
           changed();
         },
       }),
@@ -935,7 +937,7 @@ function resultGroup(page, plan) {
     stat('Artwork print', size(art.width, art.height)),
     stat('Bleed kiri/kanan', mm(art.bleedX)),
     stat('Bleed atas/bawah', mm(art.bleedY)),
-    stat('Panel clear', size(panel.width, panel.height)),
+    stat('Panel', size(panel.width, panel.height)),
     stat('Backing', size(panel.width, panel.height)),
     stat('Letak artwork', `${mm(art.x)} kiri, ${mm(art.y)} atas`));
 }
@@ -1258,10 +1260,13 @@ async function runFile(run, number) {
   };
 }
 
-/** One size, one cut file: every page at this size is cut from it. */
-async function cutFile(plan) {
+/** How many puzzles the cut file at this size is for: the ready pages at that size. */
+const unitsFor = (plan) => readyPages().filter((p) => planKey(planFor(p)) === planKey(plan)).length || 1;
+
+/** One size, one cut file: every page at this size is cut from it, `units` times. */
+async function cutFile(plan, units = unitsFor(plan)) {
   const puzzle = await finalPuzzle(plan);
-  const sheet = buildSheet(plan, puzzle, jobMeta());
+  const sheet = buildSheet(plan, puzzle, { ...jobMeta(), units });
   const body = sheetToPdf(sheet, { title: `${S.source.name} - cut` });
   return {
     blob: new Blob([body], { type: 'application/pdf' }),
@@ -1473,14 +1478,14 @@ export function openPosterExport() {
   const cutRows = sizes.map(({ plan, pages }) => shareRow({
     kind: 'cut',
     title: `file cut ${size(plan.width, plan.height)}`,
-    make: () => cutFile(plan),
-    note: `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces: cut ${pages.length} kali. `
-      + 'Garisan puzzle dulu, frame last. Border dan backing atas acrylic putih 3mm.',
+    make: () => cutFile(plan, pages.length),
+    note: `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit: `
+      + 'panel dan backing acrylic putih 3mm. Garisan puzzle dulu, frame last.',
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, 'File cut'),
-    h('span', {}, `${size(plan.width, plan.height)}, ${plan.pieces} pieces${forPages(pages)}`)),
-  fileButton('File cut', () => cutFile(plan))));
+    h('span', {}, `${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit${forPages(pages)}`)),
+  fileButton('File cut', () => cutFile(plan, pages.length))));
 
   // Print: one file per bed load (Boss, 11 Nov 2026). A single panel's file stays
   // to hand for printing one again, folded away.
@@ -1548,7 +1553,7 @@ export function openPosterExport() {
     'Download semua (ZIP)');
   all.addEventListener('click', busy(all, async () => {
     const files = [];
-    for (const { plan } of sizes) files.push(await forZip(await cutFile(plan)));
+    for (const { plan, pages } of sizes) files.push(await forZip(await cutFile(plan, pages.length)));
     for (const [i, run] of runs.entries()) files.push(await forZip(await runFile(run, i + 1)));
     if (cardsReady) {
       files.push(await forZip(await cardCutFile(layout)));
@@ -1575,7 +1580,7 @@ export function openPosterExport() {
       `${S.files.length > 1 ? p.label : `Page ${p.index + 1}`}: ${blockedReason(planFor(p))}`)),
     first
       ? h('p', { class: 'note' },
-        'File cut: satu set, cut berulang ikut bilangan panel. Garisan puzzle dulu, frame last. '
+        'File cut: cut ikut bilangan UNIT dalam file. Garisan puzzle dulu, frame last. '
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
         + 'Spot 1 dan Spot 2 di bawah setiap artwork.')
       : null,
@@ -1596,16 +1601,15 @@ export function openPosterExport() {
 }
 
 export const POSTER_STEPS = [
-  ['Cut acrylic clear dulu',
-    'Garisan puzzle dulu, frame last. Jangan keluarkan pieces lagi.'],
+  ['Cut panel acrylic putih dulu',
+    'Ikut bilangan UNIT dalam file cut. Garisan puzzle dulu, frame last. Jangan keluarkan pieces lagi.'],
   ['UV print atas panel tu',
     'Semak layer dulu di Preview, File print. Letak panel atas bed tanpa keluarkan pieces, rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPrint, layer Spot 1 dan Spot 2 dah ada. Lebihan artwork jatuh atas frame, jadi tepi puzzle tak tinggal kosong.'],
-  ['Keluarkan pieces',
-    'Frame clear habis fungsi selepas ni.'],
-  ['Cut border dan backing',
-    '4 batang border dan 1 backing dalam acrylic putih 3mm. Batang boleh dipindah ke offcut untuk jimat material.'],
+  ['Keluarkan pieces', 'Frame kekal, jadi dinding tray.'],
+  ['Cut backing',
+    'Backing dalam acrylic putih 3mm, ikut bilangan UNIT.'],
   ['Lekat jadi tray',
-    'Double tape di belakang border, lekat atas backing.'],
+    'Double tape di belakang frame, lekat atas backing.'],
   ['Susun pieces dalam tray', 'Siap.'],
   ['Kad rujukan A6, kalau ada',
     'Cut sheet kad dulu, frame last. UV print atas sheet tu tanpa keluarkan kad, ikut arah file print kad. Kemudian keluarkan kad.'],

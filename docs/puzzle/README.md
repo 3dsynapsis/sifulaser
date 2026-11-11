@@ -35,9 +35,9 @@ terlalu tinggi sehingga garisan bersilang.
 
 ## Poster ke puzzle (4 November 2026)
 
-Upload PDF poster, pilih saiz, dapat semua fail kerja: **fail cut** (3 part atas
-job sheet, format sama seperti fail CorelDRAW kedai) dan **fail print** (artwork
-di tempatnya, dengan layer Spot). PDF kekal dalam browser dan tidak dihantar ke
+Upload PDF poster, pilih saiz, dapat semua fail kerja: **fail cut** (panel dan
+backing atas job sheet, format sama seperti fail CorelDRAW kedai) dan **fail print**
+(artwork di tempatnya, dengan layer Spot). PDF kekal dalam browser dan tidak dihantar ke
 mana-mana. Butang Simpan hanya menghantar tetapan ke akaun.
 
 Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
@@ -48,7 +48,10 @@ Peraturan yang dipersetujui bos, semua dalam `src/geom/poster.js`:
 - Keping kekal lebih kurang 40 mm. Papan lebih besar bermakna lebih banyak keping.
 - Artwork lebih besar dari puzzle: sekurang-kurangnya 3 mm di sisi panjang dan 2 mm
   di sisi pendek. Lebihan itu jatuh atas frame clear.
-- Frame clear dan batang border 16 mm, backing dan border bucu R5, semua 3 mm.
+- Frame 16 mm, backing bucu R5, panel dan backing acrylic putih 3 mm. Sejak
+  11 November 2026 tiada lagi 4 batang border putih (bos): frame panel jadi dinding
+  tray, dilekat atas backing. Label setiap part tulis bilangan UNIT, iaitu jumlah
+  puzzle yang guna file cut tu.
 - Panel mesti muat UV bed 900 x 600 mm, kalau tidak Export ditolak.
 - PDF banyak page: tick page yang dikehendaki. Page saiz sama kongsi satu seed dan
   satu fail cut, fail print satu untuk setiap page (bos, 5 November 2026). Page saiz

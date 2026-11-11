@@ -103,9 +103,10 @@ export class View {
     this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
     this.svg.replaceChildren(shadowDefs(panel.height));
 
+    // White acrylic (Boss, 11 Nov 2026; it was clear before).
     this.svg.append(el('rect', {
       x: 0, y: 0, width: panel.width, height: panel.height,
-      fill: '#e4edf3', filter: 'url(#boardShadow)',
+      fill: '#fbfbf8', filter: 'url(#boardShadow)',
     }));
 
     if (imageUrl && turn === 90) {
