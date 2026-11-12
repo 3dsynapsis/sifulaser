@@ -25,9 +25,10 @@ export const PANEL_BORDER_MM = 10;
 export const PANEL_BLEED_MM = 2;
 export const PANEL_MIN_MM = 20;    // below this there is no picture worth a panel
 // The poster's own corners (Boss, 12 Nov 2026): a square corner cut in acrylic is sharp
-// in the hand. R1 takes the point off and still reads as square; the bleed runs 2 mm
-// past the cut, so the rounded corner is printed right to its edge.
-export const PANEL_CUT_CORNER_MM = 1;
+// in the hand. R1 came first and was still too small in the hand, so Boss asked for R3
+// the same day. The rounded corner lies inside the poster's square, which is printed
+// out to the bleed, so the corner is printed right to its edge at any radius.
+export const PANEL_CUT_CORNER_MM = 3;
 
 /**
  * What a panel is cut from (Boss, 11 Nov 2026). `label` is written on the cut file as

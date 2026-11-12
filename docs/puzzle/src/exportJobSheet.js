@@ -172,8 +172,8 @@ export function buildSheet(plan, puzzle, meta = {}) {
 
 /**
  * The UV File tab's cut file (Boss, 11 Nov 2026): a puzzle with no pieces. The poster
- * is cut out at its own edge, its corners R1 (12 Nov 2026: square ones are sharp in
- * the hand), inside a frame with R5 outer corners. The panel
+ * is cut out at its own edge, its corners R3 (12 Nov 2026: square ones are sharp in
+ * the hand, and R1 was still too small), inside a frame with R5 outer corners. The panel
  * is UV printed after cutting with the poster still in its frame, so the 2 mm bleed
  * lands on the frame and goes with it, and the poster's edge is printed right up to the
  * cut. One file serves every panel at its size, and the label says how many to cut.

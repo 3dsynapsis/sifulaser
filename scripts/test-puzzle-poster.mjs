@@ -96,8 +96,8 @@ check('saiz asal PDF: panel 317 x 440', own.panel.width === 317 && own.panel.hei
 const panelSheet = buildPanelSheet(panel, { units: 3 });
 check('garis poster dulu, frame last', panelSheet.paths.map((p) => p.id).join() === 'poster,frame',
   panelSheet.paths.map((p) => p.id).join());
-check('garis poster bucu R1 (tak tajam), frame bucu R5',
-  (panelSheet.paths[0].d.match(/A 1 1 /g) || []).length === 4
+check('garis poster bucu R3 (tak tajam), frame bucu R5',
+  (panelSheet.paths[0].d.match(/A 3 3 /g) || []).length === 4
     && (panelSheet.paths[1].d.match(/A 5 5 /g) || []).length === 4);
 check('label acrylic putih dan unit',
   panelSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|3 UNIT');

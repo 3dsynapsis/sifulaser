@@ -231,8 +231,8 @@ Ujian: `node scripts/test-puzzle-designs.mjs` (di repo laman ini).
 Tab baharu `sifulaser.com/uvfile/` (halaman React `#/uvfile`) ialah aliran poster
 ini **tanpa pieces**: poster dicut keluar di tepinya sendiri, dalam frame 10 mm (bucu
 luar R5; asalnya 16 mm macam frame puzzle, bos kecilkan untuk jimat material). Fail
-cut: garis poster dulu (hairline, bucu R1 supaya tak tajam di tangan, 12 November
-2026), frame last, label material dan "N
+cut: garis poster dulu (hairline, bucu R3 supaya tak tajam di tangan; R1 dicuba dulu
+dan terlalu kecil, 12 November 2026), frame last, label material dan "N
 UNIT". Panel di-UV print dengan poster masih dalam frame, jadi bleed 2 mm jatuh atas
 frame dan terbuang bersamanya (12 Nov 2026: versi pertama tiada garis poster, salah
 faham). Fail print UV sama seperti di sini (gambar CMYK 300 dpi, Spot 1 dan Spot 2 di
