@@ -657,3 +657,11 @@ input[type="date"] { color-scheme: light dark; }
    2026): GitHub Pages lets a browser keep a file for ten minutes, so after a deploy an
    older copy can still be running. */
 .version-stamp { margin: 14px 2px 2px; text-align: right; font-size: 11px; color: var(--muted); }
+
+/* A PDF heavier than it needs to be (Boss, 12 Nov 2026): advice for the designer, not
+   an error. The print file comes out right either way. */
+.heavy-note { margin: 2px 0 0; padding: 8px 10px; border-radius: 8px; background: #fff6e0; color: #7a5200; font-size: 12px; line-height: 1.45; }
+.heavy-note p { margin: 0 0 4px; }
+.heavy-note p:last-child { margin: 0; }
+.heavy-note b { overflow-wrap: anywhere; }
+@media (prefers-color-scheme: dark) { .heavy-note { background: #3a2e14; color: #f2c96b; } }

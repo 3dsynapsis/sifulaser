@@ -51,6 +51,7 @@ import {
   planPanel, PANEL_MATERIALS, panelMaterial, PANEL_BORDER_MM, PANEL_BLEED_MM,
 } from './geom/panel.js';
 import { VERSION } from './version.js';
+import { illustratorEditData } from './pdfWeight.js';
 import { buildPanelSheet } from './exportJobSheet.js';
 import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
@@ -506,7 +507,14 @@ export async function openPosterFiles(fileList, restore = null, { add = false } 
       await vault.putFile(hash, one.name, one.bytes);
     } catch { /* opens anyway; there will be no draft to come back to */ }
     opened.push({
-      name: one.name, size: one.bytes.length, hash, bytes: one.bytes, lib: one.lib, doc: one.doc, pages: one.pages,
+      name: one.name,
+      size: one.bytes.length,
+      hash,
+      bytes: one.bytes,
+      lib: one.lib,
+      doc: one.doc,
+      pages: one.pages,
+      editData: illustratorEditData(one.bytes),
     });
   }
   if (problems.length) complain(problems.join('\n'));
@@ -915,11 +923,32 @@ function fileGroup() {
       h('b', {}, single ? '1 page' : `${source.pages.length} page`)),
     single ? null : pageList(),
     turned ? h('p', { class: 'turn-note' }, P.turned(turned)) : null,
+    heavyNote(),
     h('div', { class: 'row-actions' },
       picker('Tambah PDF', 'Masukkan PDF lain ke job ni', (files) => openPosterFiles(files, null, { add: true })),
       picker('Tukar PDF', 'Ganti semua PDF dalam job ni', (files) => openPosterFiles(files))),
     h('p', { class: 'hint' },
       'PDF kekal dalam browser ni dan tak dihantar ke mana-mana. Simpan cuma hantar tetapan ke akaun anda.'));
+}
+
+/** Editing data this big gets a word to the person; a few MB of it is not worth one. */
+const HEAVY_EDIT_BYTES = 5e6;
+const mb = (bytes) => `${rnd(bytes / 1e6, 1)} MB`;
+
+/**
+ * A PDF carrying Illustrator's editing data (Boss, 12 Nov 2026): what it costs, and the
+ * export setting that drops it. The print file is right either way; this is about the
+ * size of what the designer sends.
+ */
+function heavyNote() {
+  const heavy = S.files.filter((f) => f.editData && f.editData.bytes >= HEAVY_EDIT_BYTES);
+  if (!heavy.length) return null;
+  return h('div', { class: 'heavy-note' },
+    ...heavy.map((f) => h('p', {},
+      h('b', {}, f.name), `: ${mb(f.size)}, lebih kurang ${mb(f.editData.bytes)} ialah data edit Illustrator `
+        + 'yang tak perlu untuk print.')),
+    h('p', {}, 'File print tetap betul. Untuk PDF lebih kecil, minta designer save PDF dengan preset '
+      + '[High Quality Print] dan untick "Preserve Illustrator Editing Capabilities".'));
 }
 
 function pageList() {
