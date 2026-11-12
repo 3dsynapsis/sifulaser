@@ -50,6 +50,7 @@ import { borderPath } from './geom/puzzle.js';
 import {
   planPanel, PANEL_MATERIALS, panelMaterial, PANEL_BORDER_MM, PANEL_BLEED_MM,
 } from './geom/panel.js';
+import { VERSION } from './version.js';
 import { buildPanelSheet } from './exportJobSheet.js';
 import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
@@ -884,6 +885,7 @@ function renderPanel() {
     jobGroup(),
     P.cards && cardGroup(),
     h('button', { class: 'link', type: 'button', onclick: closePoster }, P.close),
+    h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),
   ].filter(Boolean));
   root.scrollTop = scroll;
 }

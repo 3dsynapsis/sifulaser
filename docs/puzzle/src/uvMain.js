@@ -15,6 +15,7 @@ import {
   openPosterExport, restorePosterDraft, renamePoster, posterStore, PANEL_STEPS,
 } from './posterFlow.js';
 import { PANEL_BORDER_MM, PANEL_BLEED_MM } from './geom/panel.js';
+import { VERSION } from './version.js';
 
 // First, before anything reads them: this tab's designs and draft are its own.
 gallery.useTool('uvfile', 'UV file tanpa nama');
@@ -90,6 +91,7 @@ function renderEmpty() {
       stat('File cut', 'Garis poster dan frame, material tertulis'),
       stat('File print UV', 'Gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white)'),
       stat('Bed UV', '900 x 600 mm, panel disusun rapat')),
+    h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),
   );
 }
 

@@ -16,11 +16,19 @@ rentetan path yang dijangka diambil terus dari laman itu.
 
 ```bash
 SRC="../13_Puzzle Generator"
+node "$SRC/tools/stamp-version.js"
 cp "$SRC/index.html" "$SRC/styles.css" docs/puzzle/
 cp -r "$SRC/src" "$SRC/vendor" docs/puzzle/
+cp "$SRC/uvfile/index.html" docs/uvfile/index.html
 ```
 
 Jangan salin `tools/` atau `package.json` — hanya diperlukan semasa pembangunan.
+
+`stamp-version.js` (12 November 2026) menulis masa sekarang (waktu Malaysia) ke
+`src/version.js`. Masa itu dipapar di bawah kanan panel ("Versi 12 Nov 2026, 10:01"),
+supaya boleh nampak sama ada browser jalankan kod terbaru: GitHub Pages benarkan
+browser simpan setiap fail 10 minit (`max-age=600`), jadi selepas deploy kod lama
+boleh jalan lagi sehingga Ctrl+Shift+R.
 
 Sejak 4 November 2026 projek sumber dan salinan ini **sama**, jadi arahan di atas
 selamat. Kerja baharu dibuat di projek sumber, kemudian disalin ke sini.
@@ -236,14 +244,8 @@ Ia **tiada kod sendiri**: `docs/uvfile/index.html` memuatkan `/puzzle/styles.css
 dan `/puzzle/src/uvMain.js` dari folder ini. Jadi:
 
 - jangan buang `src/uvMain.js`, `src/geom/panel.js` atau `styles.css` dari sini;
-- kemas kini kedua-dua tab sekali gus, dengan satu baris tambahan:
-
-```bash
-SRC="../13_Puzzle Generator"
-cp "$SRC/index.html" "$SRC/styles.css" docs/puzzle/
-cp -r "$SRC/src" "$SRC/vendor" docs/puzzle/
-cp "$SRC/uvfile/index.html" docs/uvfile/index.html
-```
+- kemas kini kedua-dua tab sekali gus dengan arahan "Cara kemas kini" di atas (baris
+  terakhirnya menyalin `uvfile/index.html`).
 
 Draft dan PDF tab UV disimpan dalam IndexedDB berasingan (`sifulaser-uvfile`),
 dan rekod akaun guna TOOL `'uvfile'`, jadi kerja dua tab tidak bercampur.
