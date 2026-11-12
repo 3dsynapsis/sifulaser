@@ -24,6 +24,10 @@ import {
 export const PANEL_BORDER_MM = 10;
 export const PANEL_BLEED_MM = 2;
 export const PANEL_MIN_MM = 20;    // below this there is no picture worth a panel
+// The poster's own corners (Boss, 12 Nov 2026): a square corner cut in acrylic is sharp
+// in the hand. R1 takes the point off and still reads as square; the bleed runs 2 mm
+// past the cut, so the rounded corner is printed right to its edge.
+export const PANEL_CUT_CORNER_MM = 1;
 
 /**
  * What a panel is cut from (Boss, 11 Nov 2026). `label` is written on the cut file as
@@ -65,6 +69,7 @@ export function planPanel(posterW, posterH, choice = {}) {
     rows: 0,
     pieces: 0,
     border: PANEL_BORDER_MM,
+    cutCorner: PANEL_CUT_CORNER_MM,
     art: artFor(width, height, ratio, { long: PANEL_BLEED_MM, short: PANEL_BLEED_MM }, PANEL_BORDER_MM),
     panel,
     fitsBed: fitsBed(panel.width, panel.height),

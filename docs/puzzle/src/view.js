@@ -151,12 +151,15 @@ export class View {
       this.svg.append(lines);
     } else {
       // A UV File panel (Boss, 12 Nov 2026): a puzzle with no pieces. The poster is cut
-      // out at its own edge, the inner red line; the blue line is the bleed's edge, where
-      // the print stops, on the frame. The outer red line is the frame's.
+      // out at its own edge, the inner red line, its corners as the cut file has them;
+      // the blue line is the bleed's edge, where the print stops, on the frame. The
+      // outer red line is the frame's.
       const fx = (panel.width - plan.width) / 2;
       const fy = (panel.height - plan.height) / 2;
       this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
-      this.svg.append(hairline(rect(fx, fy, plan.width, plan.height), CUT_RED));
+      const cut = el('g', { transform: `translate(${fx} ${fy})` });
+      cut.append(hairline(`${borderPath(plan.width, plan.height, plan.cutCorner ?? 0)} Z`, CUT_RED));
+      this.svg.append(cut);
     }
     this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
   }

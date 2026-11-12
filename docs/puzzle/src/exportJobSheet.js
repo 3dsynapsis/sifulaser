@@ -172,7 +172,8 @@ export function buildSheet(plan, puzzle, meta = {}) {
 
 /**
  * The UV File tab's cut file (Boss, 11 Nov 2026): a puzzle with no pieces. The poster
- * is cut out at its own edge, square, inside a frame with R5 outer corners. The panel
+ * is cut out at its own edge, its corners R1 (12 Nov 2026: square ones are sharp in
+ * the hand), inside a frame with R5 outer corners. The panel
  * is UV printed after cutting with the poster still in its frame, so the 2 mm bleed
  * lands on the frame and goes with it, and the poster's edge is printed right up to the
  * cut. One file serves every panel at its size, and the label says how many to cut.
@@ -196,11 +197,13 @@ export function buildPanelSheet(plan, meta = {}) {
   const xPanel = (width - panel.width) / 2;
   const inX = (panel.width - plan.width) / 2;    // the border, as wide as the plan made it
   const inY = (panel.height - plan.height) / 2;
+  const posterD = borderPath(plan.width, plan.height, plan.cutCorner ?? 0);
 
   const paths = [{
     id: 'poster',
     stroke: 'hair',
-    d: translatePath(borderPath(plan.width, plan.height, 0), xPanel + inX, PART_TOP + inY),
+    // borderPath closes a square outline itself, and leaves a rounded one open.
+    d: translatePath(/Z\s*$/.test(posterD) ? posterD : `${posterD} Z`, xPanel + inX, PART_TOP + inY),
   }, {
     id: 'frame',
     stroke: 'cut',
