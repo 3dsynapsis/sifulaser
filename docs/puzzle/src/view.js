@@ -150,11 +150,13 @@ export class View {
       lines.append(hairline(`${puzzle.h}${puzzle.v}${puzzle.border}`, CUT_RED));
       this.svg.append(lines);
     } else {
-      // A UV File panel (Boss, 11 Nov 2026) is not cut at the poster's edge, so its
-      // bleed is printed and stays in sight. Nothing is faded: the picture is drawn as
-      // it will print, the blue line is where the print ends, and between it and the
-      // red cut is bare acrylic.
+      // A UV File panel (Boss, 12 Nov 2026): a puzzle with no pieces. The poster is cut
+      // out at its own edge, the inner red line; the blue line is the bleed's edge, where
+      // the print stops, on the frame. The outer red line is the frame's.
+      const fx = (panel.width - plan.width) / 2;
+      const fy = (panel.height - plan.height) / 2;
       this.svg.append(hairline(rect(art.x, art.y, art.width, art.height), '#1259d8'));
+      this.svg.append(hairline(rect(fx, fy, plan.width, plan.height), CUT_RED));
     }
     this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
   }

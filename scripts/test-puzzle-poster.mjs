@@ -78,9 +78,9 @@ const layers = printDoc.catalog.lookup(PDFName.of('OCProperties'), PDFDict)
 check('tiga layer, nama Spot tepat', layers.join('|') === 'Artwork|Spot 1|Spot 2', layers.join('|'));
 check('saiz page kekal panel', Math.abs(printDoc.getPage(0).getWidth() * toMm - 312) < 0.01);
 
-// UV File Generator (bos, 11 Nov 2026): tab /uvfile/ jalan atas kod yang sama, tanpa
-// puzzle. Border 10 mm (bukan frame 16 mm puzzle, untuk jimat material), bleed 2 mm,
-// fail cut garis luar panel sahaja.
+// UV File Generator (bos, 11 Nov 2026): tab /uvfile/ jalan atas kod yang sama, puzzle
+// tanpa pieces. Poster dicut keluar di tepinya dalam frame 10 mm (bukan 16 mm macam
+// puzzle, untuk jimat material); bleed 2 mm jatuh atas frame.
 console.log('UV File Generator: panel tanpa puzzle');
 const { planPanel } = await imp('puzzle/src/geom/panel.js');
 const { buildPanelSheet } = await imp('puzzle/src/exportJobSheet.js');
@@ -94,7 +94,10 @@ check('tiada keping', panel.pieces === 0);
 const own = planPanel(297, 420, { actual: true });
 check('saiz asal PDF: panel 317 x 440', own.panel.width === 317 && own.panel.height === 440);
 const panelSheet = buildPanelSheet(panel, { units: 3 });
-check('satu garisan potong sahaja', panelSheet.paths.length === 1 && panelSheet.paths[0].id === 'frame');
+check('garis poster dulu, frame last', panelSheet.paths.map((p) => p.id).join() === 'poster,frame',
+  panelSheet.paths.map((p) => p.id).join());
+check('garis poster bucu tepat, frame bucu R5',
+  !/A /.test(panelSheet.paths[0].d) && (panelSheet.paths[1].d.match(/A 5 5 /g) || []).length === 4);
 check('label acrylic putih dan unit',
   panelSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|3 UNIT');
 check('material lain tertulis dalam fail cut',

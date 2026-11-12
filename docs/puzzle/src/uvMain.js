@@ -87,7 +87,7 @@ function renderEmpty() {
       stat('Bleed', `${PANEL_BLEED_MM} mm atas border`),
       stat('Saiz', 'A4, A3, A2, tinggi sendiri, atau saiz asal PDF'),
       stat('Material', 'Acrylic putih 3mm, atau clear 2, 3, 5mm'),
-      stat('File cut', 'Garis luar panel, material tertulis'),
+      stat('File cut', 'Garis poster dan frame, material tertulis'),
       stat('File print UV', 'Gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white)'),
       stat('Bed UV', '900 x 600 mm, panel disusun rapat')),
   );

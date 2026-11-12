@@ -63,7 +63,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /**
  * What a job makes. The Puzzle tab makes a puzzle; the UV File tab (Boss, 11 Nov 2026)
- * the same panel with the poster printed on it and nothing cut inside. Everything else
+ * a puzzle with no pieces: the poster cut out whole, in a narrower frame. Everything else
  * here - the PDFs, the sizes, the print file with its Spot layers, Save, Export and
  * Share - is one piece of code for both, so a fix to one is a fix to the other.
  */
@@ -1066,9 +1066,9 @@ function previewGroup() {
       : h('p', { class: 'hint' }, P.puzzle
         ? 'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
           + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'
-        : 'Merah ialah garisan cut panel. Biru ialah tepi gambar yang dicetak: poster dan bleed '
-          + '2 mm, semuanya nampak lepas print sebab tiada cut di situ. Antara biru dan merah ialah '
-          + 'acrylic kosong tanpa dakwat.'));
+        : 'Merah dalam ialah garisan cut poster, iaitu tepi poster siap. Biru ialah tepi bleed: '
+          + `gambar dicetak ${PANEL_BLEED_MM} mm lepas garisan cut supaya tepi poster tak tinggal putih. `
+          + 'Merah luar ialah tepi frame. Bleed jatuh atas frame dan terbuang bersamanya.'));
 }
 
 // ---- the print file's layers ------------------------------------------------
@@ -1607,7 +1607,8 @@ export function openPosterExport() {
     note: P.puzzle
       ? `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit: `
         + 'panel dan backing acrylic putih 3mm. Garisan puzzle dulu, frame last.'
-      : `File cut panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit: ${materialLabel()}.`,
+      : `File cut panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit: ${materialLabel()}. `
+        + 'Garis poster dulu, frame last.',
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, 'File cut'),
@@ -1714,7 +1715,7 @@ export function openPosterExport() {
       `${S.files.length > 1 ? p.label : `Page ${p.index + 1}`}: ${blockedReason(planFor(p))}`)),
     first
       ? h('p', { class: 'note' },
-        `File cut: cut ikut bilangan UNIT dalam file.${P.puzzle ? ' Garisan puzzle dulu, frame last.' : ''} `
+        `File cut: cut ikut bilangan UNIT dalam file. ${P.puzzle ? 'Garisan puzzle' : 'Garis poster'} dulu, frame last. `
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
         + 'Poster dalam file print ialah gambar CMYK 300 dpi, jadi ringan dibuka. Spot 1 dan Spot 2 '
         + '(white) di bawah setiap poster, sama saiz, macam file Photoshop designer.')
@@ -1753,10 +1754,9 @@ export const POSTER_STEPS = [
 /** The UV File tab's steps (Boss, 11 Nov 2026). */
 export const PANEL_STEPS = [
   ['Cut panel acrylic',
-    'Ikut material dan bilangan UNIT yang tertulis dalam file cut: satu garis luar untuk setiap panel, bucu R5.'],
+    'Ikut material dan bilangan UNIT yang tertulis dalam file cut. Garis poster dulu, frame last. Jangan keluarkan poster lagi.'],
   ['UV print atas panel',
-    'Semak layer dulu di Preview, File print. Letak panel atas bed rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
-  ['Siap',
-    `Border ${PANEL_BORDER_MM} mm keliling poster. Bleed ${PANEL_BLEED_MM} mm dicetak atas border dan kekal nampak, `
-      + `jadi acrylic kosong dari tepi gambar ke tepi panel lebih kurang ${PANEL_BORDER_MM - PANEL_BLEED_MM} mm.`],
+    'Semak layer dulu di Preview, File print. Letak panel atas bed tanpa keluarkan poster, rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
+  ['Keluarkan poster',
+    `Frame ${PANEL_BORDER_MM} mm terbuang bersama bleed ${PANEL_BLEED_MM} mm yang dicetak atasnya, jadi tepi poster penuh tanpa putih.`],
 ];

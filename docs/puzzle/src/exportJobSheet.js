@@ -171,9 +171,15 @@ export function buildSheet(plan, puzzle, meta = {}) {
 }
 
 /**
- * The UV File tab's cut file (Boss, 11 Nov 2026): the panel's outline and nothing
- * inside it, the poster to be printed on it after. One outline serves every panel at
- * its size, and the label says how many to cut.
+ * The UV File tab's cut file (Boss, 11 Nov 2026): a puzzle with no pieces. The poster
+ * is cut out at its own edge, square, inside a frame with R5 outer corners. The panel
+ * is UV printed after cutting with the poster still in its frame, so the 2 mm bleed
+ * lands on the frame and goes with it, and the poster's edge is printed right up to the
+ * cut. One file serves every panel at its size, and the label says how many to cut.
+ *
+ * The order is the puzzle's, for the same reason: the poster first, the frame last, so
+ * the panel is not free of the sheet while the poster is still being cut. The poster's
+ * edge is a hairline, as the puzzle's own edge is in the shop's files.
  *
  * @param plan result of planPanel
  * @param meta { client, dateline, units, material }: material is the label to write,
@@ -188,8 +194,14 @@ export function buildPanelSheet(plan, meta = {}) {
   const width = Math.max(PAGE_W, panel.width + 2 * GAP);
   const height = Math.max(PAGE_H, PART_TOP + panel.height + BOTTOM);
   const xPanel = (width - panel.width) / 2;
+  const inX = (panel.width - plan.width) / 2;    // the border, as wide as the plan made it
+  const inY = (panel.height - plan.height) / 2;
 
   const paths = [{
+    id: 'poster',
+    stroke: 'hair',
+    d: translatePath(borderPath(plan.width, plan.height, 0), xPanel + inX, PART_TOP + inY),
+  }, {
     id: 'frame',
     stroke: 'cut',
     d: translatePath(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, xPanel, PART_TOP),

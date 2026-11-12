@@ -1,17 +1,21 @@
-// The UV File tab's product (Boss, 11 Nov 2026): the customer's poster printed on a
-// panel with a 10 mm border, and nothing cut inside it. Pure arithmetic, no DOM.
+// The UV File tab's product (Boss, 11 Nov 2026): a puzzle with no pieces. The poster is
+// cut out of a panel at its own edge and UV printed while it still sits in the panel's
+// frame, then pushed out. Pure arithmetic, no DOM.
 //
 // The poster's size follows the Puzzle tab's rules (geom/poster.js):
 //
 //   * a paper's long side, or a typed height, and the poster's own ratio for the other
 //     side; or, here only, the PDF's own size, for a file that is already to size;
-//   * the border is 10 mm on every side, with R5 outer corners. It began as the
-//     puzzle's 16 mm frame; Boss cut it to 10 mm the same day, to save material. A
-//     puzzle's frame holds its pieces in; a panel's border only frames the print;
-//   * the artwork runs 2 mm past the poster's edge onto the border. Nothing is cut
-//     there, so it is printed and stays in sight: 8 mm of bare acrylic is left round
-//     it. The ratio stays locked, so one side gets a little more;
+//   * the frame (the "border") is 10 mm on every side, with R5 outer corners. It began
+//     as the puzzle's 16 mm; Boss cut it to 10 mm, to save material: here it is only
+//     the offcut that holds the poster in place for printing;
+//   * the artwork runs 2 mm past the poster's edge onto the frame, so a print that lands
+//     a little off still reaches the cut. The bleed goes with the frame. The ratio stays
+//     locked, so one side gets a little more;
 //   * the panel has to fit the UV printer bed, 900 x 600 mm.
+//
+// Boss, 12 Nov 2026: the first version had no cut at the poster's edge, which was a
+// misreading. The cut file and the preview both carry it now.
 
 import {
   fitPoster, fitsBed, largestHeightForBed, artFor, UV_BED_MM,
