@@ -24,12 +24,13 @@ import {
 import { buildKeychainSheet, sheetToPdf } from './exportJobSheet.js';
 import { makeZip } from './zip.js';
 import { PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
-import { LOW_DPI } from './geom/poster.js';
+import { LOW_DPI, UV_BED_MM } from './geom/poster.js';
 import {
   KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, TAPE_MM,
   HOLE_DIAMETER_MM, HOLE_INSET_MM, HOLE_R, QUANTITY_MAX,
   findDesignCircle, radialProfile, findBorder, layoutKeychains, holeOffset, holeFromPoint,
-  holeWall, cleanHole, circlePath, keychainDpi,
+  holeWall, cleanHole, circlePath, keychainDpi, cleanSheetSize, keychainSheet,
+  CUSTOM_SHEET_DEFAULT, CUSTOM_SHEET_MIN_MM,
 } from './geom/keychain.js';
 import { cleanKeychain, keychainRecord, readKeychain } from './keychainSaved.js';
 import {
@@ -46,6 +47,7 @@ const allLayersOn = () => Object.fromEntries(LAYER_LOOK.map((l) => [l.name, true
 const fresh = () => ({
   size: 50,
   sheet: KEYCHAIN_SHEETS[0].id,
+  custom: { ...CUSTOM_SHEET_DEFAULT },   // the Custom sheet's size, kept when another is picked
   quantity: null,                 // null: one full sheet
   material: PANEL_MATERIALS[0].id,
   hole: { angle: 0, inset: HOLE_INSET_MM },
@@ -86,7 +88,9 @@ const baseName = (name) => name.replace(/\.pdf$/i, '').trim()
   .replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'keychain';
 const nameOf = (fileName) => fileName.replace(/\.pdf$/i, '').trim() || 'Keychain';
 const materialLabel = () => panelMaterial(S.material).label;
-const layout = () => layoutKeychains({ sizeMm: S.size, sheet: S.sheet, quantity: S.quantity });
+const layout = () => layoutKeychains({
+  sizeMm: S.size, sheet: S.sheet, custom: S.custom, quantity: S.quantity,
+});
 
 // ---- the job, as it gets saved ----------------------------------------------------
 
@@ -98,6 +102,7 @@ function job() {
     page: S.page,
     size: S.size,
     sheet: S.sheet,
+    custom: cleanSheetSize(S.custom),
     quantity: S.quantity,
     material: S.material,
     hole: cleanHole(S.hole, S.size),
@@ -288,6 +293,7 @@ export async function openKeychainFiles(fileList, restore = null) {
       page: Math.min(saved.page, one.pages.length - 1),
       size: saved.size,
       sheet: saved.sheet,
+      custom: saved.custom,
       quantity: saved.quantity,
       material: saved.material,
       hole: saved.hole,
@@ -520,7 +526,7 @@ const jobMeta = () => ({
   hole: holeOffset(S.hole, S.size),
 });
 const stem = () => `${baseName(S.file.name)}-keychain`;
-const tag = (lay) => `${S.size}mm-${lay.sheet.id}`;
+const tag = (lay) => `${S.size}mm-${lay.sheet.id === 'custom' ? `custom-${lay.sheet.width}x${lay.sheet.height}` : lay.sheet.id}`;
 
 /** Every keychain on the sheet as a disc with its hole, mm: the print file's shapes. */
 function discsOf(lay) {
@@ -852,18 +858,40 @@ function holeGroup() {
 }
 
 function sheetGroup(lay) {
-  const presets = h('div', { class: 'presets two' }, KEYCHAIN_SHEETS.map((s) => {
-    const fit = layoutKeychains({ sizeMm: S.size, sheet: s.id }).capacity;
+  // Kecil and Besar, Boss's medal sheets; Mini and Custom for a smaller print, which the
+  // UV printer lands truer (Boss, 17 Nov 2026).
+  const choices = [...KEYCHAIN_SHEETS.map((s) => s.id), 'custom'];
+  const presets = h('div', { class: 'presets two' }, choices.map((id) => {
+    const s = keychainSheet(id, S.custom);
+    const fit = layoutKeychains({ sizeMm: S.size, sheet: id, custom: S.custom }).capacity;
     return h('button', {
       class: fit ? 'preset' : 'preset no-fit',
       type: 'button',
-      'aria-pressed': String(S.sheet === s.id),
+      'aria-pressed': String(S.sheet === id),
       title: `Sheet ${s.label} ${s.width} x ${s.height} mm: ${fit} keychain`,
-      onclick: () => { if (S.sheet !== s.id) set({ sheet: s.id }); },
+      onclick: () => { if (S.sheet !== id) set({ sheet: id }); },
     },
     h('b', {}, s.label),
     h('span', {}, `${s.width} x ${s.height}, ${fit} pcs`));
   }));
+  const side = (key, label) => h('div', { class: 'field' },
+    h('label', { for: `kcSheet${key}` }, label),
+    h('input', {
+      id: `kcSheet${key}`,
+      type: 'number',
+      min: CUSTOM_SHEET_MIN_MM,
+      max: UV_BED_MM.long,
+      step: 1,
+      value: cleanSheetSize(S.custom)[key],
+      onchange: (e) => set({ custom: cleanSheetSize({ ...S.custom, [key]: e.target.value }) }),
+    }));
+  const custom = S.sheet === 'custom'
+    ? [
+      h('div', { class: 'field-pair' }, side('width', 'Lebar sheet (mm)'), side('height', 'Tinggi sheet (mm)')),
+      h('p', { class: 'hint' }, `Paling kecil ${CUSTOM_SHEET_MIN_MM} mm, paling besar ${UV_BED_MM.long} x ${UV_BED_MM.short} mm (bed UV). `
+        + 'Contoh: sheet Kecil dibahagi dua ialah 490 x 370.'),
+    ]
+    : null;
   const qty = h('input', {
     id: 'kcQty',
     type: 'number',
@@ -879,6 +907,7 @@ function sheetGroup(lay) {
   });
   return group('Sheet dan kuantiti', true,
     presets,
+    custom,
     h('div', { class: 'field' }, h('label', { for: 'kcQty' }, 'Kuantiti keychain'), qty),
     lay.fits
       ? [
@@ -890,7 +919,8 @@ function sheetGroup(lay) {
       : h('p', { class: 'warn' }, 'Saiz ni tak muat sheet ni.'),
     h('p', { class: 'hint' },
       `Jarak ${KEYCHAIN_GAP_MM} mm antara garis cut, dan ${TAPE_MM} mm di tepi sheet untuk masking tape. `
-      + 'Kuantiti lebih dari satu sheet dibahagi sama rata, jadi semua sheet guna file yang sama.'));
+      + 'Kuantiti lebih dari satu sheet dibahagi sama rata, jadi semua sheet guna file yang sama. '
+      + 'Sheet kecil lebih tepat di UV, sebab print besar lari sikit di atas dan kiri.'));
 }
 
 const EYE_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'

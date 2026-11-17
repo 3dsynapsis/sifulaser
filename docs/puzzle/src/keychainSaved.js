@@ -5,7 +5,7 @@
 // Pure: no DOM. Tested by tools/test-keychain.js.
 
 import {
-  QUANTITY_MAX, cleanHole, keychainSheet, keychainSize,
+  QUANTITY_MAX, cleanHole, keychainSheet, keychainSize, cleanSheetSize,
 } from './geom/keychain.js';
 import { panelMaterial } from './geom/panel.js';
 
@@ -37,6 +37,8 @@ export function cleanKeychain(raw) {
     page: isWhole(raw.page, 0, file.pages - 1) ? raw.page : 0,
     size,
     sheet: keychainSheet(raw.sheet).id,
+    // The size of a Custom sheet (Boss, 17 Nov 2026), kept whichever sheet is picked.
+    custom: cleanSheetSize(raw.custom),
     quantity: isWhole(raw.quantity, 1, QUANTITY_MAX) ? raw.quantity : null,
     material: panelMaterial(raw.material).id,
     hole: cleanHole(raw.hole, size),

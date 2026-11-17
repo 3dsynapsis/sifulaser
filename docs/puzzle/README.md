@@ -269,6 +269,9 @@ design keychain bulat; tool ini:
 - saiz 4, 5, 6 cm; susun atas sheet template FRONT medal bos: Kecil 490 x 740 atau
   Besar 550 x 850 mm, jarak 9 mm garis cut ke garis cut, 15 mm masking tape di tepi.
   Kuantiti lebih dari satu sheet dibahagi sama rata supaya semua sheet guna file sama;
+- juga sheet Mini 300 x 400 dan Custom (taip lebar x tinggi, 100 mm sehingga bed UV
+  900 x 600): bos, 17 November 2026, print UV yang besar lari sikit di atas dan kiri,
+  jadi sheet kecil lebih tepat;
 - file cut: lubang dulu, keychain, frame sheet last, label material dan "N PCS, N SHEET";
 - file print UV: satu gambar CMYK 300 dpi dikongsi semua keychain, Spot 1 dan Spot 2
   di bawah, setiap keychain bulat dengan lubang kosong (`buildLayeredPrint` terima

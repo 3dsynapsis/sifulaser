@@ -17,7 +17,10 @@
 //     at the top; it can be dragged anywhere on the keychain.
 //   * The sheets are the medal FRONT templates Boss uses in CorelDRAW: Kecil 490 x 740
 //     and Besar 550 x 850 mm, keychains 9 mm apart cut line to cut line, and 15 mm of
-//     masking tape round the edge that no bleed may reach.
+//     masking tape round the edge that no bleed may reach. And smaller ones, Mini 300 x
+//     400 or any size Boss types, because a big UV print lands off at its top and left.
+
+import { UV_BED_MM } from './poster.js';
 
 export const KEYCHAIN_SIZES_MM = [40, 50, 60];
 export const KEYCHAIN_BLEED_MM = 2;
@@ -29,7 +32,14 @@ export const TAPE_MM = 15;
 export const KEYCHAIN_SHEETS = [
   { id: 'kecil', label: 'Kecil', width: 490, height: 740 },
   { id: 'besar', label: 'Besar', width: 550, height: 850 },
+  // Boss, 17 Nov 2026: the UV printer lands a little off at the top and left of a big
+  // print, so a smaller sheet prints truer. 300 x 400 was his example.
+  { id: 'mini', label: 'Mini', width: 300, height: 400 },
 ];
+// Or a sheet of Boss's own size ("Custom"): from one 6 cm keychain and its tape up to
+// the UV bed, 900 x 600 either way round. Half a Kecil sheet is 490 x 370.
+export const CUSTOM_SHEET_MIN_MM = 100;
+export const CUSTOM_SHEET_DEFAULT = { width: 300, height: 400 };
 export const QUANTITY_MAX = 100000;
 // A band at the edge this thin, against the radius, is a border line. At 5 cm it is
 // 1.5 mm; anything wider is part of the design and stays.
@@ -41,7 +51,24 @@ const r2 = (v) => Math.round(v * 100) / 100;
 const r3 = (v) => Math.round(v * 1000) / 1000;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-export const keychainSheet = (id) => KEYCHAIN_SHEETS.find((s) => s.id === id) || KEYCHAIN_SHEETS[0];
+/** A Custom sheet's size as it can be used: whole mm, within the limits above. */
+export function cleanSheetSize(custom) {
+  const pick = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : d);
+  let width = clamp(pick(custom?.width, CUSTOM_SHEET_DEFAULT.width), CUSTOM_SHEET_MIN_MM, UV_BED_MM.long);
+  let height = clamp(pick(custom?.height, CUSTOM_SHEET_DEFAULT.height), CUSTOM_SHEET_MIN_MM, UV_BED_MM.long);
+  // Both sides past the bed's short side would not lie on it either way round.
+  if (Math.min(width, height) > UV_BED_MM.short) {
+    if (width <= height) width = UV_BED_MM.short;
+    else height = UV_BED_MM.short;
+  }
+  return { width, height };
+}
+
+/** A sheet by id; 'custom' takes its size from `custom`. */
+export function keychainSheet(id, custom) {
+  if (id === 'custom') return { id: 'custom', label: 'Custom', ...cleanSheetSize(custom) };
+  return KEYCHAIN_SHEETS.find((s) => s.id === id) || KEYCHAIN_SHEETS[0];
+}
 export const keychainSize = (mm) => (KEYCHAIN_SIZES_MM.includes(mm) ? mm : 50);
 
 // ---- the design's circle --------------------------------------------------------
@@ -334,12 +361,13 @@ export const holeWall = (hole, sizeMm) => r2(cleanHole(hole, sizeMm).inset - HOL
  * evenly over as few sheets as it needs, so every sheet takes the same two files: 100
  * on Kecil (84 a sheet) is two sheets of 50, not 84 and 16.
  *
- * @param o { sizeMm, sheet: id, quantity }: quantity left out is one full sheet
+ * @param o { sizeMm, sheet: id, custom: { width, height }, quantity }: quantity left
+ *          out is one full sheet; custom is the size of a 'custom' sheet
  * @returns { sheet, sizeMm, cols, rows, capacity, quantity, sheets, perSheet, total,
  *            spare, items: [{ x, y }] centres in mm from the sheet's top-left, fits }
  */
 export function layoutKeychains(o) {
-  const sheet = keychainSheet(o.sheet);
+  const sheet = keychainSheet(o.sheet, o.custom);
   const size = keychainSize(o.sizeMm);
   const pitch = size + KEYCHAIN_GAP_MM;
   const margin = TAPE_MM + KEYCHAIN_BLEED_MM;   // sheet edge to cut line

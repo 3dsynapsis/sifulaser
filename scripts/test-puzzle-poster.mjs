@@ -124,6 +124,8 @@ const { buildLayeredPrint } = await imp('puzzle/src/posterPdf.js');
 const kecil = kc.layoutKeychains({ sizeMm: 50, sheet: 'kecil' });
 check('5 cm atas Kecil 490 x 740: 84 keychain (7 x 12)', kecil.capacity === 84 && kecil.cols === 7, kecil.capacity);
 check('5 cm atas Besar 550 x 850: 104', kc.layoutKeychains({ sizeMm: 50, sheet: 'besar' }).capacity === 104);
+check('sheet Mini 300 x 400: 24', kc.layoutKeychains({ sizeMm: 50, sheet: 'mini' }).capacity === 24);
+check('sheet Custom 490 x 370: 35', kc.layoutKeychains({ sizeMm: 50, sheet: 'custom', custom: { width: 490, height: 370 } }).capacity === 35);
 check('100 keychain atas Kecil: 2 sheet x 50', (() => {
   const q = kc.layoutKeychains({ sizeMm: 50, sheet: 'kecil', quantity: 100 });
   return q.sheets === 2 && q.perSheet === 50;
