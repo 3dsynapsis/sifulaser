@@ -1580,13 +1580,16 @@ export function openPosterExport() {
     }
     paintShare();
   };
-  const shareText = (chosen) => {
-    const lines = [`*${S.name}*`];
-    if (S.client) lines.push(`Client: ${S.client}`);
-    if (S.dateline) lines.push(`Dateline: ${formatDate(S.dateline)}`);
-    for (const item of chosen) lines.push(`- ${item.note}`);
-    return lines.join('\n');
-  };
+  // Four short lines, as the Keychain UV tab's (Boss, 17 Nov 2026: the long note was
+  // too much to read on the phone): which job, what it is cut from, how many puzzles
+  // or panels, and what it is. The files carry the rest: their names and the cut
+  // file's labels. The UV operator still gets the material, for the head's height.
+  const shareText = () => [
+    `Nama File: ${S.name}`,
+    `Material: ${P.materials ? materialLabel() : 'Acrylic Putih 3mm'}`,
+    `Berapa Set: ${ready.length}`,
+    `Jenis Projek: ${P.puzzle ? 'Puzzle' : 'Panel UV'}`,
+  ].join('\n');
   // Where the browser cannot hand files to an app (most desktops without the share
   // sheet), nothing can: a WhatsApp link carries text only. So the files download
   // and WhatsApp opens with the note, for the files to be attached by hand.
@@ -1602,7 +1605,7 @@ export function openPosterExport() {
     const chosen = shareItems.filter((i) => i.on && i.file);
     if (!chosen.length) return;
     const files = chosen.map((i) => i.file);
-    const text = shareText(chosen);
+    const text = shareText();
     message.hidden = true;
     let canShare = false;
     try {
@@ -1635,11 +1638,6 @@ export function openPosterExport() {
     kind: 'cut',
     title: `file cut ${size(plan.width, plan.height)}`,
     make: () => cutFile(plan, pages.length),
-    note: P.puzzle
-      ? `File cut ${size(plan.width, plan.height)}, ${plan.pieces} pieces, ${pages.length} unit: `
-        + 'panel dan backing acrylic putih 3mm. Garisan puzzle dulu, frame last.'
-      : `File cut panel ${size(plan.panel.width, plan.panel.height)}, ${pages.length} unit: ${materialLabel()}. `
-        + 'Garis poster dulu, frame last.',
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, 'File cut'),
@@ -1656,11 +1654,6 @@ export function openPosterExport() {
     kind: 'run',
     title: `file print UV run ${i + 1}`,
     make: () => runFile(run, i + 1),
-    // The UV operator sets the head's height by the panel's thickness, so the
-    // material goes in the note too.
-    note: `File print UV${runs.length > 1 ? ` run ${i + 1}` : ''}: ${run.pages.length} panel`
-      + `${P.materials ? ` ${materialLabel()}` : ''}, ${size(run.width, run.height)}. `
-      + `Letak panel rapat tepi ke tepi dari bucu kiri atas bed${multiPage ? ` (${labels(run.pages)})` : ''}.`,
   },
   h('div', { class: 'file-row-text' },
     h('b', {}, runs.length > 1 ? `File print UV, run ${i + 1} dari ${runs.length}` : 'File print UV'),
@@ -1675,7 +1668,6 @@ export function openPosterExport() {
       kind: 'single',
       title: `file print ${name}`,
       make: () => printFile(p),
-      note: `File print satu panel: ${name}.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, name),
@@ -1694,7 +1686,6 @@ export function openPosterExport() {
       kind: 'cardCut',
       title: 'file cut kad A6',
       make: () => cardCutFile(layout),
-      note: `Kad A6 file cut: sheet ${size(layout.sheet.width, layout.sheet.height)}, ${layout.cards.length} kad, acrylic putih 3mm. Kad dulu, frame last.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'Kad A6: File cut'),
@@ -1704,7 +1695,6 @@ export function openPosterExport() {
       kind: 'cardPrint',
       title: 'file print kad A6',
       make: () => cardPrintFile(layout),
-      note: 'Kad A6 file print: UV print atas sheet kad tanpa keluarkan kad.',
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'Kad A6: File print'),

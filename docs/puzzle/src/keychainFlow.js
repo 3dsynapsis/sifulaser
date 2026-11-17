@@ -1175,18 +1175,20 @@ export function openKeychainExport() {
     }
     paintShare();
   };
-  const shareText = (chosen) => {
-    const lines = [`*${S.name}*`];
-    if (S.client) lines.push(`Client: ${S.client}`);
-    if (S.dateline) lines.push(`Dateline: ${formatDate(S.dateline)}`);
-    for (const item of chosen) lines.push(`- ${item.note}`);
-    return lines.join('\n');
-  };
+  // Four short lines (Boss, 17 Nov 2026: the long note was too much to read on the
+  // phone): which job, what it is cut from, how many times the file is run, and what
+  // it is. The files carry the rest: the cut file's label and both files' names.
+  const shareText = () => [
+    `Nama File: ${S.name}`,
+    `Material: ${materialLabel()}`,
+    `Berapa Set: ${lay.sheets}`,
+    `Jenis Projek: ${hooked() ? 'Keychain hook' : 'Keychain'}`,
+  ].join('\n');
   share.addEventListener('click', () => {
     const chosen = items.filter((i) => i.on && i.file);
     if (!chosen.length) return;
     const files = chosen.map((i) => i.file);
-    const text = shareText(chosen);
+    const text = shareText();
     message.hidden = true;
     let canShare = false;
     try {
@@ -1216,9 +1218,6 @@ export function openKeychainExport() {
       kind: 'cut',
       title: 'file cut keychain',
       make: cutFile,
-      note: `File cut keychain ${cm(S.size)}${hooked() ? ' hook' : ''}: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
-        + `${times('Cut')}. FRONT biru di bawah ialah marking laser (bukan cut), tanda muka depan. `
-        + 'Lubang dulu, keychain, frame sheet last.',
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File cut'),
@@ -1228,8 +1227,6 @@ export function openKeychainExport() {
       kind: 'print',
       title: 'file print UV keychain',
       make: printFile,
-      note: `File print UV keychain: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
-        + `${times('UV print')}. Letak sheet rapat dari bucu kiri atas bed, tulisan FRONT di bawah dan boleh dibaca.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File print UV'),
@@ -1252,7 +1249,8 @@ export function openKeychainExport() {
     blocked ? h('p', { class: 'warn-line' }, blocked) : null,
     ...rows,
     blocked ? null : h('p', { class: 'note' },
-      `File cut: lubang ${HOLE_DIAMETER_MM} mm dulu, kemudian keychain, frame sheet last. Jangan keluarkan keychain sebelum UV print. `
+      `File cut: FRONT biru ialah marking laser (tanda muka depan), kemudian lubang ${HOLE_DIAMETER_MM} mm, keychain, frame sheet last. `
+      + 'Jangan keluarkan keychain sebelum UV print. Masa UV print, FRONT di bawah dan boleh dibaca. '
       + `File print UV: gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) di bawah setiap keychain, lubang kosong. `
       + `Jumlah ${lay.total} keychain: ${lay.perSheet} pcs satu sheet, cut dan UV print ${lay.sheets} kali.`),
     items.length
