@@ -39,6 +39,9 @@ import {
 } from './printCheck.js';
 import { VERSION } from './version.js';
 import { illustratorEditData } from './pdfWeight.js';
+import {
+  isPosterFile, stripExt, POSTER_ACCEPT, POSTER_FORMATS,
+} from './posterFile.js';
 
 const RASTER_PX = 900;    // the page, looked at to find the circle
 const PREVIEW_PX = 900;   // the keychain on screen
@@ -86,9 +89,9 @@ const currentPage = () => S.file.pages[S.page];
 const r1 = (v) => Math.round(v * 10) / 10;
 const size = (w, hh) => `${rnd(w, 1)} x ${rnd(hh, 1)} mm`;
 const cm = (mm) => `${mm / 10} cm`;
-const baseName = (name) => name.replace(/\.pdf$/i, '').trim()
+const baseName = (name) => stripExt(name).trim()
   .replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'keychain';
-const nameOf = (fileName) => fileName.replace(/\.pdf$/i, '').trim() || 'Keychain';
+const nameOf = (fileName) => stripExt(fileName).trim() || 'Keychain';
 const materialLabel = () => panelMaterial(S.material).label;
 const layout = () => layoutKeychains({
   sizeMm: S.size, sheet: S.sheet, custom: S.custom, quantity: S.quantity, type: S.type, hole: S.hole,
@@ -130,7 +133,7 @@ function paintStatus() {
   const dirty = keychainDirty();
   el.classList.toggle('unsaved', dirty);
   if (dirty) el.textContent = 'Belum disimpan';
-  else el.textContent = S.pdfKept ? 'Disimpan' : 'Disimpan, tanpa PDF';
+  else el.textContent = S.pdfKept ? 'Disimpan' : 'Disimpan, tanpa file design';
 }
 
 function writeDraft() {
@@ -161,7 +164,7 @@ export const keychainStore = {
     changed();
   },
   note: 'Yang disimpan ke akaun ialah tetapan: saiz, sheet, kuantiti, material, lubang, client dan dateline. '
-    + 'PDF kekal dalam browser ni. Kalau buka di PC lain, kena pilih PDF tu semula.',
+    + 'File design kekal dalam browser ni. Kalau buka di PC lain, kena pilih file tu semula.',
   prepare: async () => {
     try {
       await vault.putFile(S.file.hash, S.file.name, S.file.bytes);
@@ -192,6 +195,7 @@ export function renameKeychain(name) {
 // ---- opening and closing ------------------------------------------------------------
 
 function readError(err) {
+  if (err?.code === 'picture') return 'Gambar ni tak dapat dibaca. Cuba simpan semula sebagai PNG atau JPG.';
   if (err?.name === 'PasswordException') return 'PDF ni berkunci dengan password. Minta file tanpa password.';
   return 'PDF ni tak dapat dibaca. Cuba simpan semula sebagai PDF biasa.';
 }
@@ -238,7 +242,7 @@ function confirmLeave() {
 }
 
 /**
- * Open a PDF as the job. One design per job: of several files the first is taken.
+ * Open a PDF or a picture as the job. One design per job: of several files the first is taken.
  *
  * @param restore when opening a saved job or the draft:
  *   { saved, name, design: { id, name }, savedKey, quiet }
@@ -247,15 +251,15 @@ function confirmLeave() {
 export async function openKeychainFiles(fileList, restore = null) {
   const complain = (text) => { if (!restore?.quiet) alert(text); };
   const chosen = [...(fileList || [])].filter(Boolean);
-  const pdfs = chosen.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''));
+  const pdfs = chosen.filter(isPosterFile);
   if (!pdfs.length) {
-    if (chosen.length) complain('File ni bukan PDF. Pilih design keychain dalam format PDF.');
+    if (chosen.length) complain(`File ni tak dapat dibuka. Pilih design keychain dalam format ${POSTER_FORMATS}.`);
     return false;
   }
   if (pdfs.length > 1) complain(`Satu job satu design. Yang dibuka: ${pdfs[0].name}.`);
   if (!restore && !(await confirmLeave())) return false;
   const wasActive = keychainActive();
-  deps.els.hint.textContent = 'Membaca PDF...';
+  deps.els.hint.textContent = 'Membaca file...';
   deps.els.hint.classList.add('show');
 
   let one;
@@ -267,7 +271,7 @@ export async function openKeychainFiles(fileList, restore = null) {
     return false;
   }
   if (!one.pages.length) {
-    complain('PDF ni tiada page.');
+    complain('File ni tiada page.');
     one.doc.destroy().catch(() => {});
     deps.refresh();
     return false;
@@ -290,7 +294,7 @@ export async function openKeychainFiles(fileList, restore = null) {
     lib: one.lib,
     doc: one.doc,
     pages: one.pages,
-    editData: illustratorEditData(one.bytes),
+    editData: one.kind === 'pdf' ? illustratorEditData(one.bytes) : null,
   };
   S.page = 0;
   if (restore) {
@@ -331,7 +335,7 @@ export async function openKeychainFiles(fileList, restore = null) {
   return true;
 }
 
-/** The saved job's PDF from this browser, or asked for. Resolves to a File or null. */
+/** The saved job's file from this browser, or asked for. Resolves to a File or null. */
 async function fileFor(saved, { ask = true } = {}) {
   if (saved.file.hash) {
     try {
@@ -348,17 +352,17 @@ async function fileFor(saved, { ask = true } = {}) {
     };
     dlg.addEventListener('close', () => resolve(null), { once: true });
     dlg.replaceChildren(h('div', { class: 'dlg-body' },
-      h('h2', {}, 'Pilih PDF keychain'),
+      h('h2', {}, 'Pilih file keychain'),
       h('p', { class: 'muted' },
         `Design ni guna "${saved.file.name}", yang tiada dalam browser ni. Pilih file yang sama.`),
       h('label', { class: 'primary file-pick' },
         h('input', {
           type: 'file',
-          accept: 'application/pdf,.pdf',
+          accept: POSTER_ACCEPT,
           hidden: true,
           onchange: (e) => finish(e.target.files[0] || null),
         }),
-        'Pilih PDF'),
+        'Pilih file'),
       h('div', { class: 'dlg-actions' },
         h('button', { type: 'button', class: 'ghost', onclick: () => finish(null) }, 'Batal'))));
     dlg.showModal();
@@ -516,7 +520,7 @@ function printPictureOf(page, spec) {
 /** Why the files cannot be made yet, or null. */
 function blockedReason(a, lay) {
   if (!a) return 'Tunggu sekejap, tool masih mencari bulatan design.';
-  if (a.failed) return 'Page ni tak dapat dilukis. Cuba simpan semula PDF tu sebagai PDF biasa.';
+  if (a.failed) return 'Page ni tak dapat dilukis. Cuba simpan semula file tu sebagai PDF biasa, PNG atau JPG.';
   if (a.kind === 'blank') return 'Page ni kosong. Pilih page yang ada design.';
   if (!lay.fits) return `Keychain ${cm(S.size)} tak muat sheet ${lay.sheet.label}.`;
   return null;
@@ -608,7 +612,7 @@ function fileError(err) {
   }
   return /encrypted|password/i.test(err?.message || '')
     ? 'PDF ni ada perlindungan, jadi file print tak dapat dibina. Minta file tanpa perlindungan.'
-    : 'File tak dapat dibina. Cuba simpan semula PDF tu sebagai PDF biasa.';
+    : 'File tak dapat dibina. Cuba simpan semula design tu sebagai PDF biasa, PNG atau JPG.';
 }
 
 // ---- the print file, read back -----------------------------------------------------------
@@ -751,7 +755,7 @@ function renderPanel() {
     sheetGroup(lay),
     previewGroup(),
     jobGroup(),
-    h('button', { class: 'link', type: 'button', onclick: closeKeychain }, 'Tutup PDF'),
+    h('button', { class: 'link', type: 'button', onclick: closeKeychain }, 'Tutup design'),
     h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),
   ].filter(Boolean));
   root.scrollTop = scroll;
@@ -760,10 +764,11 @@ function renderPanel() {
 function fileGroup() {
   const { pages } = S.file;
   const heavy = S.file.editData && S.file.editData.bytes >= 5e6;
+  const picture = pages[0].obj.picture;
   return group('Design', true,
     h('div', { class: 'stat' },
       h('span', { class: 'file-name', title: S.file.name }, S.file.name),
-      h('b', {}, pages.length === 1 ? '1 page' : `${pages.length} page`)),
+      h('b', {}, picture ? `${picture.pxW} x ${picture.pxH} px` : pages.length === 1 ? '1 page' : `${pages.length} page`)),
     pages.length > 1
       ? h('div', { class: 'field' },
         h('label', { for: 'kcPage' }, 'Page design'),
@@ -777,10 +782,10 @@ function fileGroup() {
         + 'Illustrator yang tak perlu untuk print. File print tetap betul.'))
       : null,
     h('div', { class: 'row-actions' },
-      h('label', { class: 'ghost file-pick', title: 'Ganti PDF design' },
+      h('label', { class: 'ghost file-pick', title: `Ganti file design: ${POSTER_FORMATS}` },
         h('input', {
           type: 'file',
-          accept: 'application/pdf,.pdf',
+          accept: POSTER_ACCEPT,
           hidden: true,
           onchange: (e) => {
             const files = [...e.target.files];
@@ -788,9 +793,10 @@ function fileGroup() {
             openKeychainFiles(files);
           },
         }),
-        'Tukar PDF')),
+        'Tukar file')),
     h('p', { class: 'hint' },
-      'PDF kekal dalam browser ni dan tak dihantar ke mana-mana. Simpan cuma hantar tetapan ke akaun anda.'));
+      `${POSTER_FORMATS}. File kekal dalam browser ni dan tak dihantar ke mana-mana. `
+      + 'Simpan cuma hantar tetapan ke akaun anda.'));
 }
 
 function materialGroup() {
@@ -839,7 +845,7 @@ function sizeGroup() {
     h('p', { class: 'hint' }, 'Diameter keychain siap, iaitu garis cut.'));
 }
 
-/** What the tool found in the PDF, and the border line. */
+/** What the tool found in the file, and the border line. */
 function designGroup(a) {
   const seg = (id, label) => h('button', {
     type: 'button',
@@ -858,9 +864,9 @@ function designGroup(a) {
   const spec = specOf(a);
   const r = spec.circle.r;
   if (S.edge === 'page') {
-    body.push(h('p', { class: 'hint' }, `Bulatan ikut page: diameter ${r1(2 * r)} mm dalam PDF. Bleed dari design sendiri.`));
+    body.push(h('p', { class: 'hint' }, `Bulatan ikut page: diameter ${r1(2 * r)} mm dalam file. Bleed dari design sendiri.`));
   } else if (a.kind === 'circle') {
-    body.push(h('p', { class: 'hint' }, `Bulatan design dijumpai: diameter ${r1(2 * r)} mm dalam PDF. `
+    body.push(h('p', { class: 'hint' }, `Bulatan design dijumpai: diameter ${r1(2 * r)} mm dalam file. `
       + `Tiada bleed dalam file, jadi bleed ${KEYCHAIN_BLEED_MM} mm dibuat dari warna tepi design.`));
   } else if (a.kind === 'page') {
     body.push(h('p', { class: 'hint' }, 'Design penuh sampai tepi page, jadi bulatan ikut page dan bleed dari design sendiri.'));

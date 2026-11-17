@@ -47,7 +47,7 @@ export const KeychainUvPage = () => (
     </header>
     <iframe
       src="/keychainuv/"
-      title="Keychain UV File Generator — file cut dan file print UV dari PDF design keychain"
+      title="Keychain UV File Generator — file cut dan file print UV dari design keychain"
       className="min-h-0 w-full flex-1 border-0"
     />
   </div>

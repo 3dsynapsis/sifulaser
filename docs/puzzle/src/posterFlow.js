@@ -1,4 +1,5 @@
-// "Poster to puzzle": upload a PDF, pick a size, take away every file the job needs.
+// "Poster to puzzle": upload a PDF or a picture, pick a size, take away every file the
+// job needs. A PNG or JPG opens as a one-page PDF would (Boss, 17 Nov 2026; posterFile.js).
 //
 // The ordinary tool asks for numbers. This one works them out from the poster so
 // that nobody has to, and hands back the two files the shop works from: the cut
@@ -52,6 +53,9 @@ import {
 } from './geom/panel.js';
 import { VERSION } from './version.js';
 import { illustratorEditData } from './pdfWeight.js';
+import {
+  isPosterFile, stripExt, POSTER_ACCEPT, POSTER_FORMATS,
+} from './posterFile.js';
 import { buildPanelSheet } from './exportJobSheet.js';
 import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
@@ -90,7 +94,7 @@ const PRODUCTS = {
     materials: true,    // PANEL_MATERIALS, picked above the size (Boss, 11 Nov 2026)
     plan: planPanel,
     title: 'UV File',
-    close: 'Tutup PDF',
+    close: 'Tutup poster',
     tooSmall: 'Saiz ni terlalu kecil untuk dijadikan panel.',
     turned: (n) => `${n} poster diputar 90° supaya semua guna satu saiz panel dan satu file cut.`,
     sheetLabel: 'File cut',
@@ -100,8 +104,8 @@ const PRODUCTS = {
 let P = PRODUCTS.puzzle;
 
 const S = {
-  source: null,       // { name, lib, pages }: every page of every PDF, in the job's order
-  files: [],          // the PDFs: { name, size, hash, bytes, doc, pages }
+  source: null,       // { name, lib, pages }: every page of every file, in the job's order
+  files: [],          // the PDFs and pictures: { name, size, hash, bytes, doc, pages }
   name: '',           // what this job is called, shown in the top bar
   nameAuto: true,     // the name came from the files, not from a person
   choice: { paper: 'A3' },
@@ -261,7 +265,7 @@ function paintStatus() {
   const dirty = posterDirty();
   el.classList.toggle('unsaved', dirty);
   if (dirty) el.textContent = 'Belum disimpan';
-  else el.textContent = S.pdfKept ? 'Disimpan' : 'Disimpan, tanpa PDF';
+  else el.textContent = S.pdfKept ? 'Disimpan' : 'Disimpan, tanpa file poster';
 }
 
 function writeDraft() {
@@ -311,7 +315,7 @@ export const posterStore = {
   get note() {
     return `Yang disimpan ke akaun ialah tetapan: ${P.materials ? 'material, ' : ''}saiz, page, `
       + `${P.puzzle ? 'seed, ' : ''}client dan dateline. `
-      + 'PDF kekal dalam browser ni. Kalau buka di PC lain, kena pilih PDF tu semula.';
+      + 'File poster kekal dalam browser ni. Kalau buka di PC lain, kena pilih file tu semula.';
   },
   // Runs inside the save, so that two saves in a row wait for each other.
   prepare: async () => {
@@ -346,7 +350,7 @@ export function renamePoster(name) {
 
 // ---- opening and closing --------------------------------------------------
 
-const nameOf = (fileName) => fileName.replace(/\.pdf$/i, '').trim() || 'Poster';
+const nameOf = (fileName) => stripExt(fileName).trim() || 'Poster';
 
 /** File order: by name, numbers in their proper places, so 2 comes before 10. */
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -382,10 +386,13 @@ function lineUp(files) {
   return pages;
 }
 
-const baseName = (name) => name.replace(/\.pdf$/i, '').trim()
+const baseName = (name) => stripExt(name).trim()
   .replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'poster';
 
 function readError(err) {
+  if (err?.code === 'picture') {
+    return 'Gambar ni tak dapat dibaca. Cuba simpan semula sebagai PNG atau JPG.';
+  }
   if (err?.name === 'PasswordException') {
     return 'PDF ni berkunci dengan password. Minta file tanpa password.';
   }
@@ -442,7 +449,7 @@ function confirmLeave() {
   });
 }
 
-/** Put a saved job's settings on the pages of the PDF just opened. */
+/** Put a saved job's settings on the pages of the files just opened. */
 function applyJob(saved) {
   const { pages } = S.source;
   S.choice = saved.choice;
@@ -459,7 +466,7 @@ function applyJob(saved) {
 }
 
 /**
- * Open PDFs as one job.
+ * Open PDFs and pictures as one job.
  *
  * @param fileList File objects, any number
  * @param restore  when opening a saved job or the draft:
@@ -473,17 +480,17 @@ export async function openPosterFiles(fileList, restore = null, { add = false } 
   const complain = (text) => { if (!restore?.quiet) alert(text); };
   const chosen = [...(fileList || [])].filter(Boolean);
   if (!chosen.length) return false;
-  const pdfs = chosen.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''));
+  const pdfs = chosen.filter(isPosterFile);
   if (pdfs.length < chosen.length) {
     complain(chosen.length === 1
-      ? 'File ni bukan PDF. Pilih poster dalam format PDF.'
-      : `${chosen.length - pdfs.length} file bukan PDF, jadi tak dimasukkan.`);
+      ? `File ni tak dapat dibuka. Pilih poster dalam format ${POSTER_FORMATS}.`
+      : `${chosen.length - pdfs.length} file bukan ${POSTER_FORMATS}, jadi tak dimasukkan.`);
   }
   if (!pdfs.length) return false;
   const adding = add && posterActive();
   if (!restore && !adding && !(await confirmLeave())) return false;
   const wasActive = posterActive();
-  deps.els.hint.textContent = pdfs.length > 1 ? `Membaca ${pdfs.length} PDF...` : 'Membaca PDF...';
+  deps.els.hint.textContent = pdfs.length > 1 ? `Membaca ${pdfs.length} file...` : 'Membaca file...';
   deps.els.hint.classList.add('show');
 
   const opened = [];
@@ -497,7 +504,7 @@ export async function openPosterFiles(fileList, restore = null, { add = false } 
       continue;
     }
     if (!one.pages.length) {
-      problems.push(pdfs.length > 1 ? `${file.name}: PDF ni tiada page.` : 'PDF ni tiada page.');
+      problems.push(pdfs.length > 1 ? `${file.name}: file ni tiada page.` : 'File ni tiada page.');
       one.doc.destroy().catch(() => {});
       continue;
     }
@@ -514,7 +521,7 @@ export async function openPosterFiles(fileList, restore = null, { add = false } 
       lib: one.lib,
       doc: one.doc,
       pages: one.pages,
-      editData: illustratorEditData(one.bytes),
+      editData: one.kind === 'pdf' ? illustratorEditData(one.bytes) : null,
     });
   }
   if (problems.length) complain(problems.join('\n'));
@@ -627,15 +634,15 @@ function askForPdfs(saved, found) {
     dlg.addEventListener('close', () => resolve(null), { once: true });
     const missing = saved.files.filter((f, i) => !found[i]).length;
     dlg.replaceChildren(h('div', { class: 'dlg-body' },
-      h('h2', {}, 'Pilih PDF poster'),
+      h('h2', {}, 'Pilih file poster'),
       h('p', { class: 'muted' },
-        `Design ni guna ${saved.files.length} file PDF. ${missing} tiada dalam browser ni, jadi pilih file yang sama. `
+        `Design ni guna ${saved.files.length} file. ${missing} tiada dalam browser ni, jadi pilih file yang sama. `
         + 'Boleh pilih semua sekali.'),
       list,
       h('label', { class: 'ghost file-pick' },
         h('input', {
           type: 'file',
-          accept: 'application/pdf,.pdf',
+          accept: POSTER_ACCEPT,
           multiple: true,
           hidden: true,
           onchange: async (e) => {
@@ -659,7 +666,7 @@ function askForPdfs(saved, found) {
             paint();
           },
         }),
-        'Pilih PDF'),
+        'Pilih file'),
       h('p', { class: 'hint' }, 'File yang lain daripada yang disimpan tetap boleh dibuka: saiz dan bentuk puzzle kekal, artwork ikut file baru.'),
       h('div', { class: 'dlg-actions' },
         h('button', { type: 'button', class: 'ghost', onclick: () => finish(null) }, 'Batal'),
@@ -903,7 +910,7 @@ function fileGroup() {
   const picker = (label, title, open) => h('label', { class: 'ghost file-pick', title },
     h('input', {
       type: 'file',
-      accept: 'application/pdf,.pdf',
+      accept: POSTER_ACCEPT,
       multiple: true,
       hidden: true,
       onchange: (e) => {
@@ -916,19 +923,23 @@ function fileGroup() {
   const single = source.pages.length === 1;
   const many = S.files.length > 1;
   const turned = source.pages.filter((p) => p.turned).length;
+  // One picture: its pixels say more than "1 page", and tell at a glance how big it prints.
+  const picture = single && source.pages[0].obj.picture;
   return group('Poster', true,
     h('div', { class: 'stat' },
       h('span', { class: 'file-name', title: S.files.map((f) => f.name).join('\n') },
-        many ? `${S.files.length} file PDF` : S.files[0].name),
-      h('b', {}, single ? '1 page' : `${source.pages.length} page`)),
+        many ? `${S.files.length} file` : S.files[0].name),
+      h('b', {}, picture ? `${picture.pxW} x ${picture.pxH} px` : single ? '1 page' : `${source.pages.length} page`)),
     single ? null : pageList(),
     turned ? h('p', { class: 'turn-note' }, P.turned(turned)) : null,
     heavyNote(),
     h('div', { class: 'row-actions' },
-      picker('Tambah PDF', 'Masukkan PDF lain ke job ni', (files) => openPosterFiles(files, null, { add: true })),
-      picker('Tukar PDF', 'Ganti semua PDF dalam job ni', (files) => openPosterFiles(files))),
+      picker('Tambah file', `Masukkan file lain ke job ni: ${POSTER_FORMATS}`,
+        (files) => openPosterFiles(files, null, { add: true })),
+      picker('Tukar file', 'Ganti semua file dalam job ni', (files) => openPosterFiles(files))),
     h('p', { class: 'hint' },
-      'PDF kekal dalam browser ni dan tak dihantar ke mana-mana. Simpan cuma hantar tetapan ke akaun anda.'));
+      `${POSTER_FORMATS}. File kekal dalam browser ni dan tak dihantar ke mana-mana. `
+      + 'Simpan cuma hantar tetapan ke akaun anda.'));
 }
 
 /** Editing data this big gets a word to the person; a few MB of it is not worth one. */
@@ -1026,7 +1037,7 @@ function sizeGroup(page) {
   const papers = PAPERS.map((paper) => preset(paper.id, paper.id, { paper: paper.id },
     !isCustom && S.choice.paper === paper.id));
   // A file already made to size prints at its own size (UV File tab, Boss, 11 Nov 2026).
-  if (P.actualSize) papers.push(preset('Asal', 'Saiz asal PDF', { actual: true }, S.choice.actual === true));
+  if (P.actualSize) papers.push(preset('Asal', 'Saiz asal file', { actual: true }, S.choice.actual === true));
   return group('Saiz output', true,
     h('div', { class: P.actualSize ? 'presets four' : 'presets three' }, papers),
     h('div', { class: 'field' },
@@ -1049,7 +1060,7 @@ function sizeGroup(page) {
       })),
     h('p', { class: 'hint' },
       'Sisi panjang poster ikut sisi panjang kertas. Sisi pendek ikut ratio poster, tak dipaksa.'
-      + (P.actualSize ? ' Asal: ikut saiz PDF tu sendiri.' : '')));
+      + (P.actualSize ? ' Asal: ikut saiz file tu sendiri; gambar ikut dpi dalam file, atau 300 dpi.' : '')));
 }
 
 function resultGroup(page, plan) {
@@ -1465,7 +1476,7 @@ function printError(err) {
   }
   return err?.constructor?.name === 'EncryptedPDFError' || /encrypted|password/i.test(err?.message || '')
     ? 'PDF ni ada perlindungan, jadi file print tak dapat dibina. Minta file tanpa perlindungan.'
-    : 'File tak dapat dibina. Cuba simpan semula PDF tu sebagai PDF biasa.';
+    : 'File tak dapat dibina. Cuba simpan semula poster tu sebagai PDF biasa, PNG atau JPG.';
 }
 
 /**

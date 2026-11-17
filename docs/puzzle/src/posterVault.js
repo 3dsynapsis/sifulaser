@@ -1,4 +1,5 @@
-// The poster's PDF, and the job on screen, kept in this browser.
+// The poster's file (a PDF, or a picture since 17 Nov 2026), and the job on screen,
+// kept in this browser.
 //
 // IndexedDB and not localStorage: a poster is tens of megabytes of binary, and
 // localStorage holds a few megabytes of text. Nothing here leaves the browser.
@@ -13,6 +14,8 @@
 // Every call rejects when the browser will not store (a private window can refuse).
 // The callers carry on without it: a save still reaches the account, and the PDF is
 // asked for again when the job is opened.
+
+import { typeOfBytes } from './posterFile.js';
 
 let DB_NAME = 'sifulaser-puzzle-poster';
 const FILES = 'files';
@@ -95,7 +98,8 @@ export async function putFile(hash, name, bytes) {
     : {
       hash,
       name,
-      blob: new Blob([bytes], { type: PDF }),
+      // The type goes with the blob, so a picture comes back as a picture.
+      blob: new Blob([bytes], { type: typeOfBytes(bytes) }),
       size: bytes.length,
       kept: false,
       usedAt: Date.now(),
@@ -103,12 +107,12 @@ export async function putFile(hash, name, bytes) {
   await evict(hash);
 }
 
-/** The stored PDF as a File, or null when this browser does not have it. */
+/** The stored file as a File, or null when this browser does not have it. */
 export async function getFile(hash) {
   const entry = await read(hash);
   if (!entry) return null;
   await write({ ...entry, usedAt: Date.now() });
-  return new File([entry.blob], entry.name, { type: PDF });
+  return new File([entry.blob], entry.name, { type: entry.blob.type || PDF });
 }
 
 /** A saved job now depends on this PDF, so closing the poster must not remove it. */

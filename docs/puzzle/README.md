@@ -82,6 +82,24 @@ setiap poster. Upload, drag, Tambah PDF dan Tukar PDF terima banyak file sekali.
 - Rekod simpanan ada `files` (senarai). Rekod lama dengan `file` dibaca sebagai
   senarai satu file. PC lain: tab minta semua PDF yang tiada sekali gus.
 
+Gambar sebagai poster (bos, 17 November 2026): tab Puzzle, UV File dan Keychain UV
+terima PNG, JPG (termasuk .jfif) dan WebP selain PDF, dan boleh bercampur dengan PDF
+dalam satu job. GIF, BMP dan AVIF pun boleh dibuka; HEIC dan TIFF tidak, sebab Chrome
+tak boleh lukis.
+
+- Gambar jadi satu page yang saiznya tepat gambar itu (`PicturePage` dalam
+  `posterPdf.js`). Browser yang decode dan lukis, jadi arah EXIF gambar telefon dan
+  profil warna diikut. Selebihnya alat nampak page biasa: preview, putar 90, file
+  print 300 dpi, cari bulatan keychain dan semakan layer semua sama.
+- Saiz page dalam mm ikut dpi dalam file (JFIF, EXIF, pHYs PNG, BMP) bila 150 hingga
+  2400 dpi. 72 dan 96 (kamera, skrin) atau tiada dpi: dikira 300 dpi. Saiz ini hanya
+  penting untuk "Asal" dalam tab UV File; Puzzle dan Keychain ikut saiz yang dipilih.
+- Satu gambar: panel tulis saiz pixel (contoh 2480 x 3508 px). Amaran resolusi rendah
+  dan dpi keychain dikira dari pixel gambar.
+- Kawasan telus dalam PNG jadi putih, macam kertas kosong dalam PDF.
+- IndexedDB simpan gambar asal dengan jenisnya (`image/png` dan lain-lain), dan hash
+  dari byte gambar asal, jadi pilih file yang sama di PC lain tetap dikenal.
+
 File print gabungan (bos, 11 November 2026): file cut kekal satu set dan dicut
 berulang. Panel yang dah dicut diletak rapat tepi ke tepi dari bucu kiri atas bed
 UV 900 x 600 mm, jadi satu file print untuk satu run (`geom/runs.js`). Panel A4
@@ -161,7 +179,8 @@ Fail baharu dalam `src/`:
 - `geom/poster.js` - kiraan saiz, bleed, grid, UV bed (tulen)
 - `geom/strength.js` - pilih seed yang paling kuat untuk akrilik 3 mm (tulen)
 - `exportJobSheet.js` - job sheet: susunan part dan penulis PDF
-- `posterPdf.js` - baca PDF pelanggan dan tulis fail print
+- `posterPdf.js` - baca PDF atau gambar pelanggan dan tulis fail print
+- `posterFile.js` - kenal jenis file, dpi gambar, saiz page gambar (tulen)
 - `posterFlow.js` - keadaan dan panel mod poster
 - `posterSaved.js` - bentuk rekod poster dalam akaun (tulen)
 - `posterVault.js` - PDF dan draf dalam IndexedDB

@@ -1,11 +1,12 @@
 // The Keychain UV tab (Boss, 17 Nov 2026): the page around keychainFlow.js, and what
-// shows before any PDF is in. It lives with the Puzzle tab's code, as the UV File tab
+// shows before any design is in. It lives with the Puzzle tab's code, as the UV File tab
 // does, and uses its print file, its storage and its Save and Export.
 
 import { View } from './view.js';
 import { h, group, fillHelpDialog } from './ui.js';
 import * as gallery from './designs.js';
 import * as vault from './posterVault.js';
+import { POSTER_ACCEPT, POSTER_FORMATS } from './posterFile.js';
 import {
   initKeychain, keychainActive, openKeychainFiles, openKeychainDesign, renderKeychain,
   openKeychainExport, restoreKeychainDraft, renameKeychain, keychainStore, KEYCHAIN_STEPS,
@@ -55,7 +56,7 @@ function saveFile(file) {
 const pickPdf = (label, cls) => h('label', { class: `${cls} file-pick` },
   h('input', {
     type: 'file',
-    accept: 'application/pdf,.pdf',
+    accept: POSTER_ACCEPT,
     hidden: true,
     onchange: (e) => {
       const files = [...e.target.files];
@@ -65,7 +66,7 @@ const pickPdf = (label, cls) => h('label', { class: `${cls} file-pick` },
   }),
   label);
 
-/** Before any PDF is in: what this tab makes, and the way in. */
+/** Before any design is in: what this tab makes, and the way in. */
 function renderEmpty() {
   view.svg.replaceChildren();
   els.hint.classList.remove('show');
@@ -75,12 +76,12 @@ function renderEmpty() {
   const sheets = KEYCHAIN_SHEETS.map((s) => `${s.label} ${s.width} x ${s.height}`).join(', ');
   els.inspector.replaceChildren(
     h('h2', { class: 'insp-title' }, TITLE),
-    group('Masukkan PDF', true,
+    group('Masukkan design', true,
       h('p', { class: 'uv-intro' },
-        'Masukkan design keychain bulat dalam PDF. Tool ni cari bulatan design, buat bleed dan lubang, '
-        + 'susun atas sheet, dan keluarkan file cut serta file print UV untuk FlexiPRINT.'),
-      pickPdf('Pilih PDF', 'primary'),
-      h('p', { class: 'hint' }, 'PDF kekal dalam browser ni dan tak dihantar ke mana-mana.')),
+        `Masukkan design keychain bulat dalam ${POSTER_FORMATS}. Tool ni cari bulatan design, buat bleed `
+        + 'dan lubang, susun atas sheet, dan keluarkan file cut serta file print UV untuk FlexiPRINT.'),
+      pickPdf('Pilih file', 'primary'),
+      h('p', { class: 'hint' }, 'File kekal dalam browser ni dan tak dihantar ke mana-mana.')),
     group('Apa yang keluar', true,
       stat('Saiz', KEYCHAIN_SIZES_MM.map((mm) => `${mm / 10} cm`).join(', ')),
       stat('Jenis', 'Biasa (lubang dalam bulatan) atau Hook (telinga di tepi)'),
@@ -101,7 +102,7 @@ function refresh() {
   else renderEmpty();
 }
 
-/** What the Save dialog and the gallery may see before any PDF is in. */
+/** What the Save dialog and the gallery may see before any design is in. */
 const idleStore = {
   name: () => '',
   params: () => ({}),
@@ -148,6 +149,7 @@ $('#zoomIn').addEventListener('click', () => view.zoomBy(1.5));
 $('#zoomOut').addEventListener('click', () => view.zoomBy(1 / 1.5));
 $('#zoomFit').addEventListener('click', () => view.zoomFit());
 
+els.dropInput.accept = POSTER_ACCEPT;
 const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
 els.stage.addEventListener('dragover', (e) => {
   if (!hasFiles(e)) return;

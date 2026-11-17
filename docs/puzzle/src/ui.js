@@ -7,6 +7,7 @@ import {
 } from './store.js';
 import { riskLevel, riskFactor } from './geom/puzzle.js';
 import { layersFor, pathLength } from './exportSvg.js';
+import { POSTER_ACCEPT, POSTER_FORMATS } from './posterFile.js';
 
 export const h = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
@@ -155,7 +156,7 @@ export function renderInspector(root, ctx) {
   root.append(h('label', { class: 'poster-entry' },
     h('input', {
       type: 'file',
-      accept: 'application/pdf,.pdf',
+      accept: POSTER_ACCEPT,
       multiple: true,
       hidden: true,
       onchange: (e) => {
@@ -164,8 +165,8 @@ export function renderInspector(root, ctx) {
         ctx.openPoster(files);
       },
     }),
-    h('b', {}, 'Ada poster PDF? Upload di sini'),
-    h('span', {}, 'Boleh pilih banyak PDF sekali. Pilih A4, A3 atau A2, file cut dan file print keluar siap.')));
+    h('b', {}, 'Ada poster? Upload di sini'),
+    h('span', {}, `${POSTER_FORMATS}, boleh pilih banyak sekali. Pilih A4, A3 atau A2, file cut dan file print keluar siap.`)));
   const p = state.params;
   const mat = material();
   const puzzle = getPuzzle();

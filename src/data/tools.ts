@@ -394,9 +394,9 @@ export const TOOLS: ToolEntry[] = [
     // UV (gambar CMYK, Spot 1 dan Spot 2 di bawah) yang terus dibuka di FlexiPRINT.
     // Kodnya kod Puzzle Generator (docs/puzzle/), jadi satu pembetulan untuk dua-dua.
     title: 'UV File Generator',
-    shortDescription: 'PDF poster jadi file cut dan file print UV.',
+    shortDescription: 'Poster PDF atau gambar jadi file cut dan file print UV.',
     description:
-      'Masukkan PDF poster dan dapat panel acrylic dengan border 10 mm dan bleed 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.',
+      'Masukkan poster dalam PDF, PNG atau JPG dan dapat panel acrylic dengan border 10 mm dan bleed 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.',
     href: '#/uvfile',
     group: 'fail',
     variant: 'icon',
@@ -414,6 +414,9 @@ export const TOOLS: ToolEntry[] = [
       'akrilik',
       'acrylic',
       'pdf',
+      'png',
+      'jpg',
+      'gambar',
       'cetak',
     ],
     Icon: Layers,
@@ -427,7 +430,7 @@ export const TOOLS: ToolEntry[] = [
     title: 'Keychain UV File Generator',
     shortDescription: 'Design keychain bulat jadi file cut dan UV.',
     description:
-      'Masukkan PDF design keychain bulat dan dapat sheet keychain 4, 5 atau 6 cm dengan bleed 2 mm dan lubang 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.',
+      'Masukkan design keychain bulat dalam PDF, PNG atau JPG dan dapat sheet keychain 4, 5 atau 6 cm dengan bleed 2 mm dan lubang 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.',
     href: '#/keychainuv',
     group: 'fail',
     variant: 'icon',
@@ -446,6 +449,9 @@ export const TOOLS: ToolEntry[] = [
       'akrilik',
       'acrylic',
       'pdf',
+      'png',
+      'jpg',
+      'gambar',
       'cetak',
     ],
     Icon: Key,

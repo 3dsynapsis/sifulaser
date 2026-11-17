@@ -22,6 +22,7 @@
 import { PAPERS, HEIGHT_MIN_MM, puzzleParams } from './geom/poster.js';
 import { PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
 import { designParams, designMaterial } from './saved.js';
+import { stripExt } from './posterFile.js';
 
 const MATERIAL = 'acrylic-clear';
 const HEIGHT_MAX_MM = 2000; // the same as the box in the panel
@@ -40,7 +41,7 @@ const PLAN_KEY = /^[\d.]+x[\d.]+:\d+x\d+$/;
  * A4 PUZZLE 1 to 5), or the first name when they share too little.
  */
 export function jobNameOf(fileNames) {
-  const names = fileNames.map((n) => String(n).replace(/\.pdf$/i, '').trim() || 'Poster');
+  const names = fileNames.map((n) => stripExt(n).trim() || 'Poster');
   if (names.length < 2) return names[0] || 'Poster';
   let prefix = names[0];
   for (const n of names.slice(1)) {

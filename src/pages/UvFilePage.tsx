@@ -2,7 +2,7 @@ import { ArrowLeft, ExternalLink, Layers } from 'lucide-react'
 
 /**
  * UV File Generator ialah aplikasi statik berasingan yang dihidangkan dari
- * `docs/uvfile/`, dibina atas kod Puzzle Generator (`docs/puzzle/`): PDF poster
+ * `docs/uvfile/`, dibina atas kod Puzzle Generator (`docs/puzzle/`): poster PDF atau gambar
  * jadi panel dengan border 10 mm, file cut dan file print UV dengan Spot 1 dan
  * Spot 2. Dimuatkan dalam iframe supaya jenama dan navigasi SifuLaser kekal.
  */
@@ -29,7 +29,7 @@ export const UvFilePage = () => (
               UV File Generator
             </h1>
             <p className="truncate text-xs text-muted sm:text-sm">
-              PDF poster jadi file cut dan file print UV
+              Poster PDF atau gambar jadi file cut dan file print UV
             </p>
           </div>
         </div>
@@ -46,7 +46,7 @@ export const UvFilePage = () => (
     </header>
     <iframe
       src="/uvfile/"
-      title="UV File Generator — file cut dan file print UV dari PDF poster"
+      title="UV File Generator — file cut dan file print UV dari poster PDF atau gambar"
       className="min-h-0 w-full flex-1 border-0"
     />
   </div>

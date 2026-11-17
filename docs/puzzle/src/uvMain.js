@@ -1,15 +1,16 @@
 // The UV File tab (Boss, 11 Nov 2026): the Puzzle tab's poster flow with no puzzle.
 //
-// Put a PDF in and out come the panel's cut file (its outline, 10 mm border, R5
+// Put a PDF or a picture in and out come the panel's cut file (its outline, 10 mm border, R5
 // corners) and the UV print file (the poster as a CMYK picture, 2 mm bleed, Spot 1 and
 // Spot 2 under it). Sizes, Save, the draft, Export, Share and the layer check are the
 // Puzzle tab's own code: posterFlow.js run with product 'panel'. Only the page around
-// it is here, and what shows before any PDF is in.
+// it is here, and what shows before any poster is in.
 
 import { View } from './view.js';
 import { h, group, fillHelpDialog } from './ui.js';
 import * as gallery from './designs.js';
 import * as vault from './posterVault.js';
+import { POSTER_ACCEPT, POSTER_FORMATS } from './posterFile.js';
 import {
   initPoster, posterActive, openPosterFiles, openPosterDesign, renderPoster,
   openPosterExport, restorePosterDraft, renamePoster, posterStore, PANEL_STEPS,
@@ -56,7 +57,7 @@ function saveFile(file) {
 const pickPdfs = (label, cls) => h('label', { class: `${cls} file-pick` },
   h('input', {
     type: 'file',
-    accept: 'application/pdf,.pdf',
+    accept: POSTER_ACCEPT,
     multiple: true,
     hidden: true,
     onchange: (e) => {
@@ -67,7 +68,7 @@ const pickPdfs = (label, cls) => h('label', { class: `${cls} file-pick` },
   }),
   label);
 
-/** Before any PDF is in: what this tab makes, and the way in. */
+/** Before any poster is in: what this tab makes, and the way in. */
 function renderEmpty() {
   view.svg.replaceChildren();
   els.hint.classList.remove('show');
@@ -76,17 +77,17 @@ function renderEmpty() {
   const stat = (label, value) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value));
   els.inspector.replaceChildren(
     h('h2', { class: 'insp-title' }, 'UV File'),
-    group('Masukkan PDF', true,
+    group('Masukkan poster', true,
       h('p', { class: 'uv-intro' },
-        'Masukkan poster dalam PDF. Tool ni siapkan panel dan keluarkan file cut serta file print UV, '
-        + 'sedia untuk FlexiPRINT.'),
-      pickPdfs('Pilih PDF', 'primary'),
+        `Masukkan poster dalam ${POSTER_FORMATS}. Tool ni siapkan panel dan keluarkan file cut serta `
+        + 'file print UV, sedia untuk FlexiPRINT.'),
+      pickPdfs('Pilih file', 'primary'),
       h('p', { class: 'hint' },
-        'Boleh pilih banyak PDF sekali. PDF kekal dalam browser ni dan tak dihantar ke mana-mana.')),
+        'Boleh pilih banyak file sekali. File kekal dalam browser ni dan tak dihantar ke mana-mana.')),
     group('Apa yang keluar', true,
       stat('Border', `${PANEL_BORDER_MM} mm keliling, bucu R5`),
       stat('Bleed', `${PANEL_BLEED_MM} mm atas border`),
-      stat('Saiz', 'A4, A3, A2, tinggi sendiri, atau saiz asal PDF'),
+      stat('Saiz', 'A4, A3, A2, tinggi sendiri, atau saiz asal file'),
       stat('Material', 'Acrylic putih 3mm, atau clear 2, 3, 5mm'),
       stat('File cut', 'Garis poster dan frame, material tertulis'),
       stat('File print UV', 'Gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white)'),
@@ -100,7 +101,7 @@ function refresh() {
   else renderEmpty();
 }
 
-/** What the Save dialog and the gallery may see before any PDF is in. */
+/** What the Save dialog and the gallery may see before any poster is in. */
 const idleStore = {
   name: () => '',
   params: () => ({}),
@@ -108,7 +109,7 @@ const idleStore = {
   extra: () => null,
   rename: () => {},
   note: 'Yang disimpan ke akaun ialah tetapan: saiz, page, client dan dateline. '
-    + 'PDF kekal dalam browser ni. Kalau buka di PC lain, kena pilih PDF tu semula.',
+    + 'File poster kekal dalam browser ni. Kalau buka di PC lain, kena pilih file tu semula.',
   apply: (row) => openPosterDesign(row),
 };
 const activeStore = () => (posterActive() ? posterStore : idleStore);
@@ -149,8 +150,9 @@ $('#zoomIn').addEventListener('click', () => view.zoomBy(1.5));
 $('#zoomOut').addEventListener('click', () => view.zoomBy(1 / 1.5));
 $('#zoomFit').addEventListener('click', () => view.zoomFit());
 
-// PDFs can be dropped anywhere on the stage, as in the Puzzle tab (a new job; Tambah PDF
+// Files can be dropped anywhere on the stage, as in the Puzzle tab (a new job; Tambah file
 // adds to one), or picked from the box in its middle.
+els.dropInput.accept = POSTER_ACCEPT;
 const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
 els.stage.addEventListener('dragover', (e) => {
   if (!hasFiles(e)) return;

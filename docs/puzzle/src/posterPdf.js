@@ -17,9 +17,16 @@
 //
 // Both are imported only when somebody actually uploads a poster: about 2 MB that
 // the ordinary puzzle tool never needs. Nothing leaves the browser.
+//
+// A PNG or a JPG comes in too (Boss, 17 Nov 2026). It opens as a one-page document whose
+// page is the picture (PicturePage): the browser decodes and draws it, so it keeps its
+// EXIF turn and colour profile, and the rest of the tool sees a page like any other.
 
 import { pathToOps } from './exportPdf.js';
 import { unionPath } from './geom/keychain.js';
+import {
+  pictureKind, pictureDpi, printDpi, saysPicture, looksLikePdf, pictureViewport, PICTURE_TYPES,
+} from './posterFile.js';
 
 const MM_TO_PT = 72 / 25.4;
 
@@ -34,10 +41,92 @@ function loadPdfjs() {
   return pdfjs;
 }
 
-/** Open a PDF File and read its pages' sizes. */
+/**
+ * A picture as a pdf.js page: the few things the tool asks of a page (getViewport,
+ * render, view, rotate), done the same way, so the preview, the print file and the
+ * keychain's circle finder all take it as they are. The page is the picture, at `dpi`.
+ *
+ * The picture is decoded again for each drawing and let go after, rather than held: a
+ * job of five A3 pictures held decoded would be 350 MB doing nothing.
+ */
+class PicturePage {
+  constructor(blob, pxW, pxH, dpi) {
+    this.blob = blob;
+    this.picture = { pxW, pxH, dpi };
+    this.view = [0, 0, (pxW * 72) / dpi, (pxH * 72) / dpi];
+    this.rotate = 0;
+    this.userUnit = 1;
+  }
+
+  getViewport({ scale = 1, rotation = this.rotate } = {}) {
+    return pictureViewport(this.view[2], this.view[3], scale, rotation);
+  }
+
+  /** As pdf.js: the whole canvas white first, then `transform` and the viewport's. */
+  render({ canvasContext: ctx, viewport, transform = null, background = null }) {
+    const promise = (async () => {
+      const bitmap = await createImageBitmap(this.blob, { imageOrientation: 'from-image' });
+      ctx.save();
+      try {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = background || '#ffffff';
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        if (transform) ctx.transform(...transform);
+        ctx.transform(...viewport.transform);
+        // Pixels to page points, the top row at the top of the page.
+        const [, , w, hh] = this.view;
+        ctx.transform(w / bitmap.width, 0, 0, -hh / bitmap.height, 0, hh);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bitmap, 0, 0);
+      } finally {
+        ctx.restore();
+        bitmap.close();
+      }
+    })();
+    return { promise, cancel() {} };
+  }
+}
+
+/** A picture File as a one-page document. Rejects with code 'picture' when it will not open. */
+async function openPicture(file, bytes, lib) {
+  const kind = pictureKind(bytes);
+  const blob = new Blob([bytes], { type: PICTURE_TYPES[kind] || file.type || '' });
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+  } catch {
+    throw Object.assign(new Error('This picture does not open in this browser'), { code: 'picture' });
+  }
+  const { width: pxW, height: pxH } = bitmap;
+  bitmap.close();
+  if (!pxW || !pxH) throw Object.assign(new Error('An empty picture'), { code: 'picture' });
+  const obj = new PicturePage(blob, pxW, pxH, printDpi(pictureDpi(bytes, kind)));
+  return {
+    name: file.name || 'poster.png',
+    kind: 'picture',
+    bytes,
+    lib,
+    doc: { numPages: 1, destroy: () => Promise.resolve() },
+    pages: [{
+      index: 0,
+      obj,
+      widthMm: obj.view[2] / MM_TO_PT,
+      heightMm: obj.view[3] / MM_TO_PT,
+      ticked: true,
+    }],
+  };
+}
+
+/**
+ * Open a PDF or a picture File and read its pages' sizes. pdf.js is loaded either way:
+ * the print file is read back with it.
+ * @returns { name, kind: 'pdf' | 'picture', bytes, lib, doc, pages }, `bytes` the file's own
+ */
 export async function openPoster(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const lib = await loadPdfjs();
+  if (pictureKind(bytes) || (saysPicture(file) && !looksLikePdf(bytes))) return openPicture(file, bytes, lib);
   // pdf.js moves the buffer it is given to its worker, leaving this one empty, and
   // the print file still needs the original bytes. So it gets a copy.
   const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
@@ -53,7 +142,7 @@ export async function openPoster(file) {
       ticked: true,
     });
   }
-  return { name: file.name || 'poster.pdf', bytes, lib, doc, pages };
+  return { name: file.name || 'poster.pdf', kind: 'pdf', bytes, lib, doc, pages };
 }
 
 /** Draw a page to a JPEG object URL, its long side `maxPx` pixels. */
@@ -86,6 +175,11 @@ const multiply = (m, n) => [
  * no resolution to worry about.
  */
 export async function pageImages(lib, page) {
+  // A picture page is one picture, all of it.
+  if (page.obj.picture) {
+    const { pxW, pxH } = page.obj.picture;
+    return [{ pxW, pxH, fracW: 1, fracH: 1 }];
+  }
   const { OPS } = lib;
   const list = await page.obj.getOperatorList();
   const [x0, y0, x1, y1] = page.obj.view;
