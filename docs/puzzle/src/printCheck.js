@@ -85,6 +85,55 @@ export function coverage(rgba, width, height, areas) {
   };
 }
 
+/**
+ * The same for discs with a hole through each (the Keychain UV tab, Boss, 17 Nov 2026):
+ * how much of each disc a layer paints, the hole left out, and how much it paints
+ * outside every disc or inside a hole. Discs are in pixels: { cx, cy, r, hole }.
+ */
+export function discCoverage(rgba, width, height, discs) {
+  const inside = discs.map(() => ({ hit: 0, all: 0 }));
+  let painted = 0;
+  let stray = 0;
+  // Discs by grid cell, so a pixel is tried against its neighbours only.
+  const cell = Math.max(8, Math.ceil(2 * Math.max(...discs.map((d) => d.r)) + 4));
+  const grid = new Map();
+  discs.forEach((d, i) => {
+    for (let gx = Math.floor((d.cx - d.r - 2) / cell); gx <= Math.floor((d.cx + d.r + 2) / cell); gx++) {
+      for (let gy = Math.floor((d.cy - d.r - 2) / cell); gy <= Math.floor((d.cy + d.r + 2) / cell); gy++) {
+        const key = `${gx},${gy}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(i);
+      }
+    }
+  });
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      const on = rgba[row + x * 4 + 3] > 127;
+      if (on) painted++;
+      let near = false;
+      for (const i of grid.get(`${Math.floor(x / cell)},${Math.floor(y / cell)}`) || []) {
+        const d = discs[i];
+        const dd = Math.hypot(x + 0.5 - d.cx, y + 0.5 - d.cy);
+        if (dd > d.r + 1) continue;
+        const hd = d.hole ? Math.hypot(x + 0.5 - d.hole.cx, y + 0.5 - d.hole.cy) : Infinity;
+        if (hd < d.hole?.r - 1) break;        // inside the hole: ink here is stray
+        near = true;
+        if (dd < d.r - 1 && !(hd <= d.hole?.r + 1)) {
+          inside[i].all++;
+          if (on) inside[i].hit++;
+        }
+        break;
+      }
+      if (on && !near) stray++;
+    }
+  }
+  return {
+    inside: inside.map((s) => (s.all ? s.hit / s.all : 0)),
+    outside: painted ? stray / painted : 0,
+  };
+}
+
 const namesLine = (names) => {
   const want = [ART_LAYER, ...SPOT_LAYERS];
   if (names.length === want.length && want.every((n, i) => names[i] === n)) {
@@ -130,6 +179,34 @@ export function judgeBoxes(found, boxes, noun) {
 
 /** The reference cards' print file: every layer fills every card's bleed box. */
 export const judgeCards = (found, layout) => judgeBoxes(found, layout.cards.map((c) => c.clip), 'kad');
+
+/**
+ * A keychain sheet's print file (Boss, 17 Nov 2026): every layer fills every keychain
+ * and its bleed, and leaves the holes and the sheet around them bare.
+ * @param found from inspectPrint, given the same discs
+ * @param discs [{ cx, cy, r, hole }] mm
+ */
+export function judgeDiscs(found, discs) {
+  const out = [namesLine(found.names)];
+  const across = discs.length ? `${r1(2 * discs[0].r)} mm` : '';
+  for (const name of [ART_LAYER, ...SPOT_LAYERS]) {
+    const cov = found.coverage?.[name];
+    const what = name === ART_LAYER ? 'gambar' : 'white';
+    if (!cov) {
+      out.push({ ok: false, text: `${name} kosong` });
+      continue;
+    }
+    const thin = cov.inside.map((f, i) => (f < 0.97 ? i + 1 : 0)).filter(Boolean);
+    if (thin.length) {
+      out.push({ ok: false, text: `${name} tak penuh pada keychain ${thin.slice(0, 8).join(', ')}${thin.length > 8 ? '...' : ''}` });
+    } else if (cov.outside > 0.005) {
+      out.push({ ok: false, text: `${name} ada ${what} di luar keychain atau dalam lubang` });
+    } else {
+      out.push({ ok: true, text: `${name} penuh pada ${discs.length} keychain, bulat ${across} dengan bleed, lubang kosong` });
+    }
+  }
+  return out;
+}
 
 /**
  * What the file holds, against what was asked for.
@@ -196,10 +273,12 @@ async function renderAlone(doc, page, groups, id, viewport) {
  * @param bytes the PDF; handed to PDF.js, so the caller must not use it afterwards
  * @param areas optional [{ x, y, width, height }] in mm: also measure how much of each
  *              every layer fills, and how much it paints outside them
+ * @param discs optional [{ cx, cy, r, hole: { cx, cy, r } }] in mm, measured the same
+ *              way instead of areas (the Keychain UV tab)
  * @returns { names, boxes, coverage, layers: { [layer]: { url } }, tolMm }
  *          url is a PNG of the whole page with only that layer, tinted for Spot layers
  */
-export async function inspectPrint(lib, bytes, areas = null) {
+export async function inspectPrint(lib, bytes, areas = null, discs = null) {
   const doc = await lib.getDocument({ data: bytes, isEvalSupported: false }).promise;
   const layers = {};
   try {
@@ -217,6 +296,8 @@ export async function inspectPrint(lib, bytes, areas = null) {
     const pxAreas = areas && areas.map((a) => ({
       x: a.x / mmPerPx, y: a.y / mmPerPx, w: a.width / mmPerPx, h: a.height / mmPerPx,
     }));
+    const px = (c) => ({ cx: c.cx / mmPerPx, cy: c.cy / mmPerPx, r: c.r / mmPerPx });
+    const pxDiscs = discs && discs.map((d) => ({ ...px(d), hole: d.hole ? px(d.hole) : null }));
     for (const look of LAYER_LOOK) {
       const id = idOf.get(look.name);
       if (id) {
@@ -224,6 +305,7 @@ export async function inspectPrint(lib, bytes, areas = null) {
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         const box = opaqueBox(pixels, canvas.width, canvas.height);
         if (pxAreas) covered[look.name] = coverage(pixels, canvas.width, canvas.height, pxAreas);
+        if (pxDiscs?.length) covered[look.name] = discCoverage(pixels, canvas.width, canvas.height, pxDiscs);
         if (box) {
           boxes[look.name] = {
             x: box.x * mmPerPx, y: box.y * mmPerPx, w: box.w * mmPerPx, h: box.h * mmPerPx, fill: box.fill,

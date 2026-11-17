@@ -480,3 +480,9 @@ condong ke depan menjadikan bahagian depan lebih berat bila diisi.
 `src/designs.js` - senarai `TOOLS` ditambah `uvfile` (UV File Generator, `/uvfile/`)
 supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
 Baris ini sudah ada dalam projek sumber (12_Box Maker) juga.
+
+## Senarai alat galeri: Keychain UV File Generator (17 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `keychainuv` (Keychain UV File Generator,
+`/keychainuv/`) supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk
+saya" di sini. Baris ini sudah ada dalam projek sumber (12_Box Maker) juga.

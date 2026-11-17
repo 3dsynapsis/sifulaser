@@ -25,6 +25,7 @@ import { parsePath, pathToOps, byteLength } from './exportPdf.js';
 import { borderPath } from './geom/puzzle.js';
 import { FRAME_MM, CORNER_MM } from './geom/poster.js';
 import { CARD_CORNER_MM } from './geom/cards.js';
+import { circlePath, HOLE_DIAMETER_MM } from './geom/keychain.js';
 
 const MM_TO_PT = 72 / 25.4;
 const PAGE_W = 1200;
@@ -219,6 +220,55 @@ export function buildPanelSheet(plan, meta = {}) {
     paths,
     texts,
     parts: { panel: { x: xPanel, y: PART_TOP, width: panel.width, height: panel.height } },
+  };
+}
+
+/**
+ * The Keychain UV tab's cut file (Boss, 17 Nov 2026): one sheet of round keychains, the
+ * job written above it. The holes first, then the keychains, then the sheet's own edge
+ * last, for the puzzle's reason: nothing comes loose while something inside it is still
+ * being cut. The sheet's edge is in the file as the red page border is in Boss's
+ * CorelDRAW template, so the laser lines the job up on the sheet.
+ *
+ * @param layout result of layoutKeychains
+ * @param meta   { client, dateline, material, hole: { dx, dy } }: the hole's centre from
+ *               each keychain's centre, mm
+ */
+export function buildKeychainSheet(layout, meta = {}) {
+  const { sheet, sizeMm, items } = layout;
+  const material = typeof meta.material === 'string' && meta.material.trim()
+    ? meta.material.trim()
+    : 'Acrylic Putih 3mm';
+  const hole = meta.hole || { dx: 0, dy: 0 };
+  const width = Math.max(PAGE_W, sheet.width + 2 * GAP);
+  const height = Math.max(PAGE_H, PART_TOP + sheet.height + BOTTOM);
+  const xs = (width - sheet.width) / 2;
+  const at = (it) => ({ x: xs + it.x, y: PART_TOP + it.y });
+
+  const paths = [
+    {
+      id: 'holes',
+      stroke: 'hair',
+      d: items.map((it) => circlePath(at(it).x + hole.dx, at(it).y + hole.dy, HOLE_DIAMETER_MM / 2)).join(' '),
+    },
+    {
+      id: 'keychains',
+      stroke: 'hair',
+      d: items.map((it) => circlePath(at(it).x, at(it).y, sizeMm / 2)).join(' '),
+    },
+    { id: 'sheet', stroke: 'cut', d: translatePath(rectPath(sheet.width, sheet.height), xs, PART_TOP) },
+  ];
+  const texts = [];
+  jobHead(texts, width, meta,
+    `KEYCHAIN UV ${sizeMm / 10} cm, lubang ${HOLE_DIAMETER_MM} mm, sheet ${sheet.label} ${sheet.width} x ${sheet.height} mm`);
+  partLabel(texts, [material, `${layout.perSheet} PCS, ${layout.sheets} SHEET`], xs + sheet.width / 2, sheet.width + GAP - 8);
+
+  return {
+    width,
+    height,
+    paths,
+    texts,
+    parts: { sheet: { x: xs, y: PART_TOP, width: sheet.width, height: sheet.height } },
   };
 }
 

@@ -1,0 +1,399 @@
+// The Keychain UV tab (Boss, 17 Nov 2026): a round acrylic keychain from a client's
+// flat design, cut by the laser and UV printed on a whole sheet at once. Pure: no DOM.
+//
+//   * The size is the keychain's diameter, the cut line: 4, 5 or 6 cm.
+//   * The design is found in the PDF by itself: the client's file is a round picture on
+//     a white page, with no bleed and no cut line (the "Inisiatif Mengurangkan Gula"
+//     job, 110 x 110 mm, the circle about 105.5 mm).
+//   * The bleed is 2 mm past the cut. A file with none gets one made from the colour
+//     just inside the cut, carried straight out (Boss chose this over enlarging the
+//     design, which cut the lettering near the edge, or cutting inside it).
+//   * A thin line of another colour right at the edge is taken out, the colour inside it
+//     carried over it (Boss, 17 Nov 2026). Cut and print are never exactly on top of each
+//     other: shifted 0.5 mm, a 0.4 mm blue line vanishes on one side and doubles on the
+//     other, and the keychain looks crooked. With no line at the edge, the shift does
+//     not show.
+//   * One hole, 2 mm across. Boss's red dot put its centre about 2 mm in from the edge,
+//     at the top; it can be dragged anywhere on the keychain.
+//   * The sheets are the medal FRONT templates Boss uses in CorelDRAW: Kecil 490 x 740
+//     and Besar 550 x 850 mm, keychains 9 mm apart cut line to cut line, and 15 mm of
+//     masking tape round the edge that no bleed may reach.
+
+export const KEYCHAIN_SIZES_MM = [40, 50, 60];
+export const KEYCHAIN_BLEED_MM = 2;
+export const HOLE_DIAMETER_MM = 2;
+export const HOLE_INSET_MM = 2;        // hole centre from the cut edge, at the top
+export const HOLE_MIN_WALL_MM = 0.5;   // the least acrylic a dragged hole may leave
+export const KEYCHAIN_GAP_MM = 9;
+export const TAPE_MM = 15;
+export const KEYCHAIN_SHEETS = [
+  { id: 'kecil', label: 'Kecil', width: 490, height: 740 },
+  { id: 'besar', label: 'Besar', width: 550, height: 850 },
+];
+export const QUANTITY_MAX = 100000;
+// A band at the edge this thin, against the radius, is a border line. At 5 cm it is
+// 1.5 mm; anything wider is part of the design and stays.
+export const BORDER_MAX_FRACTION = 0.06;
+// How far past the line the colour inside it is carried, mm: the line's soft edge.
+export const BORDER_MARGIN_MM = 0.15;
+
+const r2 = (v) => Math.round(v * 100) / 100;
+const r3 = (v) => Math.round(v * 1000) / 1000;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+export const keychainSheet = (id) => KEYCHAIN_SHEETS.find((s) => s.id === id) || KEYCHAIN_SHEETS[0];
+export const keychainSize = (mm) => (KEYCHAIN_SIZES_MM.includes(mm) ? mm : 50);
+
+// ---- the design's circle --------------------------------------------------------
+
+/** Not page: ink, more or less. Near-white and see-through count as page. */
+export function isPainted(rgba, i) {
+  return rgba[i + 3] > 16 && !(rgba[i] > 245 && rgba[i + 1] > 245 && rgba[i + 2] > 245);
+}
+
+/** Least squares circle through points [[x, y]]: { cx, cy, r }, or null. */
+export function fitCircle(points) {
+  if (points.length < 3) return null;
+  // x² + y² = 2a x + 2b y + c, solved by its normal equations.
+  let sxx = 0; let sxy = 0; let sx = 0; let syy = 0; let sy = 0; let n = 0;
+  let sxz = 0; let syz = 0; let sz = 0;
+  for (const [x, y] of points) {
+    const z = x * x + y * y;
+    sxx += x * x; sxy += x * y; sx += x; syy += y * y; sy += y; n += 1;
+    sxz += x * z; syz += y * z; sz += z;
+  }
+  const A = [[2 * sxx, 2 * sxy, sx], [2 * sxy, 2 * syy, sy], [2 * sx, 2 * sy, n]];
+  const B = [sxz, syz, sz];
+  const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+    - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+    + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const d = det(A);
+  if (Math.abs(d) < 1e-9) return null;
+  const col = (k) => A.map((row, i) => row.map((v, j) => (j === k ? B[i] : v)));
+  const a = det(col(0)) / d;
+  const b = det(col(1)) / d;
+  const c = det(col(2)) / d;
+  const rr = c + a * a + b * b;
+  return rr > 0 ? { cx: a, cy: b, r: Math.sqrt(rr) } : null;
+}
+
+/**
+ * Where the design's circle is in a picture of the page.
+ *
+ * Rays from the middle of everything painted find its outer edge, and a circle is
+ * fitted to the edge, again without the points far off it (the client's leaves poke out
+ * past the ring). Then:
+ *
+ *   circle  a round design on a bare page: the bleed has to be made
+ *   page    the design runs off every side of the page: what lies past the circle is
+ *           the design's own, and the circle is the largest the page holds
+ *   box     painted, but not round: the largest circle in what is painted
+ *   blank   nothing painted at all
+ *
+ * @returns { cx, cy, r, kind, fit } in pixels; fit is the share of rays on the circle
+ */
+export function findDesignCircle(rgba, width, height) {
+  const page = { cx: width / 2, cy: height / 2, r: Math.min(width, height) / 2, fit: 0 };
+  let edge = 0;
+  let edgeAll = 0;
+  for (let x = 0; x < width; x += 2) {
+    edgeAll += 2;
+    edge += isPainted(rgba, x * 4) + isPainted(rgba, ((height - 1) * width + x) * 4);
+  }
+  for (let y = 0; y < height; y += 2) {
+    edgeAll += 2;
+    edge += isPainted(rgba, y * width * 4) + isPainted(rgba, (y * width + width - 1) * 4);
+  }
+  if (edge / edgeAll > 0.5) return { ...page, kind: 'page' };
+
+  let x0 = width; let y0 = height; let x1 = -1; let y1 = -1;
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      if (isPainted(rgba, (y * width + x) * 4)) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return { ...page, kind: 'blank' };
+  const bx = (x0 + x1) / 2;
+  const by = (y0 + y1) / 2;
+  const box = { cx: bx, cy: by, r: Math.min(x1 - x0, y1 - y0) / 2, fit: 0, kind: 'box' };
+
+  const RAYS = 360;
+  const points = [];
+  for (let k = 0; k < RAYS; k++) {
+    const t = (2 * Math.PI * k) / RAYS;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    // From where the ray leaves the picture, inward to the first ink.
+    const tx = c > 1e-9 ? (width - 1 - bx) / c : c < -1e-9 ? -bx / c : Infinity;
+    const ty = s > 1e-9 ? (height - 1 - by) / s : s < -1e-9 ? -by / s : Infinity;
+    for (let d = Math.floor(Math.min(tx, ty)); d > 0; d--) {
+      const x = Math.round(bx + c * d);
+      const y = Math.round(by + s * d);
+      if (isPainted(rgba, (y * width + x) * 4)) {
+        points.push([x, y]);
+        break;
+      }
+    }
+  }
+  let fit = fitCircle(points);
+  let kept = points;
+  for (let i = 0; i < 4 && fit; i++) {
+    const tol = Math.max(2, fit.r * 0.01);
+    const f = fit;
+    kept = points.filter(([x, y]) => Math.abs(Math.hypot(x - f.cx, y - f.cy) - f.r) <= tol);
+    fit = fitCircle(kept);
+  }
+  if (!fit) return box;
+  const share = kept.length / RAYS;
+  const inside = fit.cx - fit.r >= x0 - 3 && fit.cx + fit.r <= x1 + 3
+    && fit.cy - fit.r >= y0 - 3 && fit.cy + fit.r <= y1 + 3;
+  return share >= 0.6 && inside ? { ...fit, fit: share, kind: 'circle' } : box;
+}
+
+// ---- the border line at its edge ------------------------------------------------
+
+const median = (values) => {
+  const v = [...values].sort((a, b) => a - b);
+  const m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+};
+const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/**
+ * The colour against the distance in from the circle's edge: per step, the median of
+ * every angle, and how much the angles differ (a ring of one colour differs little).
+ * @returns [{ depth, rgb, spread }], depth in pixels from the edge inward
+ */
+export function radialProfile(rgba, width, height, circle, depthPx, stepPx = 1, angles = 360) {
+  const out = [];
+  for (let depth = 1.5; depth <= depthPx; depth += stepPx) {
+    const rr = circle.r - depth;
+    if (rr <= 0) break;
+    const ch = [[], [], []];
+    for (let k = 0; k < angles; k++) {
+      const t = (2 * Math.PI * k) / angles;
+      const x = clamp(Math.round(circle.cx + rr * Math.cos(t)), 0, width - 1);
+      const y = clamp(Math.round(circle.cy + rr * Math.sin(t)), 0, height - 1);
+      const i = (y * width + x) * 4;
+      ch[0].push(rgba[i]); ch[1].push(rgba[i + 1]); ch[2].push(rgba[i + 2]);
+    }
+    const rgb = ch.map(median);
+    const spread = ch.map((c, j) => median(c.map((v) => Math.abs(v - rgb[j])))).reduce((a, b) => a + b, 0) / 3;
+    out.push({ depth, rgb, spread });
+  }
+  return out;
+}
+
+/**
+ * A thin ring of one colour at the very edge, with a different colour inside it: the
+ * border line Boss takes out. Wider than BORDER_MAX_FRACTION of the radius it is part of
+ * the design, and a ring whose colour changes round the circle is not a line at all.
+ *
+ * @param profile from radialProfile
+ * @param r       the circle's radius, same units as the profile's depth
+ * @returns null, or { fraction, rgb, inner }: its width against the radius, its colour,
+ *          and the colour inside it
+ */
+export function findBorder(profile, r) {
+  if (profile.length < 4) return null;
+  const outer = profile[0];
+  if (outer.spread > 40) return null;
+  const isLine = (p) => distance(p.rgb, outer.rgb) > 60;
+  for (let i = 1; i < profile.length - 2; i++) {
+    if (isLine(profile[i]) && isLine(profile[i + 1])) {
+      const width = profile[i].depth;
+      if (width > r * BORDER_MAX_FRACTION) return null;
+      const inner = profile[i + 1];
+      if (inner.spread > 40) return null;
+      return { fraction: width / r, rgb: outer.rgb, inner: inner.rgb };
+    }
+    if (profile[i].depth > r * BORDER_MAX_FRACTION) return null;
+  }
+  return null;
+}
+
+// ---- the bleed --------------------------------------------------------------------
+
+/**
+ * Carry the colour from just inside `keep` straight out, past the cut and over the
+ * bleed, in place. Per angle the colour is the average of a band [from, to] (radii,
+ * from < to <= keep), smoothed round the circle so one stray pixel does not streak.
+ *
+ * @param o { cx, cy, keep, from, to, onlyBlank }: pixels; onlyBlank: leave what is
+ *          already painted, for a design that has some bleed of its own
+ */
+export function bleedOut(rgba, width, height, o) {
+  const BINS = 720;
+  const sum = new Float64Array(BINS * 3);
+  const SAMPLES = 4;
+  for (let b = 0; b < BINS; b++) {
+    const t = ((b + 0.5) * 2 * Math.PI) / BINS;
+    for (let s = 0; s < SAMPLES; s++) {
+      const rr = o.from + ((o.to - o.from) * s) / (SAMPLES - 1);
+      const x = clamp(Math.round(o.cx + rr * Math.cos(t)), 0, width - 1);
+      const y = clamp(Math.round(o.cy + rr * Math.sin(t)), 0, height - 1);
+      const i = (y * width + x) * 4;
+      sum[b * 3] += rgba[i]; sum[b * 3 + 1] += rgba[i + 1]; sum[b * 3 + 2] += rgba[i + 2];
+    }
+  }
+  const W = 4;   // bins either side
+  const colour = new Uint8ClampedArray(BINS * 3);
+  for (let b = 0; b < BINS; b++) {
+    for (let c = 0; c < 3; c++) {
+      let acc = 0;
+      for (let k = -W; k <= W; k++) acc += sum[(((b + k) % BINS + BINS) % BINS) * 3 + c];
+      colour[b * 3 + c] = acc / ((2 * W + 1) * SAMPLES);
+    }
+  }
+  const keep2 = o.keep * o.keep;
+  for (let y = 0; y < height; y++) {
+    const dy = y + 0.5 - o.cy;
+    for (let x = 0; x < width; x++) {
+      const dx = x + 0.5 - o.cx;
+      if (dx * dx + dy * dy <= keep2) continue;
+      const i = (y * width + x) * 4;
+      if (o.onlyBlank && isPainted(rgba, i)) continue;
+      let t = Math.atan2(dy, dx);
+      if (t < 0) t += 2 * Math.PI;
+      const b = Math.min(BINS - 1, Math.floor((t / (2 * Math.PI)) * BINS));
+      rgba[i] = colour[b * 3]; rgba[i + 1] = colour[b * 3 + 1]; rgba[i + 2] = colour[b * 3 + 2]; rgba[i + 3] = 255;
+    }
+  }
+}
+
+/**
+ * How the picture of one keychain is finished, in its own pixels.
+ *
+ * @param o { px: picture side, sizeMm, bleedMm, kind, border, removeBorder }
+ * @returns the bleedOut options, or null when the design already runs past the cut
+ */
+export function bleedPlan(o) {
+  const perMm = o.px / (o.sizeMm + 2 * o.bleedMm);
+  const c = o.px / 2;
+  const cut = (o.sizeMm / 2) * perMm;
+  if (o.kind === 'circle') {
+    if (o.border && o.removeBorder) {
+      const keep = cut - (o.border.fraction * (o.sizeMm / 2) + BORDER_MARGIN_MM) * perMm;
+      return {
+        cx: c, cy: c, keep, from: keep - 0.35 * perMm, to: keep - 0.1 * perMm, onlyBlank: false,
+      };
+    }
+    // The edge's own colour carried out: inside a kept border line, its middle.
+    const band = o.border ? o.border.fraction * (o.sizeMm / 2) * perMm : 0.4 * perMm;
+    return {
+      cx: c, cy: c, keep: cut, from: cut - 0.75 * band, to: cut - 0.25 * band, onlyBlank: false,
+    };
+  }
+  // A design with ink past the cut keeps it; only bare page there gets the edge colour.
+  return {
+    cx: c, cy: c, keep: cut, from: cut - 0.3 * perMm, to: cut - 0.1 * perMm, onlyBlank: true,
+  };
+}
+
+// ---- the hole ------------------------------------------------------------------------
+
+export const HOLE_R = HOLE_DIAMETER_MM / 2;
+
+/**
+ * A hole as it can be used: `angle` degrees clockwise from the top, `inset` mm from
+ * the cut edge to its centre, kept whole inside the keychain.
+ */
+export function cleanHole(hole, sizeMm) {
+  const angle = Number.isFinite(hole?.angle) ? ((hole.angle % 360) + 360) % 360 : 0;
+  const inset = Number.isFinite(hole?.inset) ? hole.inset : HOLE_INSET_MM;
+  return { angle: r2(angle), inset: r2(clamp(inset, HOLE_R + HOLE_MIN_WALL_MM, sizeMm / 2)) };
+}
+
+/** The hole's centre from the keychain's centre, mm, y down. */
+export function holeOffset(hole, sizeMm) {
+  const h = cleanHole(hole, sizeMm);
+  const rr = sizeMm / 2 - h.inset;
+  const t = (h.angle * Math.PI) / 180;
+  return { dx: r3(rr * Math.sin(t)), dy: r3(-rr * Math.cos(t)) };
+}
+
+/** Where a drag let go, from the keychain's centre, as a hole. */
+export function holeFromPoint(dx, dy, sizeMm) {
+  const angle = (Math.atan2(dx, -dy) * 180) / Math.PI;
+  return cleanHole({ angle, inset: sizeMm / 2 - Math.hypot(dx, dy) }, sizeMm);
+}
+
+/** Acrylic left between the hole and the edge, mm. */
+export const holeWall = (hole, sizeMm) => r2(cleanHole(hole, sizeMm).inset - HOLE_R);
+
+// ---- the sheet ---------------------------------------------------------------------------
+
+/**
+ * The keychains on a sheet. As many as the sheet holds, in a grid centred on it, with
+ * the tape's 15 mm clear of every bleed. An order bigger than one sheet is shared out
+ * evenly over as few sheets as it needs, so every sheet takes the same two files: 100
+ * on Kecil (84 a sheet) is two sheets of 50, not 84 and 16.
+ *
+ * @param o { sizeMm, sheet: id, quantity }: quantity left out is one full sheet
+ * @returns { sheet, sizeMm, cols, rows, capacity, quantity, sheets, perSheet, total,
+ *            spare, items: [{ x, y }] centres in mm from the sheet's top-left, fits }
+ */
+export function layoutKeychains(o) {
+  const sheet = keychainSheet(o.sheet);
+  const size = keychainSize(o.sizeMm);
+  const pitch = size + KEYCHAIN_GAP_MM;
+  const margin = TAPE_MM + KEYCHAIN_BLEED_MM;   // sheet edge to cut line
+  const fitIn = (len) => Math.max(0, Math.floor((len - 2 * margin + KEYCHAIN_GAP_MM + 1e-9) / pitch));
+  const cols = fitIn(sheet.width);
+  const rows = fitIn(sheet.height);
+  const capacity = cols * rows;
+  const base = {
+    sheet: { ...sheet }, sizeMm: size, cols, rows, capacity,
+  };
+  if (!capacity) {
+    return {
+      ...base, quantity: 0, sheets: 0, perSheet: 0, total: 0, spare: 0, items: [], fits: false,
+    };
+  }
+  const asked = Math.round(Number(o.quantity));
+  const quantity = Number.isFinite(asked) && asked > 0 ? Math.min(asked, QUANTITY_MAX) : capacity;
+  const sheets = Math.ceil(quantity / capacity);
+  const perSheet = Math.ceil(quantity / sheets);
+  const gridW = cols * size + (cols - 1) * KEYCHAIN_GAP_MM;
+  const gridH = rows * size + (rows - 1) * KEYCHAIN_GAP_MM;
+  const x0 = (sheet.width - gridW) / 2 + size / 2;
+  const y0 = (sheet.height - gridH) / 2 + size / 2;
+  const items = [];
+  for (let i = 0; i < perSheet; i++) {
+    items.push({ x: r2(x0 + (i % cols) * pitch), y: r2(y0 + Math.floor(i / cols) * pitch) });
+  }
+  return {
+    ...base, quantity, sheets, perSheet, total: sheets * perSheet, spare: sheets * perSheet - quantity, items, fits: true,
+  };
+}
+
+/** A circle as SVG path data: four quarter arcs, clockwise from the top. */
+export function circlePath(cx, cy, r) {
+  const [x, y, q] = [r3(cx), r3(cy), r3(r)];
+  const a = (ex, ey) => `A ${q} ${q} 0 0 1 ${r3(ex)} ${r3(ey)}`;
+  return `M ${x} ${r3(cy - r)} ${a(cx + r, cy)} ${a(cx, cy + r)} ${a(cx - r, cy)} ${a(cx, cy - r)} Z`;
+}
+
+/**
+ * The design's resolution on the keychain: its biggest picture's pixels against the
+ * millimetres they cover once the circle is the keychain's size. Null for a design
+ * with no picture in it (all vector), which has no resolution to worry about.
+ *
+ * @param images  from pageImages: [{ pxW, pxH, fracW, fracH }]
+ * @param pageMm  { width, height } of the page
+ * @param circleR the design's radius on the page, mm
+ */
+export function keychainDpi(images, pageMm, circleR, sizeMm) {
+  if (!images?.length || !(circleR > 0)) return null;
+  const scale = sizeMm / (2 * circleR);
+  const dpis = images.map((im) => Math.min(
+    im.pxW / ((im.fracW * pageMm.width * scale) / 25.4),
+    im.pxH / ((im.fracH * pageMm.height * scale) / 25.4),
+  ));
+  return Math.round(Math.min(...dpis));
+}

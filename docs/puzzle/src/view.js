@@ -4,6 +4,7 @@
 
 import { CORNER_MM } from './geom/poster.js';
 import { borderPath } from './geom/puzzle.js';
+import { circlePath } from './geom/keychain.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_ZOOM = 16;
@@ -162,6 +163,86 @@ export class View {
       this.svg.append(cut);
     }
     this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
+  }
+
+  /**
+   * One keychain, close up (the Keychain UV tab, Boss, 17 Nov 2026): its picture with the
+   * bleed, the blue line where the print stops, the red cut, and the hole, which can be
+   * dragged. Millimetres from the keychain's centre.
+   *
+   * @param o { sizeMm, bleedMm, holeR, hole: { dx, dy }, imageUrl, clear, fitKey,
+   *          onHoleMove(x, y) -> { dx, dy } where the hole may go, onHoleDone() }
+   */
+  renderKeychain(o) {
+    const R = o.sizeMm / 2;
+    const RB = R + o.bleedMm;
+    const m = RB * 0.2;
+    this.showBox({ x: -RB - m, y: -RB - m, w: 2 * (RB + m), h: 2 * (RB + m) }, o.fitKey);
+    const defs = shadowDefs(2 * RB);
+    const clip = el('clipPath', { id: 'keychainBleed' });
+    clip.append(el('circle', { cx: 0, cy: 0, r: RB }));
+    defs.append(clip);
+    this.svg.replaceChildren(defs);
+
+    // The sheet it is cut from, white or clear.
+    const s = RB + m * 0.55;
+    this.svg.append(el('rect', {
+      x: -s, y: -s, width: 2 * s, height: 2 * s, rx: 1.5, ry: 1.5,
+      fill: o.clear ? '#cfe3e8' : '#fbfbf8', filter: 'url(#boardShadow)',
+    }));
+    if (o.imageUrl) {
+      const g = el('g', { 'clip-path': 'url(#keychainBleed)' });
+      g.append(el('image', {
+        href: o.imageUrl, x: -RB, y: -RB, width: 2 * RB, height: 2 * RB, preserveAspectRatio: 'none',
+      }));
+      this.svg.append(g);
+    } else {
+      this.svg.append(el('circle', { cx: 0, cy: 0, r: RB, fill: '#eef1f4' }));
+    }
+    this.svg.append(hairline(circlePath(0, 0, RB), '#1259d8'));
+    this.svg.append(hairline(circlePath(0, 0, R), CUT_RED));
+
+    // The hole: cut through, no ink, so it is drawn dark. The grip round it is bigger
+    // than the hole, for a finger.
+    const hole = el('g', { class: 'keychain-hole' });
+    const disc = el('circle', {
+      cx: o.hole.dx, cy: o.hole.dy, r: o.holeR, fill: '#3b3f45',
+      stroke: CUT_RED, 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke',
+    });
+    const grip = el('circle', {
+      cx: o.hole.dx, cy: o.hole.dy, r: Math.max(o.holeR * 2.4, R * 0.1), fill: 'transparent', class: 'hole-grip',
+    });
+    hole.append(disc, grip);
+    this.svg.append(hole);
+    if (!o.onHoleMove) return;
+    grip.addEventListener('pointerdown', (e) => {
+      // Its own drag: the stage must not pan underneath it.
+      e.stopPropagation();
+      e.preventDefault();
+      const ctm = this.svg.getScreenCTM();
+      if (!ctm) return;
+      const inv = ctm.inverse();
+      grip.setPointerCapture(e.pointerId);
+      hole.classList.add('dragging');
+      const move = (ev) => {
+        const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(inv);
+        const at = o.onHoleMove(p.x, p.y);
+        for (const c of [disc, grip]) {
+          c.setAttribute('cx', at.dx);
+          c.setAttribute('cy', at.dy);
+        }
+      };
+      const end = () => {
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', end);
+        grip.removeEventListener('pointercancel', end);
+        hole.classList.remove('dragging');
+        o.onHoleDone?.();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+    });
   }
 
   /** The job sheet, drawn from the same description the PDF is written from. */

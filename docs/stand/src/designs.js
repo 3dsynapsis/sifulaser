@@ -34,6 +34,7 @@ export const TOOLS = {
   plakbox: { name: 'Plak Box', path: '/plakbox/' },
   tray: { name: 'Tray Organizer', path: '/tray/' },
   uvfile: { name: 'UV File Generator', path: '/uvfile/' },
+  keychainuv: { name: 'Keychain UV File Generator', path: '/keychainuv/' },
 };
 
 /** The tool this copy of the gallery is running inside. */

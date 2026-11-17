@@ -115,5 +115,42 @@ const panelLayers = (await PDFDocument.load(panelPrint)).catalog.lookup(PDFName.
   .lookup(PDFName.of('OCGs'), PDFArray);
 check('fail print panel ada tiga layer', panelLayers.size() === 3, panelLayers.size());
 
+// Keychain UV File Generator (bos, 17 Nov 2026): tab /keychainuv/ jalan atas kod yang
+// sama. Keychain bulat 4/5/6 cm atas sheet template FRONT medal, lubang 2 mm.
+console.log('Keychain UV File Generator: sheet keychain');
+const kc = await imp('puzzle/src/geom/keychain.js');
+const { buildKeychainSheet } = await imp('puzzle/src/exportJobSheet.js');
+const { buildLayeredPrint } = await imp('puzzle/src/posterPdf.js');
+const kecil = kc.layoutKeychains({ sizeMm: 50, sheet: 'kecil' });
+check('5 cm atas Kecil 490 x 740: 84 keychain (7 x 12)', kecil.capacity === 84 && kecil.cols === 7, kecil.capacity);
+check('5 cm atas Besar 550 x 850: 104', kc.layoutKeychains({ sizeMm: 50, sheet: 'besar' }).capacity === 104);
+check('100 keychain atas Kecil: 2 sheet x 50', (() => {
+  const q = kc.layoutKeychains({ sizeMm: 50, sheet: 'kecil', quantity: 100 });
+  return q.sheets === 2 && q.perSheet === 50;
+})());
+check('tiada bleed bawah tape 15 mm', kecil.items.every((it) => it.x - 27 >= 15 && it.y - 27 >= 15
+  && 490 - it.x - 27 >= 15 && 740 - it.y - 27 >= 15));
+const kcHole = kc.holeOffset({ angle: 0, inset: 2 }, 50);
+check('lubang 2 mm, tengahnya 2 mm dari tepi atas', kcHole.dx === 0 && kcHole.dy === -23);
+const kcSheet = buildKeychainSheet(kecil, { material: 'Acrylic Putih 3mm', hole: kcHole });
+check('lubang dulu, keychain, frame sheet last', kcSheet.paths.map((p) => p.id).join() === 'holes,keychains,sheet');
+check('label material dan PCS', kcSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|84 PCS, 1 SHEET');
+const kcCut = brandFile('keychain-cut-50mm-kecil.pdf', 'application/pdf', new TextEncoder().encode(sheetToPdf(kcSheet)));
+check('fail cut keychain dapat jenama', new TextDecoder('latin1').decode(kcCut.data).includes('/sifulaser-brand'));
+const { rgbaToCmyk, encodeCmykJpeg } = await imp('puzzle/src/cmykJpeg.js');
+const kcJpg = encodeCmykJpeg(rgbaToCmyk(new Uint8ClampedArray(8 * 8 * 4).fill(180), 64), 8, 8, 90);
+const kcPrint = await buildLayeredPrint(kecil.sheet, kecil.items.map((it) => ({
+  jpg: kcJpg,
+  box: { x: it.x - 27, y: it.y - 27, width: 54, height: 54 },
+  shape: { cx: it.x, cy: it.y, r: 27, hole: { cx: it.x + kcHole.dx, cy: it.y + kcHole.dy, r: 1 } },
+})));
+const kcPrintDoc = await PDFDocument.load(kcPrint);
+check('fail print keychain sebesar sheet', Math.abs(kcPrintDoc.getPage(0).getWidth() * toMm - 490) < 0.01);
+check('fail print keychain ada tiga layer', kcPrintDoc.catalog.lookup(PDFName.of('OCProperties'), PDFDict)
+  .lookup(PDFName.of('OCGs'), PDFArray).size() === 3);
+const kcBranded = brandFile('keychain-print-50mm-kecil.pdf', 'application/pdf', kcPrint);
+check('fail print keychain tidak berubah sebait',
+  kcBranded.data.length === kcPrint.length && kcBranded.data.every((b, i) => b === kcPrint[i]));
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 if (fail) process.exit(1);

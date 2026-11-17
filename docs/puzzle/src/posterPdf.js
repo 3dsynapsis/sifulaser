@@ -194,6 +194,76 @@ export async function pagePicture(page, art, box, turn = 0) {
   return { jpg, dpi: Math.round(width / (box.width / 25.4)) };
 }
 
+// ---- the Keychain UV tab (Boss, 17 Nov 2026) --------------------------------------
+
+/**
+ * A page drawn whole as pixels, its long side `maxPx`: what the keychain tab looks at to
+ * find the design's circle and its border line.
+ * @returns { rgba, width, height, mmPerPx }
+ */
+export async function pageRaster(page, maxPx) {
+  const view = page.getViewport({ scale: 1 });
+  const scale = maxPx / Math.max(view.width, view.height);
+  const viewport = page.getViewport({ scale });
+  const surface = workingCanvas(Math.round(viewport.width), Math.round(viewport.height));
+  if (!surface) throw Object.assign(new Error('No canvas'), { code: 'canvas' });
+  try {
+    await page.render({
+      canvasContext: surface.ctx, viewport, intent: 'print', annotationMode: 0,
+    }).promise;
+    const { width, height } = surface.canvas;
+    return {
+      rgba: surface.ctx.getImageData(0, 0, width, height).data, width, height, mmPerPx: 25.4 / 72 / scale,
+    };
+  } finally {
+    surface.canvas.width = 0;
+  }
+}
+
+/**
+ * One keychain's picture: a square the size of the keychain and its bleed, the design's
+ * circle filling the keychain, and the bleed finished as geom/keychain.js says (made from
+ * the edge colour where the design has none, a thin border line taken out).
+ *
+ * @param page pdf.js page
+ * @param o    { circle: { cx, cy, r } mm on the page, sizeMm, bleedMm, kind, border,
+ *             removeBorder }
+ * @param mode 'print': a 300 dpi CMYK JPEG, { jpg, dpi }. 'preview': an RGB JPEG of
+ *             `px` pixels as an object URL, { url }.
+ */
+export async function keychainPicture(page, o, { mode = 'print', px: previewPx = 900 } = {}) {
+  const side = o.sizeMm + 2 * o.bleedMm;
+  const px = mode === 'print' ? Math.round((side / 25.4) * PRINT_DPI) : previewPx;
+  const surface = workingCanvas(px, px);
+  if (!surface) throw Object.assign(new Error('No canvas'), { code: 'canvas' });
+  let pixels;
+  try {
+    const view = page.getViewport({ scale: 1 });
+    const scale = (o.sizeMm / 2) / o.circle.r;     // keychain mm per page mm
+    const perMm = px / side;
+    const k = (25.4 / 72) * scale * perMm;          // canvas pixels per page point
+    await page.render({
+      canvasContext: surface.ctx,
+      viewport: view,
+      transform: [k, 0, 0, k, px / 2 - o.circle.cx * scale * perMm, px / 2 - o.circle.cy * scale * perMm],
+      intent: 'print',
+      annotationMode: 0,
+    }).promise;
+    const image = surface.ctx.getImageData(0, 0, px, px);
+    pixels = image.data;
+    const { bleedPlan, bleedOut } = await import('./geom/keychain.js');
+    bleedOut(pixels, px, px, bleedPlan({ ...o, px }));
+    if (mode !== 'print') {
+      surface.ctx.putImageData(image, 0, 0);
+      const blob = await new Promise((resolve) => { surface.canvas.toBlob(resolve, 'image/jpeg', 0.9); });
+      return { url: URL.createObjectURL(blob) };
+    }
+  } finally {
+    surface.canvas.width = 0;
+  }
+  return { jpg: await toCmykJpeg(pixels, px, px), dpi: PRINT_DPI };
+}
+
 // ---- RGB pixels to a CMYK JPEG, in a worker ------------------------------------
 
 const JPEG_QUALITY = 92;
@@ -344,6 +414,11 @@ export function buildCardPrintPdf(layout, resolve, opts = {}) {
  *                   printed of it, and `turn` how far it is turned clockwise, 0 or a
  *                   multiple of 90. A page bigger than its box is clipped to it.
  *                   Either way the Spot white and the no-ink base fill `box`.
+ *                   A picture may also carry `shape`: { cx, cy, r, hole: { cx, cy, r } },
+ *                   mm, a disc with a hole through it (the Keychain UV tab, Boss, 17 Nov
+ *                   2026). Then the picture is clipped to it, and the white and the base
+ *                   fill it instead of the box: no ink outside the bleed, none in the hole.
+ *                   Placements given the same jpg share one copy of it in the file.
  */
 export async function buildLayeredPrint(size, placements, { title } = {}) {
   const {
@@ -392,6 +467,27 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     PDFNumber.of(r.width * MM_TO_PT), PDFNumber.of(r.height * MM_TO_PT));
   const same = (a, b) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 
+  // A circle as four curves, mm from the top-left, in page points.
+  const KAPPA = 0.5522847498;
+  const num = (v) => PDFNumber.of(Math.round(v * 1000) / 1000);
+  const circle = (cMm, rMm) => {
+    const x = cMm.cx * MM_TO_PT;
+    const y = pageH - cMm.cy * MM_TO_PT;
+    const r = rMm * MM_TO_PT;
+    const k = r * KAPPA;
+    return [
+      op('m', num(x), num(y + r)),
+      op('c', num(x + k), num(y + r), num(x + r), num(y + k), num(x + r), num(y)),
+      op('c', num(x + r), num(y - k), num(x + k), num(y - r), num(x), num(y - r)),
+      op('c', num(x - k), num(y - r), num(x - r), num(y - k), num(x - r), num(y)),
+      op('c', num(x - r), num(y + k), num(x - k), num(y + r), num(x), num(y + r)),
+      op('h'),
+    ];
+  };
+  // The disc and its hole together; filled or clipped even-odd, the hole stays empty.
+  const shapePath = (s) => [...circle(s, s.r), ...(s.hole ? circle(s.hole, s.hole.r) : [])];
+  const fillArea = (p) => (p.shape ? [...shapePath(p.shape), op('f*')] : [rect(p.box), op('f')]);
+
   // Each Spot with overprint on, so Spot 1 leaves Spot 2's plate whole, and either one
   // painted over the poster leaves the poster's plates whole.
   const paintSpots = () => {
@@ -403,7 +499,7 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
         op('cs', name(s.key)),
         op('scn', PDFNumber.of(1)),
       );
-      for (const p of placements) page.pushOperators(rect(p.box), op('f'));
+      for (const p of placements) page.pushOperators(...fillArea(p));
       page.pushOperators(op('Q'), op('EMC'));
     }
   };
@@ -413,17 +509,19 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
   if (spotsUnder) paintSpots();
   page.pushOperators(op('BDC', name('OC'), name('Art')), op('q'));
   if (spotsUnder) page.pushOperators(op('gs', name('Overprint')));
-  const noInkBase = (box) => page.pushOperators(
+  const noInkBase = (p) => page.pushOperators(
     op('k', PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)),
-    rect(box),
-    op('f'),
+    ...fillArea(p),
   );
   const embedded = new Map();   // doc -> page index -> embedded page, each one once
+  const pictures = new Map();   // jpg -> embedded picture, each one once
   for (const p of placements) {
     if (p.jpg) {
-      const picture = await out.embedJpg(p.jpg);
+      if (!pictures.has(p.jpg)) pictures.set(p.jpg, await out.embedJpg(p.jpg));
+      const picture = pictures.get(p.jpg);
       page.pushOperators(op('q'));
-      noInkBase(p.box);
+      if (p.shape) page.pushOperators(...shapePath(p.shape), op('W*'), op('n'));
+      noInkBase(p);
       page.drawImage(picture, {
         x: p.box.x * MM_TO_PT,
         y: pageH - (p.box.y + p.box.height) * MM_TO_PT,
@@ -447,7 +545,7 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     }
     page.pushOperators(op('q'));
     if (!same(p.box, p.art)) page.pushOperators(rect(p.box), op('W'), op('n'));
-    noInkBase(p.box);
+    noInkBase(p);
 
     const artW = p.art.width * MM_TO_PT;
     const artH = p.art.height * MM_TO_PT;

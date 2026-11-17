@@ -665,3 +665,11 @@ input[type="date"] { color-scheme: light dark; }
 .heavy-note p:last-child { margin: 0; }
 .heavy-note b { overflow-wrap: anywhere; }
 @media (prefers-color-scheme: dark) { .heavy-note { background: #3a2e14; color: #f2c96b; } }
+
+/* ---- Keychain UV tab (Boss, 17 Nov 2026) ------------------------------------- */
+/* Two sheets to pick from: Kecil and Besar. */
+.presets.two { grid-template-columns: repeat(2, 1fr); }
+/* The hole on the keychain preview is dragged to where it goes. */
+.keychain-hole .hole-grip { cursor: grab; touch-action: none; }
+.keychain-hole.dragging .hole-grip { cursor: grabbing; }
+.field select { width: 100%; }

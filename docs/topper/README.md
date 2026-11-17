@@ -72,3 +72,10 @@ senyap.
 supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
 Sama seperti di atas: salin baris itu ke projek sumber sebelum menyalin semula alat
 ini, kalau tidak ia hilang senyap.
+
+## Perubahan terus: Keychain UV File Generator dalam galeri (17 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `keychainuv` (Keychain UV File Generator,
+`/keychainuv/`) supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk
+saya" di sini. Salin baris itu ke projek sumber sebelum menyalin semula alat ini,
+kalau tidak ia hilang senyap.

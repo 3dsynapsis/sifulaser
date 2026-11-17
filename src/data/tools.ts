@@ -29,6 +29,7 @@ import {
   ClipboardCheck,
   Crosshair,
   House,
+  Key,
   KeyRound,
   Layers,
   LayoutGrid,
@@ -416,6 +417,38 @@ export const TOOLS: ToolEntry[] = [
       'cetak',
     ],
     Icon: Layers,
+  },
+
+  {
+    // Bos, 17 Nov 2026: design keychain bulat pelanggan (PDF, biasanya gambar atas page
+    // putih tanpa bleed) jadi satu sheet keychain: cari bulatan design, bleed 2 mm dari
+    // warna tepi, garis border nipis di tepi dibuang, lubang 2 mm, susun atas sheet
+    // template FRONT medal (Kecil 490 x 740, Besar 550 x 850). Kod Puzzle Generator.
+    title: 'Keychain UV File Generator',
+    shortDescription: 'Design keychain bulat jadi file cut dan UV.',
+    description:
+      'Masukkan PDF design keychain bulat dan dapat sheet keychain 4, 5 atau 6 cm dengan bleed 2 mm dan lubang 2 mm: file cut laser, dan file print UV CMYK dengan Spot 1 dan Spot 2 (white) untuk FlexiPRINT.',
+    href: '#/keychainuv',
+    group: 'fail',
+    variant: 'icon',
+    keywords: [
+      'keychain',
+      'kunci',
+      'uv print',
+      'uv',
+      'flexiprint',
+      'spot',
+      'white',
+      'bleed',
+      'lubang',
+      'bulat',
+      'cmyk',
+      'akrilik',
+      'acrylic',
+      'pdf',
+      'cetak',
+    ],
+    Icon: Key,
   },
 
   // ---- 4. BELAJAR LEBIH ----

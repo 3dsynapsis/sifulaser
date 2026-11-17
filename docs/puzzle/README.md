@@ -20,6 +20,7 @@ node "$SRC/tools/stamp-version.js"
 cp "$SRC/index.html" "$SRC/styles.css" docs/puzzle/
 cp -r "$SRC/src" "$SRC/vendor" docs/puzzle/
 cp "$SRC/uvfile/index.html" docs/uvfile/index.html
+mkdir -p docs/keychainuv && cp "$SRC/keychainuv/index.html" docs/keychainuv/index.html
 ```
 
 Jangan salin `tools/` atau `package.json` — hanya diperlukan semasa pembangunan.
@@ -251,3 +252,30 @@ dan `/puzzle/src/uvMain.js` dari folder ini. Jadi:
 Draft dan PDF tab UV disimpan dalam IndexedDB berasingan (`sifulaser-uvfile`),
 dan rekod akaun guna TOOL `'uvfile'`, jadi kerja dua tab tidak bercampur.
 Ujian: `node scripts/test-puzzle-poster.mjs` (bahagian panel UV).
+
+## Keychain UV File Generator (17 November 2026)
+
+Tab baharu `sifulaser.com/keychainuv/` (halaman React `#/keychainuv`). Masukkan PDF
+design keychain bulat; tool ini:
+
+- cari bulatan design dalam PDF sendiri (file pelanggan biasanya gambar bulat atas
+  page putih, tiada bleed dan tiada garis cut) - `src/geom/keychain.js`;
+- buat bleed 2 mm dengan menyambung warna tepi design keluar, bila file tiada bleed
+  (bos pilih cara ini, bukan besarkan design atau cut ke dalam);
+- buang garis border nipis di tepi design (dihidupkan sendiri bila dijumpai): print dan
+  cut tak pernah tepat, dan garis 0.4 mm di tepi nampak tebal sebelah dan hilang
+  sebelah bila lari 0.5 mm;
+- lubang 2 mm, tengahnya 2 mm dari tepi di atas (titik merah bos), boleh diseret;
+- saiz 4, 5, 6 cm; susun atas sheet template FRONT medal bos: Kecil 490 x 740 atau
+  Besar 550 x 850 mm, jarak 9 mm garis cut ke garis cut, 15 mm masking tape di tepi.
+  Kuantiti lebih dari satu sheet dibahagi sama rata supaya semua sheet guna file sama;
+- file cut: lubang dulu, keychain, frame sheet last, label material dan "N PCS, N SHEET";
+- file print UV: satu gambar CMYK 300 dpi dikongsi semua keychain, Spot 1 dan Spot 2
+  di bawah, setiap keychain bulat dengan lubang kosong (`buildLayeredPrint` terima
+  `shape`), dan Preview, File print menyemak layer pada setiap bulatan.
+
+Ia juga **tiada kod sendiri** di luar folder ini: `docs/keychainuv/index.html` memuatkan
+`/puzzle/styles.css` dan `/puzzle/src/keychainMain.js`. IndexedDB `sifulaser-keychainuv`,
+TOOL akaun `'keychainuv'`. Nama `keychain` sudah dipakai oleh Keychain Generator.
+Ujian: `npm test` di projek sumber (`tools/test-keychain.js`) dan
+`node scripts/test-puzzle-poster.mjs` di sini. **Belum diuji di mesin sebenar.**
