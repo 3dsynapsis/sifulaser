@@ -25,7 +25,7 @@ import { parsePath, pathToOps, byteLength } from './exportPdf.js';
 import { borderPath } from './geom/puzzle.js';
 import { FRAME_MM, CORNER_MM } from './geom/poster.js';
 import { CARD_CORNER_MM } from './geom/cards.js';
-import { circlePath, HOLE_DIAMETER_MM } from './geom/keychain.js';
+import { circlePath, unionPath, HOLE_DIAMETER_MM } from './geom/keychain.js';
 
 const MM_TO_PT = 72 / 25.4;
 const PAGE_W = 1200;
@@ -231,8 +231,9 @@ export function buildPanelSheet(plan, meta = {}) {
  * CorelDRAW template, so the laser lines the job up on the sheet.
  *
  * @param layout result of layoutKeychains
- * @param meta   { client, dateline, material, hole: { dx, dy } }: the hole's centre from
- *               each keychain's centre, mm
+ * @param meta   { client, dateline, material, hole: { dx, dy }, hookR }: the hole's centre
+ *               from each keychain's centre, mm; hookR, a hook's radius round that hole
+ *               (Boss, 17 Nov 2026), makes each outline the keychain and its hook in one
  */
 export function buildKeychainSheet(layout, meta = {}) {
   const { sheet, sizeMm, items } = layout;
@@ -254,13 +255,19 @@ export function buildKeychainSheet(layout, meta = {}) {
     {
       id: 'keychains',
       stroke: 'hair',
-      d: items.map((it) => circlePath(at(it).x, at(it).y, sizeMm / 2)).join(' '),
+      d: items.map((it) => {
+        const c = { cx: at(it).x, cy: at(it).y, r: sizeMm / 2 };
+        return meta.hookR
+          ? unionPath(c, { cx: c.cx + hole.dx, cy: c.cy + hole.dy, r: meta.hookR })
+          : circlePath(c.cx, c.cy, c.r);
+      }).join(' '),
     },
     { id: 'sheet', stroke: 'cut', d: translatePath(rectPath(sheet.width, sheet.height), xs, PART_TOP) },
   ];
   const texts = [];
   jobHead(texts, width, meta,
-    `KEYCHAIN UV ${sizeMm / 10} cm, lubang ${HOLE_DIAMETER_MM} mm, sheet ${sheet.label} ${sheet.width} x ${sheet.height} mm`);
+    `KEYCHAIN UV ${sizeMm / 10} cm${meta.hookR ? ' HOOK' : ''}, lubang ${HOLE_DIAMETER_MM} mm, `
+    + `sheet ${sheet.label} ${sheet.width} x ${sheet.height} mm`);
   // What the laser operator is told (Boss, 17 Nov 2026): how many on a sheet, and how
   // many times to cut this same file.
   partLabel(texts, [material, `${layout.perSheet} PCS SATU SHEET`, `CUT ${layout.sheets} KALI`],

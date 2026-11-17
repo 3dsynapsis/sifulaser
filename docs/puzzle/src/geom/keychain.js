@@ -17,6 +17,10 @@
 //     edge, which left 1 mm of acrylic: too close, said Boss, so 1.5 mm it is (centre
 //     2.5 mm in), and no hole is dragged any closer. Otherwise it can go anywhere on the
 //     keychain.
+//   * Or a hook (Boss, 17 Nov 2026): a small round tab on the edge with the hole in it,
+//     as on his "Lc Zahidah keychain" file, measured there: the tab a circle of 3.07 mm
+//     round a 2.09 mm hole, its centre right on the body's edge, joined with no fillet.
+//     Here the same 2 mm hole with 2 mm of acrylic round it, a 3 mm tab.
 //   * The sheets are the medal FRONT templates Boss uses in CorelDRAW, Kecil 490 x 740
 //     and Besar 550 x 850 mm, and smaller ones, Mini 300 x 400 or any size Boss types,
 //     because a big UV print lands off at its top and left. Keychains stand 7 mm apart
@@ -302,11 +306,13 @@ export function bleedOut(rgba, width, height, o) {
 /**
  * How the picture of one keychain is finished, in its own pixels.
  *
- * @param o { px: picture side, sizeMm, bleedMm, kind, border, removeBorder }
+ * @param o { px: picture side, sizeMm, bleedMm, reachMm, kind, border, removeBorder }
  * @returns the bleedOut options, or null when the design already runs past the cut
  */
 export function bleedPlan(o) {
-  const perMm = o.px / (o.sizeMm + 2 * o.bleedMm);
+  // The picture is a square round the keychain's centre, half of it `reachMm` across:
+  // the cut and its bleed, or more where a hook stands out past them.
+  const perMm = o.px / (2 * (o.reachMm ?? o.sizeMm / 2 + o.bleedMm));
   const c = o.px / 2;
   const cut = (o.sizeMm / 2) * perMm;
   if (o.kind === 'circle') {
@@ -359,6 +365,76 @@ export function holeFromPoint(dx, dy, sizeMm) {
 /** Acrylic left between the hole and the edge, mm. */
 export const holeWall = (hole, sizeMm) => r2(cleanHole(hole, sizeMm).inset - HOLE_R);
 
+// ---- the hook (Boss, 17 Nov 2026) ----------------------------------------------------
+
+export const KEYCHAIN_TYPES = [
+  { id: 'hole', label: 'Biasa', note: 'lubang dalam bulatan' },
+  { id: 'hook', label: 'Hook', note: 'telinga di tepi, lubang di dalamnya' },
+];
+export const keychainType = (id) => (KEYCHAIN_TYPES.some((t) => t.id === id) ? id : 'hole');
+export const HOOK_WALL_MM = 2;                // acrylic round the hole in the tab
+export const HOOK_R = HOLE_R + HOOK_WALL_MM;  // the tab's radius, 3 mm
+
+/** The hook's centre, and its hole's, from the keychain's centre: on the cut line. */
+export function hookOffset(hole, sizeMm) {
+  const angle = cleanHole(hole, sizeMm).angle;
+  const t = (angle * Math.PI) / 180;
+  return { dx: r3((sizeMm / 2) * Math.sin(t)), dy: r3((-sizeMm / 2) * Math.cos(t)) };
+}
+
+/**
+ * The outline of a disc with a smaller one standing out over its edge, as SVG path data:
+ * the body's arc the long way round, then the small disc's arc outside it, clockwise. No
+ * fillet where they meet, as in Boss's file. Arcs go in pieces of a quarter turn at most.
+ * A small disc wholly inside the body leaves the body's own circle.
+ *
+ * @param c { cx, cy, r } the body
+ * @param t { cx, cy, r } the tab
+ */
+export function unionPath(c, t) {
+  const dx = t.cx - c.cx;
+  const dy = t.cy - c.cy;
+  const d = Math.hypot(dx, dy);
+  if (d + t.r <= c.r || d === 0) return circlePath(c.cx, c.cy, c.r);
+  const at = (o, r, phi) => [o.cx + r * Math.cos(phi), o.cy + r * Math.sin(phi)];
+  const arc = (o, r, from, to) => {   // clockwise on screen: the angle grows, y down
+    const n = Math.max(1, Math.ceil((to - from) / (Math.PI / 2) - 1e-9));
+    const parts = [];
+    for (let k = 1; k <= n; k++) {
+      const [x, y] = at(o, r, from + ((to - from) * k) / n);
+      parts.push(`A ${r3(r)} ${r3(r)} 0 0 1 ${r3(x)} ${r3(y)}`);
+    }
+    return parts.join(' ');
+  };
+  const toward = Math.atan2(dy, dx);
+  const a = (c.r * c.r - t.r * t.r + d * d) / (2 * d);
+  const half = Math.acos(clamp(a / c.r, -1, 1));
+  const b1 = toward + half;                 // where the tab leaves the body, going round
+  const b2 = toward - half + 2 * Math.PI;   // and where it comes back, the long way
+  const [p1x, p1y] = at(c, c.r, b1);
+  const [p2x, p2y] = at(c, c.r, b2);
+  const s2 = Math.atan2(p2y - t.cy, p2x - t.cx);
+  let s1 = Math.atan2(p1y - t.cy, p1x - t.cx);
+  while (s1 <= s2) s1 += 2 * Math.PI;
+  return `M ${r3(p1x)} ${r3(p1y)} ${arc(c, c.r, b1, b2)} ${arc(t, t.r, s2, s1)} Z`;
+}
+
+/**
+ * What one keychain takes on the sheet, from its centre: the box round its cut line,
+ * a hook included. The sheet is laid out by these, so neighbours stay a gap apart.
+ */
+export function keychainFootprint(sizeMm, type, hole) {
+  const R = sizeMm / 2;
+  if (keychainType(type) !== 'hook') return { minX: -R, minY: -R, maxX: R, maxY: R };
+  const o = hookOffset(hole, sizeMm);
+  return {
+    minX: Math.min(-R, o.dx - HOOK_R),
+    minY: Math.min(-R, o.dy - HOOK_R),
+    maxX: Math.max(R, o.dx + HOOK_R),
+    maxY: Math.max(R, o.dy + HOOK_R),
+  };
+}
+
 // ---- the sheet ---------------------------------------------------------------------------
 
 /**
@@ -367,19 +443,24 @@ export const holeWall = (hole, sizeMm) => r2(cleanHole(hole, sizeMm).inset - HOL
  * evenly over as few sheets as it needs, so every sheet takes the same two files: 100
  * on Kecil (96 a sheet) is two sheets of 50, not 96 and 4.
  *
- * @param o { sizeMm, sheet: id, custom: { width, height }, quantity }: quantity left
- *          out is one full sheet; custom is the size of a 'custom' sheet
+ * @param o { sizeMm, sheet: id, custom: { width, height }, quantity, type, hole }:
+ *          quantity left out is one full sheet; custom is the size of a 'custom' sheet;
+ *          type 'hook' makes room for the hook where `hole` puts it
  * @returns { sheet, sizeMm, cols, rows, capacity, quantity, sheets, perSheet, total,
  *            spare, items: [{ x, y }] centres in mm from the sheet's top-left, fits }
  */
 export function layoutKeychains(o) {
   const sheet = keychainSheet(o.sheet, o.custom);
   const size = keychainSize(o.sizeMm);
-  const pitch = size + KEYCHAIN_GAP_MM;
+  const fp = keychainFootprint(size, o.type, o.hole);
+  const boxW = fp.maxX - fp.minX;
+  const boxH = fp.maxY - fp.minY;
+  const pitchX = boxW + KEYCHAIN_GAP_MM;
+  const pitchY = boxH + KEYCHAIN_GAP_MM;
   const margin = KEYCHAIN_EDGE_MM;   // sheet edge to cut line
-  const fitIn = (len) => Math.max(0, Math.floor((len - 2 * margin + KEYCHAIN_GAP_MM + 1e-9) / pitch));
-  const cols = fitIn(sheet.width);
-  const rows = fitIn(sheet.height);
+  const fitIn = (len, pitch) => Math.max(0, Math.floor((len - 2 * margin + KEYCHAIN_GAP_MM + 1e-9) / pitch));
+  const cols = fitIn(sheet.width, pitchX);
+  const rows = fitIn(sheet.height, pitchY);
   const capacity = cols * rows;
   const base = {
     sheet: { ...sheet }, sizeMm: size, cols, rows, capacity,
@@ -393,13 +474,13 @@ export function layoutKeychains(o) {
   const quantity = Number.isFinite(asked) && asked > 0 ? Math.min(asked, QUANTITY_MAX) : capacity;
   const sheets = Math.ceil(quantity / capacity);
   const perSheet = Math.ceil(quantity / sheets);
-  const gridW = cols * size + (cols - 1) * KEYCHAIN_GAP_MM;
-  const gridH = rows * size + (rows - 1) * KEYCHAIN_GAP_MM;
-  const x0 = (sheet.width - gridW) / 2 + size / 2;
-  const y0 = (sheet.height - gridH) / 2 + size / 2;
+  const gridW = cols * boxW + (cols - 1) * KEYCHAIN_GAP_MM;
+  const gridH = rows * boxH + (rows - 1) * KEYCHAIN_GAP_MM;
+  const x0 = (sheet.width - gridW) / 2 - fp.minX;
+  const y0 = (sheet.height - gridH) / 2 - fp.minY;
   const items = [];
   for (let i = 0; i < perSheet; i++) {
-    items.push({ x: r2(x0 + (i % cols) * pitch), y: r2(y0 + Math.floor(i / cols) * pitch) });
+    items.push({ x: r2(x0 + (i % cols) * pitchX), y: r2(y0 + Math.floor(i / cols) * pitchY) });
   }
   return {
     ...base, quantity, sheets, perSheet, total: sheets * perSheet, spare: sheets * perSheet - quantity, items, fits: true,

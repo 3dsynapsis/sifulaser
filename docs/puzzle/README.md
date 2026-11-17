@@ -267,6 +267,12 @@ design keychain bulat; tool ini:
   sebelah bila lari 0.5 mm;
 - lubang 2 mm di atas, tinggal 1.5 mm acrylic ke tepi (tengahnya 2.5 mm dari tepi; titik
   merah bos tinggal 1 mm, bos kata terlalu dekat), boleh diseret tapi tak lebih dekat;
+- jenis keychain **Hook** (bos, 17 November 2026): telinga bulat 6 mm di tepi dengan lubang
+  2 mm di tengahnya, 2 mm acrylic keliling lubang, tengahnya atas garis cut dan tiada
+  radius di sambungan, ikut ukuran file "Lc Zahidah keychain" (telinga 3.07 mm, lubang
+  2.09 mm). Garis cut keychain dan hook satu garis (`unionPath`); bleed dan white pun
+  ikut hook; hook boleh diseret untuk pusing ikut tepi; sheet susun ikut kotak keychain
+  dan hook (5 cm atas Mini masih 30);
 - saiz 4, 5, 6 cm; sheet Kecil 490 x 740 atau Besar 550 x 850 mm (saiz template FRONT
   medal bos), jarak 7 mm garis cut ke garis cut dan 7 mm dari tepi sheet ke garis cut.
   Keychain tiada masking tape, jadi muat sebanyak mungkin (bos, 17 November 2026;

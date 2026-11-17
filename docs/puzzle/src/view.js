@@ -4,7 +4,7 @@
 
 import { CORNER_MM } from './geom/poster.js';
 import { borderPath } from './geom/puzzle.js';
-import { circlePath } from './geom/keychain.js';
+import { circlePath, unionPath } from './geom/keychain.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_ZOOM = 16;
@@ -170,22 +170,30 @@ export class View {
    * bleed, the blue line where the print stops, the red cut, and the hole, which can be
    * dragged. Millimetres from the keychain's centre.
    *
-   * @param o { sizeMm, bleedMm, holeR, hole: { dx, dy }, imageUrl, clear, fitKey,
+   * A hook (`hookR`, Boss, 17 Nov 2026) is a small disc round the hole standing out over
+   * the edge: the cut and the bleed go round it, and dragging it turns it round the edge.
+   *
+   * @param o { sizeMm, bleedMm, holeR, hookR, hole: { dx, dy }, imageUrl, clear, fitKey,
    *          onHoleMove(x, y) -> { dx, dy } where the hole may go, onHoleDone() }
    */
   renderKeychain(o) {
     const R = o.sizeMm / 2;
     const RB = R + o.bleedMm;
-    const m = RB * 0.2;
-    this.showBox({ x: -RB - m, y: -RB - m, w: 2 * (RB + m), h: 2 * (RB + m) }, o.fitKey);
-    const defs = shadowDefs(2 * RB);
+    const reach = RB + (o.hookR || 0);
+    const outline = (r, hole, extra) => (o.hookR
+      ? unionPath({ cx: 0, cy: 0, r }, { cx: hole.dx, cy: hole.dy, r: o.hookR + extra })
+      : circlePath(0, 0, r));
+    const m = reach * 0.2;
+    this.showBox({ x: -reach - m, y: -reach - m, w: 2 * (reach + m), h: 2 * (reach + m) }, o.fitKey);
+    const defs = shadowDefs(2 * reach);
     const clip = el('clipPath', { id: 'keychainBleed' });
-    clip.append(el('circle', { cx: 0, cy: 0, r: RB }));
+    const clipShape = el('path', { d: outline(RB, o.hole, o.bleedMm) });
+    clip.append(clipShape);
     defs.append(clip);
     this.svg.replaceChildren(defs);
 
     // The sheet it is cut from, white or clear.
-    const s = RB + m * 0.55;
+    const s = reach + m * 0.55;
     this.svg.append(el('rect', {
       x: -s, y: -s, width: 2 * s, height: 2 * s, rx: 1.5, ry: 1.5,
       fill: o.clear ? '#cfe3e8' : '#fbfbf8', filter: 'url(#boardShadow)',
@@ -193,14 +201,15 @@ export class View {
     if (o.imageUrl) {
       const g = el('g', { 'clip-path': 'url(#keychainBleed)' });
       g.append(el('image', {
-        href: o.imageUrl, x: -RB, y: -RB, width: 2 * RB, height: 2 * RB, preserveAspectRatio: 'none',
+        href: o.imageUrl, x: -reach, y: -reach, width: 2 * reach, height: 2 * reach, preserveAspectRatio: 'none',
       }));
       this.svg.append(g);
     } else {
-      this.svg.append(el('circle', { cx: 0, cy: 0, r: RB, fill: '#eef1f4' }));
+      this.svg.append(el('path', { d: outline(RB, o.hole, o.bleedMm), fill: '#eef1f4' }));
     }
-    this.svg.append(hairline(circlePath(0, 0, RB), '#1259d8'));
-    this.svg.append(hairline(circlePath(0, 0, R), CUT_RED));
+    const bleedLine = hairline(outline(RB, o.hole, o.bleedMm), '#1259d8');
+    const cutLine = hairline(outline(R, o.hole, 0), CUT_RED);
+    this.svg.append(bleedLine, cutLine);
 
     // The hole: cut through, no ink, so it is drawn dark. The grip round it is bigger
     // than the hole, for a finger.
@@ -230,6 +239,11 @@ export class View {
         for (const c of [disc, grip]) {
           c.setAttribute('cx', at.dx);
           c.setAttribute('cy', at.dy);
+        }
+        if (o.hookR) {
+          clipShape.setAttribute('d', outline(RB, at, o.bleedMm));
+          bleedLine.setAttribute('d', outline(RB, at, o.bleedMm));
+          cutLine.setAttribute('d', outline(R, at, 0));
         }
       };
       const end = () => {

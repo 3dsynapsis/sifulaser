@@ -88,18 +88,32 @@ export function coverage(rgba, width, height, areas) {
 /**
  * The same for discs with a hole through each (the Keychain UV tab, Boss, 17 Nov 2026):
  * how much of each disc a layer paints, the hole left out, and how much it paints
- * outside every disc or inside a hole. Discs are in pixels: { cx, cy, r, hole }.
+ * outside every disc or inside a hole. Discs are in pixels: { cx, cy, r, tab, hole }, a
+ * tab being the smaller disc of a hook, counted as part of its keychain.
  */
 export function discCoverage(rgba, width, height, discs) {
   const inside = discs.map(() => ({ hit: 0, all: 0 }));
   let painted = 0;
   let stray = 0;
   // Discs by grid cell, so a pixel is tried against its neighbours only.
-  const cell = Math.max(8, Math.ceil(2 * Math.max(...discs.map((d) => d.r)) + 4));
+  const box = (d) => {
+    const parts = [d, ...(d.tab ? [d.tab] : [])];
+    return {
+      x0: Math.min(...parts.map((q) => q.cx - q.r)) - 2,
+      x1: Math.max(...parts.map((q) => q.cx + q.r)) + 2,
+      y0: Math.min(...parts.map((q) => q.cy - q.r)) - 2,
+      y1: Math.max(...parts.map((q) => q.cy + q.r)) + 2,
+    };
+  };
+  const cell = Math.max(8, Math.ceil(Math.max(...discs.map((d) => {
+    const b = box(d);
+    return Math.max(b.x1 - b.x0, b.y1 - b.y0);
+  }))));
   const grid = new Map();
   discs.forEach((d, i) => {
-    for (let gx = Math.floor((d.cx - d.r - 2) / cell); gx <= Math.floor((d.cx + d.r + 2) / cell); gx++) {
-      for (let gy = Math.floor((d.cy - d.r - 2) / cell); gy <= Math.floor((d.cy + d.r + 2) / cell); gy++) {
+    const b = box(d);
+    for (let gx = Math.floor(b.x0 / cell); gx <= Math.floor(b.x1 / cell); gx++) {
+      for (let gy = Math.floor(b.y0 / cell); gy <= Math.floor(b.y1 / cell); gy++) {
         const key = `${gx},${gy}`;
         if (!grid.has(key)) grid.set(key, []);
         grid.get(key).push(i);
@@ -115,11 +129,15 @@ export function discCoverage(rgba, width, height, discs) {
       for (const i of grid.get(`${Math.floor(x / cell)},${Math.floor(y / cell)}`) || []) {
         const d = discs[i];
         const dd = Math.hypot(x + 0.5 - d.cx, y + 0.5 - d.cy);
-        if (dd > d.r + 1) continue;
+        const td = d.tab ? Math.hypot(x + 0.5 - d.tab.cx, y + 0.5 - d.tab.cy) : Infinity;
+        if (dd > d.r + 1 && !(td <= d.tab?.r + 1)) continue;
         const hd = d.hole ? Math.hypot(x + 0.5 - d.hole.cx, y + 0.5 - d.hole.cy) : Infinity;
         if (hd < d.hole?.r - 1) break;        // inside the hole: ink here is stray
         near = true;
-        if (dd < d.r - 1 && !(hd <= d.hole?.r + 1)) {
+        const within = dd < d.r - 1 || td < d.tab?.r - 1;
+        // Where disc and tab meet, the edge is soft too: leave a pixel round both.
+        const edge = Math.abs(dd - d.r) <= 1 || (d.tab && Math.abs(td - d.tab.r) <= 1);
+        if (within && !edge && !(hd <= d.hole?.r + 1)) {
           inside[i].all++;
           if (on) inside[i].hit++;
         }
@@ -188,7 +206,7 @@ export const judgeCards = (found, layout) => judgeBoxes(found, layout.cards.map(
  */
 export function judgeDiscs(found, discs) {
   const out = [namesLine(found.names)];
-  const across = discs.length ? `${r1(2 * discs[0].r)} mm` : '';
+  const across = discs.length ? `${r1(2 * discs[0].r)} mm${discs[0].tab ? ' dan hook' : ''}` : '';
   for (const name of [ART_LAYER, ...SPOT_LAYERS]) {
     const cov = found.coverage?.[name];
     const what = name === ART_LAYER ? 'gambar' : 'white';
@@ -273,7 +291,7 @@ async function renderAlone(doc, page, groups, id, viewport) {
  * @param bytes the PDF; handed to PDF.js, so the caller must not use it afterwards
  * @param areas optional [{ x, y, width, height }] in mm: also measure how much of each
  *              every layer fills, and how much it paints outside them
- * @param discs optional [{ cx, cy, r, hole: { cx, cy, r } }] in mm, measured the same
+ * @param discs optional [{ cx, cy, r, tab, hole }] in mm (tab and hole { cx, cy, r }), measured the same
  *              way instead of areas (the Keychain UV tab)
  * @returns { names, boxes, coverage, layers: { [layer]: { url } }, tolMm }
  *          url is a PNG of the whole page with only that layer, tinted for Spot layers
@@ -297,7 +315,9 @@ export async function inspectPrint(lib, bytes, areas = null, discs = null) {
       x: a.x / mmPerPx, y: a.y / mmPerPx, w: a.width / mmPerPx, h: a.height / mmPerPx,
     }));
     const px = (c) => ({ cx: c.cx / mmPerPx, cy: c.cy / mmPerPx, r: c.r / mmPerPx });
-    const pxDiscs = discs && discs.map((d) => ({ ...px(d), hole: d.hole ? px(d.hole) : null }));
+    const pxDiscs = discs && discs.map((d) => ({
+      ...px(d), tab: d.tab ? px(d.tab) : null, hole: d.hole ? px(d.hole) : null,
+    }));
     for (const look of LAYER_LOOK) {
       const id = idOf.get(look.name);
       if (id) {

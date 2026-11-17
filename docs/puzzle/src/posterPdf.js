@@ -18,6 +18,9 @@
 // Both are imported only when somebody actually uploads a poster: about 2 MB that
 // the ordinary puzzle tool never needs. Nothing leaves the browser.
 
+import { pathToOps } from './exportPdf.js';
+import { unionPath } from './geom/keychain.js';
+
 const MM_TO_PT = 72 / 25.4;
 
 let pdfjs = null;
@@ -226,13 +229,14 @@ export async function pageRaster(page, maxPx) {
  * the edge colour where the design has none, a thin border line taken out).
  *
  * @param page pdf.js page
- * @param o    { circle: { cx, cy, r } mm on the page, sizeMm, bleedMm, kind, border,
- *             removeBorder }
+ * @param o    { circle: { cx, cy, r } mm on the page, sizeMm, bleedMm, reachMm, kind,
+ *             border, removeBorder }: reachMm is half the picture's side, past the bleed
+ *             where a hook stands out
  * @param mode 'print': a 300 dpi CMYK JPEG, { jpg, dpi }. 'preview': an RGB JPEG of
  *             `px` pixels as an object URL, { url }.
  */
 export async function keychainPicture(page, o, { mode = 'print', px: previewPx = 900 } = {}) {
-  const side = o.sizeMm + 2 * o.bleedMm;
+  const side = 2 * (o.reachMm ?? o.sizeMm / 2 + o.bleedMm);
   const px = mode === 'print' ? Math.round((side / 25.4) * PRINT_DPI) : previewPx;
   const surface = workingCanvas(px, px);
   if (!surface) throw Object.assign(new Error('No canvas'), { code: 'canvas' });
@@ -414,10 +418,11 @@ export function buildCardPrintPdf(layout, resolve, opts = {}) {
  *                   printed of it, and `turn` how far it is turned clockwise, 0 or a
  *                   multiple of 90. A page bigger than its box is clipped to it.
  *                   Either way the Spot white and the no-ink base fill `box`.
- *                   A picture may also carry `shape`: { cx, cy, r, hole: { cx, cy, r } },
- *                   mm, a disc with a hole through it (the Keychain UV tab, Boss, 17 Nov
- *                   2026). Then the picture is clipped to it, and the white and the base
- *                   fill it instead of the box: no ink outside the bleed, none in the hole.
+ *                   A picture may also carry `shape`: { cx, cy, r, tab, hole }, mm, a disc
+ *                   with a hole through it, and a smaller disc `tab` standing out over its
+ *                   edge for a hook (the Keychain UV tab, Boss, 17 Nov 2026). Then the
+ *                   picture is clipped to it, and the white and the base fill it instead of
+ *                   the box: no ink outside the bleed, none in the hole.
  *                   Placements given the same jpg share one copy of it in the file.
  */
 export async function buildLayeredPrint(size, placements, { title } = {}) {
@@ -484,8 +489,18 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
       op('h'),
     ];
   };
-  // The disc and its hole together; filled or clipped even-odd, the hole stays empty.
-  const shapePath = (s) => [...circle(s, s.r), ...(s.hole ? circle(s.hole, s.hole.r) : [])];
+  // A hook's outline, the disc and its tab as one path, in page points.
+  const outline = (s) => pathToOps(unionPath(s, s.tab), size.height).map((line) => {
+    const parts = line.split(' ');
+    const name = parts.pop();
+    return op(name, ...parts.map((v) => PDFNumber.of(Number(v))));
+  });
+  // The disc (and its hook) and the hole together; filled or clipped even-odd, the hole
+  // stays empty.
+  const shapePath = (s) => [
+    ...(s.tab ? outline(s) : circle(s, s.r)),
+    ...(s.hole ? circle(s.hole, s.hole.r) : []),
+  ];
   const fillArea = (p) => (p.shape ? [...shapePath(p.shape), op('f*')] : [rect(p.box), op('f')]);
 
   // Each Spot with overprint on, so Spot 1 leaves Spot 2's plate whole, and either one

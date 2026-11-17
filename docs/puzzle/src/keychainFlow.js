@@ -29,6 +29,7 @@ import {
   KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, KEYCHAIN_EDGE_MM,
   HOLE_DIAMETER_MM, HOLE_INSET_MM, HOLE_MIN_WALL_MM, HOLE_R, QUANTITY_MAX,
   findDesignCircle, radialProfile, findBorder, layoutKeychains, holeOffset, holeFromPoint,
+  KEYCHAIN_TYPES, keychainType, HOOK_R, HOOK_WALL_MM, hookOffset, unionPath,
   holeWall, cleanHole, circlePath, keychainDpi, cleanSheetSize, keychainSheet,
   CUSTOM_SHEET_DEFAULT, CUSTOM_SHEET_MIN_MM,
 } from './geom/keychain.js';
@@ -51,6 +52,7 @@ const fresh = () => ({
   quantity: null,                 // null: one full sheet
   material: PANEL_MATERIALS[0].id,
   hole: { angle: 0, inset: HOLE_INSET_MM },
+  type: 'hole',                   // 'hole' inside the circle, or a 'hook' on its edge
   edge: 'auto',                   // 'auto': the design's own circle; 'page': the page's
   border: null,                   // null: take a border line out when one is found
   client: '',
@@ -89,8 +91,11 @@ const baseName = (name) => name.replace(/\.pdf$/i, '').trim()
 const nameOf = (fileName) => fileName.replace(/\.pdf$/i, '').trim() || 'Keychain';
 const materialLabel = () => panelMaterial(S.material).label;
 const layout = () => layoutKeychains({
-  sizeMm: S.size, sheet: S.sheet, custom: S.custom, quantity: S.quantity,
+  sizeMm: S.size, sheet: S.sheet, custom: S.custom, quantity: S.quantity, type: S.type, hole: S.hole,
 });
+const hooked = () => S.type === 'hook';
+/** The hole's centre from the keychain's centre: inside it, or in the hook on its edge. */
+const holeAt = () => (hooked() ? hookOffset(S.hole, S.size) : holeOffset(S.hole, S.size));
 
 // ---- the job, as it gets saved ----------------------------------------------------
 
@@ -106,6 +111,7 @@ function job() {
     quantity: S.quantity,
     material: S.material,
     hole: cleanHole(S.hole, S.size),
+    type: S.type,
     edge: S.edge,
     border: S.border,
     client: S.client,
@@ -297,6 +303,7 @@ export async function openKeychainFiles(fileList, restore = null) {
       quantity: saved.quantity,
       material: saved.material,
       hole: saved.hole,
+      type: saved.type,
       edge: saved.edge,
       border: saved.border,
       client: saved.client,
@@ -459,11 +466,13 @@ function specOf(a) {
     removeBorder: Boolean(border) && S.border !== false,
     sizeMm: S.size,
     bleedMm: KEYCHAIN_BLEED_MM,
+    // A hook stands out past the bleed: the picture runs over it too, in the edge's colour.
+    reachMm: S.size / 2 + KEYCHAIN_BLEED_MM + (hooked() ? HOOK_R : 0),
   };
 }
 
 const specKey = (spec) => [
-  S.file.hash || S.file.name, S.page, spec.sizeMm, spec.kind, spec.removeBorder,
+  S.file.hash || S.file.name, S.page, spec.sizeMm, spec.reachMm, spec.kind, spec.removeBorder,
   rnd(spec.circle.cx, 3), rnd(spec.circle.cy, 3), rnd(spec.circle.r, 3),
 ].join('|');
 
@@ -523,19 +532,27 @@ const jobMeta = () => ({
   client: S.client,
   dateline: formatDate(S.dateline),
   material: materialLabel(),
-  hole: holeOffset(S.hole, S.size),
+  hole: holeAt(),
+  hookR: hooked() ? HOOK_R : null,
 });
 const stem = () => `${baseName(S.file.name)}-keychain`;
 // The file name says what the operator is to do with it too: 30 a sheet, 3 times.
-const tag = (lay) => `${S.size}mm-${lay.sheet.id === 'custom' ? `custom-${lay.sheet.width}x${lay.sheet.height}` : lay.sheet.id}`
+const tag = (lay) => `${S.size}mm${hooked() ? '-hook' : ''}-${lay.sheet.id === 'custom' ? `custom-${lay.sheet.width}x${lay.sheet.height}` : lay.sheet.id}`
   + `-${lay.perSheet}pcs-x${lay.sheets}`;
 
-/** Every keychain on the sheet as a disc with its hole, mm: the print file's shapes. */
+/**
+ * Every keychain on the sheet as a disc with its hole, mm, and its hook's disc where it
+ * has one, each grown by the bleed: the print file's shapes.
+ */
 function discsOf(lay) {
   const RB = S.size / 2 + KEYCHAIN_BLEED_MM;
-  const off = holeOffset(S.hole, S.size);
+  const off = holeAt();
   return lay.items.map((it) => ({
-    cx: it.x, cy: it.y, r: RB, hole: { cx: it.x + off.dx, cy: it.y + off.dy, r: HOLE_R },
+    cx: it.x,
+    cy: it.y,
+    r: RB,
+    ...(hooked() ? { tab: { cx: it.x + off.dx, cy: it.y + off.dy, r: HOOK_R + KEYCHAIN_BLEED_MM } } : {}),
+    hole: { cx: it.x + off.dx, cy: it.y + off.dy, r: HOLE_R },
   }));
 }
 
@@ -556,11 +573,12 @@ async function printFile() {
   const lay = layout();
   const blocked = blockedReason(a, lay);
   if (blocked) throw Object.assign(new Error(blocked), { code: 'blocked' });
-  const { jpg } = await printPictureOf(page, specOf(a));
-  const RB = S.size / 2 + KEYCHAIN_BLEED_MM;
+  const spec = specOf(a);
+  const { jpg } = await printPictureOf(page, spec);
+  const reach = spec.reachMm;
   const placements = discsOf(lay).map((d) => ({
     jpg,
-    box: { x: d.cx - RB, y: d.cy - RB, width: 2 * RB, height: 2 * RB },
+    box: { x: d.cx - reach, y: d.cy - reach, width: 2 * reach, height: 2 * reach },
     shape: d,
   }));
   const bytes = await buildLayeredPrint(lay.sheet, placements, { title: `${S.name} - keychain print` });
@@ -633,7 +651,13 @@ export function renderKeychain() {
   renderPanel();
 }
 
-const wallText = () => `tinggal ${holeWall(S.hole, S.size)} mm acrylic ke tepi`;
+const wallText = () => (hooked()
+  ? `hook ${2 * HOOK_R} mm, ${HOOK_WALL_MM} mm acrylic keliling lubang`
+  : `tinggal ${holeWall(S.hole, S.size)} mm acrylic ke tepi`);
+/** A keychain's cut outline at (x, y) on the sheet, its hook too. */
+const cutOutline = (x, y, off) => (hooked()
+  ? unionPath({ cx: x, cy: y, r: S.size / 2 }, { cx: x + off.dx, cy: y + off.dy, r: HOOK_R })
+  : circlePath(x, y, S.size / 2));
 
 function hint(text) {
   deps.els.hint.textContent = text;
@@ -651,8 +675,7 @@ function renderStage() {
   }
   if (S.view === 'print' && a && !blockedReason(a, lay)) {
     const check = printCheckFor(a, lay);
-    const R = S.size / 2;
-    const off = holeOffset(S.hole, S.size);
+    const off = holeAt();
     deps.view.renderPrint({
       size: lay.sheet,
       layers: check.layers,
@@ -660,7 +683,7 @@ function renderStage() {
       on: S.layerOn,
       cuts: [
         lay.items.map((it) => circlePath(it.x + off.dx, it.y + off.dy, HOLE_R)).join(' '),
-        lay.items.map((it) => circlePath(it.x, it.y, R)).join(' '),
+        lay.items.map((it) => cutOutline(it.x, it.y, off)).join(' '),
       ],
       fitKey: `kc-print:${S.sheet}:${S.size}`,
     });
@@ -675,14 +698,17 @@ function renderStage() {
     sizeMm: S.size,
     bleedMm: KEYCHAIN_BLEED_MM,
     holeR: HOLE_R,
-    hole: holeOffset(S.hole, S.size),
+    hookR: hooked() ? HOOK_R : null,
+    hole: holeAt(),
     imageUrl: preview?.url || null,
     clear: panelMaterial(S.material).clear,
-    fitKey: `kc:${S.size}`,
+    fitKey: `kc:${S.size}:${S.type}`,
     onHoleMove: (x, y) => {
-      S.hole = holeFromPoint(x, y, S.size);
+      // A hole goes where it is let go; a hook only turns round the edge.
+      const at = holeFromPoint(x, y, S.size);
+      S.hole = hooked() ? { ...S.hole, angle: at.angle } : at;
       hint(`Lubang ${HOLE_DIAMETER_MM} mm, ${wallText()}`);
-      return holeOffset(S.hole, S.size);
+      return holeAt();
     },
     onHoleDone: () => {
       dropCheck();
@@ -692,7 +718,10 @@ function renderStage() {
   });
   if (!a) hint('Mencari bulatan design...');
   else if (a.failed) hint('Page ni tak dapat dilukis.');
-  else hint(`Keychain ${cm(S.size)} · lubang ${HOLE_DIAMETER_MM} mm, ${wallText()} · seret lubang untuk alih`);
+  else {
+    hint(`Keychain ${cm(S.size)}${hooked() ? ' hook' : ''} · lubang ${HOLE_DIAMETER_MM} mm, ${wallText()} · `
+      + `${hooked() ? 'seret hook untuk pusing ikut tepi' : 'seret lubang untuk alih'}`);
+  }
 }
 
 const stat = (label, value) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value));
@@ -715,6 +744,7 @@ function renderPanel() {
     h('h2', { class: 'insp-title' }, 'Keychain UV'),
     fileGroup(),
     materialGroup(),
+    typeGroup(),
     sizeGroup(),
     designGroup(a),
     holeGroup(),
@@ -775,6 +805,24 @@ function materialGroup() {
     h('b', {}, m.kind),
     h('span', {}, m.thick)))),
     h('p', { class: 'hint' }, `File cut tulis: ${materialLabel()}.`));
+}
+
+/** A hole inside the circle, or a hook on its edge (Boss, 17 Nov 2026). */
+function typeGroup() {
+  return group('Jenis keychain', true,
+    h('div', { class: 'presets two' }, KEYCHAIN_TYPES.map((t) => h('button', {
+      class: 'preset',
+      type: 'button',
+      'aria-pressed': String(S.type === t.id),
+      title: `${t.label}: ${t.note}`,
+      onclick: () => { if (S.type !== t.id) set({ type: t.id }); },
+    },
+    h('b', {}, t.label),
+    h('span', {}, t.note)))),
+    h('p', { class: 'hint' }, hooked()
+      ? `Hook bulat ${2 * HOOK_R} mm di tepi atas, lubang ${HOLE_DIAMETER_MM} mm di tengahnya: `
+        + `${HOOK_WALL_MM} mm acrylic keliling lubang, macam file Zahidah. Satu garis cut dengan keychain.`
+      : 'Lubang di dalam bulatan.'));
 }
 
 function sizeGroup() {
@@ -847,6 +895,20 @@ function designGroup(a) {
 
 function holeGroup() {
   const h0 = cleanHole(S.hole, S.size);
+  if (hooked()) {
+    return group('Hook', true,
+      stat('Hook', `bulat ${2 * HOOK_R} mm`),
+      stat('Lubang', `${HOLE_DIAMETER_MM} mm, di tengah hook`),
+      stat('Acrylic keliling lubang', `${HOOK_WALL_MM} mm`),
+      stat('Kedudukan', h0.angle === 0 ? 'atas tengah' : `${Math.round(h0.angle)}° dari atas`),
+      h('p', { class: 'hint' }, 'Seret hook dalam preview Keychain untuk pusing ikut tepi. '
+        + 'Hook dan keychain satu garis cut; lubang dicut dulu, dan file print biarkan lubang kosong.'),
+      h('button', {
+        class: 'ghost',
+        type: 'button',
+        onclick: () => set({ hole: { ...S.hole, angle: 0 } }),
+      }, 'Letak semula atas tengah'));
+  }
   return group('Lubang', true,
     stat('Lubang', `${HOLE_DIAMETER_MM} mm`),
     stat('Tengah lubang dari tepi', `${rnd(h0.inset, 1)} mm`),
@@ -1154,12 +1216,12 @@ export function openKeychainExport() {
       kind: 'cut',
       title: 'file cut keychain',
       make: cutFile,
-      note: `File cut keychain ${cm(S.size)}: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
+      note: `File cut keychain ${cm(S.size)}${hooked() ? ' hook' : ''}: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
         + `${times('Cut')}. Lubang dulu, keychain, frame sheet last.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File cut'),
-      h('span', {}, `${cm(S.size)}, ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. ${times('Cut')}`)),
+      h('span', {}, `${cm(S.size)}${hooked() ? ' hook' : ''}, ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. ${times('Cut')}`)),
     fileButton('File cut', cutFile)),
     row({
       kind: 'print',

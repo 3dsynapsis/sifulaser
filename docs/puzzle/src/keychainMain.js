@@ -83,6 +83,7 @@ function renderEmpty() {
       h('p', { class: 'hint' }, 'PDF kekal dalam browser ni dan tak dihantar ke mana-mana.')),
     group('Apa yang keluar', true,
       stat('Saiz', KEYCHAIN_SIZES_MM.map((mm) => `${mm / 10} cm`).join(', ')),
+      stat('Jenis', 'Biasa (lubang dalam bulatan) atau Hook (telinga di tepi)'),
       stat('Lubang', `${HOLE_DIAMETER_MM} mm, atas tengah, boleh diseret`),
       stat('Bleed', `${KEYCHAIN_BLEED_MM} mm, dibuat dari warna tepi bila file tiada`),
       stat('Border tepi', 'Garis nipis di tepi dibuang supaya tak nampak senget'),
