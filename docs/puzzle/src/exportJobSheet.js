@@ -26,6 +26,7 @@ import { borderPath } from './geom/puzzle.js';
 import { FRAME_MM, CORNER_MM } from './geom/poster.js';
 import { CARD_CORNER_MM } from './geom/cards.js';
 import { circlePath, unionPath, HOLE_DIAMETER_MM } from './geom/keychain.js';
+import { strokeText } from './geom/strokeText.js';
 
 const MM_TO_PT = 72 / 25.4;
 const PAGE_W = 1200;
@@ -230,6 +231,10 @@ export function buildPanelSheet(plan, meta = {}) {
  * being cut. The sheet's edge is in the file as the red page border is in Boss's
  * CorelDRAW template, so the laser lines the job up on the sheet.
  *
+ * Under the keychains the laser marks FRONT in blue, in single strokes (Boss, 17 Nov
+ * 2026): it tells the UV printer which face of the sheet is the front. Blue is the
+ * marking colour, red the cutting one; the mark comes first, before anything is cut.
+ *
  * @param layout result of layoutKeychains
  * @param meta   { client, dateline, material, hole: { dx, dy }, hookR }: the hole's centre
  *               from each keychain's centre, mm; hookR, a hook's radius round that hole
@@ -246,7 +251,18 @@ export function buildKeychainSheet(layout, meta = {}) {
   const xs = (width - sheet.width) / 2;
   const at = (it) => ({ x: xs + it.x, y: PART_TOP + it.y });
 
+  // FRONT in the room under the lowest keychain (its hook too), as big as fits up to
+  // 10 mm a capital, centred both ways in that room.
+  const reachDown = Math.max(sizeMm / 2, meta.hookR ? hole.dy + meta.hookR : -Infinity);
+  const lowest = items.length ? Math.max(...items.map((it) => it.y + reachDown)) : 0;
+  const room = sheet.height - lowest;
+  const capMm = Math.round(Math.max(3, Math.min(10, room - 4)) * 2) / 2;
+  const front = strokeText('FRONT', {
+    x: xs + sheet.width / 2, y: PART_TOP + lowest + room / 2 + capMm / 2, capMm, anchor: 'middle',
+  });
+
   const paths = [
+    { id: 'front', stroke: 'hair', colour: 'blue', d: front.d },
     {
       id: 'holes',
       stroke: 'hair',
@@ -349,8 +365,17 @@ export function sheetToPdf(sheet, opts = {}) {
 
   // CMYK, the same red and black the shop's Corel files use. The red is 100%
   // magenta and yellow rather than RGB red, so it survives Corel's colour import.
-  const ops = ['0 J', '0 j', '0 1 1 0 K'];
+  // A path marked 'blue' (CMYK 100/100/0/0, the colour of Boss's Front label) is a
+  // laser marking, not a cut.
+  const COLOUR = { red: '0 1 1 0 K', blue: '1 1 0 0 K' };
+  let colour = 'red';
+  const ops = ['0 J', '0 j', COLOUR.red];
   for (const p of sheet.paths) {
+    const want = COLOUR[p.colour] ? p.colour : 'red';
+    if (want !== colour) {
+      ops.push(COLOUR[want]);
+      colour = want;
+    }
     ops.push(`${STROKE[p.stroke]} w`);
     ops.push(...pathToOps(p.d, height));
     ops.push('S');

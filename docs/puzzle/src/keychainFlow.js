@@ -1217,7 +1217,8 @@ export function openKeychainExport() {
       title: 'file cut keychain',
       make: cutFile,
       note: `File cut keychain ${cm(S.size)}${hooked() ? ' hook' : ''}: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
-        + `${times('Cut')}. Lubang dulu, keychain, frame sheet last.`,
+        + `${times('Cut')}. FRONT biru di bawah ialah marking laser (bukan cut), tanda muka depan. `
+        + 'Lubang dulu, keychain, frame sheet last.',
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File cut'),
@@ -1228,7 +1229,7 @@ export function openKeychainExport() {
       title: 'file print UV keychain',
       make: printFile,
       note: `File print UV keychain: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
-        + `${times('UV print')}. Letak sheet rapat dari bucu kiri atas bed.`,
+        + `${times('UV print')}. Letak sheet rapat dari bucu kiri atas bed, tulisan FRONT di bawah dan boleh dibaca.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File print UV'),
@@ -1273,9 +1274,9 @@ export function openKeychainExport() {
 /** The tab's steps (Boss, 17 Nov 2026). */
 export const KEYCHAIN_STEPS = [
   ['Cut sheet acrylic',
-    'Ikut material dan bilangan PCS dalam file cut, dan cut file yang sama sebanyak KALI yang tertulis. Lubang dulu, kemudian keychain, frame sheet last. Jangan keluarkan keychain lagi.'],
+    'Ikut material dan bilangan PCS dalam file cut, dan cut file yang sama sebanyak KALI yang tertulis. FRONT biru di bawah sheet ialah marking laser (satu garisan), tanda muka depan. Lubang dulu, kemudian keychain, frame sheet last. Jangan keluarkan keychain lagi.'],
   ['UV print atas sheet',
-    'Semak layer dulu di Preview, File print. Letak sheet atas bed rapat dari bucu kiri atas. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar, lubang kosong. Print setiap sheet: sebanyak KALI yang sama dengan cut.'],
+    'Semak layer dulu di Preview, File print. Letak sheet atas bed rapat dari bucu kiri atas, tulisan FRONT di bawah dan boleh dibaca (tak terbalik), jadi muka depan menghadap atas. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar, lubang kosong. Print setiap sheet: sebanyak KALI yang sama dengan cut.'],
   ['Keluarkan keychain',
     `Bleed ${KEYCHAIN_BLEED_MM} mm yang terlebih jatuh atas sheet dan terbuang. Pasang ring di lubang ${HOLE_DIAMETER_MM} mm.`],
 ];

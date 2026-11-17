@@ -9,6 +9,7 @@ import { circlePath, unionPath } from './geom/keychain.js';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_ZOOM = 16;
 const CUT_RED = '#e3202a';
+const MARK_BLUE = '#2336d8';   // a laser marking, as FRONT on a keychain sheet
 const MM_PER_PT = 25.4 / 72;
 
 const el = (name, attrs = {}) => {
@@ -268,7 +269,7 @@ export class View {
     this.svg.append(el('rect', {
       x: 0, y: 0, width, height, fill: '#ffffff', filter: 'url(#boardShadow)',
     }));
-    for (const p of sheet.paths) this.svg.append(hairline(p.d, CUT_RED));
+    for (const p of sheet.paths) this.svg.append(hairline(p.d, p.colour === 'blue' ? MARK_BLUE : CUT_RED));
     for (const t of sheet.texts) {
       const node = el('text', {
         x: t.x,

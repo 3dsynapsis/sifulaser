@@ -141,12 +141,13 @@ const kcHole = kc.holeOffset({ angle: 0, inset: kc.HOLE_INSET_MM }, 50);
 check('lubang 2 mm di atas, tinggal 1.5 mm acrylic ke tepi', kcHole.dx === 0 && kcHole.dy === -22.5
   && kc.holeWall({ angle: 0, inset: kc.HOLE_INSET_MM }, 50) === 1.5);
 const kcSheet = buildKeychainSheet(kecil, { material: 'Acrylic Putih 3mm', hole: kcHole });
-check('lubang dulu, keychain, frame sheet last', kcSheet.paths.map((p) => p.id).join() === 'holes,keychains,sheet');
+check('FRONT biru dulu, lubang, keychain, frame sheet last', kcSheet.paths.map((p) => p.id).join() === 'front,holes,keychains,sheet'
+  && kcSheet.paths[0].colour === 'blue');
 check('label material, PCS satu sheet dan berapa kali cut', kcSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|96 PCS SATU SHEET|CUT 1 KALI');
 const hookLay = kc.layoutKeychains({ sizeMm: 50, sheet: 'mini', type: 'hook', hole: { angle: 0 } });
 check('hook 5 cm atas Mini: 30', hookLay.capacity === 30);
 const hookSheet = buildKeychainSheet(hookLay, { material: 'Acrylic Putih 3mm', hole: kc.hookOffset({ angle: 0 }, 50), hookR: kc.HOOK_R });
-check('file cut hook: setiap keychain ada telinga 3 mm', (hookSheet.paths[1].d.match(/A 3 3 /g) || []).length === 90
+check('file cut hook: setiap keychain ada telinga 3 mm', (hookSheet.paths.find((p) => p.id === 'keychains').d.match(/A 3 3 /g) || []).length === 90
   && hookSheet.texts[2].text.includes('HOOK'));
 const kcCut = brandFile('keychain-cut-50mm-kecil.pdf', 'application/pdf', new TextEncoder().encode(sheetToPdf(kcSheet)));
 check('fail cut keychain dapat jenama', new TextDecoder('latin1').decode(kcCut.data).includes('/sifulaser-brand'));

@@ -284,8 +284,10 @@ design keychain bulat; tool ini:
 - juga sheet Mini 300 x 400 (30 keychain 5 cm) dan Custom (taip lebar x tinggi, 100 mm
   sehingga bed UV 900 x 600): bos, 17 November 2026, print UV yang besar lari sikit di
   atas dan kiri, jadi sheet kecil lebih tepat;
-- file cut: lubang dulu, keychain, frame sheet last, label material, "N PCS SATU SHEET"
-  dan "CUT N KALI";
+- file cut: tulisan FRONT biru (CMYK 100/100/0/0) di bawah keychain, marking laser satu
+  garisan supaya orang UV tahu muka depan (bos, 17 November 2026; huruf Hershey "futural"
+  dalam `src/geom/strokeText.js`, kredit Hershey dalam fail itu mesti kekal); lubang,
+  keychain, frame sheet last, label material, "N PCS SATU SHEET" dan "CUT N KALI";
 - file print UV: satu gambar CMYK 300 dpi dikongsi semua keychain, Spot 1 dan Spot 2
   di bawah, setiap keychain bulat dengan lubang kosong (`buildLayeredPrint` terima
   `shape`), dan Preview, File print menyemak layer pada setiap bulatan.
