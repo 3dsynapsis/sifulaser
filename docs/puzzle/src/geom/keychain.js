@@ -15,10 +15,14 @@
 //     not show.
 //   * One hole, 2 mm across. Boss's red dot put its centre about 2 mm in from the edge,
 //     at the top; it can be dragged anywhere on the keychain.
-//   * The sheets are the medal FRONT templates Boss uses in CorelDRAW: Kecil 490 x 740
-//     and Besar 550 x 850 mm, keychains 9 mm apart cut line to cut line, and 15 mm of
-//     masking tape round the edge that no bleed may reach. And smaller ones, Mini 300 x
-//     400 or any size Boss types, because a big UV print lands off at its top and left.
+//   * The sheets are the medal FRONT templates Boss uses in CorelDRAW, Kecil 490 x 740
+//     and Besar 550 x 850 mm, and smaller ones, Mini 300 x 400 or any size Boss types,
+//     because a big UV print lands off at its top and left. Keychains stand 7 mm apart
+//     and 7 mm in from the sheet's edge, cut line to cut line: a keychain sheet takes no
+//     masking tape, so it holds as many as it can (Boss, 17 Nov 2026; the medal's 9 mm
+//     and 15 mm of tape came first).
+//   * An order is shared evenly over the sheets it needs, so one cut file and one print
+//     file serve them all: "30 pcs a sheet, cut it 3 times, print it 3 times".
 
 import { UV_BED_MM } from './poster.js';
 
@@ -27,8 +31,8 @@ export const KEYCHAIN_BLEED_MM = 2;
 export const HOLE_DIAMETER_MM = 2;
 export const HOLE_INSET_MM = 2;        // hole centre from the cut edge, at the top
 export const HOLE_MIN_WALL_MM = 0.5;   // the least acrylic a dragged hole may leave
-export const KEYCHAIN_GAP_MM = 9;
-export const TAPE_MM = 15;
+export const KEYCHAIN_GAP_MM = 7;     // cut line to cut line
+export const KEYCHAIN_EDGE_MM = 7;    // the sheet's edge to the nearest cut line
 export const KEYCHAIN_SHEETS = [
   { id: 'kecil', label: 'Kecil', width: 490, height: 740 },
   { id: 'besar', label: 'Besar', width: 550, height: 850 },
@@ -36,7 +40,7 @@ export const KEYCHAIN_SHEETS = [
   // print, so a smaller sheet prints truer. 300 x 400 was his example.
   { id: 'mini', label: 'Mini', width: 300, height: 400 },
 ];
-// Or a sheet of Boss's own size ("Custom"): from one 6 cm keychain and its tape up to
+// Or a sheet of Boss's own size ("Custom"): from one 6 cm keychain and its edge up to
 // the UV bed, 900 x 600 either way round. Half a Kecil sheet is 490 x 370.
 export const CUSTOM_SHEET_MIN_MM = 100;
 export const CUSTOM_SHEET_DEFAULT = { width: 300, height: 400 };
@@ -357,9 +361,9 @@ export const holeWall = (hole, sizeMm) => r2(cleanHole(hole, sizeMm).inset - HOL
 
 /**
  * The keychains on a sheet. As many as the sheet holds, in a grid centred on it, with
- * the tape's 15 mm clear of every bleed. An order bigger than one sheet is shared out
+ * 7 mm from every edge to the cut lines. An order bigger than one sheet is shared out
  * evenly over as few sheets as it needs, so every sheet takes the same two files: 100
- * on Kecil (84 a sheet) is two sheets of 50, not 84 and 16.
+ * on Kecil (96 a sheet) is two sheets of 50, not 96 and 4.
  *
  * @param o { sizeMm, sheet: id, custom: { width, height }, quantity }: quantity left
  *          out is one full sheet; custom is the size of a 'custom' sheet
@@ -370,7 +374,7 @@ export function layoutKeychains(o) {
   const sheet = keychainSheet(o.sheet, o.custom);
   const size = keychainSize(o.sizeMm);
   const pitch = size + KEYCHAIN_GAP_MM;
-  const margin = TAPE_MM + KEYCHAIN_BLEED_MM;   // sheet edge to cut line
+  const margin = KEYCHAIN_EDGE_MM;   // sheet edge to cut line
   const fitIn = (len) => Math.max(0, Math.floor((len - 2 * margin + KEYCHAIN_GAP_MM + 1e-9) / pitch));
   const cols = fitIn(sheet.width);
   const rows = fitIn(sheet.height);

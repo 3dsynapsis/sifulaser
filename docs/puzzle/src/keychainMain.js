@@ -11,7 +11,7 @@ import {
   openKeychainExport, restoreKeychainDraft, renameKeychain, keychainStore, KEYCHAIN_STEPS,
 } from './keychainFlow.js';
 import {
-  KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, HOLE_DIAMETER_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, TAPE_MM,
+  KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, HOLE_DIAMETER_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, KEYCHAIN_EDGE_MM,
 } from './geom/keychain.js';
 import { VERSION } from './version.js';
 
@@ -87,7 +87,8 @@ function renderEmpty() {
       stat('Bleed', `${KEYCHAIN_BLEED_MM} mm, dibuat dari warna tepi bila file tiada`),
       stat('Border tepi', 'Garis nipis di tepi dibuang supaya tak nampak senget'),
       stat('Sheet', `${sheets}, atau Custom`),
-      stat('Jarak', `${KEYCHAIN_GAP_MM} mm, tepi tape ${TAPE_MM} mm`),
+      stat('Jarak', `${KEYCHAIN_GAP_MM} mm antara keychain, ${KEYCHAIN_EDGE_MM} mm dari tepi`),
+      stat('Kuantiti', 'Dibahagi sama rata: satu file, cut dan UV print N kali'),
       stat('File cut', 'Lubang, keychain, frame sheet'),
       stat('File print UV', 'Gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white)')),
     h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),

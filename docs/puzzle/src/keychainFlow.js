@@ -26,7 +26,7 @@ import { makeZip } from './zip.js';
 import { PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
 import { LOW_DPI, UV_BED_MM } from './geom/poster.js';
 import {
-  KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, TAPE_MM,
+  KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, KEYCHAIN_EDGE_MM,
   HOLE_DIAMETER_MM, HOLE_INSET_MM, HOLE_R, QUANTITY_MAX,
   findDesignCircle, radialProfile, findBorder, layoutKeychains, holeOffset, holeFromPoint,
   holeWall, cleanHole, circlePath, keychainDpi, cleanSheetSize, keychainSheet,
@@ -526,7 +526,9 @@ const jobMeta = () => ({
   hole: holeOffset(S.hole, S.size),
 });
 const stem = () => `${baseName(S.file.name)}-keychain`;
-const tag = (lay) => `${S.size}mm-${lay.sheet.id === 'custom' ? `custom-${lay.sheet.width}x${lay.sheet.height}` : lay.sheet.id}`;
+// The file name says what the operator is to do with it too: 30 a sheet, 3 times.
+const tag = (lay) => `${S.size}mm-${lay.sheet.id === 'custom' ? `custom-${lay.sheet.width}x${lay.sheet.height}` : lay.sheet.id}`
+  + `-${lay.perSheet}pcs-x${lay.sheets}`;
 
 /** Every keychain on the sheet as a disc with its hole, mm: the print file's shapes. */
 function discsOf(lay) {
@@ -912,14 +914,15 @@ function sheetGroup(lay) {
     lay.fits
       ? [
         stat('Satu sheet muat', `${lay.capacity} (${lay.cols} x ${lay.rows})`),
-        stat('Susun', `${lay.perSheet} keychain setiap sheet`),
-        stat('Bilangan sheet', `${lay.sheets}`),
+        stat('Satu keping', `${lay.perSheet} pcs`),
+        stat('Cut dan UV print', `${lay.sheets} kali`),
         stat('Jumlah siap', lay.spare ? `${lay.total} (lebih ${lay.spare})` : `${lay.total}`),
       ]
       : h('p', { class: 'warn' }, 'Saiz ni tak muat sheet ni.'),
     h('p', { class: 'hint' },
-      `Jarak ${KEYCHAIN_GAP_MM} mm antara garis cut, dan ${TAPE_MM} mm di tepi sheet untuk masking tape. `
-      + 'Kuantiti lebih dari satu sheet dibahagi sama rata, jadi semua sheet guna file yang sama. '
+      `Jarak ${KEYCHAIN_GAP_MM} mm antara garis cut, dan ${KEYCHAIN_EDGE_MM} mm dari tepi sheet (tiada masking tape). `
+      + 'Masukkan jumlah termasuk lebihan. Kuantiti dibahagi sama rata, jadi satu file cut dan satu file print '
+      + 'diulang ikut bilangan kali. '
       + 'Sheet kecil lebih tepat di UV, sebab print besar lari sikit di atas dan kiri.'));
 }
 
@@ -1144,29 +1147,29 @@ export function openKeychainExport() {
   });
 
   const sheetText = `sheet ${lay.sheet.label} ${size(lay.sheet.width, lay.sheet.height)}`;
-  const sheetsText = lay.sheets > 1 ? `, ulang untuk ${lay.sheets} sheet` : '';
+  const times = (verb) => `${verb} ${lay.sheets} kali`;
   const rows = blocked ? [] : [
     row({
       kind: 'cut',
       title: 'file cut keychain',
       make: cutFile,
-      note: `File cut keychain ${cm(S.size)}: ${sheetText}, ${lay.perSheet} pcs, ${materialLabel()}${sheetsText}. `
-        + 'Lubang dulu, keychain, frame sheet last.',
+      note: `File cut keychain ${cm(S.size)}: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
+        + `${times('Cut')}. Lubang dulu, keychain, frame sheet last.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File cut'),
-      h('span', {}, `${cm(S.size)}, ${sheetText}, ${lay.perSheet} keychain, ${materialLabel()}`)),
+      h('span', {}, `${cm(S.size)}, ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. ${times('Cut')}`)),
     fileButton('File cut', cutFile)),
     row({
       kind: 'print',
       title: 'file print UV keychain',
       make: printFile,
-      note: `File print UV keychain: ${sheetText}, ${lay.perSheet} keychain ${materialLabel()}${sheetsText}. `
-        + 'Letak sheet rapat dari bucu kiri atas bed.',
+      note: `File print UV keychain: ${sheetText}, ${lay.perSheet} pcs satu sheet, ${materialLabel()}. `
+        + `${times('UV print')}. Letak sheet rapat dari bucu kiri atas bed.`,
     },
     h('div', { class: 'file-row-text' },
       h('b', {}, 'File print UV'),
-      h('span', {}, `Bleed ${KEYCHAIN_BLEED_MM} mm, Spot 1 dan Spot 2, lubang kosong`)),
+      h('span', {}, `${lay.perSheet} pcs satu sheet, Spot 1 dan Spot 2, lubang kosong. ${times('UV print')}`)),
     fileButton('File print', printFile)),
   ];
 
@@ -1187,7 +1190,7 @@ export function openKeychainExport() {
     blocked ? null : h('p', { class: 'note' },
       `File cut: lubang ${HOLE_DIAMETER_MM} mm dulu, kemudian keychain, frame sheet last. Jangan keluarkan keychain sebelum UV print. `
       + `File print UV: gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) di bawah setiap keychain, lubang kosong. `
-      + `${lay.sheets > 1 ? `Satu file untuk setiap sheet: ulang ${lay.sheets} kali.` : ''}`),
+      + `Jumlah ${lay.total} keychain: ${lay.perSheet} pcs satu sheet, cut dan UV print ${lay.sheets} kali.`),
     items.length
       ? h('div', { class: 'share-bar' },
         h('span', {}, 'Pilih untuk share:'),
@@ -1207,9 +1210,9 @@ export function openKeychainExport() {
 /** The tab's steps (Boss, 17 Nov 2026). */
 export const KEYCHAIN_STEPS = [
   ['Cut sheet acrylic',
-    'Ikut material dan bilangan PCS dalam file cut. Lubang dulu, kemudian keychain, frame sheet last. Jangan keluarkan keychain lagi.'],
+    'Ikut material dan bilangan PCS dalam file cut, dan cut file yang sama sebanyak KALI yang tertulis. Lubang dulu, kemudian keychain, frame sheet last. Jangan keluarkan keychain lagi.'],
   ['UV print atas sheet',
-    'Semak layer dulu di Preview, File print. Letak sheet atas bed rapat dari bucu kiri atas, tape di tepi. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar, lubang kosong.'],
+    'Semak layer dulu di Preview, File print. Letak sheet atas bed rapat dari bucu kiri atas. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar, lubang kosong. Print setiap sheet: sebanyak KALI yang sama dengan cut.'],
   ['Keluarkan keychain',
     `Bleed ${KEYCHAIN_BLEED_MM} mm yang terlebih jatuh atas sheet dan terbuang. Pasang ring di lubang ${HOLE_DIAMETER_MM} mm.`],
 ];

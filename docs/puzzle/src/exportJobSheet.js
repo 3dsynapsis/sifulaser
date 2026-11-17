@@ -261,7 +261,10 @@ export function buildKeychainSheet(layout, meta = {}) {
   const texts = [];
   jobHead(texts, width, meta,
     `KEYCHAIN UV ${sizeMm / 10} cm, lubang ${HOLE_DIAMETER_MM} mm, sheet ${sheet.label} ${sheet.width} x ${sheet.height} mm`);
-  partLabel(texts, [material, `${layout.perSheet} PCS, ${layout.sheets} SHEET`], xs + sheet.width / 2, sheet.width + GAP - 8);
+  // What the laser operator is told (Boss, 17 Nov 2026): how many on a sheet, and how
+  // many times to cut this same file.
+  partLabel(texts, [material, `${layout.perSheet} PCS SATU SHEET`, `CUT ${layout.sheets} KALI`],
+    xs + sheet.width / 2, sheet.width + GAP - 8);
 
   return {
     width,

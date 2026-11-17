@@ -266,13 +266,19 @@ design keychain bulat; tool ini:
   cut tak pernah tepat, dan garis 0.4 mm di tepi nampak tebal sebelah dan hilang
   sebelah bila lari 0.5 mm;
 - lubang 2 mm, tengahnya 2 mm dari tepi di atas (titik merah bos), boleh diseret;
-- saiz 4, 5, 6 cm; susun atas sheet template FRONT medal bos: Kecil 490 x 740 atau
-  Besar 550 x 850 mm, jarak 9 mm garis cut ke garis cut, 15 mm masking tape di tepi.
-  Kuantiti lebih dari satu sheet dibahagi sama rata supaya semua sheet guna file sama;
-- juga sheet Mini 300 x 400 dan Custom (taip lebar x tinggi, 100 mm sehingga bed UV
-  900 x 600): bos, 17 November 2026, print UV yang besar lari sikit di atas dan kiri,
-  jadi sheet kecil lebih tepat;
-- file cut: lubang dulu, keychain, frame sheet last, label material dan "N PCS, N SHEET";
+- saiz 4, 5, 6 cm; sheet Kecil 490 x 740 atau Besar 550 x 850 mm (saiz template FRONT
+  medal bos), jarak 7 mm garis cut ke garis cut dan 7 mm dari tepi sheet ke garis cut.
+  Keychain tiada masking tape, jadi muat sebanyak mungkin (bos, 17 November 2026;
+  asalnya 9 mm dan tape 15 mm macam medal). 5 cm: Kecil 96, Besar 126;
+- kuantiti (termasuk lebihan) dibahagi sama rata supaya semua sheet guna file sama, dan
+  file cut tulis "N PCS SATU SHEET" dan "CUT N KALI"; nama file pun ada `-30pcs-x3`.
+  Contoh bos: client nak 84, dengan lebihan 90, atas Mini jadi 30 satu keping, cut dan
+  UV print 3 kali;
+- juga sheet Mini 300 x 400 (30 keychain 5 cm) dan Custom (taip lebar x tinggi, 100 mm
+  sehingga bed UV 900 x 600): bos, 17 November 2026, print UV yang besar lari sikit di
+  atas dan kiri, jadi sheet kecil lebih tepat;
+- file cut: lubang dulu, keychain, frame sheet last, label material, "N PCS SATU SHEET"
+  dan "CUT N KALI";
 - file print UV: satu gambar CMYK 300 dpi dikongsi semua keychain, Spot 1 dan Spot 2
   di bawah, setiap keychain bulat dengan lubang kosong (`buildLayeredPrint` terima
   `shape`), dan Preview, File print menyemak layer pada setiap bulatan.

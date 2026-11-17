@@ -116,27 +116,32 @@ const panelLayers = (await PDFDocument.load(panelPrint)).catalog.lookup(PDFName.
 check('fail print panel ada tiga layer', panelLayers.size() === 3, panelLayers.size());
 
 // Keychain UV File Generator (bos, 17 Nov 2026): tab /keychainuv/ jalan atas kod yang
-// sama. Keychain bulat 4/5/6 cm atas sheet template FRONT medal, lubang 2 mm.
+// sama. Keychain bulat 4/5/6 cm, lubang 2 mm, jarak 7 mm dan 7 mm dari tepi sheet (tiada
+// masking tape, bos 17 Nov 2026).
 console.log('Keychain UV File Generator: sheet keychain');
 const kc = await imp('puzzle/src/geom/keychain.js');
 const { buildKeychainSheet } = await imp('puzzle/src/exportJobSheet.js');
 const { buildLayeredPrint } = await imp('puzzle/src/posterPdf.js');
 const kecil = kc.layoutKeychains({ sizeMm: 50, sheet: 'kecil' });
-check('5 cm atas Kecil 490 x 740: 84 keychain (7 x 12)', kecil.capacity === 84 && kecil.cols === 7, kecil.capacity);
-check('5 cm atas Besar 550 x 850: 104', kc.layoutKeychains({ sizeMm: 50, sheet: 'besar' }).capacity === 104);
-check('sheet Mini 300 x 400: 24', kc.layoutKeychains({ sizeMm: 50, sheet: 'mini' }).capacity === 24);
-check('sheet Custom 490 x 370: 35', kc.layoutKeychains({ sizeMm: 50, sheet: 'custom', custom: { width: 490, height: 370 } }).capacity === 35);
+check('5 cm atas Kecil 490 x 740: 96 keychain (8 x 12)', kecil.capacity === 96 && kecil.cols === 8, kecil.capacity);
+check('5 cm atas Besar 550 x 850: 126', kc.layoutKeychains({ sizeMm: 50, sheet: 'besar' }).capacity === 126);
+check('sheet Mini 300 x 400: 30', kc.layoutKeychains({ sizeMm: 50, sheet: 'mini' }).capacity === 30);
+check('90 atas Mini: 30 satu keping, 3 kali', (() => {
+  const m = kc.layoutKeychains({ sizeMm: 50, sheet: 'mini', quantity: 90 });
+  return m.perSheet === 30 && m.sheets === 3;
+})());
+check('sheet Custom 490 x 370: 48', kc.layoutKeychains({ sizeMm: 50, sheet: 'custom', custom: { width: 490, height: 370 } }).capacity === 48);
 check('100 keychain atas Kecil: 2 sheet x 50', (() => {
   const q = kc.layoutKeychains({ sizeMm: 50, sheet: 'kecil', quantity: 100 });
   return q.sheets === 2 && q.perSheet === 50;
 })());
-check('tiada bleed bawah tape 15 mm', kecil.items.every((it) => it.x - 27 >= 15 && it.y - 27 >= 15
-  && 490 - it.x - 27 >= 15 && 740 - it.y - 27 >= 15));
+check('garis cut sekurang-kurangnya 7 mm dari tepi sheet', kecil.items.every((it) => it.x - 25 >= 7 && it.y - 25 >= 7
+  && 490 - it.x - 25 >= 7 && 740 - it.y - 25 >= 7));
 const kcHole = kc.holeOffset({ angle: 0, inset: 2 }, 50);
 check('lubang 2 mm, tengahnya 2 mm dari tepi atas', kcHole.dx === 0 && kcHole.dy === -23);
 const kcSheet = buildKeychainSheet(kecil, { material: 'Acrylic Putih 3mm', hole: kcHole });
 check('lubang dulu, keychain, frame sheet last', kcSheet.paths.map((p) => p.id).join() === 'holes,keychains,sheet');
-check('label material dan PCS', kcSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|84 PCS, 1 SHEET');
+check('label material, PCS satu sheet dan berapa kali cut', kcSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|96 PCS SATU SHEET|CUT 1 KALI');
 const kcCut = brandFile('keychain-cut-50mm-kecil.pdf', 'application/pdf', new TextEncoder().encode(sheetToPdf(kcSheet)));
 check('fail cut keychain dapat jenama', new TextDecoder('latin1').decode(kcCut.data).includes('/sifulaser-brand'));
 const { rgbaToCmyk, encodeCmykJpeg } = await imp('puzzle/src/cmykJpeg.js');
