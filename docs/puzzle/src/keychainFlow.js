@@ -27,7 +27,7 @@ import { PANEL_MATERIALS, panelMaterial } from './geom/panel.js';
 import { LOW_DPI, UV_BED_MM } from './geom/poster.js';
 import {
   KEYCHAIN_SIZES_MM, KEYCHAIN_BLEED_MM, KEYCHAIN_SHEETS, KEYCHAIN_GAP_MM, KEYCHAIN_EDGE_MM,
-  HOLE_DIAMETER_MM, HOLE_INSET_MM, HOLE_R, QUANTITY_MAX,
+  HOLE_DIAMETER_MM, HOLE_INSET_MM, HOLE_MIN_WALL_MM, HOLE_R, QUANTITY_MAX,
   findDesignCircle, radialProfile, findBorder, layoutKeychains, holeOffset, holeFromPoint,
   holeWall, cleanHole, circlePath, keychainDpi, cleanSheetSize, keychainSheet,
   CUSTOM_SHEET_DEFAULT, CUSTOM_SHEET_MIN_MM,
@@ -851,12 +851,13 @@ function holeGroup() {
     stat('Lubang', `${HOLE_DIAMETER_MM} mm`),
     stat('Tengah lubang dari tepi', `${rnd(h0.inset, 1)} mm`),
     stat('Acrylic ke tepi', `${holeWall(S.hole, S.size)} mm`),
-    h('p', { class: 'hint' }, 'Seret lubang dalam preview Keychain untuk alih. Lubang dicut dulu, dan file print biarkan lubang kosong.'),
+    h('p', { class: 'hint' }, 'Seret lubang dalam preview Keychain untuk alih. '
+      + `Paling dekat ${HOLE_MIN_WALL_MM} mm acrylic ke tepi. Lubang dicut dulu, dan file print biarkan lubang kosong.`),
     h('button', {
       class: 'ghost',
       type: 'button',
       onclick: () => set({ hole: { angle: 0, inset: HOLE_INSET_MM } }),
-    }, `Letak semula atas tengah, ${HOLE_INSET_MM} mm dari tepi`));
+    }, `Letak semula atas tengah, tinggal ${HOLE_MIN_WALL_MM} mm ke tepi`));
 }
 
 function sheetGroup(lay) {

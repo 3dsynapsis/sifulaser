@@ -13,8 +13,10 @@
 //     other: shifted 0.5 mm, a 0.4 mm blue line vanishes on one side and doubles on the
 //     other, and the keychain looks crooked. With no line at the edge, the shift does
 //     not show.
-//   * One hole, 2 mm across. Boss's red dot put its centre about 2 mm in from the edge,
-//     at the top; it can be dragged anywhere on the keychain.
+//   * One hole, 2 mm across, at the top. Boss's red dot put its centre 2 mm in from the
+//     edge, which left 1 mm of acrylic: too close, said Boss, so 1.5 mm it is (centre
+//     2.5 mm in), and no hole is dragged any closer. Otherwise it can go anywhere on the
+//     keychain.
 //   * The sheets are the medal FRONT templates Boss uses in CorelDRAW, Kecil 490 x 740
 //     and Besar 550 x 850 mm, and smaller ones, Mini 300 x 400 or any size Boss types,
 //     because a big UV print lands off at its top and left. Keychains stand 7 mm apart
@@ -29,8 +31,8 @@ import { UV_BED_MM } from './poster.js';
 export const KEYCHAIN_SIZES_MM = [40, 50, 60];
 export const KEYCHAIN_BLEED_MM = 2;
 export const HOLE_DIAMETER_MM = 2;
-export const HOLE_INSET_MM = 2;        // hole centre from the cut edge, at the top
-export const HOLE_MIN_WALL_MM = 0.5;   // the least acrylic a dragged hole may leave
+export const HOLE_MIN_WALL_MM = 1.5;   // acrylic between the hole and the edge, at least
+export const HOLE_INSET_MM = HOLE_DIAMETER_MM / 2 + HOLE_MIN_WALL_MM;   // centre from the edge
 export const KEYCHAIN_GAP_MM = 7;     // cut line to cut line
 export const KEYCHAIN_EDGE_MM = 7;    // the sheet's edge to the nearest cut line
 export const KEYCHAIN_SHEETS = [

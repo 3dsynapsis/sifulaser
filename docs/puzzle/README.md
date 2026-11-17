@@ -265,7 +265,8 @@ design keychain bulat; tool ini:
 - buang garis border nipis di tepi design (dihidupkan sendiri bila dijumpai): print dan
   cut tak pernah tepat, dan garis 0.4 mm di tepi nampak tebal sebelah dan hilang
   sebelah bila lari 0.5 mm;
-- lubang 2 mm, tengahnya 2 mm dari tepi di atas (titik merah bos), boleh diseret;
+- lubang 2 mm di atas, tinggal 1.5 mm acrylic ke tepi (tengahnya 2.5 mm dari tepi; titik
+  merah bos tinggal 1 mm, bos kata terlalu dekat), boleh diseret tapi tak lebih dekat;
 - saiz 4, 5, 6 cm; sheet Kecil 490 x 740 atau Besar 550 x 850 mm (saiz template FRONT
   medal bos), jarak 7 mm garis cut ke garis cut dan 7 mm dari tepi sheet ke garis cut.
   Keychain tiada masking tape, jadi muat sebanyak mungkin (bos, 17 November 2026;

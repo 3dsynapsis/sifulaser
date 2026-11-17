@@ -137,8 +137,9 @@ check('100 keychain atas Kecil: 2 sheet x 50', (() => {
 })());
 check('garis cut sekurang-kurangnya 7 mm dari tepi sheet', kecil.items.every((it) => it.x - 25 >= 7 && it.y - 25 >= 7
   && 490 - it.x - 25 >= 7 && 740 - it.y - 25 >= 7));
-const kcHole = kc.holeOffset({ angle: 0, inset: 2 }, 50);
-check('lubang 2 mm, tengahnya 2 mm dari tepi atas', kcHole.dx === 0 && kcHole.dy === -23);
+const kcHole = kc.holeOffset({ angle: 0, inset: kc.HOLE_INSET_MM }, 50);
+check('lubang 2 mm di atas, tinggal 1.5 mm acrylic ke tepi', kcHole.dx === 0 && kcHole.dy === -22.5
+  && kc.holeWall({ angle: 0, inset: kc.HOLE_INSET_MM }, 50) === 1.5);
 const kcSheet = buildKeychainSheet(kecil, { material: 'Acrylic Putih 3mm', hole: kcHole });
 check('lubang dulu, keychain, frame sheet last', kcSheet.paths.map((p) => p.id).join() === 'holes,keychains,sheet');
 check('label material, PCS satu sheet dan berapa kali cut', kcSheet.texts.slice(3).map((t) => t.text).join('|') === 'Acrylic Putih 3mm|96 PCS SATU SHEET|CUT 1 KALI');
