@@ -64,3 +64,75 @@ export function turnBox(box, panelHeight) {
     height: box.width,
   };
 }
+
+/**
+ * Panels of any sizes on the bed together (UV File tab, Boss, 25 Nov 2026). Until then
+ * only panels of one exact size shared a run, and a trimmed logo is rarely the size of
+ * the next: three logos at 100 mm high made three cut files and three print runs. Now
+ * one bed load is one cut file and one print file, laid out alike, so the cut panels go
+ * onto the bed as they came off the laser.
+ *
+ * Shelves, tallest first (first fit decreasing height): each shelf runs along the bed's
+ * 900, the shelves stack along its 600, panels edge to edge with no gap, as planRuns
+ * lays them. Each layout is tried with every panel as it lies, every panel turned, and
+ * every panel with its long side along the 900, and the one with the fewest beds wins,
+ * then the one that covers the least of them. Panels of one size come out as
+ * planRuns lays them.
+ *
+ * @param panels [{ width, height }] mm, in the job's order
+ * @returns null when a panel does not fit the bed either way round, else one entry per
+ *          bed load: { width, height, slots: [{ index, x, y, turned }] }, `index` into
+ *          `panels`, x along the 900, slots in the order they were placed
+ */
+export function packPanels(panels, bed = UV_BED_MM) {
+  const fits = (w, h) => w <= bed.long + 1e-9 && h <= bed.short + 1e-9;
+  if (panels.some((p) => !fits(p.width, p.height) && !fits(p.height, p.width))) return null;
+  const ways = [
+    () => false,                                  // as they lie
+    () => true,                                   // all turned
+    (p) => p.height > p.width,                    // long side along the 900
+  ];
+  let best = null;
+  for (const way of ways) {
+    const items = panels.map((p, index) => {
+      let turned = way(p);
+      if (!fits(turned ? p.height : p.width, turned ? p.width : p.height)) turned = !turned;
+      return { index, turned, w: turned ? p.height : p.width, h: turned ? p.width : p.height };
+    });
+    // Tallest first; a tie keeps the job's order.
+    items.sort((a, b) => b.h - a.h || a.index - b.index);
+    const beds = [];
+    for (const it of items) {
+      let placed = false;
+      for (const b of beds) {
+        const shelf = b.shelves.find((s) => it.h <= s.h + 1e-9 && s.used + it.w <= bed.long + 1e-9);
+        if (shelf) {
+          b.slots.push({ index: it.index, x: r2(shelf.used), y: r2(shelf.y), turned: it.turned });
+          shelf.used += it.w;
+          placed = true;
+          break;
+        }
+        if (b.height + it.h <= bed.short + 1e-9) {
+          b.shelves.push({ y: b.height, h: it.h, used: it.w });
+          b.slots.push({ index: it.index, x: 0, y: r2(b.height), turned: it.turned });
+          b.height += it.h;
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        beds.push({ shelves: [{ y: 0, h: it.h, used: it.w }], height: it.h, slots: [{ index: it.index, x: 0, y: 0, turned: it.turned }] });
+      }
+    }
+    const out = beds.map((b) => ({
+      width: r2(Math.max(...b.shelves.map((s) => s.used))),
+      height: r2(b.height),
+      slots: b.slots,
+    }));
+    const area = out.reduce((s, b) => s + b.width * b.height, 0);
+    if (!best || out.length < best.out.length || (out.length === best.out.length && area < best.area - 1e-6)) {
+      best = { out, area };
+    }
+  }
+  return best.out;
+}

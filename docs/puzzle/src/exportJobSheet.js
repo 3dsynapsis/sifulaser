@@ -225,6 +225,91 @@ export function buildPanelSheet(plan, meta = {}) {
 }
 
 /**
+ * One bed load of UV panels as one cut file (Boss, 25 Nov 2026): every panel where the
+ * print file puts it, so what comes off the laser goes onto the UV bed as it lies. The
+ * posters first, each in its own hairline with R3 corners as on a single panel; then the
+ * panels' edges, last, for the puzzle's reason - nothing comes loose while something
+ * inside it is still being cut.
+ *
+ * The panels touch, so two of them share an edge. Each edge is written once (frameLines):
+ * a line cut twice melts its kerf wider and leaves the acrylic's edge rough. The panels'
+ * corners are square here: the frames are offcuts, and R5 corners would leave slivers
+ * between panels.
+ *
+ * @param layout { width, height, items: [{ x, y, turned, plan }] }, mm from the corner
+ *               of the bed; `turned`, the panel lies turned 90° clockwise
+ * @param meta   { client, dateline, material, run, runs }
+ */
+export function buildPanelBedSheet(layout, meta = {}) {
+  const material = typeof meta.material === 'string' && meta.material.trim()
+    ? meta.material.trim()
+    : 'Acrylic Putih 3mm';
+  const width = Math.max(PAGE_W, layout.width + 2 * GAP);
+  const height = Math.max(PAGE_H, PART_TOP + layout.height + BOTTOM);
+  const xs = (width - layout.width) / 2;
+  const posters = [];
+  const rects = [];
+  for (const it of layout.items) {
+    const { plan } = it;
+    const [pw, ph] = it.turned ? [plan.panel.height, plan.panel.width] : [plan.panel.width, plan.panel.height];
+    const [qw, qh] = it.turned ? [plan.height, plan.width] : [plan.width, plan.height];
+    const d = borderPath(qw, qh, plan.cutCorner ?? 0);
+    posters.push(translatePath(/Z\s*$/.test(d) ? d : `${d} Z`, xs + it.x + (pw - qw) / 2, PART_TOP + it.y + (ph - qh) / 2));
+    rects.push({ x: xs + it.x, y: PART_TOP + it.y, w: pw, h: ph });
+  }
+  const paths = [
+    { id: 'poster', stroke: 'hair', d: posters.join(' ') },
+    { id: 'frame', stroke: 'cut', d: frameLines(rects) },
+  ];
+  const texts = [];
+  const n = layout.items.length;
+  const run = meta.runs > 1 ? `RUN ${meta.run} DARI ${meta.runs}: ` : '';
+  jobHead(texts, width, meta, `PANEL UV ${run}${n} panel, ${round3(layout.width)} x ${round3(layout.height)} mm`);
+  partLabel(texts, [material, `${n} PANEL, CUT 1 KALI`], width / 2, layout.width + GAP - 8);
+  return {
+    width,
+    height,
+    paths,
+    texts,
+    parts: { bed: { x: xs, y: PART_TOP, width: layout.width, height: layout.height } },
+  };
+}
+
+/**
+ * The edges of rectangles that touch, each stretch of line once: every edge as a
+ * segment, segments on the same line merged where they overlap or meet.
+ */
+export function frameLines(rects) {
+  const key = (v) => Math.round(v * 1000) / 1000;
+  const lines = { h: new Map(), v: new Map() };
+  const add = (kind, at, a, b) => {
+    const k = key(at);
+    if (!lines[kind].has(k)) lines[kind].set(k, []);
+    lines[kind].get(k).push([key(Math.min(a, b)), key(Math.max(a, b))]);
+  };
+  for (const r of rects) {
+    add('h', r.y, r.x, r.x + r.w);
+    add('h', r.y + r.h, r.x, r.x + r.w);
+    add('v', r.x, r.y, r.y + r.h);
+    add('v', r.x + r.w, r.y, r.y + r.h);
+  }
+  const out = [];
+  for (const kind of ['h', 'v']) {
+    for (const [at, spans] of [...lines[kind]].sort((p, q) => p[0] - q[0])) {
+      spans.sort((p, q) => p[0] - q[0]);
+      let [a, b] = spans[0];
+      const flush = () => out.push(kind === 'h' ? `M ${a} ${at} L ${b} ${at}` : `M ${at} ${a} L ${at} ${b}`);
+      for (const [c, e] of spans.slice(1)) {
+        if (c <= b + 1e-6) b = Math.max(b, e);
+        else { flush(); [a, b] = [c, e]; }
+      }
+      flush();
+    }
+  }
+  return out.join(' ');
+}
+
+/**
  * The Keychain UV tab's cut file (Boss, 17 Nov 2026): one sheet of round keychains, the
  * job written above it. The holes first, then the keychains, then the sheet's own edge
  * last, for the puzzle's reason: nothing comes loose while something inside it is still

@@ -268,5 +268,73 @@ console.log('\nbuang ruang putih (UV File)');
   check('rekod lama: tiada crops', !('crops' in cleanPoster({ files: [file] })));
 }
 
+// ---- UV File: susun semua panel atas bed (Boss, 25 Nov 2026) --------------------------
+// Logo pelbagai bentuk jadi panel pelbagai saiz. Satu muatan bed = satu file cut dan satu
+// file print, susunan sama; garis yang dikongsi dua panel dicut sekali sahaja.
+console.log('\nsusun panel pelbagai saiz (UV File)');
+{
+  const { packPanels, planRuns } = await imp('puzzle/src/geom/runs.js');
+  const { buildPanelBedSheet, frameLines, sheetToPdf: toPdf } = await imp('puzzle/src/exportJobSheet.js');
+  const { planPanel } = await imp('puzzle/src/geom/panel.js');
+  const overlap = (a, b) => a.x < b.x + b.w - 1e-6 && b.x < a.x + a.w - 1e-6 && a.y < b.y + b.h - 1e-6 && b.y < a.y + a.h - 1e-6;
+  const rectsOf = (bed, panels) => bed.slots.map((sl) => {
+    const p = panels[sl.index];
+    return { x: sl.x, y: sl.y, w: sl.turned ? p.height : p.width, h: sl.turned ? p.width : p.height };
+  });
+  const sane = (beds, panels, tag) => {
+    const seen = beds.flatMap((b) => b.slots.map((sl) => sl.index)).sort((x, y) => x - y);
+    check(`${tag}: setiap panel sekali`, seen.length === panels.length && seen.every((v, i) => v === i));
+    for (const [n, b] of beds.entries()) {
+      const rs = rectsOf(b, panels);
+      check(`${tag} bed ${n + 1}: dalam 900 x 600`, b.width <= 900 + 1e-6 && b.height <= 600 + 1e-6
+        && rs.every((r) => r.x >= 0 && r.y >= 0 && r.x + r.w <= b.width + 1e-6 && r.y + r.h <= b.height + 1e-6));
+      check(`${tag} bed ${n + 1}: tiada panel bertindih`, rs.every((r, i) => rs.every((q, j) => i === j || !overlap(r, q))));
+    }
+  };
+  // Tiga logo contoh: 84.8 dan 84.9 lebar - dahulu dua file cut dan dua run.
+  const three = [{ width: 84.8, height: 120 }, { width: 84.8, height: 120 }, { width: 84.9, height: 120 }];
+  const b3 = packPanels(three);
+  check('3 logo hampir sama saiz: satu run', b3.length === 1 && b3[0].slots.length === 3, JSON.stringify(b3));
+  check('3 logo: rapat tepi ke tepi, satu baris', b3[0].height === 120 && b3[0].width === 254.5);
+  sane(b3, three, '3 logo');
+  // Saiz sama: susunan sama seperti planRuns dahulu.
+  const same = Array(9).fill({ width: 212, height: 297 });
+  const bs = packPanels(same);
+  const pr = planRuns(9, { width: 212, height: 297 });
+  check('saiz sama: bilangan run sama dengan planRuns', bs.length === pr.length && bs.map((b) => b.slots.length).join() === pr.map((r) => r.count).join(),
+    `${bs.map((b) => b.slots.length)} vs ${pr.map((r) => r.count)}`);
+  sane(bs, same, 'saiz sama');
+  // Rawak tetapi boleh diulang: pelbagai saiz, ada yang mesti dipusing untuk muat.
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let t = 0; t < 30; t++) {
+    const panels = Array.from({ length: 1 + Math.floor(rnd() * 14) }, () => ({
+      width: Math.round((40 + rnd() * 560) * 10) / 10, height: Math.round((40 + rnd() * 560) * 10) / 10,
+    }));
+    const beds = packPanels(panels);
+    check(`rawak ${t}: tersusun`, Array.isArray(beds) && beds.length >= 1, JSON.stringify(panels));
+    if (beds) sane(beds, panels, `rawak ${t}`);
+  }
+  check('panel lebih besar dari bed: null', packPanels([{ width: 950, height: 610 }]) === null);
+  check('panel 700 x 500 muat bila dipusing? tidak perlu', packPanels([{ width: 700, height: 500 }])[0].slots[0].turned === false);
+  check('panel 500 x 700 dipusing supaya muat', packPanels([{ width: 500, height: 700 }])[0].slots[0].turned === true);
+
+  // Garis dikongsi: dua panel bersebelahan = 7 garis (bukan 8), setiap satu sekali.
+  const fl = frameLines([{ x: 0, y: 0, w: 10, h: 20 }, { x: 10, y: 0, w: 10, h: 20 }]);
+  check('garis kongsi dicut sekali', fl === 'M 0 0 L 20 0 M 0 20 L 20 20 M 0 0 L 0 20 M 10 0 L 10 20 M 20 0 L 20 20', fl);
+  // File cut satu run: poster dulu, garis panel last; PDF sah.
+  const plans = [planPanel(97, 152, { height: 100 }), planPanel(150, 100, { height: 100 }), planPanel(97, 152, { height: 100 })];
+  const beds = packPanels(plans.map((q) => q.panel));
+  const run = { width: beds[0].width, height: beds[0].height, items: beds[0].slots.map((sl) => ({ ...sl, plan: plans[sl.index] })) };
+  const sheet = buildPanelBedSheet(run, { material: 'Acrylic Clear 3mm', run: 1, runs: 1 });
+  check('file cut run: poster dulu, frame last', sheet.paths.map((q) => q.id).join() === 'poster,frame');
+  check('file cut run: 3 garis poster', (sheet.paths[0].d.match(/M /g) || []).length === 3);
+  check('file cut run: material dan bilangan panel', sheet.texts.some((t) => t.text === 'Acrylic Clear 3mm')
+    && sheet.texts.some((t) => t.text === '3 PANEL, CUT 1 KALI'));
+  const pdfBytes = new TextEncoder().encode(toPdf(sheet, { title: 'ujian' }));
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  check('file cut run: PDF sah, satu page', pdfDoc.getPageCount() === 1);
+}
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 if (fail) process.exit(1);

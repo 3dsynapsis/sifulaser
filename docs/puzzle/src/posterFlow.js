@@ -48,7 +48,7 @@ import {
 import {
   findContent, trimCrop, cleanCrop, isWholePage, pageBoxFor, trimmedShare, bleedCrop,
 } from './geom/crop.js';
-import { planRuns, turnBox } from './geom/runs.js';
+import { planRuns, turnBox, packPanels } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
 import { borderPath } from './geom/puzzle.js';
 import {
@@ -59,7 +59,7 @@ import { illustratorEditData } from './pdfWeight.js';
 import {
   isPosterFile, stripExt, POSTER_ACCEPT, POSTER_FORMATS,
 } from './posterFile.js';
-import { buildPanelSheet } from './exportJobSheet.js';
+import { buildPanelSheet, buildPanelBedSheet } from './exportJobSheet.js';
 import { panelRecord } from './posterSaved.js';
 import { makeZip } from './zip.js';
 import {
@@ -86,6 +86,7 @@ const PRODUCTS = {
     title: 'Poster ke puzzle',
     close: 'Tutup poster, balik ke puzzle biasa',
     crop: false,        // the whole page is the puzzle, as it always was
+    pack: false,        // runs of one size, one cut file a size cut N times
     tooSmall: 'Saiz ni terlalu kecil untuk dijadikan puzzle.',
     turned: (n) => `${n} poster diputar 90° supaya semua guna satu bentuk puzzle dan satu file cut.`,
     sheetLabel: 'Job sheet',
@@ -102,6 +103,9 @@ const PRODUCTS = {
     // Trim the white round the artwork (Boss, 25 Nov 2026): a logo sent on a whole A4
     // page came out small. geom/crop.js; see cropGroup and autoTrim below.
     crop: true,
+    // Panels of every size on one bed load, its cut file laid out as its print file
+    // (Boss, 25 Nov 2026): packPanels and buildPanelBedSheet.
+    pack: true,
     tooSmall: 'Saiz ni terlalu kecil untuk dijadikan panel.',
     turned: (n) => `${n} poster diputar 90° supaya semua guna satu saiz panel dan satu file cut.`,
     sheetLabel: 'File cut',
@@ -928,6 +932,20 @@ function renderStage() {
   }
   const puzzle = P.puzzle ? previewPuzzle(plan) : null;
   const fitKey = `${S.current}:${plan.width}x${plan.height}`;
+  if (S.stageView === 'sheet' && P.pack) {
+    // The file cut of the bed load this page is in, as the Export gives it.
+    const runs = printRuns(readyPages());
+    const at = runs.findIndex((r) => r.pages.includes(page));
+    if (at >= 0) {
+      const run = runs[at];
+      deps.view.renderSheet(buildPanelBedSheet(run, { ...jobMeta(), run: at + 1, runs: runs.length }),
+        `sheet:run:${runBoxes(run).map((b) => `${b.page.index}@${b.box.x},${b.box.y}`).join(';')}`);
+      deps.els.hint.textContent = `${runs.length > 1 ? `Run ${at + 1} dari ${runs.length}: ` : ''}`
+        + `${run.items.length} panel, ${size(run.width, run.height)}`;
+      deps.els.hint.classList.add('show');
+      return;
+    }
+  }
   if (S.stageView === 'sheet') {
     const meta = { ...jobMeta(), units: unitsFor(plan) };
     deps.view.renderSheet(puzzle ? buildSheet(plan, puzzle, meta) : buildPanelSheet(plan, meta), `sheet:${fitKey}`);
@@ -1297,9 +1315,12 @@ function printCheckFor(page, plan) {
   const runs = printRuns(readyPages());
   const at = runs.findIndex((r) => r.pages.includes(page));
   const run = at >= 0 ? runs[at] : null;
+  // Every panel's place, turn and crop: a run of mixed sizes changes when any of them does.
+  const where = (b) => `${b.page.index}@${b.box.x},${b.box.y},${b.box.width}x${b.box.height}/${b.turn}`
+    + `/${JSON.stringify(b.page.crop || null)}`;
   const key = run
-    ? `run|${run.pages.map((p) => p.index).join(',')}|${planKey(plan)}|${filesKey()}`
-    : `page|${page.index}|${planKey(plan)}|${filesKey()}`;
+    ? `run|${runBoxes(run).map(where).join(';')}|${filesKey()}`
+    : `page|${page.index}|${planKey(plan)}|${JSON.stringify(page.crop || null)}|${filesKey()}`;
   if (S.printCheck?.key === key) return S.printCheck;
   dropPrintCheck();
   const check = {
@@ -1563,10 +1584,28 @@ const readyPages = () => S.source.pages.filter((p) => p.ticked && !blockedReason
 
 /** Every ready panel, size by size, run by run, as it goes on the bed. */
 function printRuns(pages) {
+  // UV File: every size together, a bed load at a time (packPanels).
+  if (P.pack) {
+    const plans = pages.map(planFor);
+    return (packPanels(plans.map((p) => p.panel)) || []).map((b) => {
+      const items = b.slots.map((sl) => ({
+        page: pages[sl.index], plan: plans[sl.index], x: sl.x, y: sl.y, turned: sl.turned,
+      }));
+      return { width: b.width, height: b.height, items, pages: items.map((it) => it.page) };
+    });
+  }
   const runs = [];
   for (const { plan, pages: group } of sizesOf(pages)) {
     for (const run of planRuns(group.length, plan.panel)) {
-      runs.push({ ...run, plan, pages: group.slice(run.first, run.first + run.count) });
+      const runPages = group.slice(run.first, run.first + run.count);
+      runs.push({
+        ...run,
+        plan,
+        pages: runPages,
+        items: runPages.map((page, i) => ({
+          page, plan, x: run.slots[i].x, y: run.slots[i].y, turned: run.turned,
+        })),
+      });
     }
   }
   return runs;
@@ -1574,14 +1613,27 @@ function printRuns(pages) {
 
 /** Where each panel's artwork lands on a run's page, and how far it turns. */
 function runBoxes(run) {
-  const art = run.turned ? turnBox(run.plan.art, run.plan.panel.height) : run.plan.art;
-  return run.pages.map((page, i) => ({
-    page,
-    box: {
-      x: r2(run.slots[i].x + art.x), y: r2(run.slots[i].y + art.y), width: art.width, height: art.height,
-    },
-    turn: (page.turned ? 90 : 0) + (run.turned ? 90 : 0),
-  }));
+  return run.items.map((it) => {
+    const art = it.turned ? turnBox(it.plan.art, it.plan.panel.height) : it.plan.art;
+    return {
+      page: it.page,
+      box: {
+        x: r2(it.x + art.x), y: r2(it.y + art.y), width: art.width, height: art.height,
+      },
+      turn: (it.page.turned ? 90 : 0) + (it.turned ? 90 : 0),
+    };
+  });
+}
+
+/** One bed load's cut file, laid out as its print file (UV File tab, Boss, 25 Nov 2026). */
+async function runCutFile(run, number, total) {
+  const sheet = buildPanelBedSheet(run, { ...jobMeta(), run: number, runs: total });
+  const body = sheetToPdf(sheet, { title: `${S.source.name} - cut run ${number}` });
+  return {
+    blob: new Blob([body], { type: 'application/pdf' }),
+    name: `${baseName(S.source.name)}-cut-run${number}-${rnd(run.width, 1)}x${rnd(run.height, 1)}.pdf`,
+    type: 'application/pdf',
+  };
 }
 
 /** One print file for one bed load: the cut panels laid edge to edge from the corner. */
@@ -1820,7 +1872,7 @@ export function openPosterExport() {
   };
   const labels = (pages) => pages.map((p) => (S.files.length > 1 ? p.label : `page ${p.index + 1}`)).join(', ');
 
-  const cutRows = sizes.map(({ plan, pages }) => shareRow({
+  const cutRows = P.pack ? [] : sizes.map(({ plan, pages }) => shareRow({
     kind: 'cut',
     title: `file cut ${size(plan.width, plan.height)}`,
     make: () => cutFile(plan, pages.length),
@@ -1836,16 +1888,31 @@ export function openPosterExport() {
   // Print: one file per bed load (Boss, 11 Nov 2026). A single panel's file stays
   // to hand for printing one again, folded away.
   const runs = printRuns(ready);
-  const runRows = runs.map((run, i) => shareRow({
-    kind: 'run',
-    title: `file print UV run ${i + 1}`,
-    make: () => runFile(run, i + 1),
-  },
-  h('div', { class: 'file-row-text' },
-    h('b', {}, runs.length > 1 ? `File print UV, run ${i + 1} dari ${runs.length}` : 'File print UV'),
-    h('span', {}, `${run.pages.length} panel${P.materials ? ` ${materialLabel()}` : ''}, `
-      + `${size(run.width, run.height)}${multiPage ? `: ${labels(run.pages)}` : ''}`)),
-  fileButton('File print', () => runFile(run, i + 1))));
+  const runName = (i) => (runs.length > 1 ? `, run ${i + 1} dari ${runs.length}` : '');
+  const runRows = runs.flatMap((run, i) => [
+    // UV File: the run's cut file first, laid out as its print file (Boss, 25 Nov 2026).
+    P.pack ? shareRow({
+      kind: 'cut',
+      title: `file cut run ${i + 1}`,
+      make: () => runCutFile(run, i + 1, runs.length),
+    },
+    h('div', { class: 'file-row-text' },
+      h('b', {}, `File cut${runName(i)}`),
+      h('span', {}, `${run.pages.length} panel ${materialLabel()} disusun, ${size(run.width, run.height)}, cut 1 kali`
+        + `${multiPage ? `: ${labels(run.pages)}` : ''}`)),
+    fileButton('File cut', () => runCutFile(run, i + 1, runs.length))) : null,
+    shareRow({
+      kind: 'run',
+      title: `file print UV run ${i + 1}`,
+      make: () => runFile(run, i + 1),
+    },
+    h('div', { class: 'file-row-text' },
+      h('b', {}, `File print UV${runName(i)}`),
+      h('span', {}, `${run.pages.length} panel${P.materials ? ` ${materialLabel()}` : ''}, `
+        + `${size(run.width, run.height)}${multiPage && !P.pack ? `: ${labels(run.pages)}` : ''}`
+        + `${P.pack ? ', susunan sama dengan file cut' : ''}`)),
+    fileButton('File print', () => runFile(run, i + 1))),
+  ].filter(Boolean));
 
   const singleRows = ready.map((p) => {
     const { art } = planFor(p);
@@ -1858,10 +1925,14 @@ export function openPosterExport() {
     h('div', { class: 'file-row-text' },
       h('b', {}, name),
       h('span', {}, `Artwork ${size(art.width, art.height)}${p.turned ? ', diputar 90°' : ''}`)),
+    // UV File: a panel's own cut file too, now that the run's cuts them all together.
+    P.pack ? fileButton('File cut', () => cutFile(planFor(p), 1)) : null,
     fileButton('File print', () => printFile(p)));
   });
   const singles = ready.length > 1
-    ? h('details', { class: 'print-singles' }, h('summary', {}, 'File print satu panel (untuk ulang print)'), ...singleRows)
+    ? h('details', { class: 'print-singles' },
+      h('summary', {}, P.pack ? 'Satu panel sahaja (untuk ulang cut atau print)' : 'File print satu panel (untuk ulang print)'),
+      ...singleRows)
     : null;
 
   // The reference cards: one sheet for every ticked page, whatever its puzzle size.
@@ -1895,8 +1966,11 @@ export function openPosterExport() {
     'Download semua (ZIP)');
   all.addEventListener('click', busy(all, async () => {
     const files = [];
-    for (const { plan, pages } of sizes) files.push(await forZip(await cutFile(plan, pages.length)));
-    for (const [i, run] of runs.entries()) files.push(await forZip(await runFile(run, i + 1)));
+    if (!P.pack) for (const { plan, pages } of sizes) files.push(await forZip(await cutFile(plan, pages.length)));
+    for (const [i, run] of runs.entries()) {
+      if (P.pack) files.push(await forZip(await runCutFile(run, i + 1, runs.length)));
+      files.push(await forZip(await runFile(run, i + 1)));
+    }
     if (cardsReady) {
       files.push(await forZip(await cardCutFile(layout)));
       files.push(await forZip(await cardPrintFile(layout)));
@@ -1920,7 +1994,13 @@ export function openPosterExport() {
     cardWarning,
     ...blocked.map((p) => h('p', { class: 'warn-line' },
       `${S.files.length > 1 ? p.label : `Page ${p.index + 1}`}: ${blockedReason(planFor(p))}`)),
-    first
+    first && P.pack
+      ? h('p', { class: 'note' },
+        'Setiap run ada sepasang: file cut dan file print, susunan panel sama. Cut file cut run tu sekali: '
+        + 'garis poster dulu, garis panel last, garis yang dikongsi dua panel dicut sekali sahaja. '
+        + 'Letak panel atas UV bed dari bucu kiri atas tanpa ubah susunan, dan print file print run yang sama. '
+        + 'Poster dalam file print ialah gambar CMYK 300 dpi. Spot 1 dan Spot 2 (white) di bawah setiap poster.')
+      : first
       ? h('p', { class: 'note' },
         `File cut: cut ikut bilangan UNIT dalam file. ${P.puzzle ? 'Garisan puzzle' : 'Garis poster'} dulu, frame last. `
         + 'File print UV: letak panel rapat tepi ke tepi dari bucu kiri atas bed, ikut susunan file. '
@@ -1961,9 +2041,9 @@ export const POSTER_STEPS = [
 /** The UV File tab's steps (Boss, 11 Nov 2026). */
 export const PANEL_STEPS = [
   ['Cut panel acrylic',
-    'Ikut material dan bilangan UNIT yang tertulis dalam file cut. Garis poster dulu, frame last. Jangan keluarkan poster lagi.'],
+    'Satu file cut untuk satu run: semua panel dah disusun, cut sekali. Material tertulis dalam file. Garis poster dulu, garis panel last. Jangan keluarkan poster lagi.'],
   ['UV print atas panel',
-    'Semak layer dulu di Preview, File print. Letak panel atas bed tanpa keluarkan poster, rapat tepi ke tepi dari bucu kiri atas, ikut susunan file print UV: satu file untuk satu run. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
+    'Semak layer dulu di Preview, File print. Letak panel atas bed dari bucu kiri atas, susunan sama macam file cut run tu (jangan ubah susunan). Print file print UV run yang sama. Buka file tu terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah poster.'],
   ['Keluarkan poster',
     `Frame ${PANEL_BORDER_MM} mm terbuang bersama bleed ${PANEL_BLEED_MM} mm yang dicetak atasnya, jadi tepi poster penuh tanpa putih.`],
 ];

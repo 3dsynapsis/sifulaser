@@ -299,6 +299,31 @@ pada tinggi 100 mm logo cuma 31 x 49 mm. Kini setiap page ada **pangkasan**:
 > `src/view.js`, `src/version.js` dan `styles.css`. Salin balik ke projek sumber
 > sebelum "Cara kemas kini" dijalankan lagi, kalau tidak semuanya hilang senyap.
 
+### Susun semua panel atas bed (25 November 2026)
+
+Masukkan beberapa fail sekali gus (PDF, JPG, PNG): setiap satu jadi panel, dan semua
+panel - apa pun saiznya - disusun bersama atas UV bed 900 x 600 mm. Dahulu hanya panel
+yang saiznya SAMA TEPAT berkongsi run; logo yang dipangkas jarang sama saiz (84.8 lawan
+84.9 mm), jadi tiga logo jadi dua atau tiga file cut dan run berasingan.
+
+- `geom/runs.js` `packPanels` - rak (shelf), paling tinggi dahulu, rapat tepi ke tepi
+  tanpa jarak. Dicuba tiga cara (seperti asal, semua dipusing, sisi panjang sepanjang
+  900) dan yang paling sedikit bed, kemudian paling kecil luasnya, menang. Saiz yang
+  sama keluar seperti `planRuns`.
+- Satu muatan bed = **sepasang** fail: file cut run (`buildPanelBedSheet` dalam
+  `exportJobSheet.js`) dan file print run, susunan panel sama. Dalam file cut: garis
+  poster dulu, garis panel last, dan garis yang dikongsi dua panel ditulis sekali
+  (`frameLines`), supaya laser tak potong dua kali. Bucu panel di sini segi empat:
+  frame ialah sisa, dan bucu R5 meninggalkan serpih di antara panel.
+- Preview "File cut" menunjukkan file cut run page itu. Export: setiap run, File cut
+  kemudian File print. "Satu panel sahaja" kekal untuk ulang cut atau print satu panel.
+- Tab Puzzle tidak berubah (`pack: false`): satu file cut setiap saiz, cut N kali.
+- Ujian: `node scripts/test-puzzle-poster.mjs` (bahagian "susun panel pelbagai saiz").
+
+> **Dibuat terus dalam salinan ini** juga: `src/geom/runs.js`, `src/exportJobSheet.js`,
+> `src/posterFlow.js`, `src/version.js`. Salin balik ke `13_Puzzle Generator` sebelum
+> "Cara kemas kini" dijalankan lagi.
+
 ## Keychain UV File Generator (17 November 2026)
 
 Tab baharu `sifulaser.com/keychainuv/` (halaman React `#/keychainuv`). Masukkan PDF
