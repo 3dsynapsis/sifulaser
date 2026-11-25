@@ -43,8 +43,11 @@ import {
   buildSheet, buildCardSheet, sheetToPdf, translatePath,
 } from './exportJobSheet.js';
 import {
-  openPoster, renderPicture, pageImages, pagePicture, buildLayeredPrint,
+  openPoster, renderPicture, pageImages, pagePicture, pageRaster, buildLayeredPrint,
 } from './posterPdf.js';
+import {
+  findContent, trimCrop, cleanCrop, isWholePage, pageBoxFor, trimmedShare, bleedCrop,
+} from './geom/crop.js';
 import { planRuns, turnBox } from './geom/runs.js';
 import { layoutCards, CARD_BLEED_MM, CARD_CORNER_MM } from './geom/cards.js';
 import { borderPath } from './geom/puzzle.js';
@@ -82,6 +85,7 @@ const PRODUCTS = {
     plan: planPoster,
     title: 'Poster ke puzzle',
     close: 'Tutup poster, balik ke puzzle biasa',
+    crop: false,        // the whole page is the puzzle, as it always was
     tooSmall: 'Saiz ni terlalu kecil untuk dijadikan puzzle.',
     turned: (n) => `${n} poster diputar 90° supaya semua guna satu bentuk puzzle dan satu file cut.`,
     sheetLabel: 'Job sheet',
@@ -95,6 +99,9 @@ const PRODUCTS = {
     plan: planPanel,
     title: 'UV File',
     close: 'Tutup poster',
+    // Trim the white round the artwork (Boss, 25 Nov 2026): a logo sent on a whole A4
+    // page came out small. geom/crop.js; see cropGroup and autoTrim below.
+    crop: true,
     tooSmall: 'Saiz ni terlalu kecil untuk dijadikan panel.',
     turned: (n) => `${n} poster diputar 90° supaya semua guna satu saiz panel dan satu file cut.`,
     sheetLabel: 'File cut',
@@ -143,10 +150,27 @@ export const posterActive = () => Boolean(S.source);
 
 const currentPage = () => S.source.pages[S.current];
 
+/**
+ * The part of a page that is the poster, mm on the page as it shows: its crop in the UV
+ * File tab, else the whole page. Everything after this - size, panel, cut and print -
+ * sees only this.
+ */
+const cropOf = (page) => (P.crop && page.crop) || { x: 0, y: 0, w: page.widthMm, h: page.heightMm };
+
+/**
+ * What of the page lands on the artwork's box at this size: the crop is the poster's
+ * edge, so the bleed is the page round it (2 mm on the panel). null: the whole page is
+ * stretched over the box, bleed and all, as before crops.
+ */
+const artCropOf = (page, plan) => (P.crop && page.crop
+  ? bleedCrop(page.crop, plan, { x: plan.art.bleedX, y: plan.art.bleedY }, page.turned)
+  : null);
+
 /** A page's size the way it lies in this job: turned, if it is turned. */
-const lyingSize = (page) => (page.turned
-  ? { w: page.heightMm, h: page.widthMm }
-  : { w: page.widthMm, h: page.heightMm });
+const lyingSize = (page) => {
+  const c = cropOf(page);
+  return page.turned ? { w: c.h, h: c.w } : { w: c.w, h: c.h };
+};
 const planFor = (page) => {
   const { w, h: hh } = lyingSize(page);
   return P.plan(w, hh, S.choice);
@@ -225,6 +249,11 @@ function knownSeeds() {
   return out;
 }
 
+/** The UV File tab's crops, one for each cropped page; a page not listed is whole. */
+const cropList = () => S.source.pages.filter((p) => p.crop).map((p) => ({
+  i: p.index, x: p.crop.x, y: p.crop.y, w: p.crop.w, h: p.crop.h, auto: Boolean(p.cropAuto),
+}));
+
 function job() {
   const { source } = S;
   return {
@@ -241,6 +270,7 @@ function job() {
     seeds: knownSeeds(),
     cards: S.cards,
     ...(P.materials ? { material: S.material } : {}),
+    ...(P.crop ? { crops: cropList() } : {}),
   };
 }
 
@@ -256,6 +286,7 @@ const settingsKey = () => JSON.stringify({
   cards: S.cards,
   // Only where there is a choice, so a puzzle draft saved before reads as saved still.
   ...(P.materials ? { material: S.material } : {}),
+  ...(P.crop ? { crops: cropList() } : {}),
 });
 
 export const posterDirty = () => posterActive() && settingsKey() !== S.savedKey;
@@ -362,8 +393,9 @@ const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true
  * portrait A4 and a landscape A4 make the same panel and share one cut file.
  */
 function settleTurns(pages) {
-  const wide = (p) => p.widthMm > p.heightMm + 0.5;
-  const tall = (p) => p.heightMm > p.widthMm + 0.5;
+  // By the part that is printed: a landscape logo trimmed out of a portrait A4 is wide.
+  const wide = (p) => cropOf(p).w > cropOf(p).h + 0.5;
+  const tall = (p) => cropOf(p).h > cropOf(p).w + 0.5;
   const jobWide = pages.filter(wide).length >= pages.filter(tall).length;
   for (const p of pages) p.turned = jobWide ? tall(p) : wide(p);
 }
@@ -463,6 +495,15 @@ function applyJob(saved) {
   S.pins.clear();
   for (const s of saved.seeds) S.pins.set(s.key, s.seed);
   for (const page of pages) page.ticked = saved.ticked.includes(page.index);
+  // The crops it was saved with, and nothing found again over them. A job saved before
+  // there were crops has none: it opens as it was made, whole pages.
+  for (const page of pages) {
+    const c = (saved.crops || []).find((k) => k.i === page.index);
+    page.crop = c ? cleanCrop(c, page.widthMm, page.heightMm) : null;
+    page.cropAuto = Boolean(c?.auto);
+    page.cropSettled = true;
+  }
+  settleTurns(pages);
 }
 
 /**
@@ -598,6 +639,7 @@ export async function openPosterFiles(fileList, restore = null, { add = false } 
   }
   deps.refresh();
   loadThumbs(S.source);
+  autoTrim(S.source);
   changed();
   return true;
 }
@@ -769,6 +811,51 @@ function ensurePicture(page) {
   return page.picturePromise;
 }
 
+// ---- trimming the white (UV File tab, Boss, 25 Nov 2026) ----------------------------
+
+const TRIM_RASTER_PX = 1200;   // the page's long side when looking for its artwork
+
+/**
+ * Find each new page's artwork and crop to it, one page at a time after the job opens.
+ * A page opened from a save or a draft is settled already and is left as it was saved;
+ * so is one the person cropped by hand while this was still looking.
+ */
+async function autoTrim(source) {
+  if (!P.crop) return;
+  for (const page of source.pages) {
+    if (S.source !== source) return;
+    if (page.cropSettled) continue;
+    let crop = null;
+    try {
+      const raster = await pageRaster(page.obj, TRIM_RASTER_PX);
+      crop = trimCrop(findContent(raster.rgba, raster.width, raster.height),
+        raster.mmPerPx, page.widthMm, page.heightMm);
+    } catch { /* drawn whole, as before */ }
+    if (S.source !== source || page.cropSettled) continue;
+    page.crop = crop;
+    page.cropAuto = Boolean(crop);
+    page.cropSettled = true;
+    if (crop) cropsChanged();
+  }
+}
+
+/** After any crop changes: the job may lie the other way, and old print checks are stale. */
+function cropsChanged() {
+  settleTurns(S.source.pages);
+  dropPrintCheck();
+  renderPoster();
+  changed();
+}
+
+/** Set the current page's crop by hand (or null for the whole page). */
+function setCrop(page, crop) {
+  const c = crop && cleanCrop(crop, page.widthMm, page.heightMm);
+  page.crop = c && !isWholePage(c, page.widthMm, page.heightMm) ? c : null;
+  page.cropAuto = false;
+  page.cropSettled = true;
+  cropsChanged();
+}
+
 async function loadThumbs(source) {
   if (source.pages.length < 2) return;
   for (const page of source.pages) {
@@ -823,6 +910,22 @@ function renderStage() {
     deps.els.hint.classList.add('show');
     return;
   }
+  if (S.stageView === 'crop' && P.crop) {
+    const c = cropOf(page);
+    deps.view.renderCrop({
+      imageUrl: page.picture,
+      pageW: page.widthMm,
+      pageH: page.heightMm,
+      crop: c,
+      min: 10,
+      fitKey: `crop:${S.current}`,
+      onDone: (rect) => setCrop(page, rect),
+    });
+    deps.els.hint.textContent = `Seret bucu atau tepi kotak. Dicetak: ${size(c.w, c.h)} daripada halaman `
+      + `${size(page.widthMm, page.heightMm)}`;
+    deps.els.hint.classList.add('show');
+    return;
+  }
   const puzzle = P.puzzle ? previewPuzzle(plan) : null;
   const fitKey = `${S.current}:${plan.width}x${plan.height}`;
   if (S.stageView === 'sheet') {
@@ -836,6 +939,7 @@ function renderStage() {
       turn: page.turned ? 90 : 0,
       fitKey: `panel:${fitKey}`,
       clear: P.materials && panelMaterial(S.material).clear,
+      crop: artCropOf(page, plan) && { ...artCropOf(page, plan), pageW: page.widthMm, pageH: page.heightMm },
     });
   }
   deps.els.hint.textContent = P.puzzle
@@ -869,12 +973,17 @@ function blockedReason(plan) {
 
 function resolutionWarning(page, plan) {
   if (!page.images?.length) return null;
+  // A picture covers more of a crop than of the page it was measured on.
+  const c = cropOf(page);
+  const kx = page.widthMm / c.w;
+  const ky = page.heightMm / c.h;
+  const onCrop = page.images.map((im) => ({ ...im, fracW: im.fracW * kx, fracH: im.fracH * ky }));
   // A turned page's pictures lie the other way round on the panel.
   const lying = page.turned
-    ? page.images.map((im) => ({
+    ? onCrop.map((im) => ({
       pxW: im.pxH, pxH: im.pxW, fracW: im.fracH, fracH: im.fracW,
     }))
-    : page.images;
+    : onCrop;
   const dpi = Math.min(...lying.map((im) => effectiveDpi(im, plan)));
   if (dpi >= LOW_DPI) return null;
   const px = pixelsFor(plan);
@@ -894,6 +1003,7 @@ function renderPanel() {
     h('h2', { class: 'insp-title' }, P.title),
     fileGroup(),
     P.materials && materialGroup(),
+    P.crop && cropGroup(page),
     sizeGroup(page),
     resultGroup(page, plan),
     previewGroup(),
@@ -1015,6 +1125,64 @@ function materialGroup() {
     h('p', { class: 'hint' }, `File cut tulis: ${materialLabel()}.`));
 }
 
+/**
+ * Buang ruang putih (Boss, 25 Nov 2026): what the tab trimmed by itself, and the ways to
+ * change it - find it again, the whole page, drag it on screen, or type the four sides.
+ */
+function cropGroup(page) {
+  const W = page.widthMm;
+  const H = page.heightMm;
+  const c = cropOf(page);
+  const share = Math.round(trimmedShare(page.crop, W, H) * 100);
+  let status;
+  if (!page.cropSettled) status = 'Mencari artwork dalam page...';
+  else if (!page.crop) status = 'Seluruh page dicetak. Tiada ruang putih untuk dibuang, atau ia dimatikan.';
+  else if (page.cropAuto) status = `Ruang putih keliling artwork dibuang sendiri: ${share}% page. Poster ialah ${size(c.w, c.h)}.`;
+  else status = `Dipangkas sendiri: ${share}% page dibuang. Poster ialah ${size(c.w, c.h)}.`;
+  const button = (label, pressed, onclick, title) => h('button', {
+    type: 'button', 'aria-pressed': String(pressed), title, onclick,
+  }, label);
+  const again = async () => {
+    try {
+      const raster = await pageRaster(page.obj, TRIM_RASTER_PX);
+      const found = trimCrop(findContent(raster.rgba, raster.width, raster.height), raster.mmPerPx, W, H);
+      setCrop(page, found);
+      page.cropAuto = Boolean(found);
+      renderPanel();
+      changed();
+    } catch { /* leave it as it is */ }
+  };
+  // The four sides, as the white taken off each one.
+  const side = (label, value, apply) => h('div', { class: 'field' },
+    h('label', {}, label),
+    h('input', {
+      type: 'number', min: 0, step: 0.5, value: Math.round(value * 10) / 10,
+      onchange: (e) => {
+        const v = parseFloat(e.target.value);
+        if (Number.isFinite(v) && v >= 0) setCrop(page, apply(v));
+        else renderPanel();
+      },
+    }));
+  const right = W - c.x - c.w;
+  const bottom = H - c.y - c.h;
+  return group('Buang ruang putih', true,
+    h('p', { class: page.crop ? 'hint ok' : 'hint' }, status),
+    h('div', { class: 'seg seg-3' },
+      button('Auto', Boolean(page.crop && page.cropAuto), again, 'Cari artwork semula dan buang putih kelilingnya'),
+      button('Seluruh page', !page.crop, () => setCrop(page, null), 'Cetak seluruh page, termasuk ruang putih'),
+      button('Laras di skrin', S.stageView === 'crop', () => {
+        S.stageView = S.stageView === 'crop' ? 'panel' : 'crop';
+        renderPoster();
+      }, 'Seret kotak pangkasan atas page')),
+    h('div', { class: 'crop-sides' },
+      side('Atas (mm)', c.y, (v) => ({ x: c.x, y: v, w: c.w, h: c.h + c.y - v })),
+      side('Bawah (mm)', bottom, (v) => ({ ...c, h: H - c.y - v })),
+      side('Kiri (mm)', c.x, (v) => ({ x: v, y: c.y, w: c.w + c.x - v, h: c.h })),
+      side('Kanan (mm)', right, (v) => ({ ...c, w: W - c.x - v }))),
+    h('p', { class: 'hint' }, 'Nombor ialah ruang yang dibuang dari setiap tepi page asal. '
+      + 'Saiz output di bawah ikut kawasan yang tinggal.'));
+}
+
 function sizeGroup(page) {
   const isCustom = S.choice.height != null;
   const { w, h: hh } = lyingSize(page);
@@ -1100,11 +1268,15 @@ function previewGroup() {
     },
   }, label);
   return group('Preview', true,
-    h('div', { class: S.cards ? 'seg seg-3 seg-4' : 'seg seg-3' },
+    h('div', { class: S.cards || P.crop ? 'seg seg-3 seg-4' : 'seg seg-3' },
       choice('panel', 'Panel + artwork'), choice('sheet', P.sheetLabel), choice('print', 'File print'),
-      S.cards ? choice('cards', 'Kad A6') : null),
+      S.cards ? choice('cards', 'Kad A6') : null,
+      P.crop ? choice('crop', 'Pangkas') : null),
     S.stageView === 'print' || (S.stageView === 'cards' && S.cards)
       ? layerPanel()
+      : S.stageView === 'crop' && P.crop
+        ? h('p', { class: 'hint' }, 'Kotak biru ialah kawasan yang jadi poster; yang pudar di luarnya '
+          + 'dibuang. Seret bucu atau tepi kotak, atau seret di dalamnya untuk alih.')
       : h('p', { class: 'hint' }, P.puzzle
         ? 'Merah ialah garisan cut. Kawasan pudar ialah bleed yang jatuh atas frame. Zoom dan semak '
           + 'teks tak terlalu rapat dengan garisan, terutama di tepi.'
@@ -1370,8 +1542,11 @@ const pageTag = (page) => (S.source.pages.length > 1 ? `-p${page.index + 1}` : '
  * A page drawn as the 300 dpi picture a print file carries, once for each place it is
  * put: the layer check and the Export after it ask for the same one. A few are kept
  * per page (its panel, its card, and a size it was just at), each a JPEG of 1 to 2 MB.
+ *
+ * @param target where the poster (the page's crop, or all of it) goes, its bleed included
  */
-function pictureFor(page, art, box, turn) {
+function pictureFor(page, target, box, turn) {
+  const art = pageBoxFor(artCropOf(page, planFor(page)), page.widthMm, page.heightMm, target, turn);
   const key = [art.x, art.y, art.width, art.height, box.x, box.y, box.width, box.height, turn].join(',');
   if (!page.pictures) page.pictures = new Map();
   if (!page.pictures.has(key)) {

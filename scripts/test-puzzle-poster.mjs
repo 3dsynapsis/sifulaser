@@ -166,5 +166,107 @@ const kcBranded = brandFile('keychain-print-50mm-kecil.pdf', 'application/pdf', 
 check('fail print keychain tidak berubah sebait',
   kcBranded.data.length === kcPrint.length && kcBranded.data.every((b, i) => b === kcPrint[i]));
 
+// ---- UV File: buang ruang putih (Boss, 25 Nov 2026) ----------------------------------
+// Logo kecil di tengah A4 (contoh Masjid Asy Syakirin: 79% page putih). Tab mencari
+// artwork, memangkas page kepadanya + 3 mm, dan semua saiz selepas itu ikut pangkasan.
+console.log('\nbuang ruang putih (UV File)');
+{
+  const C = await imp('puzzle/src/geom/crop.js');
+  const { planPanel } = await imp('puzzle/src/geom/panel.js');
+  const { cleanPoster } = await imp('puzzle/src/posterSaved.js');
+  const near = (a, b, e = 0.05) => Math.abs(a - b) <= e;
+
+  // Page putih 210 x 297 mm sebagai raster 420 x 594 (0.5 mm/px), artwork sebuah blok
+  // seperti logo contoh: 91.7 x 145.8 mm, 61.7 mm dari kiri, 64 mm dari atas.
+  const W = 420, H = 594, mmPx = 0.5;
+  const rgba = new Uint8ClampedArray(W * H * 4).fill(255);
+  const ink = (x0, y0, x1, y1, [r, g, b, a = 255]) => {
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const i = (y * W + x) * 4;
+        rgba[i] = r; rgba[i + 1] = g; rgba[i + 2] = b; rgba[i + 3] = a;
+      }
+    }
+  };
+  ink(123, 128, 306, 419, [40, 90, 60]);
+  ink(5, 590, 5, 590, [0, 0, 0]);                 // sebutir habuk di bucu: bukan artwork
+  const box = C.findContent(rgba, W, H);
+  check('artwork dijumpai, habuk diabaikan', box && box.x0 === 123 && box.y0 === 128 && box.x1 === 306 && box.y1 === 419,
+    JSON.stringify(box));
+  const crop = C.trimCrop(box, mmPx, 210, 297);
+  // Jarak = 3% sisi panjang artwork (146 mm -> 4.38 mm), tidak kurang 3 mm.
+  const gap = 0.03 * 146;
+  check('pangkas = artwork + 3% sisi panjangnya', crop && near(crop.x, 61.5 - gap) && near(crop.y, 64 - gap)
+    && near(crop.w, 92 + 2 * gap) && near(crop.h, 146 + 2 * gap), JSON.stringify(crop));
+  check('jarak paling kecil 3 mm', near(C.trimCrop({ x0: 100, y0: 100, x1: 139, y1: 119 }, mmPx, 210, 297).x, 47));
+  check('75% page dibuang (jarak termasuk)', Math.round(C.trimmedShare(crop, 210, 297) * 100) === 75,
+    C.trimmedShare(crop, 210, 297));
+  // Tinggi output 100 mm: poster ikut pangkasan, bukan page.
+  const before = planPanel(210, 297, { height: 100 });
+  const after = planPanel(crop.w, crop.h, { height: 100 });
+  check('sebelum: poster 70.7 x 100 (ikut page)', before.width === 70.7 && before.height === 100, `${before.width}x${before.height}`);
+  check('selepas: poster ikut pangkasan, logo hampir 2x lebih besar', near(after.width, 100 * crop.w / crop.h, 0.06)
+    && after.height === 100 && after.panel.width < before.panel.width, `${after.width}x${after.height}`);
+  // Pangkasan = tepi poster; bleed diambil dari page di luarnya (bukan dari dalam pangkasan).
+  const bc = C.bleedCrop(crop, after, { x: after.art.bleedX, y: after.art.bleedY });
+  check('bleedCrop: pangkasan + bleed dalam unit page, sama nisbah dengan artwork',
+    near(bc.x, crop.x - after.art.bleedX * crop.w / after.width, 1e-9)
+    && near(bc.w / bc.h, after.art.width / after.art.height, 0.002), JSON.stringify(bc));
+  const bt = C.bleedCrop(crop, { width: after.height, height: after.width }, { x: after.art.bleedY, y: after.art.bleedX }, true);
+  check('bleedCrop dipusing: paksi bertukar, hasil sama', near(bt.x, bc.x, 1e-9) && near(bt.y, bc.y, 1e-9)
+    && near(bt.w, bc.w, 1e-9) && near(bt.h, bc.h, 1e-9));
+
+  // Tiada yang patut dipangkas: page penuh warna, page kosong, PNG lutsinar.
+  const full = new Uint8ClampedArray(W * H * 4).fill(200);
+  check('poster penuh warna: tidak dipangkas', C.trimCrop(C.findContent(full, W, H), mmPx, 210, 297) === null);
+  check('page kosong: tiada artwork', C.findContent(new Uint8ClampedArray(W * H * 4).fill(255), W, H) === null);
+  const clear = new Uint8ClampedArray(W * H * 4);                     // lutsinar: 0,0,0,0
+  for (let y = 200; y < 260; y++) for (let x = 100; x < 300; x++) clear.set([20, 20, 20, 255], (y * W + x) * 4);
+  const cb = C.findContent(clear, W, H);
+  check('PNG lutsinar: kawasan lutsinar bukan artwork', cb && cb.x0 === 100 && cb.y0 === 200 && cb.x1 === 299 && cb.y1 === 259);
+  check('hampir seluruh page: tidak dipangkas (< 5%)', C.trimCrop({ x0: 2, y0: 2, x1: W - 3, y1: H - 3 }, mmPx, 210, 297) === null);
+
+  // Had dan bulatan.
+  check('pangkas kekal atas page', JSON.stringify(C.cleanCrop({ x: -5, y: 290, w: 400, h: 50 }, 210, 297))
+    === JSON.stringify({ x: 0, y: 287, w: 210, h: 10 }));
+  check('pangkas paling kecil 10 mm', C.cleanCrop({ x: 50, y: 50, w: 2, h: 3 }, 210, 297).w === 10);
+  check('pangkas rosak -> null', C.cleanCrop({ x: NaN, y: 0, w: 1, h: 1 }, 210, 297) === null);
+  check('seluruh page dikenali', C.isWholePage({ x: 0, y: 0, w: 210, h: 297 }, 210, 297)
+    && !C.isWholePage(crop, 210, 297));
+
+  // Putaran: 90 kemudian 270 kembali ke asal; 180 dua kali juga.
+  const back = C.turnRect(C.turnRect(crop, 210, 297, 90), 297, 210, 270);
+  check('turnRect 90 lalu 270 = asal', ['x', 'y', 'w', 'h'].every((k) => near(back[k], crop[k], 1e-9)), JSON.stringify(back));
+  const t90 = C.turnRect({ x: 10, y: 20, w: 30, h: 40 }, 210, 297, 90);
+  check('turnRect 90: bucu atas-kiri ke atas-kanan', t90.x === 297 - 20 - 40 && t90.y === 10 && t90.w === 40 && t90.h === 30);
+  const t180 = C.turnRect({ x: 10, y: 20, w: 30, h: 40 }, 210, 297, 180);
+  check('turnRect 180', t180.x === 170 && t180.y === 237);
+
+  // pageBoxFor: pangkasan jatuh TEPAT atas sasaran (artwork + bleed), pada setiap putaran.
+  const target = { x: 8, y: 8, width: 68.5, height: 104 };
+  for (const turn of [0, 90, 180, 270]) {
+    const tw = turn % 180 ? { ...target, width: 104, height: 68.5 } : target;
+    const c = C.turnRect(crop, 210, 297, turn);
+    const pb = C.pageBoxFor(crop, 210, 297, tw, turn);
+    const [fw, fh] = turn % 180 ? [297, 210] : [210, 297];
+    const k = pb.width / fw;
+    check(`pageBoxFor ${turn}: pangkasan = sasaran`, near(pb.x + c.x * k, tw.x, 1e-9) && near(pb.y + c.y * (pb.height / fh), tw.y, 1e-9)
+      && near(c.w * k, tw.width, 1e-9) && near(c.h * (pb.height / fh), tw.height, 1e-9));
+  }
+  check('pageBoxFor tanpa pangkasan = sasaran', JSON.stringify(C.pageBoxFor(null, 210, 297, target)) === JSON.stringify(target));
+
+  // Rekod simpan: crops dibersihkan; rekod lama tiada crops (page penuh).
+  const file = { name: 'logo.pdf', size: 10, hash: 'a'.repeat(64), pages: 2 };
+  const job = cleanPoster({
+    files: [file], view: 'crop',
+    crops: [{ i: 0, x: 58.5, y: 61, w: 98, h: 152, auto: true }, { i: 0, x: 1, y: 1, w: 9, h: 9 },
+      { i: 1, x: NaN, y: 0, w: 1, h: 1 }, { i: 7, x: 0, y: 0, w: 5, h: 5 }, { i: 1, x: -1, y: 0, w: 5, h: 5 }, 'x'],
+  });
+  check('rekod: satu pangkasan sah setiap page, yang rosak dibuang', job.crops.length === 1 && job.crops[0].i === 0
+    && job.crops[0].auto === true && job.crops[0].w === 98, JSON.stringify(job.crops));
+  check('rekod: paparan Pangkas disimpan', job.view === 'crop');
+  check('rekod lama: tiada crops', !('crops' in cleanPoster({ files: [file] })));
+}
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 if (fail) process.exit(1);

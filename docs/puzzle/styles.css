@@ -675,3 +675,15 @@ input[type="date"] { color-scheme: light dark; }
 .field select { width: 100%; }
 /* A Custom sheet's width and height, side by side. */
 .field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ---------- UV File: buang ruang putih (Boss, 25 Nov 2026) ----------
+   Empat tepi pangkasan, dan pemegang kotak dalam paparan Pangkas. */
+.crop-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.crop-sides .field input { width: 100%; }
+.hint.ok { color: var(--accent); }
+.preview .crop-move { cursor: move; }
+.preview .crop-handle { cursor: pointer; }
+.preview .crop-nw, .preview .crop-se { cursor: nwse-resize; }
+.preview .crop-ne, .preview .crop-sw { cursor: nesw-resize; }
+.preview .crop-n, .preview .crop-s { cursor: ns-resize; }
+.preview .crop-e, .preview .crop-w { cursor: ew-resize; }

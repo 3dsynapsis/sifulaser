@@ -272,6 +272,33 @@ Draft dan PDF tab UV disimpan dalam IndexedDB berasingan (`sifulaser-uvfile`),
 dan rekod akaun guna TOOL `'uvfile'`, jadi kerja dua tab tidak bercampur.
 Ujian: `node scripts/test-puzzle-poster.mjs` (bahagian panel UV).
 
+### Buang ruang putih (25 November 2026)
+
+Logo klien selalu datang sebagai satu page A4 penuh dengan logo kecil di tengah
+(contoh Masjid Asy Syakirin: 79% page putih). Tab UV File dahulu menyaiz PAGE, jadi
+pada tinggi 100 mm logo cuma 31 x 49 mm. Kini setiap page ada **pangkasan**:
+
+- **Auto** - bila fail dibuka, `geom/crop.js` (`findContent`, `trimCrop`) mencari
+  kawasan yang bukan putih dan bukan lutsinar pada raster page, dan memangkas
+  kepadanya + jarak 3% sisi panjang artwork (sekurang-kurangnya 3 mm). Page yang
+  hampir penuh (< 5% boleh dibuang) dibiarkan.
+- **Laras di skrin** - paparan "Pangkas": seluruh page dengan kotak biru yang
+  bucu/tepinya boleh diseret (`View.renderCrop`), atau taip ruang yang dibuang di
+  atas, bawah, kiri, kanan. "Seluruh page" mematikannya.
+- Pangkasan ialah **tepi poster** (garis cut). Bleed 2 mm diambil dari page di luar
+  pangkasan (`bleedCrop`), jadi artwork tidak dimakan bleed. Saiz output, "Asal",
+  panel, fail cut, fail print, semakan resolusi dan arah page (`settleTurns`)
+  semuanya ikut pangkasan.
+- Disimpan dalam rekod dan draf sebagai `crops: [{ i, x, y, w, h, auto }]` (mm pada
+  page). Rekod lama tanpa `crops` dibuka seperti dahulu: page penuh, tiada auto.
+- Tab Puzzle tidak berubah (`crop: false` dalam `PRODUCTS`).
+- Ujian: `node scripts/test-puzzle-poster.mjs` (bahagian "buang ruang putih").
+
+> **Dibuat terus dalam salinan ini**, bukan dalam `13_Puzzle Generator`: fail baharu
+> `src/geom/crop.js`, dan perubahan dalam `src/posterFlow.js`, `src/posterSaved.js`,
+> `src/view.js`, `src/version.js` dan `styles.css`. Salin balik ke projek sumber
+> sebelum "Cara kemas kini" dijalankan lagi, kalau tidak semuanya hilang senyap.
+
 ## Keychain UV File Generator (17 November 2026)
 
 Tab baharu `sifulaser.com/keychainuv/` (halaman React `#/keychainuv`). Masukkan PDF

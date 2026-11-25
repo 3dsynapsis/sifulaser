@@ -110,7 +110,7 @@ export function cleanPoster(raw) {
     choice: cleanChoice(raw.choice),
     ticked,
     current: isWhole(raw.current, 0, pages - 1) ? raw.current : 0,
-    view: ['sheet', 'print', 'cards'].includes(raw.view) ? raw.view : 'panel',
+    view: ['sheet', 'print', 'cards', 'crop'].includes(raw.view) ? raw.view : 'panel',
     shuffle: isWhole(raw.shuffle, 0, Number.MAX_SAFE_INTEGER) ? raw.shuffle : 0,
     client: typeof raw.client === 'string' ? raw.client.slice(0, TEXT_MAX) : '',
     dateline: DATE.test(raw.dateline) ? raw.dateline : '',
@@ -119,7 +119,23 @@ export function cleanPoster(raw) {
     // The UV File tab's material (Boss, 11 Nov 2026). Only a UV job has one, so a
     // puzzle job keeps the shape it always had.
     ...(PANEL_MATERIALS.some((m) => m.id === raw.material) ? { material: raw.material } : {}),
+    // The UV File tab's crops (Boss, 25 Nov 2026). Absent: a job from before crops, its
+    // pages whole. Each is checked here and kept on its page when the job opens.
+    ...(Array.isArray(raw.crops) ? { crops: cleanCrops(raw.crops, pages) } : {}),
   };
+}
+
+/** Crops from a record: { i, x, y, w, h, auto } in mm, one per page at most. */
+function cleanCrops(list, pages) {
+  const out = [];
+  for (const c of list.slice(0, PAGES_MAX)) {
+    if (!c || !isWhole(c.i, 0, pages - 1) || out.some((k) => k.i === c.i)) continue;
+    const nums = [c.x, c.y, c.w, c.h];
+    if (!nums.every((v) => typeof v === 'number' && Number.isFinite(v))) continue;
+    if (c.x < 0 || c.y < 0 || c.w <= 0 || c.h <= 0 || nums.some((v) => v > HEIGHT_MAX_MM * 10)) continue;
+    out.push({ i: c.i, x: c.x, y: c.y, w: c.w, h: c.h, auto: c.auto === true });
+  }
+  return out;
 }
 
 /** What gets stored: the fields every puzzle record has, and the job inside extra. */

@@ -102,8 +102,12 @@ export class View {
    * @param turn 90 when the poster lies turned clockwise on the panel (a portrait
    *             poster in a landscape job, Boss's option A)
    */
-  /** @param clear the panel is clear acrylic (UV File tab), not white */
-  renderPoster({ plan, puzzle, imageUrl, turn = 0, fitKey, clear = false }) {
+  /**
+   * @param clear the panel is clear acrylic (UV File tab), not white
+   * @param crop  { x, y, w, h, pageW, pageH } mm: the part of the page that is the
+   *              poster (UV File tab, Boss, 25 Nov 2026); null for the whole page
+   */
+  renderPoster({ plan, puzzle, imageUrl, turn = 0, fitKey, clear = false, crop = null }) {
     const { panel, art } = plan;
     const m = Math.max(panel.width, panel.height) * 0.04;
     this.showBox({ x: -m, y: -m, w: panel.width + m * 2, h: panel.height + m * 2 }, fitKey);
@@ -117,20 +121,36 @@ export class View {
       fill: clear ? '#cfe3e8' : '#fbfbf8', filter: 'url(#boardShadow)',
     }));
 
+    // The page, or its crop, stretched over a w x h box. A crop is a nested svg whose
+    // viewBox is the crop: the rest of the page is clipped away, as in the print file.
+    const pageImage = (w, hh) => {
+      if (!crop) {
+        return el('image', {
+          href: imageUrl, x: 0, y: 0, width: w, height: hh, preserveAspectRatio: 'none',
+        });
+      }
+      const inner = el('svg', {
+        x: 0, y: 0, width: w, height: hh,
+        viewBox: `${crop.x} ${crop.y} ${crop.w} ${crop.h}`, preserveAspectRatio: 'none',
+      });
+      // The bleed may reach past the page's edge, where the print file is white.
+      inner.append(el('rect', {
+        x: crop.x, y: crop.y, width: crop.w, height: crop.h, fill: '#ffffff',
+      }));
+      inner.append(el('image', {
+        href: imageUrl, x: 0, y: 0, width: crop.pageW, height: crop.pageH, preserveAspectRatio: 'none',
+      }));
+      return inner;
+    };
     if (imageUrl && turn === 90) {
       // Drawn upright at the turned size, then turned onto the artwork's box.
-      this.svg.append(el('image', {
-        href: imageUrl,
-        x: 0, y: 0, width: art.height, height: art.width,
-        preserveAspectRatio: 'none',
-        transform: `translate(${art.x + art.width} ${art.y}) rotate(90)`,
-      }));
+      const g = el('g', { transform: `translate(${art.x + art.width} ${art.y}) rotate(90)` });
+      g.append(pageImage(art.height, art.width));
+      this.svg.append(g);
     } else if (imageUrl) {
-      this.svg.append(el('image', {
-        href: imageUrl,
-        x: art.x, y: art.y, width: art.width, height: art.height,
-        preserveAspectRatio: 'none',
-      }));
+      const g = el('g', { transform: `translate(${art.x} ${art.y})` });
+      g.append(pageImage(art.width, art.height));
+      this.svg.append(g);
     } else {
       this.svg.append(el('rect', {
         x: art.x, y: art.y, width: art.width, height: art.height, fill: '#f4f6f8',
@@ -164,6 +184,104 @@ export class View {
       this.svg.append(cut);
     }
     this.svg.append(hairline(`${borderPath(panel.width, panel.height, CORNER_MM)} Z`, CUT_RED));
+  }
+
+  /**
+   * The whole page with its crop on it, to move by hand (UV File tab, Boss, 25 Nov 2026):
+   * the page as it shows, dimmed outside the crop, a blue box with a handle at each
+   * corner and side. Dragging a handle moves that edge; dragging inside moves the box.
+   * The box follows the pointer here; `onDone(rect)` gets it, mm, when the drag ends.
+   */
+  renderCrop({ imageUrl, pageW, pageH, crop, min = 10, fitKey, onDone }) {
+    const m = Math.max(pageW, pageH) * 0.05;
+    this.showBox({ x: -m, y: -m, w: pageW + m * 2, h: pageH + m * 2 }, fitKey);
+    this.svg.replaceChildren(shadowDefs(pageH));
+    this.svg.append(el('rect', {
+      x: 0, y: 0, width: pageW, height: pageH, fill: '#ffffff', filter: 'url(#boardShadow)',
+    }));
+    if (imageUrl) {
+      this.svg.append(el('image', {
+        href: imageUrl, x: 0, y: 0, width: pageW, height: pageH, preserveAspectRatio: 'none',
+      }));
+    }
+    let rect = { ...crop };
+    const dim = el('path', { fill: '#0b1220', 'fill-opacity': 0.45, 'fill-rule': 'evenodd' });
+    const body = el('rect', { class: 'crop-move', fill: 'transparent' });
+    const edge = el('rect', {
+      fill: 'none', stroke: '#1259d8', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke',
+    });
+    this.svg.append(dim, body, edge);
+    const R = Math.max(pageW, pageH) * 0.014;
+    const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+    const handles = HANDLES.map((k) => {
+      const c = el('circle', {
+        class: `crop-handle crop-${k}`, r: R, fill: '#ffffff', stroke: '#1259d8',
+        'stroke-width': 2, 'vector-effect': 'non-scaling-stroke',
+      });
+      this.svg.append(c);
+      return [k, c];
+    });
+    const paint = () => {
+      const { x, y, w, h } = rect;
+      dim.setAttribute('d', `${outline(0, 0, pageW, pageH)} ${outline(x, y, w, h)}`);
+      for (const n of [body, edge]) {
+        n.setAttribute('x', x); n.setAttribute('y', y); n.setAttribute('width', w); n.setAttribute('height', h);
+      }
+      for (const [k, c] of handles) {
+        c.setAttribute('cx', k.includes('w') ? x : k.includes('e') ? x + w : x + w / 2);
+        c.setAttribute('cy', k.includes('n') ? y : k.includes('s') ? y + h : y + h / 2);
+      }
+    };
+    paint();
+
+    const toPage = (e) => {
+      const mtx = this.svg.getScreenCTM();
+      return mtx ? new DOMPoint(e.clientX, e.clientY).matrixTransform(mtx.inverse()) : null;
+    };
+    /** The box after a drag of (dx, dy) from `r0` by handle `k`, kept on the page. */
+    const dragged = (r0, k, dx, dy) => {
+      if (k === 'move') {
+        return {
+          ...r0,
+          x: clamp(r0.x + dx, 0, pageW - r0.w),
+          y: clamp(r0.y + dy, 0, pageH - r0.h),
+        };
+      }
+      let x0 = r0.x; let y0 = r0.y; let x1 = r0.x + r0.w; let y1 = r0.y + r0.h;
+      if (k.includes('w')) x0 = clamp(x0 + dx, 0, x1 - min);
+      if (k.includes('e')) x1 = clamp(x1 + dx, x0 + min, pageW);
+      if (k.includes('n')) y0 = clamp(y0 + dy, 0, y1 - min);
+      if (k.includes('s')) y1 = clamp(y1 + dy, y0 + min, pageH);
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    };
+    const grab = (node, k) => {
+      node.addEventListener('pointerdown', (e) => {
+        // Not the pan of the zoom: the box moves, the page stays put.
+        e.stopPropagation();
+        e.preventDefault();
+        const p0 = toPage(e);
+        if (!p0) return;
+        const r0 = { ...rect };
+        node.setPointerCapture(e.pointerId);
+        const move = (ev) => {
+          const p = toPage(ev);
+          if (!p) return;
+          rect = dragged(r0, k, p.x - p0.x, p.y - p0.y);
+          paint();
+        };
+        const end = () => {
+          node.removeEventListener('pointermove', move);
+          node.removeEventListener('pointerup', end);
+          node.removeEventListener('pointercancel', end);
+          if (onDone && (rect.x !== r0.x || rect.y !== r0.y || rect.w !== r0.w || rect.h !== r0.h)) onDone({ ...rect });
+        };
+        node.addEventListener('pointermove', move);
+        node.addEventListener('pointerup', end);
+        node.addEventListener('pointercancel', end);
+      });
+    };
+    grab(body, 'move');
+    for (const [k, c] of handles) grab(c, k);
   }
 
   /**
