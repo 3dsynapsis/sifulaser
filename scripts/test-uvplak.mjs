@@ -5,7 +5,8 @@
 //   * saiz - file A4 jadi plak A4 297 x 210; A3 420 x 297; taip lebar, tinggi ikut nisbah.
 //   * border 10 mm, 4 keping sudut 45: dua panjang sama, dua pendek sama, tepi luar
 //     tepat saiz plak, susunan dalam file cut tak bertindih.
-//   * base acrylic 5mm: 1 keping penuh + keping beralur, alur 3.4 mm, kaki plak sedalam alur.
+//   * base acrylic hitam 5mm satu keping, alur tembus 3.4 mm, kaki plak 5 mm rata bawah base.
+//   * white ink di bawah ink design sahaja: stensil 1 bit, putih design jadi tanpa ink.
 //   * print: berhenti 2 mm bawah border (gam lekat pada kayu), atau lebih 2 mm tanpa border.
 //   * huruf timbul: tulisan disurih dengan lubang huruf, garisan lukisan tak dikira.
 //   * file cut: satu setiap material, lubang huruf dulu, frame last; PDF sah.
@@ -22,7 +23,8 @@ const P = await imp('puzzle/src/geom/plak.js');
 const L = await imp('puzzle/src/geom/letters.js');
 const { buildPlakSheet, sheetToPdf } = await imp('puzzle/src/exportJobSheet.js');
 const Saved = await imp('puzzle/src/plakSaved.js');
-const { PDFDocument } = await imp('puzzle/vendor/pdf-lib.esm.min.js');
+const { PDFDocument, PDFName, PDFRawStream } = await imp('puzzle/vendor/pdf-lib.esm.min.js');
+const { openForPrint, buildLayeredPrint } = await imp('puzzle/src/posterPdf.js');
 const { parsePath } = await imp('puzzle/src/exportPdf.js');
 
 let pass = 0;
@@ -56,11 +58,11 @@ console.log('saiz plak');
 }
 
 // ---- pelan ---------------------------------------------------------------------------
-console.log('pelan plak A4, border, base 2 keping');
-const plan = P.planPlak({ pageW: 297, pageH: 210.2, size: 'A4', border: true, base: true, baseLayers: 2 });
+console.log('pelan plak A4, border, base');
+const plan = P.planPlak({ pageW: 297, pageH: 210.2, size: 'A4', border: true, base: true });
 {
   check('muka plak 297 x 210', plan.width === 297 && plan.height === 210);
-  check('kaki 5 mm (alur base 2 keping)', plan.tongue === 5, plan.tongue);
+  check('kaki 5 mm (tebal base, alur tembus)', plan.tongue === 5, plan.tongue);
   check('plat dipotong 297 x 215', plan.plate.width === 297 && plan.plate.height === 215);
   check('page print = plat + frame 10 mm', plan.page.width === 317 && plan.page.height === 235, `${plan.page.width}x${plan.page.height}`);
   check('design di (10, 10)', plan.design.x === 10 && plan.design.y === 10 && plan.design.width === 297);
@@ -106,7 +108,7 @@ console.log('border 4 keping sudut 45');
 }
 
 // ---- base ----------------------------------------------------------------------------
-console.log('base acrylic 5mm');
+console.log('base acrylic hitam 5mm');
 {
   const b = plan.base;
   check('panjang = plak + 15 mm kiri kanan', b.length === 327, b.length);
@@ -114,13 +116,11 @@ console.log('base acrylic 5mm');
   check('alur 3.4 mm lebar', b.slot.width === 3.4);
   check('alur 0.6 mm lebih panjang dari plak', b.slot.length === 297.6);
   check('alur di tengah', near(b.slot.x * 2 + b.slot.length, b.length) && near(b.slot.y * 2 + b.slot.width, b.depth));
-  check('2 keping: 1 penuh, 1 beralur, alur 5 mm', b.pieces.length === 2 && !b.pieces[0].slot && b.pieces[1].slot && b.slotDepth === 5);
-  const b3 = P.planBase(297, 210, 3);
-  check('3 keping: alur 10 mm, tebal 15 mm', b3.pieces.length === 3 && b3.slotDepth === 10 && b3.height === 15);
-  check('plak tinggi: base paling dalam 120', P.planBase(420, 600, 2).depth === 120);
-  check('plak rendah: base paling cetek 50', P.planBase(200, 80, 2).depth === 50);
+  check('satu keping 5 mm, alur tembus', b.pieces.length === 1 && b.pieces[0].slot && b.slotDepth === 5 && b.height === 5);
+  check('plak tinggi: base paling dalam 120', P.planBase(420, 600).depth === 120);
+  check('plak rendah: base paling cetek 50', P.planBase(200, 80).depth === 50);
   const st = P.standingSize(plan);
-  check('berdiri: tinggi muka + base atas alur', st.height === 215 && st.width === 327 && st.depth === 65, JSON.stringify(st));
+  check('berdiri: muka 210 atas base 5 = 215 tinggi', st.height === 215 && st.width === 327 && st.depth === 65, JSON.stringify(st));
 }
 
 // ---- huruf ---------------------------------------------------------------------------
@@ -183,9 +183,9 @@ const raster = (() => {
 
   // ---- file cut ----------------------------------------------------------------------
   console.log('file cut');
-  const pagePlan = P.planPlak({ pageW: 100, pageH: 60, size: 'file', border: true, base: true, baseLayers: 2 });
+  const pagePlan = P.planPlak({ pageW: 100, pageH: 60, size: 'file', border: true, base: true });
   const jobs = P.plakCutJobs(pagePlan, found, { front: 'maple-3', border: 'black-3', letters: 'black-3' });
-  check('3 file: Maple, Black, Acrylic', jobs.map((j) => j.material.label).join() === 'Plywood Maple 3mm,Plywood Black 3mm,Acrylic 5mm',
+  check('3 file: Maple, Black, Acrylic Hitam', jobs.map((j) => j.material.label).join() === 'Plywood Maple 3mm,Plywood Black 3mm,Acrylic Hitam 5mm',
     jobs.map((j) => j.material.label).join());
   check('Black: border dan huruf', jobs[1].parts.join() === 'border,letters');
   const allBlack = P.plakCutJobs(pagePlan, found, { front: 'black-3', border: 'black-3', letters: 'black-3' });
@@ -202,8 +202,9 @@ const raster = (() => {
   const maple = buildPlakSheet(jobs[0], { units: 1 });
   check('Maple: plak dulu, frame last', maple.paths.map((p) => p.id).join() === 'plate,frame' && maple.paths[1].stroke === 'cut');
   const base = buildPlakSheet(jobs[2], { units: 1 });
+  check('Acrylic Hitam: label pada file cut', base.texts.some((t) => t.text === 'Acrylic Hitam 5mm'));
   check('Acrylic: alur dulu, base last', base.paths.map((p) => p.id).join() === 'slots,base');
-  check('Acrylic: 2 keping, 1 alur', (base.paths[1].d.match(/M /g) || []).length === 2 && (base.paths[0].d.match(/M /g) || []).length === 1);
+  check('Acrylic: 1 keping, 1 alur', (base.paths[1].d.match(/M /g) || []).length === 1 && (base.paths[0].d.match(/M /g) || []).length === 1);
   // Nothing in a sheet lies outside its page or over another part.
   for (const sheet of [black, maple, base]) {
     const pts = sheet.paths.flatMap((p) => parsePath(p.d).filter((c) => c[0] !== 'Z' && c[0] !== 'A').map((c) => c.slice(1)));
@@ -217,6 +218,45 @@ const raster = (() => {
   check('PDF cut sah, satu page', pdf.getPageCount() === 1);
 }
 
+// ---- white ink ---------------------------------------------------------------------
+console.log('white di bawah ink sahaja');
+{
+  // 10 x 3 pixels: black, red, near-white (245), white, a soft edge (200), the rest white.
+  const w = 10;
+  const rgba = new Uint8ClampedArray(w * 3 * 4).fill(255);
+  const put = (x, y, rgb) => { const i = (y * w + x) * 4; [rgba[i], rgba[i + 1], rgba[i + 2]] = rgb; };
+  put(0, 0, [0, 0, 0]);
+  put(1, 0, [237, 28, 36]);
+  put(2, 0, [245, 245, 245]);
+  put(4, 0, [200, 200, 200]);
+  put(9, 2, [10, 10, 10]);
+  const m = P.inkMask(rgba, w, 3);
+  const bit = (x, y) => (m.bits[y * Math.ceil(w / 8) + (x >> 3)] >> (7 - (x & 7))) & 1;
+  check('stensil: 2 bait satu baris (10 piksel)', m.bits.length === 6);
+  check('hitam, merah, tepi lembut dapat white (bit 0)', bit(0, 0) === 0 && bit(1, 0) === 0 && bit(4, 0) === 0 && bit(9, 2) === 0);
+  check('putih dan hampir putih: tiada white (bit 1)', bit(2, 0) === 1 && bit(3, 0) === 1 && bit(5, 1) === 1);
+  check('4 piksel ink', m.inked === 4, m.inked);
+  check('hampir putih jadi putih tulen: tiada ink atas kayu', rgba[2 * 4] === 255 && rgba[2 * 4 + 1] === 255);
+  check('ink asal tak berubah', rgba[4] === 237 && rgba[0] === 0);
+  check('mod white: lalai bawah design', P.whiteMode('apa') === 'design' && P.whiteMode('full') === 'full');
+}
+{
+  // The print file paints both Spots through the stencil, not as a box.
+  const src = await PDFDocument.create();
+  src.addPage([200, 100]).drawRectangle({ x: 10, y: 10, width: 20, height: 20 });
+  const doc = await openForPrint(await src.save());
+  const m = P.inkMask(new Uint8ClampedArray(16 * 8 * 4).fill(0), 16, 8);
+  const box = { x: 5, y: 5, width: 60, height: 30 };
+  const bytes = await buildLayeredPrint({ width: 70, height: 40 }, [{ doc, pageIndex: 0, art: box, box, mask: m }]);
+  const out = await PDFDocument.load(bytes);
+  const masks = out.context.enumerateIndirectObjects().map(([, o]) => o)
+    .filter((o) => o instanceof PDFRawStream && o.dict.get(PDFName.of('ImageMask'))?.toString() === 'true');
+  check('file print: satu stensil ImageMask 16 x 8', masks.length === 1
+    && masks[0].dict.get(PDFName.of('Width')).asNumber() === 16 && masks[0].dict.get(PDFName.of('Height')).asNumber() === 8);
+  const xobj = out.getPage(0).node.Resources().get(PDFName.of('XObject'));
+  check('file print: stensil dalam sumber page', xobj && xobj.keys().some((k) => /WhiteMask/.test(k.toString())));
+}
+
 // ---- simpan --------------------------------------------------------------------------
 console.log('simpan ke akaun');
 {
@@ -224,21 +264,21 @@ console.log('simpan ke akaun');
     file: { name: 'Semeru_Kabinet.pdf', size: 12345, hash: 'a'.repeat(64), pages: 1 },
     page: 0, size: 'A3', custom: 400, border: false, letters: true, letterMin: 12, off: [3, 1, 3],
     materials: { front: 'black-3', border: 'maple-3', letters: 'black-3' },
-    base: true, baseLayers: 3, quantity: 5, client: 'Semeru', dateline: '2026-12-01', view: 'cut', sheet: 'black-3',
+    base: true, white: 'full', quantity: 5, client: 'Semeru', dateline: '2026-12-01', view: 'cut', sheet: 'black-3',
   };
   const rec = Saved.plakRecord(job, plan, 13);
   const back = Saved.readPlak({ extra: JSON.stringify(rec.extra) });
-  check('rekod kembali sama', back && back.size === 'A3' && back.border === false && back.baseLayers === 3
+  check('rekod kembali sama', back && back.size === 'A3' && back.border === false && back.white === 'full'
     && back.quantity === 5 && back.letterMin === 12 && back.materials.front === 'black-3' && back.view === 'cut');
   check('huruf dibuang: unik dan tersusun', back.off.join() === '1,3');
   check('paparan 3D disimpan', Saved.cleanPlak({ ...job, view: '3d' }).view === '3d');
   check('params rata dan nombor', Object.values(rec.params).every((v) => typeof v === 'number') && Object.keys(rec.params).length <= 40);
-  check('material ditulis seperti file cut', rec.material === 'Plywood Black 3mm + Acrylic 5mm', rec.material);
+  check('material ditulis seperti file cut', rec.material === 'Plywood Black 3mm + Acrylic Hitam 5mm', rec.material);
   const junk = Saved.cleanPlak({
-    file: { name: 'x.pdf', pages: 1 }, size: 'A9', custom: 'besar', baseLayers: 7, quantity: -2, letterMin: 999,
+    file: { name: 'x.pdf', pages: 1 }, size: 'A9', custom: 'besar', white: 'separuh', quantity: -2, letterMin: 999,
     materials: { front: 'kayu' }, view: 'apa', off: 'semua', dateline: 'esok',
   });
-  check('nilai rosak jatuh ke default', junk.size === 'A4' && junk.custom === null && junk.baseLayers === 2 && junk.quantity === 1
+  check('nilai rosak jatuh ke default', junk.size === 'A4' && junk.custom === null && junk.white === 'design' && junk.quantity === 1
     && junk.letterMin === Saved.LETTER_MIN_RANGE[1] && junk.materials.front === 'maple-3' && junk.materials.border === 'black-3'
     && junk.view === 'plak' && junk.off.length === 0 && junk.dateline === '');
   check('default: border, huruf dan base hidup', junk.border && junk.letters && junk.base);

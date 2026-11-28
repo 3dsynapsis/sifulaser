@@ -4,7 +4,7 @@ import { ArrowLeft, ExternalLink, Trophy } from 'lucide-react'
  * UV Plak Generator (bos, 28 November 2026) ialah aplikasi statik yang dihidangkan
  * dari `docs/uvplak/`, dibina atas kod Puzzle Generator (`docs/puzzle/`): design plak
  * jadi plak depan untuk UV print, border 4 keping sudut 45, huruf timbul dan base
- * acrylic beralur, dengan satu file cut setiap material. Dimuatkan dalam iframe
+ * acrylic hitam beralur, dengan satu file cut setiap material. Dimuatkan dalam iframe
  * supaya jenama dan navigasi SifuLaser kekal.
  */
 export const UvPlakPage = () => (

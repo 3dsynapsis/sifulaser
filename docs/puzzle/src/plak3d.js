@@ -204,9 +204,9 @@ export class Plak3D {
 
   /**
    * @param o { width, height: the plate's face; tongue; thick; printBox on the face;
-   *          imageUrl; frontColour, borderColour, letterColour, baseColour; grain;
+   *          imageUrl; frontColour, borderColour, letterColour, baseColour, baseEdge; grain;
    *          strips: [{ points }] on the face; letters: [[loop, ...], ...] on the face;
-   *          base: { length, depth, layers, layerMm, slot: { width, length } } or null }
+   *          base: { length, depth, layers, layerMm, slot: { width, length }, pieces } or null }
    *          All mm, the face's from its top-left.
    */
   build(o) {
@@ -269,16 +269,16 @@ export class Plak3D {
     const letters = mat(o.letterColour, { roughness: 0.7 });
     for (const loops of o.letters) proud(loopsToShapes(loops.map((loop) => loop.map(toFace))), t, letters);
 
-    // The base: acrylic, one piece under, the slotted ones over it.
+    // The base: black acrylic, glossy, the slot cut through it (one piece, Boss, 28 Nov 2026).
     if (o.base) {
       const b = o.base;
       const acrylic = new THREE.MeshPhysicalMaterial({
-        color: o.baseColour, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.5, side: THREE.DoubleSide,
+        color: o.baseColour, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08,
       });
-      const edges = new THREE.LineBasicMaterial({ color: 0x6f97a6, transparent: true, opacity: 0.8 });
+      const edges = new THREE.LineBasicMaterial({ color: o.baseEdge || 0x3a3a40, transparent: true, opacity: 0.9 });
       for (let i = 0; i < b.layers; i++) {
         const shape = roundRect(new THREE.Shape(), b.length, b.depth, 5);
-        if (i > 0) {
+        if (b.pieces ? b.pieces[i]?.slot : i > 0) {
           const hole = new THREE.Path();
           const sw = b.slot.width;
           const sl = b.slot.length;
@@ -291,7 +291,7 @@ export class Plak3D {
         }
         const geo = new THREE.ExtrudeGeometry(shape, { depth: b.layerMm - 0.05, bevelEnabled: false, curveSegments: 6 });
         geo.translate(0, 0, i * b.layerMm);
-        add(geo, acrylic, false);
+        add(geo, acrylic, true);
         const line = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edges);
         this.root.add(line);
       }

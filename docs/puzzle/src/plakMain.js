@@ -12,7 +12,7 @@ import {
   openPlakExport, restorePlakDraft, renamePlak, plakStore, PLAK_STEPS, closePlak3d,
 } from './plakFlow.js';
 import {
-  PLAK_BORDER_MM, PLAK_FRAME_MM, BASE_MATERIAL, BASE_LAYER_MM, PLAK_MATERIALS,
+  PLAK_BORDER_MM, PLAK_FRAME_MM, BASE_MATERIAL, PLAK_MATERIALS,
 } from './geom/plak.js';
 import { VERSION } from './version.js';
 
@@ -79,7 +79,7 @@ function renderEmpty() {
     group('Masukkan design', true,
       h('p', { class: 'uv-intro' },
         `Masukkan design plak dalam ${POSTER_FORMATS}. Tool ni buat plak depan untuk UV print, border hitam `
-        + '4 keping, huruf timbul dari tulisan besar, dan base acrylic beralur, dengan file cut setiap material.'),
+        + '4 keping, huruf timbul dari tulisan besar, dan base acrylic hitam beralur, dengan file cut setiap material.'),
       pickPdf('Pilih file', 'primary'),
       h('p', { class: 'hint' }, 'File kekal dalam browser ni dan tak dihantar ke mana-mana.')),
     group('Apa yang keluar', true,
@@ -87,9 +87,9 @@ function renderEmpty() {
       stat('Material', PLAK_MATERIALS.map((m) => m.label).join(', ')),
       stat('Border', `${PLAK_BORDER_MM} mm, 4 keping sudut 45°, ditampal atas depan`),
       stat('Huruf timbul', 'Tulisan besar dikesan sendiri, tekan huruf untuk pilih'),
-      stat('Base', `${BASE_MATERIAL.label}, ${BASE_LAYER_MM} mm setiap keping, plak berdiri dalam alur`),
+      stat('Base', `${BASE_MATERIAL.label} satu keping, plak berdiri dalam alur tembus`),
       stat('File cut', 'Satu untuk setiap material'),
-      stat('File print UV', `Plak dalam frame ${PLAK_FRAME_MM} mm, CMYK 300 dpi, Spot 1 dan Spot 2 (white)`)),
+      stat('File print UV', `Plak dalam frame ${PLAK_FRAME_MM} mm, CMYK 300 dpi, white di bawah gambar dan tulisan sahaja`)),
     h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),
   );
 }

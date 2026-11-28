@@ -24,6 +24,7 @@
 
 import { pathToOps } from './exportPdf.js';
 import { unionPath } from './geom/keychain.js';
+import { inkMask, INK_WHITE_LEVEL } from './geom/plak.js';
 import {
   pictureKind, pictureDpi, printDpi, saysPicture, looksLikePdf, pictureViewport, PICTURE_TYPES,
 } from './posterFile.js';
@@ -299,9 +300,12 @@ function workingCanvas(width, height) {
  * @param box  the part of it that is printed, same units: the picture is exactly this
  * @param turn how far the page turns clockwise on top of its own /Rotate, 0 or a
  *             multiple of 90
- * @returns { jpg: Uint8Array, dpi }: a CMYK JPEG, see cmykJpeg.js
+ * @param whiteMask also make the stencil for white under the ink only (UV Plak tab,
+ *             Boss, 28 Nov 2026): its near-white goes pure white, see inkMask
+ * @returns { jpg: Uint8Array, dpi, mask }: a CMYK JPEG, see cmykJpeg.js, and the
+ *          stencil when asked for
  */
-export async function pagePicture(page, art, box, turn = 0) {
+export async function pagePicture(page, art, box, turn = 0, { whiteMask = false } = {}) {
   const rotation = (((page.rotate + turn) % 360) + 360) % 360;
   const view = page.getViewport({ scale: 1, rotation });
   const squareInches = (box.width / 25.4) * (box.height / 25.4);
@@ -335,8 +339,29 @@ export async function pagePicture(page, art, box, turn = 0) {
   } finally {
     surface.canvas.width = 0;
   }
+  const mask = whiteMask ? inkMask(pixels, width, height) : null;
   const jpg = await toCmykJpeg(pixels, width, height);
-  return { jpg, dpi: Math.round(width / (box.width / 25.4)) };
+  return { jpg, dpi: Math.round(width / (box.width / 25.4)), mask };
+}
+
+/**
+ * A page drawn as a PNG object URL with its white see-through, its long side `maxPx`:
+ * the UV Plak tab's preview where the white ink goes under the ink only, so the wood
+ * shows round it as it will on the plaque. White as inkMask has it.
+ */
+export async function renderCutout(page, maxPx, level = INK_WHITE_LEVEL) {
+  const raster = await pageRaster(page.obj, maxPx);
+  const { rgba, width, height } = raster;
+  for (let p = 0; p < rgba.length; p += 4) {
+    if (rgba[p] >= level && rgba[p + 1] >= level && rgba[p + 2] >= level) rgba[p + 3] = 0;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext('2d').putImageData(new ImageData(rgba, width, height), 0, 0);
+  const blob = await new Promise((resolve) => { canvas.toBlob(resolve, 'image/png'); });
+  canvas.width = 0;
+  return URL.createObjectURL(blob);
 }
 
 // ---- the Keychain UV tab (Boss, 17 Nov 2026) --------------------------------------
@@ -566,6 +591,9 @@ export function buildCardPrintPdf(layout, resolve, opts = {}) {
  *                   picture is clipped to it, and the white and the base fill it instead of
  *                   the box: no ink outside the bleed, none in the hole.
  *                   Placements given the same jpg share one copy of it in the file.
+ *                   A picture may carry `mask` too, from pagePicture's whiteMask (the UV
+ *                   Plak tab, Boss, 28 Nov 2026): then the Spot white is painted through
+ *                   it, under the picture's ink only, and the rest of the box gets none.
  */
 export async function buildLayeredPrint(size, placements, { title } = {}) {
   const {
@@ -644,6 +672,25 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
     ...(s.hole ? circle(s.hole, s.hole.r) : []),
   ];
   const fillArea = (p) => (p.shape ? [...shapePath(p.shape), op('f*')] : [rect(p.box), op('f')]);
+  // The white through a picture's stencil: an image mask, painted in the current colour
+  // where its bits are 0, laid over the box like the picture. One copy for both Spots.
+  const masks = new Map();
+  for (const p of placements) {
+    if (!p.mask) continue;
+    const stencil = ctx.register(ctx.flateStream(p.mask.bits, {
+      Type: 'XObject', Subtype: 'Image', Width: p.mask.width, Height: p.mask.height, ImageMask: true, BitsPerComponent: 1,
+    }));
+    masks.set(p, page.node.newXObject('WhiteMask', stencil));
+  }
+  const spotArea = (p) => (masks.has(p)
+    ? [
+      op('q'),
+      op('cm', num(p.box.width * MM_TO_PT), num(0), num(0), num(p.box.height * MM_TO_PT),
+        num(p.box.x * MM_TO_PT), num(pageH - (p.box.y + p.box.height) * MM_TO_PT)),
+      op('Do', masks.get(p)),
+      op('Q'),
+    ]
+    : fillArea(p));
 
   // Each Spot with overprint on, so Spot 1 leaves Spot 2's plate whole, and either one
   // painted over the poster leaves the poster's plates whole.
@@ -656,7 +703,7 @@ export async function buildLayeredPrint(size, placements, { title } = {}) {
         op('cs', name(s.key)),
         op('scn', PDFNumber.of(1)),
       );
-      for (const p of placements) page.pushOperators(...fillArea(p));
+      for (const p of placements) page.pushOperators(...spotArea(p));
       page.pushOperators(op('Q'), op('EMC'));
     }
   };

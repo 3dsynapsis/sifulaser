@@ -462,11 +462,12 @@ export const TOOLS: ToolEntry[] = [
     // Bos, 28 Nov 2026: design plak pelanggan (PDF A4, contoh Semeru Kabinet) jadi plak
     // berdiri: plak depan Plywood Maple 3mm di-UV print, border hitam 10 mm dipotong 4
     // keping bersudut 45 dan ditampal atas depan, tulisan besar jadi huruf timbul dari
-    // Plywood Black 3mm, base acrylic 5mm beralur. Kod Puzzle Generator.
+    // Plywood Black 3mm, base acrylic hitam 5mm satu keping beralur. White ink di bawah
+    // gambar dan tulisan sahaja, kayu nampak. Kod Puzzle Generator.
     title: 'UV Plak Generator',
     shortDescription: 'Design plak jadi file cut dan UV print.',
     description:
-      'Masukkan design plak dalam PDF, PNG atau JPG dan dapat plak berdiri: plak depan Plywood Maple 3mm untuk UV print dengan Spot 1 dan Spot 2 (white), border hitam 10 mm 4 keping sudut 45, huruf timbul dari tulisan besar, dan base acrylic 5mm beralur. Satu file cut untuk setiap material.',
+      'Masukkan design plak dalam PDF, PNG atau JPG dan dapat plak berdiri: plak depan Plywood Maple 3mm untuk UV print dengan white di bawah gambar dan tulisan sahaja, border hitam 10 mm 4 keping sudut 45, huruf timbul dari tulisan besar, dan base acrylic hitam 5mm beralur. Satu file cut untuk setiap material.',
     href: '#/uvplak',
     group: 'fail',
     variant: 'icon',

@@ -293,10 +293,12 @@ async function renderAlone(doc, page, groups, id, viewport) {
  *              every layer fills, and how much it paints outside them
  * @param discs optional [{ cx, cy, r, tab, hole }] in mm (tab and hole { cx, cy, r }), measured the same
  *              way instead of areas (the Keychain UV tab)
- * @returns { names, boxes, coverage, layers: { [layer]: { url } }, tolMm }
+ * @param inkIn optional { x, y, width, height } mm: also measure how much of the
+ *              artwork's ink inside it each Spot lies under (the UV Plak tab)
+ * @returns { names, boxes, coverage, layers: { [layer]: { url } }, tolMm, inkMatch }
  *          url is a PNG of the whole page with only that layer, tinted for Spot layers
  */
-export async function inspectPrint(lib, bytes, areas = null, discs = null) {
+export async function inspectPrint(lib, bytes, areas = null, discs = null, { inkIn = null } = {}) {
   const doc = await lib.getDocument({ data: bytes, isEvalSupported: false }).promise;
   const layers = {};
   try {
@@ -318,6 +320,10 @@ export async function inspectPrint(lib, bytes, areas = null, discs = null) {
     const pxDiscs = discs && discs.map((d) => ({
       ...px(d), tab: d.tab ? px(d.tab) : null, hole: d.hole ? px(d.hole) : null,
     }));
+    // White under the ink only (UV Plak tab, Boss, 28 Nov 2026): where the artwork has
+    // ink inside `inkIn`, and how much of each Spot lies under it.
+    let ink = null;
+    const inkMatch = {};
     for (const look of LAYER_LOOK) {
       const id = idOf.get(look.name);
       if (id) {
@@ -326,6 +332,10 @@ export async function inspectPrint(lib, bytes, areas = null, discs = null) {
         const box = opaqueBox(pixels, canvas.width, canvas.height);
         if (pxAreas) covered[look.name] = coverage(pixels, canvas.width, canvas.height, pxAreas);
         if (pxDiscs?.length) covered[look.name] = discCoverage(pixels, canvas.width, canvas.height, pxDiscs);
+        if (inkIn) {
+          if (look.name === ART_LAYER) ink = inkPixels(pixels, canvas.width, canvas.height, inkIn, mmPerPx);
+          else if (ink) inkMatch[look.name] = underInk(pixels, ink, canvas.width);
+        }
         if (box) {
           boxes[look.name] = {
             x: box.x * mmPerPx, y: box.y * mmPerPx, w: box.w * mmPerPx, h: box.h * mmPerPx, fill: box.fill,
@@ -342,7 +352,7 @@ export async function inspectPrint(lib, bytes, areas = null, discs = null) {
       }
     }
     return {
-      names, boxes, coverage: covered, layers, tolMm: 2 * mmPerPx,
+      names, boxes, coverage: covered, layers, tolMm: 2 * mmPerPx, inkMatch,
     };
   } catch (err) {
     releaseLayers(layers);
@@ -350,6 +360,71 @@ export async function inspectPrint(lib, bytes, areas = null, discs = null) {
   } finally {
     doc.destroy();
   }
+}
+
+/** Ink in the artwork, inside a box in mm: 1 for a pixel of colour, 0 for paper. */
+export function inkPixels(rgba, width, height, box, mmPerPx, level = 230) {
+  const ink = new Uint8Array(width * height);
+  const x0 = Math.max(0, Math.ceil(box.x / mmPerPx) + 1);
+  const y0 = Math.max(0, Math.ceil(box.y / mmPerPx) + 1);
+  const x1 = Math.min(width, Math.floor((box.x + box.width) / mmPerPx) - 1);
+  const y1 = Math.min(height, Math.floor((box.y + box.height) / mmPerPx) - 1);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const p = (y * width + x) * 4;
+      if (rgba[p + 3] > 127 && (rgba[p] < level || rgba[p + 1] < level || rgba[p + 2] < level)) ink[y * width + x] = 1;
+    }
+  }
+  return ink;
+}
+
+/**
+ * A Spot layer against the artwork's ink: the share of the ink it is under, and the
+ * share of it that is not under ink. Edges are soft in a picture of the file, so the
+ * pixel each side of an edge counts for either.
+ */
+export function underInk(rgba, ink, width = 1) {
+  let inkAll = 0;
+  let covered = 0;
+  let spotAll = 0;
+  let stray = 0;
+  const spotAt = (j) => j >= 0 && j < ink.length && rgba[j * 4 + 3] > 127;
+  for (let i = 0; i < ink.length; i++) {
+    const spot = spotAt(i);
+    if (ink[i]) {
+      inkAll++;
+      if (spot || spotAt(i - 1) || spotAt(i + 1) || spotAt(i - width) || spotAt(i + width)) covered++;
+    }
+    if (spot) {
+      spotAll++;
+      if (!ink[i] && !ink[i - 1] && !ink[i + 1] && !ink[i - width] && !ink[i + width]) stray++;
+    }
+  }
+  return {
+    under: inkAll ? covered / inkAll : 0, stray: spotAll ? stray / spotAll : 0, ink: inkAll, spot: spotAll,
+  };
+}
+
+/**
+ * A print file whose white goes under the ink only (UV Plak tab, Boss, 28 Nov 2026): the
+ * artwork fills its box, and each Spot lies under the ink and hardly anywhere else.
+ * @param found from inspectPrint, given the box as an area and as `inkIn`
+ */
+export function judgeUnderInk(found, box, noun = 'plak') {
+  const out = [namesLine(found.names)];
+  const art = found.coverage?.[ART_LAYER];
+  if (!art) out.push({ ok: false, text: `${ART_LAYER} kosong` });
+  else if (art.inside[0] < 0.98) out.push({ ok: false, text: `${ART_LAYER} tak penuh pada ${noun}` });
+  else out.push({ ok: true, text: `${ART_LAYER} penuh pada ${noun}, ${size(box.width, box.height)}` });
+  for (const name of SPOT_LAYERS) {
+    const m = found.inkMatch?.[name];
+    const outside = found.coverage?.[name]?.outside ?? 0;
+    if (!m || !m.spot) out.push({ ok: false, text: `${name} kosong` });
+    else if (m.under < 0.95) out.push({ ok: false, text: `${name} cuma bawah ${Math.round(m.under * 100)}% gambar dan tulisan` });
+    else if (m.stray > 0.03 || outside > 0.005) out.push({ ok: false, text: `${name} ada white di tempat tiada ink` });
+    else out.push({ ok: true, text: `${name} bawah gambar dan tulisan sahaja, kayu kosong tanpa white` });
+  }
+  return out;
 }
 
 export function releaseLayers(layers) {

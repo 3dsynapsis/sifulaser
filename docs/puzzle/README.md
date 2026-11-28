@@ -391,24 +391,33 @@ Tab baharu `sifulaser.com/uvplak/` (halaman React `#/uvplak`). Masukkan design p
   Huruf setinggi "Huruf paling kecil" (lalai 10 mm) dipilih; tekan huruf dalam preview
   untuk buang atau tambah. Huruf kekal di tempatnya dalam file cut, supaya boleh
   diangkat sekali dengan transfer tape. Semeru Kabinet: 13 huruf, 4 lubang, tepat.
-- **Base Acrylic 5mm**: 1 keping penuh + 1 atau 2 keping berlubang alur, digam
-  bertindih (alur 5 atau 10 mm dalam). Alur 3.4 mm (plak 3 mm + 0.4), 0.6 mm lebih
-  panjang dari plak; base lebih 15 mm kiri kanan, dalam kira-kira 0.3 x tinggi plak
-  (50 hingga 120 mm). Plak dapat "kaki" sedalam alur di bawah design, jadi design dan
-  border bawah kekal atas base.
+- **Base Acrylic Hitam 5mm satu keping** (bos, 28 November 2026: "hanya acrylic 5mm satu
+  layer je", "acrylic warna hitam"), alur dipotong tembus 3.4 mm (plak 3 mm + 0.4), 0.6 mm lebih panjang dari plak;
+  base lebih 15 mm kiri kanan, dalam kira-kira 0.3 x tinggi plak (50 hingga 120 mm).
+  Plak dapat "kaki" 5 mm di bawah design yang masuk alur sampai rata dengan bawah base,
+  jadi design dan border bawah kekal atas base.
 
 Fail: satu **file cut setiap material** (`plakCutJobs` dalam `src/geom/plak.js`,
 `buildPlakSheet` dalam `src/exportJobSheet.js`): lubang huruf dulu, huruf, jalur
 border, plak, alur, base, frame last; label material, "N UNIT", "CUT N KALI". Plak depan
 dipotong dalam frame 10 mm dan di-UV print sebelum dikeluarkan, macam panel UV File.
-**File print UV**: page = frame, gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) penuh
-pada kotak print (`buildLayeredPrint`); Preview, File print menyemak layer.
+**File print UV**: page = frame, gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white)
+**di bawah gambar dan tulisan sahaja** (bos, 28 November 2026: "white bawah gambar dan
+tulisan sahaja, biar kayu nampak"): `inkMask` dalam `src/geom/plak.js` buat stensil 1 bit
+dari piksel gambar print yang sama (lebih gelap dari 240 pada mana-mana saluran = ink),
+dan hampir-putih dijadikan putih tulen supaya tiada kabus ink atas kayu.
+`buildLayeredPrint` lukis Spot melalui stensil itu (`/ImageMask`, `placement.mask`).
+Pilihan "Penuh" (white seluruh kotak, latar putih) kekal. Preview Plak dan 3D guna
+gambar dengan putih lut sinar (`renderCutout`), jadi kayu nampak seperti hasil sebenar.
+Preview, File print menyemak setiap Spot berada di bawah ink design sahaja
+(`inspectPrint` pilihan `inkIn`, `judgeUnderInk` dalam `src/printCheck.js`). Semeru
+Kabinet: 18% kawasan dapat ink dan white, 82% kayu kosong, 0% ink tanpa white.
 
 **Preview 3D** (bos, 28 November 2026: "boleh lihat secara 3d macam tab box maker"):
 `src/plak3d.js`, three.js r169 dalam `vendor/` (salinan sama dengan Box Maker, lesen
 dalam `vendor/LICENCES.txt`), dimuat hanya bila 3D dibuka. Plak berdiri dalam alur base,
 muka dengan print (tekstur dari preview), border dan huruf timbul 3 mm dari garis yang
-sama dengan file cut, base acrylic lut sinar. Seret untuk pusing, klik dua kali untuk
+sama dengan file cut, base acrylic hitam berkilat. Seret untuk pusing, klik dua kali untuk
 muat semula.
 
 Ia juga **tiada kod sendiri** di luar folder ini: `docs/uvplak/index.html` memuatkan
@@ -420,6 +429,7 @@ sebenar.**
 > `src/plakSaved.js`, `src/plak3d.js`, `src/geom/plak.js`, `src/geom/letters.js`,
 > `vendor/three.module.js`, `vendor/OrbitControls.js`, dan tambahan dalam
 > `src/posterPdf.js` (`pageImageBoxes`), `src/exportJobSheet.js` (`buildPlakSheet`),
-> `src/view.js` (`renderPlak`), `src/designs.js` (TOOLS `uvplak`), `styles.css`,
+> `src/view.js` (`renderPlak`), `src/printCheck.js` (`inkIn`, `judgeUnderInk`),
+> `src/designs.js` (TOOLS `uvplak`), `styles.css`,
 > `src/version.js`. Salin balik ke `13_Puzzle Generator` sebelum "Cara kemas kini"
 > dijalankan lagi.

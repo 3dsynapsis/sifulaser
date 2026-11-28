@@ -10,10 +10,14 @@
 //     middle of the sheet is not thrown away. The two long strips are alike, and so are
 //     the two short ones;
 //   * raised letters, the big text cut from plywood Black 3mm (letters.js finds them);
-//   * a base of acrylic 5mm, the plaque standing in a slot in it: one solid piece at the
-//     bottom and one or two with the slot cut through, glued in a stack. The plate gets a
-//     "kaki" (a tongue) below the design as deep as the slot, so the whole design and its
-//     bottom border stay above the base.
+//   * a base of black acrylic 5mm, one piece (Boss, 28 Nov 2026: "hanya acrylic 5mm satu
+//     layer je", "acrylic warna hitam"), the plaque standing in a slot cut through it. The plate gets a "kaki" (a
+//     tongue) below the design as deep as the base is thick, down to the desk, so the
+//     whole design and its bottom border stay above the base.
+//
+// The white ink goes under the design's ink only (Boss, 28 Nov 2026: "white bawah gambar
+// dan tulisan sahaja, biar kayu nampak"): inkMask, from the print picture's own pixels.
+// Where the design is white nothing is printed at all, and the maple shows.
 //
 // The size is the plate's face, which is the design: the client's A4 page makes an A4
 // plaque. The border lies over the design's outer 10 mm, where a plaque design leaves
@@ -33,8 +37,7 @@ export const PLAK_BLEED_MM = 2;
 export const PLAK_FRAME_MM = 10;      // the sheet round the plate, held for the UV bed
 export const PLAK_THICK_MM = 3;       // both plywoods
 export const PLAK_MIN_MM = 60;        // the plate's short side, at the least
-export const BASE_LAYER_MM = 5;       // acrylic
-export const BASE_LAYERS = [2, 3];    // pieces in the base: one solid, the rest slotted
+export const BASE_LAYER_MM = 5;       // acrylic, one piece
 export const SLOT_CLEAR_MM = 0.4;     // the slot's play round a 3 mm plate
 export const SLOT_END_CLEAR_MM = 0.6; // and at its two ends together
 export const BASE_OVERHANG_MM = 15;   // the base past the plate, each side
@@ -52,7 +55,8 @@ export const PLAK_MATERIALS = [
   { id: 'maple-3', label: 'Plywood Maple 3mm', kind: 'Maple', thick: '3 mm', colour: '#e4c99b' },
   { id: 'black-3', label: 'Plywood Black 3mm', kind: 'Black', thick: '3 mm', colour: '#1f1f22' },
 ];
-export const BASE_MATERIAL = { id: 'acrylic-5', label: 'Acrylic 5mm', colour: '#cfe3ea' };
+// Black acrylic (Boss, 28 Nov 2026), named the way the shop's labels name acrylic.
+export const BASE_MATERIAL = { id: 'acrylic-black-5', label: 'Acrylic Hitam 5mm', colour: '#121214', edge: '#3a3a40' };
 
 /** Which part is cut from which plywood by default. */
 export const PLAK_PARTS = [
@@ -152,11 +156,11 @@ export function stripLayout(W, H, b = PLAK_BORDER_MM, gap = STRIP_GAP_MM) {
 }
 
 /**
- * The base for a plate W wide whose face is H high: its size, the slot, and how deep the
- * slot is, which is the plate's tongue.
+ * The base for a plate W wide whose face is H high: one piece of acrylic, the slot cut
+ * through it, as deep as the plate's tongue.
  */
-export function planBase(W, H, layers = BASE_LAYERS[0]) {
-  const n = BASE_LAYERS.includes(layers) ? layers : BASE_LAYERS[0];
+export function planBase(W, H) {
+  const n = 1;
   const length = r1(W + 2 * BASE_OVERHANG_MM);
   // About a third of the plaque's height, so a tall one does not tip; in 5 mm steps.
   const depth = clamp(Math.round((H * 0.3) / 5) * 5, BASE_DEPTH_MIN_MM, BASE_DEPTH_MAX_MM);
@@ -168,9 +172,9 @@ export function planBase(W, H, layers = BASE_LAYERS[0]) {
     depth,
     layers: n,
     slot,
-    slotDepth: (n - 1) * BASE_LAYER_MM,
+    slotDepth: n * BASE_LAYER_MM,
     height: n * BASE_LAYER_MM,
-    pieces: [{ id: 'bottom', slot: false }, ...Array.from({ length: n - 1 }, (_, i) => ({ id: `slot${i + 1}`, slot: true }))],
+    pieces: [{ id: 'base', slot: true }],
   };
 }
 
@@ -178,12 +182,12 @@ export function planBase(W, H, layers = BASE_LAYERS[0]) {
  * Everything about one plaque.
  *
  * @param o { pageW, pageH: the design's page, mm; size, custom; border: boolean;
- *            base: boolean; baseLayers }
+ *            base: boolean }
  */
 export function planPlak(o) {
   const { width: W, height: H } = plakSize(o.pageW, o.pageH, o.size, o.custom);
   const border = o.border ? PLAK_BORDER_MM : 0;
-  const base = o.base ? planBase(W, H, o.baseLayers) : null;
+  const base = o.base ? planBase(W, H) : null;
   const tongue = base ? base.slotDepth : 0;
   const F = PLAK_FRAME_MM;
   const design = { x: F, y: F, width: W, height: H };
@@ -214,10 +218,10 @@ export function planPlak(o) {
   };
 }
 
-/** The plaque standing on its base, mm: what the finished thing measures. */
+/** The plaque standing on its base, mm: what the finished thing measures. Its face starts on top of the base. */
 export const standingSize = (plan) => ({
   width: plan.base ? Math.max(plan.width, plan.base.length) : plan.width,
-  height: r1(plan.height + (plan.base ? plan.base.height - plan.base.slotDepth : 0)),
+  height: r1(plan.height + (plan.base ? plan.base.height : 0)),
   depth: plan.base ? plan.base.depth : PLAK_THICK_MM * (plan.border ? 2 : 1),
 });
 
@@ -352,4 +356,44 @@ export function plakCutJobs(plan, letters, materials) {
     });
   }
   return out;
+}
+
+// ---- the white ink ----------------------------------------------------------------------
+
+/** Lighter than this on every channel is the design's white: no ink, and no white under it. */
+export const INK_WHITE_LEVEL = 240;
+export const WHITE_MODES = [
+  { id: 'design', label: 'Bawah design sahaja', note: 'kayu nampak' },
+  { id: 'full', label: 'Penuh', note: 'latar putih' },
+];
+export const whiteMode = (id) => (WHITE_MODES.some((m) => m.id === id) ? id : WHITE_MODES[0].id);
+
+/**
+ * Where a picture has ink, as the stencil the white ink is printed through: one bit a
+ * pixel, rows padded to a byte, 0 where there is ink (a PDF image mask paints its 0s)
+ * and 1 where there is none. The picture is changed too: its near-white is made pure
+ * white, so not even a haze of colour lands on the bare wood.
+ *
+ * @returns { bits, width, height, inked }: inked, how many pixels get white
+ */
+export function inkMask(rgba, width, height, level = INK_WHITE_LEVEL) {
+  const stride = Math.ceil(width / 8);
+  const bits = new Uint8Array(stride * height).fill(0xff);
+  let inked = 0;
+  for (let y = 0; y < height; y++) {
+    const row = y * stride;
+    for (let x = 0; x < width; x++) {
+      const p = (y * width + x) * 4;
+      if (rgba[p + 3] > 127 && (rgba[p] < level || rgba[p + 1] < level || rgba[p + 2] < level)) {
+        bits[row + (x >> 3)] &= ~(0x80 >> (x & 7));
+        inked++;
+      } else {
+        rgba[p] = 255;
+        rgba[p + 1] = 255;
+        rgba[p + 2] = 255;
+        rgba[p + 3] = 255;
+      }
+    }
+  }
+  return { bits, width, height, inked };
 }

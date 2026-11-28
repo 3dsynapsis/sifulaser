@@ -537,7 +537,7 @@ export class View {
       const bx = (W - o.base.length) / 2;
       this.svg.append(el('rect', {
         x: bx, y: H - o.base.height * 0.6, width: o.base.length, height: o.base.height * 1.6, rx: 1.2, ry: 1.2,
-        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 0.75, stroke: '#8fb3bf', 'stroke-width': 1,
+        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 0.85, stroke: o.baseEdge || '#8fb3bf', 'stroke-width': 1,
         'vector-effect': 'non-scaling-stroke', filter: 'url(#boardShadow)',
       }));
     }
@@ -562,7 +562,7 @@ export class View {
       const bx = (W - o.base.length) / 2;
       this.svg.append(el('rect', {
         x: bx, y: H, width: o.base.length, height: o.base.height, rx: 0.8, ry: 0.8,
-        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 0.9, stroke: '#8fb3bf', 'stroke-width': 1,
+        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 1, stroke: o.baseEdge || '#8fb3bf', 'stroke-width': 1,
         'vector-effect': 'non-scaling-stroke',
       }));
     }

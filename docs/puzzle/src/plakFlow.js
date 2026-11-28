@@ -4,7 +4,7 @@
 // The plaque (geom/plak.js): a plywood plate with the design UV printed on it, a black
 // border glued over its edge as four mitred strips, the big text cut from black plywood
 // and glued on raised over its printed guide (geom/letters.js finds and traces it), and
-// an acrylic base the plate stands in. Each material gets its own cut file; the print
+// a black acrylic base the plate stands in. Each material gets its own cut file; the print
 // file is the plate in its frame, as the UV File tab prints a panel.
 //
 // The rest is the Keychain UV tab's way of working: the design stays in this browser
@@ -17,7 +17,7 @@ import * as gallery from './designs.js';
 import { signedIn } from './cloud.js';
 import * as vault from './posterVault.js';
 import {
-  openPoster, pageImages, pageImageBoxes, pageRaster, pagePicture, renderPicture, buildLayeredPrint,
+  openPoster, pageImages, pageImageBoxes, pageRaster, pagePicture, renderPicture, renderCutout, buildLayeredPrint,
 } from './posterPdf.js';
 import { buildPlakSheet, sheetToPdf } from './exportJobSheet.js';
 import { makeZip } from './zip.js';
@@ -25,7 +25,7 @@ import { LOW_DPI, UV_BED_MM } from './geom/poster.js';
 import { findContent } from './geom/crop.js';
 import { findLetters, letterPath } from './geom/letters.js';
 import {
-  PLAK_SIZES, PLAK_MATERIALS, PLAK_BORDER_MM, PLAK_BLEED_MM, PLAK_FRAME_MM, PLAK_MIN_MM, BASE_LAYERS,
+  PLAK_SIZES, PLAK_MATERIALS, PLAK_BORDER_MM, PLAK_BLEED_MM, PLAK_FRAME_MM, PLAK_MIN_MM, WHITE_MODES,
   BASE_LAYER_MM, BASE_MATERIAL, CUSTOM_MAX_MM, SLOT_CLEAR_MM, PLAK_THICK_MM, BASE_OVERHANG_MM,
   planPlak, plakCutJobs, plakMaterial, cleanMaterials, cleanCustom, inkMargin, standingSize,
 } from './geom/plak.js';
@@ -33,7 +33,7 @@ import {
   cleanPlak, plakRecord, readPlak, cleanLetterMin, LETTER_MIN_MM, LETTER_MIN_RANGE, QUANTITY_MAX,
 } from './plakSaved.js';
 import {
-  LAYER_LOOK, inspectPrint, judgeBoxes, releaseLayers,
+  LAYER_LOOK, inspectPrint, judgeBoxes, judgeUnderInk, releaseLayers,
 } from './printCheck.js';
 import { VERSION } from './version.js';
 import { illustratorEditData } from './pdfWeight.js';
@@ -56,7 +56,7 @@ const fresh = () => ({
   off: [],                         // letters clicked off, by their id on the page
   materials: cleanMaterials({}),
   base: true,
-  baseLayers: BASE_LAYERS[0],
+  white: WHITE_MODES[0].id,         // white ink under the design only, or everywhere
   quantity: 1,
   client: '',
   dateline: '',
@@ -114,7 +114,6 @@ const planOf = () => {
     custom: S.custom,
     border: S.border,
     base: S.base,
-    baseLayers: S.baseLayers,
   });
 };
 
@@ -134,7 +133,7 @@ function job() {
     off: [...S.off],
     materials: { ...S.materials },
     base: S.base,
-    baseLayers: S.baseLayers,
+    white: S.white,
     quantity: S.quantity,
     client: S.client,
     dateline: S.dateline,
@@ -227,6 +226,7 @@ function readError(err) {
 function forget(file) {
   for (const p of file.pages) {
     if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+    if (p.cutoutUrl) URL.revokeObjectURL(p.cutoutUrl);
   }
   file.doc.destroy().catch(() => {});
 }
@@ -334,7 +334,7 @@ export async function openPlakFiles(fileList, restore = null) {
       off: [...saved.off],
       materials: { ...saved.materials },
       base: saved.base,
-      baseLayers: saved.baseLayers,
+      white: saved.white,
       quantity: saved.quantity,
       client: saved.client,
       dateline: saved.dateline,
@@ -478,6 +478,11 @@ function analysisOf(page) {
     const previewUrl = await renderPicture(page, PREVIEW_PX);
     if (page.previewUrl) URL.revokeObjectURL(page.previewUrl);
     page.previewUrl = previewUrl;
+    // The same with its white see-through: the wood shows there when the white ink goes
+    // under the design's ink only.
+    const cutoutUrl = await renderCutout(page, PREVIEW_PX);
+    if (page.cutoutUrl) URL.revokeObjectURL(page.cutoutUrl);
+    page.cutoutUrl = cutoutUrl;
     page.analysis = {
       letters,
       ink,
@@ -534,7 +539,7 @@ const PART_TEXT = {
   front: (plan) => `plak depan ${rnd(plan.plate.width, 1)} x ${rnd(plan.plate.height, 1)} mm${plan.tongue ? ` (kaki ${plan.tongue} mm)` : ''}`,
   border: (plan) => `border ${plan.border} mm, 4 keping sudut 45`,
   letters: (plan, n) => `${n} huruf timbul`,
-  base: (plan) => `base ${plan.base.length} x ${plan.base.depth} mm, ${plan.base.layers} keping, alur ${plan.base.slot.width} mm`,
+  base: (plan) => `base ${plan.base.length} x ${plan.base.depth} mm, 1 keping, alur tembus ${plan.base.slot.width} mm`,
 };
 
 /** Every cut file this job needs: one per material. */
@@ -564,15 +569,18 @@ function cutFile(cut) {
 
 const pictureKey = (plan) => [
   S.file.hash || S.file.name, S.page, plan.width, plan.height, plan.printBox.x, plan.printBox.y,
-  plan.printBox.width, plan.printBox.height, plan.page.height,
+  plan.printBox.width, plan.printBox.height, plan.page.height, S.white,
 ].join('|');
+const underInkOnly = () => S.white === 'design';
+/** The design on screen: its white see-through where the wood will show. */
+const shownImage = (page) => (underInkOnly() ? page.cutoutUrl : page.previewUrl) || null;
 
 /** The print file's picture, 300 dpi CMYK, kept for the layer check and Export. */
 function printPictureOf(page, plan) {
   const key = pictureKey(plan);
   if (!page.prints) page.prints = new Map();
   if (!page.prints.has(key)) {
-    const made = pagePicture(page.obj, plan.design, plan.printBox);
+    const made = pagePicture(page.obj, plan.design, plan.printBox, 0, { whiteMask: underInkOnly() });
     made.catch(() => { if (page.prints.get(key) === made) page.prints.delete(key); });
     page.prints.set(key, made);
     if (page.prints.size > 2) page.prints.delete(page.prints.keys().next().value);
@@ -585,8 +593,8 @@ async function printFile() {
   const plan = planOf();
   const blocked = blockedReason(page.analysis || null, plan);
   if (blocked) throw Object.assign(new Error(blocked), { code: 'blocked' });
-  const { jpg } = await printPictureOf(page, plan);
-  const bytes = await buildLayeredPrint(plan.page, [{ jpg, box: plan.printBox }], { title: `${S.name} - plak print` });
+  const { jpg, mask } = await printPictureOf(page, plan);
+  const bytes = await buildLayeredPrint(plan.page, [{ jpg, box: plan.printBox, mask }], { title: `${S.name} - plak print` });
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
     name: `${stem()}-print-${rnd(plan.page.width, 0)}x${rnd(plan.page.height, 0)}-x${S.quantity}.pdf`,
@@ -628,14 +636,17 @@ function printCheckFor(plan) {
   S.check = check;
   (async () => {
     const file = await printFile();
-    return inspectPrint(S.file.lib, new Uint8Array(await file.blob.arrayBuffer()), [plan.printBox]);
+    return inspectPrint(S.file.lib, new Uint8Array(await file.blob.arrayBuffer()), [plan.printBox], null,
+      underInkOnly() ? { inkIn: plan.printBox } : {});
   })().then((found) => {
     if (S.check !== check) {
       releaseLayers(found.layers);
       return;
     }
     check.layers = found.layers;
-    check.results = judgeBoxes(found, [plan.printBox], 'plak');
+    check.results = underInkOnly()
+      ? judgeUnderInk(found, plan.printBox)
+      : judgeBoxes(found, [plan.printBox], 'plak');
     check.state = 'ready';
     if (S.view === 'print') renderPlak();
   }).catch((err) => {
@@ -689,16 +700,18 @@ function plak3dData(page, a, plan) {
     printBox: {
       x: plan.printBox.x - F, y: plan.printBox.y - F, width: plan.printBox.width, height: plan.printBox.height,
     },
-    imageUrl: page.previewUrl || null,
+    imageUrl: shownImage(page),
     frontColour: plakMaterial(S.materials.front).colour,
     borderColour: plakMaterial(S.materials.border).colour,
     letterColour: plakMaterial(S.materials.letters).colour,
     baseColour: BASE_MATERIAL.colour,
+    baseEdge: BASE_MATERIAL.edge,
     grain: S.materials.front === 'maple-3',
     strips: plan.strips,
     letters: chosenLetters(a, plan).map((l) => l.loops.map((loop) => loop.map(([x, y]) => [x * plan.scale, y * plan.scaleY]))),
     base: plan.base ? {
       length: plan.base.length, depth: plan.base.depth, layers: plan.base.layers, layerMm: BASE_LAYER_MM, slot: plan.base.slot,
+      pieces: plan.base.pieces,
     } : null,
   };
 }
@@ -781,11 +794,12 @@ function renderStage() {
     printBox: {
       x: plan.printBox.x - F, y: plan.printBox.y - F, width: plan.printBox.width, height: plan.printBox.height,
     },
-    imageUrl: page.previewUrl || null,
+    imageUrl: shownImage(page),
     front: front.colour,
     border: plakMaterial(S.materials.border).colour,
     letters: plakMaterial(S.materials.letters).colour,
     baseColour: BASE_MATERIAL.colour,
+    baseEdge: BASE_MATERIAL.edge,
     strips: plan.strips,
     raised: eligible.map((l) => ({ id: l.id, d: letterPath(l, plan.scale, 0, 0, plan.scaleY), on: !off.has(l.id) })),
     base: plan.base ? { length: plan.base.length, height: plan.base.height } : null,
@@ -912,7 +926,7 @@ function sizeGroup(plan) {
   const p = currentPage();
   const presets = h('div', { class: 'presets two' }, PLAK_SIZES.map((s) => {
     const at = planPlak({
-      pageW: p.widthMm, pageH: p.heightMm, size: s.id, custom: S.custom ?? plan.width, border: S.border, base: S.base, baseLayers: S.baseLayers,
+      pageW: p.widthMm, pageH: p.heightMm, size: s.id, custom: S.custom ?? plan.width, border: S.border, base: S.base,
     });
     return h('button', {
       class: at.fitsBed && !at.tooSmall ? 'preset' : 'preset no-fit',
@@ -967,8 +981,19 @@ function sizeGroup(plan) {
 function frontGroup() {
   return group('Plak depan', true,
     materialPick('front'),
-    h('p', { class: 'hint' }, `${matLabel('front')}, di-UV print: gambar CMYK, Spot 1 dan Spot 2 (white) di bawah. `
-      + 'Tulisan besar pun dicetak sebagai panduan tampal huruf timbul.'));
+    h('div', { class: 'field' },
+      h('label', {}, 'White ink (Spot 1 dan Spot 2)'),
+      h('div', { class: 'presets two' }, WHITE_MODES.map((m) => h('button', {
+        class: 'preset',
+        type: 'button',
+        'aria-pressed': String(S.white === m.id),
+        onclick: () => { if (S.white !== m.id) set({ white: m.id }); },
+      }, h('b', {}, m.label), h('span', {}, m.note))))),
+    h('p', { class: 'hint' }, S.white === 'design'
+      ? `${matLabel('front')}, di-UV print: white hanya di bawah gambar dan tulisan, jadi bahagian putih design `
+        + 'tak dicetak langsung dan kayu nampak. Tulisan besar pun dicetak sebagai panduan tampal huruf timbul.'
+      : `${matLabel('front')}, di-UV print: white penuh di bawah seluruh kawasan print, latar jadi putih. `
+        + 'Tulisan besar pun dicetak sebagai panduan tampal huruf timbul.'));
 }
 
 function borderGroup(a, plan) {
@@ -1069,16 +1094,12 @@ function baseGroup(plan) {
   if (plan.base) {
     const b = plan.base;
     body.push(
-      h('div', { class: 'seg' }, BASE_LAYERS.map((n) => h('button', {
-        type: 'button',
-        'aria-pressed': String(S.baseLayers === n),
-        onclick: () => { if (S.baseLayers !== n) set({ baseLayers: n }); },
-      }, `${n} keping, alur ${(n - 1) * BASE_LAYER_MM} mm`))),
-      stat('Base', `${b.length} x ${b.depth} mm, tebal ${b.height} mm`),
-      stat('Alur', `${b.slot.width} x ${b.slot.length} mm, dalam ${b.slotDepth} mm`),
-      stat('Kaki plak', `${plan.tongue} mm bawah design, masuk alur`),
-      h('p', { class: 'hint' }, `1 keping bawah penuh, ${b.layers - 1} keping berlubang alur, digam bertindih. `
-        + `Alur ${PLAK_THICK_MM} mm + ${SLOT_CLEAR_MM} mm longgar. Base lebih ${BASE_OVERHANG_MM} mm kiri kanan.`),
+      stat('Base', `${b.length} x ${b.depth} mm, 1 keping ${b.height} mm`),
+      stat('Alur tembus', `${b.slot.width} x ${b.slot.length} mm`),
+      stat('Kaki plak', `${plan.tongue} mm bawah design, rata dengan bawah base`),
+      h('p', { class: 'hint' }, `Satu keping ${BASE_MATERIAL.label}, alur dipotong tembus: kaki plak masuk sampai rata `
+        + `dengan bawah base, kemudian digam. Alur ${PLAK_THICK_MM} mm + ${SLOT_CLEAR_MM} mm longgar. `
+        + `Base lebih ${BASE_OVERHANG_MM} mm kiri kanan.`),
     );
   } else {
     body.push(h('p', { class: 'hint' }, 'Tanpa base: plak tiada kaki, untuk digantung atau dipasang sendiri.'));
@@ -1153,7 +1174,7 @@ function previewGroup(a, plan) {
     body.push(...layerPanel());
   } else if (S.view === '3d') {
     body.push(h('p', { class: 'hint' }, 'Plak siap dalam 3D: plak depan dengan print, border dan huruf timbul '
-      + `${PLAK_THICK_MM} mm, berdiri dalam alur base acrylic. Seret untuk pusing.`));
+      + `${PLAK_THICK_MM} mm, berdiri dalam alur base ${BASE_MATERIAL.label}. Seret untuk pusing.`));
   } else if (blocked && S.view !== 'plak') {
     body.push(h('p', { class: 'warn' }, blocked));
   } else {
@@ -1384,7 +1405,7 @@ export function openPlakExport() {
     ...rows,
     blocked ? null : h('p', { class: 'note' },
       `Plak depan dicut dalam frame ${PLAK_FRAME_MM} mm dan jangan dikeluarkan sebelum UV print: frame tu diletak rapat bucu kiri atas bed. `
-      + `File print UV: gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) di bawah. `
+      + `File print UV: gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) ${underInkOnly() ? 'di bawah gambar dan tulisan sahaja, kayu nampak di bahagian putih' : 'penuh di bawah'}. `
       + (plan.border ? `Bawah border tak dicetak kecuali ${PLAK_BLEED_MM} mm. ` : '')
       + `Jumlah ${S.quantity} plak: setiap file cut dan print ${S.quantity} kali.`),
     items.length
@@ -1408,11 +1429,11 @@ export const PLAK_STEPS = [
   ['Cut plak depan',
     `File cut Plywood Maple (atau ikut material plak depan): plak dulu, frame ${PLAK_FRAME_MM} mm last. Jangan keluarkan plak dari frame lagi.`],
   ['UV print plak',
-    'Semak layer dulu di Preview, File print. Letak frame atas bed rapat dari bucu kiri atas, sama arah dengan file. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar. Tulisan besar dicetak sekali sebagai panduan.'],
+    'Semak layer dulu di Preview, File print. Letak frame atas bed rapat dari bucu kiri atas, sama arah dengan file. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar dan tulisan sahaja, bahagian putih design tak dicetak supaya kayu nampak. Tulisan besar dicetak sekali sebagai panduan.'],
   ['Cut border dan huruf',
     `File cut Plywood Black: lubang huruf dulu, kemudian huruf, kemudian 4 jalur border ${PLAK_BORDER_MM} mm bersudut 45°. Dua jalur panjang sama, dua jalur pendek sama.`],
   ['Cut base',
-    `File cut ${BASE_MATERIAL.label}: 1 keping bawah penuh dan keping berlubang alur. Gam bertindih, alur di atas.`],
+    `File cut ${BASE_MATERIAL.label}: satu keping, alur dulu (tembus), kemudian base.`],
   ['Pasang',
-    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak dalam alur base dan gam.'],
+    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak dalam alur base sampai rata dengan bawah base, dan gam.'],
 ];

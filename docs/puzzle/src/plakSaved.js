@@ -5,7 +5,7 @@
 // Pure: no DOM. Tested by scripts/test-uvplak.mjs.
 
 import {
-  BASE_LAYERS, cleanCustom, cleanMaterials, plakMaterial, plakSizeId, BASE_MATERIAL,
+  cleanCustom, cleanMaterials, plakMaterial, plakSizeId, BASE_MATERIAL, whiteMode,
 } from './geom/plak.js';
 
 const HASH = /^[0-9a-f]{64}$/;
@@ -56,7 +56,8 @@ export function cleanPlak(raw) {
     off,
     materials: cleanMaterials(raw.materials),
     base: raw.base !== false,
-    baseLayers: BASE_LAYERS.includes(raw.baseLayers) ? raw.baseLayers : BASE_LAYERS[0],
+    // Under the design's ink only, so the wood shows (Boss, 28 Nov 2026); or everywhere.
+    white: whiteMode(raw.white),
     quantity: isWhole(raw.quantity, 1, QUANTITY_MAX) ? raw.quantity : 1,
     client: typeof raw.client === 'string' ? raw.client.slice(0, TEXT_MAX) : '',
     dateline: DATE.test(raw.dateline) ? raw.dateline : '',
@@ -82,7 +83,6 @@ export function plakRecord(job, plan, letters = 0) {
       letters,
       baseLength: plan.base ? plan.base.length : 0,
       baseDepth: plan.base ? plan.base.depth : 0,
-      baseLayers: plan.base ? plan.base.layers : 0,
       quantity: clean?.quantity ?? 1,
     },
     material: plan.base ? `${front.label} + ${BASE_MATERIAL.label}` : front.label,
