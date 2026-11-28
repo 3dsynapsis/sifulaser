@@ -19,7 +19,16 @@
       <span id="status" class="status"></span>
     </div>
 
-    <div class="midbar"></div>
+    <!-- The views, in the top bar where the Box Maker has its 3D / 2D (Boss, 28 Nov 2026:
+         "mana butang 3d" - it was only in the panel, under Preview). -->
+    <div class="midbar">
+      <div class="viewtoggle" id="plakViews" role="tablist" aria-label="Paparan" hidden>
+        <button type="button" class="vt" data-view="plak" role="tab" aria-selected="true">Plak</button>
+        <button type="button" class="vt" data-view="3d" role="tab" aria-selected="false">3D</button>
+        <button type="button" class="vt" data-view="cut" role="tab" aria-selected="false">File cut</button>
+        <button type="button" class="vt" data-view="print" role="tab" aria-selected="false">File print</button>
+      </div>
+    </div>
 
     <div class="actions">
       <button class="icon-btn" id="helpBtn" title="Cara guna">?</button>

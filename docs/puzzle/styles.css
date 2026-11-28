@@ -703,3 +703,19 @@ input[type="date"] { color-scheme: light dark; }
 .plak-letter.off:hover { fill-opacity: 0.35; }
 .plak-3d canvas { display: block; touch-action: none; cursor: grab; }
 .plak-3d canvas:active { cursor: grabbing; }
+
+/* UV Plak tab: its views in the top bar, as the Box Maker has 3D / 2D there
+   (Boss, 28 Nov 2026: "mana butang 3d"), with the .viewtoggle above. */
+.viewtoggle[hidden] { display: none; }
+.plak-tool .vt { white-space: nowrap; padding: 7px 14px; }
+@media (max-width: 640px) {
+  /* On a phone the four views get a row of their own, under the name. */
+  .plak-tool .topbar {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "brand" "mid" "actions";
+  }
+  .plak-tool .midbar { justify-content: stretch; }
+  .plak-tool .viewtoggle { display: flex; width: 100%; }
+  .plak-tool .viewtoggle[hidden] { display: none; }
+  .plak-tool .vt { flex: 1 1 0; padding: 9px 4px; font-size: 12px; }
+}

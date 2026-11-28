@@ -664,6 +664,22 @@ export function renderPlak() {
   if (!plakActive()) return;
   renderStage();
   renderPanel();
+  paintViews();
+}
+
+/** The view buttons in the top bar, showing the view on screen. */
+function paintViews() {
+  for (const btn of deps.els.views?.querySelectorAll('[data-view]') || []) {
+    btn.setAttribute('aria-selected', String(btn.dataset.view === S.view));
+  }
+}
+
+/** Show another view: Plak, 3D, File cut or File print. */
+export function setPlakView(view) {
+  if (!plakActive() || S.view === view) return;
+  S.view = view;
+  renderPlak();
+  changed();
 }
 
 function hint(text) {

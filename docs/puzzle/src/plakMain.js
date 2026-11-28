@@ -9,7 +9,7 @@ import * as vault from './posterVault.js';
 import { POSTER_ACCEPT, POSTER_FORMATS } from './posterFile.js';
 import {
   initPlak, plakActive, openPlakFiles, openPlakDesign, renderPlak,
-  openPlakExport, restorePlakDraft, renamePlak, plakStore, PLAK_STEPS, closePlak3d,
+  openPlakExport, restorePlakDraft, renamePlak, plakStore, PLAK_STEPS, closePlak3d, setPlakView,
 } from './plakFlow.js';
 import {
   PLAK_BORDER_MM, PLAK_FRAME_MM, BASE_MATERIAL, PLAK_MATERIALS,
@@ -38,6 +38,7 @@ const els = {
   dropInput: $('#uvDropInput'),
   save: $('#saveBtn'),
   exportBtn: $('#exportBtn'),
+  views: $('#plakViews'),
 };
 
 const view = new View(els.preview);
@@ -133,6 +134,7 @@ initPlak({
   setMode: (on, name) => {
     document.body.classList.toggle('poster-mode', on);
     els.zoomPick.hidden = !on;
+    els.views.hidden = !on;
     els.drop.hidden = on;
     els.save.disabled = !on;
     els.exportBtn.disabled = !on;
@@ -143,6 +145,11 @@ initPlak({
       closePlak3d();
     }
   },
+});
+
+els.views.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-view]');
+  if (btn) setPlakView(btn.dataset.view);
 });
 
 $('#zoomIn').addEventListener('click', () => view.zoomBy(1.5));

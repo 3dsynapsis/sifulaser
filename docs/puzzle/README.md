@@ -419,6 +419,9 @@ dalam `vendor/LICENCES.txt`), dimuat hanya bila 3D dibuka. Plak berdiri dalam al
 muka dengan print (tekstur dari preview), border dan huruf timbul 3 mm dari garis yang
 sama dengan file cut, base acrylic hitam berkilat. Seret untuk pusing, klik dua kali untuk
 muat semula.
+Butang paparan **Plak / 3D / File cut / File print** ada di bar atas (bos, 28 November
+2026: "mana butang 3d"), di tempat Box Maker letak 3D / 2D; di telefon ia dapat baris
+sendiri bawah nama.
 
 Ia juga **tiada kod sendiri** di luar folder ini: `docs/uvplak/index.html` memuatkan
 `/puzzle/styles.css` dan `/puzzle/src/plakMain.js`. IndexedDB `sifulaser-uvplak`, TOOL
