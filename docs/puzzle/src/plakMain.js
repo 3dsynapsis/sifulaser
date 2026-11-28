@@ -9,7 +9,7 @@ import * as vault from './posterVault.js';
 import { POSTER_ACCEPT, POSTER_FORMATS } from './posterFile.js';
 import {
   initPlak, plakActive, openPlakFiles, openPlakDesign, renderPlak,
-  openPlakExport, restorePlakDraft, renamePlak, plakStore, PLAK_STEPS,
+  openPlakExport, restorePlakDraft, renamePlak, plakStore, PLAK_STEPS, closePlak3d,
 } from './plakFlow.js';
 import {
   PLAK_BORDER_MM, PLAK_FRAME_MM, BASE_MATERIAL, BASE_LAYER_MM, PLAK_MATERIALS,
@@ -26,6 +26,7 @@ const TITLE = 'UV Plak';
 const els = {
   stage: $('#stage'),
   preview: $('#stagePreview'),
+  stage3d: $('#stage3d'),
   inspector: $('#inspector'),
   hint: $('#stageHint'),
   status: $('#status'),
@@ -137,7 +138,10 @@ initPlak({
     els.exportBtn.disabled = !on;
     els.name.value = on ? name : TITLE;
     // Closed: the next job is a new design, not the one that was open.
-    if (!on) gallery.setOpen(null, null);
+    if (!on) {
+      gallery.setOpen(null, null);
+      closePlak3d();
+    }
   },
 });
 

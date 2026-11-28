@@ -701,3 +701,5 @@ input[type="date"] { color-scheme: light dark; }
 }
 .plak-letter { cursor: pointer; }
 .plak-letter.off:hover { fill-opacity: 0.35; }
+.plak-3d canvas { display: block; touch-action: none; cursor: grab; }
+.plak-3d canvas:active { cursor: grabbing; }

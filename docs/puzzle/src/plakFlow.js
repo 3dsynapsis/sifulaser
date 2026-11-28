@@ -674,11 +674,80 @@ function toggleLetter(id) {
   changed();
 }
 
+// ---- the 3D view (Boss, 28 Nov 2026: "macam tab box maker") ----------------------------
+
+let viewer = null;        // a promise of the Plak3D, made the first time 3D is opened
+
+/** What the 3D view builds the plaque from: the plan and the chosen letters, plate mm. */
+function plak3dData(page, a, plan) {
+  const F = plan.frame;
+  return {
+    width: plan.width,
+    height: plan.height,
+    tongue: plan.tongue,
+    thick: PLAK_THICK_MM,
+    printBox: {
+      x: plan.printBox.x - F, y: plan.printBox.y - F, width: plan.printBox.width, height: plan.printBox.height,
+    },
+    imageUrl: page.previewUrl || null,
+    frontColour: plakMaterial(S.materials.front).colour,
+    borderColour: plakMaterial(S.materials.border).colour,
+    letterColour: plakMaterial(S.materials.letters).colour,
+    baseColour: BASE_MATERIAL.colour,
+    grain: S.materials.front === 'maple-3',
+    strips: plan.strips,
+    letters: chosenLetters(a, plan).map((l) => l.loops.map((loop) => loop.map(([x, y]) => [x * plan.scale, y * plan.scaleY]))),
+    base: plan.base ? {
+      length: plan.base.length, depth: plan.base.depth, layers: plan.base.layers, layerMm: BASE_LAYER_MM, slot: plan.base.slot,
+    } : null,
+  };
+}
+
+/** Show the 3D pane or the flat one. */
+function show3d(on) {
+  deps.els.stage3d.hidden = !on;
+  deps.els.preview.hidden = on;
+  deps.els.zoomPick.hidden = on;
+  if (!on && viewer) viewer.then((v) => v?.setActive(false));
+}
+
+function render3d(page, a, plan) {
+  show3d(true);
+  if (!viewer) {
+    viewer = import('./plak3d.js')
+      .then((m) => new m.Plak3D(deps.els.stage3d))
+      .catch(() => null);
+  }
+  const data = plak3dData(page, a, plan);
+  viewer.then((v) => {
+    if (S.view !== '3d' || !plakActive()) return;
+    if (!v) {
+      hint('3D tak dapat dibuka dalam browser ni. Guna preview Plak.');
+      return;
+    }
+    v.build(data);
+    v.setActive(true);
+  });
+  hint(!a ? 'Membaca design...' : '3D · seret untuk pusing · klik dua kali untuk muat');
+}
+
+/** The design closed: the 3D pane goes, and stops drawing. */
+export function closePlak3d() {
+  deps.els.stage3d.hidden = true;
+  deps.els.preview.hidden = false;
+  if (viewer) viewer.then((v) => v?.setActive(false));
+}
+
 function renderStage() {
   const page = currentPage();
   const a = analysisOf(page);
   const plan = planOf();
   const blocked = blockedReason(a, plan);
+  if (S.view === '3d') {
+    render3d(page, a && !a.failed ? a : null, plan);
+    return;
+  }
+  show3d(false);
   if (S.view === 'cut' && !blocked) {
     const jobs = cutJobs(plan);
     const cut = shownCut(jobs);
@@ -1063,7 +1132,7 @@ function previewGroup(a, plan) {
       changed();
     },
   }, label);
-  const body = [h('div', { class: 'seg seg-3' }, choice('plak', 'Plak'), choice('cut', 'File cut'), choice('print', 'File print'))];
+  const body = [h('div', { class: 'seg seg-4' }, choice('plak', 'Plak'), choice('3d', '3D'), choice('cut', 'File cut'), choice('print', 'File print'))];
   const blocked = blockedReason(a, plan);
   if (S.view === 'cut' && !blocked) {
     const jobs = cutJobs(plan);
@@ -1082,6 +1151,9 @@ function previewGroup(a, plan) {
       + 'kemudian huruf, jalur border, plak, dan frame paling last.'));
   } else if (S.view === 'print' && !blocked) {
     body.push(...layerPanel());
+  } else if (S.view === '3d') {
+    body.push(h('p', { class: 'hint' }, 'Plak siap dalam 3D: plak depan dengan print, border dan huruf timbul '
+      + `${PLAK_THICK_MM} mm, berdiri dalam alur base acrylic. Seret untuk pusing.`));
   } else if (blocked && S.view !== 'plak') {
     body.push(h('p', { class: 'warn' }, blocked));
   } else {

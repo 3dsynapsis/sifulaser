@@ -3,4 +3,4 @@
 // apart. Written by tools/stamp-version.js just before the code goes to the site:
 // do not edit by hand.
 
-export const VERSION = '28 Nov 2026, 12:45';
+export const VERSION = '28 Nov 2026, 12:58';

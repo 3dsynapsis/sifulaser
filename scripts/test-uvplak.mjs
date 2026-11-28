@@ -231,6 +231,7 @@ console.log('simpan ke akaun');
   check('rekod kembali sama', back && back.size === 'A3' && back.border === false && back.baseLayers === 3
     && back.quantity === 5 && back.letterMin === 12 && back.materials.front === 'black-3' && back.view === 'cut');
   check('huruf dibuang: unik dan tersusun', back.off.join() === '1,3');
+  check('paparan 3D disimpan', Saved.cleanPlak({ ...job, view: '3d' }).view === '3d');
   check('params rata dan nombor', Object.values(rec.params).every((v) => typeof v === 'number') && Object.keys(rec.params).length <= 40);
   check('material ditulis seperti file cut', rec.material === 'Plywood Black 3mm + Acrylic 5mm', rec.material);
   const junk = Saved.cleanPlak({

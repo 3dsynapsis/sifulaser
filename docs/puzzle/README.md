@@ -404,13 +404,21 @@ dipotong dalam frame 10 mm dan di-UV print sebelum dikeluarkan, macam panel UV F
 **File print UV**: page = frame, gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) penuh
 pada kotak print (`buildLayeredPrint`); Preview, File print menyemak layer.
 
+**Preview 3D** (bos, 28 November 2026: "boleh lihat secara 3d macam tab box maker"):
+`src/plak3d.js`, three.js r169 dalam `vendor/` (salinan sama dengan Box Maker, lesen
+dalam `vendor/LICENCES.txt`), dimuat hanya bila 3D dibuka. Plak berdiri dalam alur base,
+muka dengan print (tekstur dari preview), border dan huruf timbul 3 mm dari garis yang
+sama dengan file cut, base acrylic lut sinar. Seret untuk pusing, klik dua kali untuk
+muat semula.
+
 Ia juga **tiada kod sendiri** di luar folder ini: `docs/uvplak/index.html` memuatkan
 `/puzzle/styles.css` dan `/puzzle/src/plakMain.js`. IndexedDB `sifulaser-uvplak`, TOOL
 akaun `'uvplak'`. Ujian: `node scripts/test-uvplak.mjs`. **Belum diuji di mesin
 sebenar.**
 
 > **Dibuat terus dalam salinan ini**: `src/plakMain.js`, `src/plakFlow.js`,
-> `src/plakSaved.js`, `src/geom/plak.js`, `src/geom/letters.js`, dan tambahan dalam
+> `src/plakSaved.js`, `src/plak3d.js`, `src/geom/plak.js`, `src/geom/letters.js`,
+> `vendor/three.module.js`, `vendor/OrbitControls.js`, dan tambahan dalam
 > `src/posterPdf.js` (`pageImageBoxes`), `src/exportJobSheet.js` (`buildPlakSheet`),
 > `src/view.js` (`renderPlak`), `src/designs.js` (TOOLS `uvplak`), `styles.css`,
 > `src/version.js`. Salin balik ke `13_Puzzle Generator` sebelum "Cara kemas kini"

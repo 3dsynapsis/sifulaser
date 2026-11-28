@@ -17,7 +17,7 @@ export const QUANTITY_MAX = 500;
 export const LETTER_MIN_MM = 10;     // the smallest letter raised, by default
 export const LETTER_MIN_RANGE = [5, 60];
 const OFF_MAX = 300;
-export const PLAK_VIEWS = ['plak', 'cut', 'print'];
+export const PLAK_VIEWS = ['plak', '3d', 'cut', 'print'];
 
 const isWhole = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
