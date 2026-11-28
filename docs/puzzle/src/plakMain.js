@@ -38,8 +38,18 @@ const els = {
   dropInput: $('#uvDropInput'),
   save: $('#saveBtn'),
   exportBtn: $('#exportBtn'),
-  views: $('#plakViews'),
+  views: null,
 };
+
+// The views in the top bar, where the Box Maker has its 3D / 2D (Boss, 28 Nov 2026: "mana
+// butang 3d"). Made here and not in the page: the site lets a browser keep each file up
+// to 10 minutes, and a new page with an old script showed buttons that did nothing.
+els.views = h('div', {
+  class: 'viewtoggle', id: 'plakViews', role: 'tablist', 'aria-label': 'Paparan', hidden: true,
+}, [['plak', 'Plak'], ['3d', '3D'], ['cut', 'File cut'], ['print', 'File print']].map(([id, label]) => h('button', {
+  type: 'button', class: 'vt', 'data-view': id, role: 'tab', 'aria-selected': String(id === 'plak'),
+}, label)));
+document.querySelector('.topbar .midbar').append(els.views);
 
 const view = new View(els.preview);
 

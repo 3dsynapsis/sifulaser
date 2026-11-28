@@ -5,7 +5,8 @@
 //   * saiz - file A4 jadi plak A4 297 x 210; A3 420 x 297; taip lebar, tinggi ikut nisbah.
 //   * border 10 mm, 4 keping sudut 45: dua panjang sama, dua pendek sama, tepi luar
 //     tepat saiz plak, susunan dalam file cut tak bertindih.
-//   * base acrylic hitam 5mm satu keping, alur tembus 3.4 mm, kaki plak 5 mm rata bawah base.
+//   * base acrylic hitam 5mm satu keping, alur tembus 3.4 mm, kaki plak 4 mm (1 mm pendek dari
+//     tebal base, tak tercucuk keluar di bawah).
 //   * white ink di bawah ink design sahaja: stensil 1 bit, putih design jadi tanpa ink.
 //   * print: berhenti 2 mm bawah border (gam lekat pada kayu), atau lebih 2 mm tanpa border.
 //   * huruf timbul: tulisan disurih dengan lubang huruf, garisan lukisan tak dikira.
@@ -62,9 +63,9 @@ console.log('pelan plak A4, border, base');
 const plan = P.planPlak({ pageW: 297, pageH: 210.2, size: 'A4', border: true, base: true });
 {
   check('muka plak 297 x 210', plan.width === 297 && plan.height === 210);
-  check('kaki 5 mm (tebal base, alur tembus)', plan.tongue === 5, plan.tongue);
-  check('plat dipotong 297 x 215', plan.plate.width === 297 && plan.plate.height === 215);
-  check('page print = plat + frame 10 mm', plan.page.width === 317 && plan.page.height === 235, `${plan.page.width}x${plan.page.height}`);
+  check('kaki 4 mm, 1 mm pendek dari base 5 mm', plan.tongue === 4 && plan.base.height - plan.tongue === 1, plan.tongue);
+  check('plat dipotong 297 x 214', plan.plate.width === 297 && plan.plate.height === 214);
+  check('page print = plat + frame 10 mm', plan.page.width === 317 && plan.page.height === 234, `${plan.page.width}x${plan.page.height}`);
   check('design di (10, 10)', plan.design.x === 10 && plan.design.y === 10 && plan.design.width === 297);
   check('print berhenti 2 mm bawah border', plan.printBox.x === 18 && plan.printBox.y === 18
     && plan.printBox.width === 281 && plan.printBox.height === 194, JSON.stringify(plan.printBox));

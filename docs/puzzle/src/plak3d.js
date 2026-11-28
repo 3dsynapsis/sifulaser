@@ -7,7 +7,7 @@
 // never needs. The copy in ../vendor is the Box Maker's.
 //
 // World: millimetres, z up, the desk at z = 0, the plaque's face looking down -y (at the
-// camera). The plate stands in the base's slot, its foot (the tongue) inside it; the
+// camera). The plate stands in the base's slot, its foot (the tongue) 4 mm inside it; the
 // border and the letters are 3 mm proud of its face.
 
 import * as THREE from '../vendor/three.module.js';

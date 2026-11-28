@@ -11,9 +11,12 @@
 //     the two short ones;
 //   * raised letters, the big text cut from plywood Black 3mm (letters.js finds them);
 //   * a base of black acrylic 5mm, one piece (Boss, 28 Nov 2026: "hanya acrylic 5mm satu
-//     layer je", "acrylic warna hitam"), the plaque standing in a slot cut through it. The plate gets a "kaki" (a
-//     tongue) below the design as deep as the base is thick, down to the desk, so the
-//     whole design and its bottom border stay above the base.
+//     layer je", "acrylic warna hitam"), the plaque standing in a slot cut through it.
+//     The plate gets a "kaki" (a tongue) below the design, 4 mm deep in the slot
+//     (TONGUE_MM; Boss: "maksimum kedalaman dia 4 mm"): 1 mm short of the base's 5, so it
+//     never pokes out under the base and the base sits flat. The bottom border strip,
+//     3 mm proud of the face, rests on top of the base and holds the plate at that depth.
+//     The whole design and its bottom border stay above the base.
 //
 // The white ink goes under the design's ink only (Boss, 28 Nov 2026: "white bawah gambar
 // dan tulisan sahaja, biar kayu nampak"): inkMask, from the print picture's own pixels.
@@ -38,6 +41,7 @@ export const PLAK_FRAME_MM = 10;      // the sheet round the plate, held for the
 export const PLAK_THICK_MM = 3;       // both plywoods
 export const PLAK_MIN_MM = 60;        // the plate's short side, at the least
 export const BASE_LAYER_MM = 5;       // acrylic, one piece
+export const TONGUE_MM = 4;           // the plate's foot in the slot, short of the base's 5
 export const SLOT_CLEAR_MM = 0.4;     // the slot's play round a 3 mm plate
 export const SLOT_END_CLEAR_MM = 0.6; // and at its two ends together
 export const BASE_OVERHANG_MM = 15;   // the base past the plate, each side
@@ -157,7 +161,7 @@ export function stripLayout(W, H, b = PLAK_BORDER_MM, gap = STRIP_GAP_MM) {
 
 /**
  * The base for a plate W wide whose face is H high: one piece of acrylic, the slot cut
- * through it, as deep as the plate's tongue.
+ * through it; the plate's tongue goes TONGUE_MM into it.
  */
 export function planBase(W, H) {
   const n = 1;
@@ -173,6 +177,7 @@ export function planBase(W, H) {
     layers: n,
     slot,
     slotDepth: n * BASE_LAYER_MM,
+    tongue: Math.min(TONGUE_MM, n * BASE_LAYER_MM),
     height: n * BASE_LAYER_MM,
     pieces: [{ id: 'base', slot: true }],
   };
@@ -188,7 +193,7 @@ export function planPlak(o) {
   const { width: W, height: H } = plakSize(o.pageW, o.pageH, o.size, o.custom);
   const border = o.border ? PLAK_BORDER_MM : 0;
   const base = o.base ? planBase(W, H) : null;
-  const tongue = base ? base.slotDepth : 0;
+  const tongue = base ? base.tongue : 0;
   const F = PLAK_FRAME_MM;
   const design = { x: F, y: F, width: W, height: H };
   // Under the border the print stops PLAK_BLEED_MM in; with none it runs that far out.

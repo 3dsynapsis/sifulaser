@@ -1112,10 +1112,11 @@ function baseGroup(plan) {
     body.push(
       stat('Base', `${b.length} x ${b.depth} mm, 1 keping ${b.height} mm`),
       stat('Alur tembus', `${b.slot.width} x ${b.slot.length} mm`),
-      stat('Kaki plak', `${plan.tongue} mm bawah design, rata dengan bawah base`),
-      h('p', { class: 'hint' }, `Satu keping ${BASE_MATERIAL.label}, alur dipotong tembus: kaki plak masuk sampai rata `
-        + `dengan bawah base, kemudian digam. Alur ${PLAK_THICK_MM} mm + ${SLOT_CLEAR_MM} mm longgar. `
-        + `Base lebih ${BASE_OVERHANG_MM} mm kiri kanan.`),
+      stat('Kaki plak', `${plan.tongue} mm masuk alur`),
+      h('p', { class: 'hint' }, `Satu keping ${BASE_MATERIAL.label}, alur dipotong tembus. Kaki plak ${plan.tongue} mm, `
+        + `${rnd(b.height - plan.tongue, 1)} mm pendek dari tebal base, jadi tak tercucuk keluar di bawah dan base duduk rata. `
+        + (plan.border ? 'Jalur border bawah duduk atas base dan jadi penahan. ' : '')
+        + `Gam di alur. Alur ${PLAK_THICK_MM} mm + ${SLOT_CLEAR_MM} mm longgar. Base lebih ${BASE_OVERHANG_MM} mm kiri kanan.`),
     );
   } else {
     body.push(h('p', { class: 'hint' }, 'Tanpa base: plak tiada kaki, untuk digantung atau dipasang sendiri.'));
@@ -1451,5 +1452,5 @@ export const PLAK_STEPS = [
   ['Cut base',
     `File cut ${BASE_MATERIAL.label}: satu keping, alur dulu (tembus), kemudian base.`],
   ['Pasang',
-    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak dalam alur base sampai rata dengan bawah base, dan gam.'],
+    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak 4 mm dalam alur base sampai border bawah duduk atas base, dan gam.'],
 ];

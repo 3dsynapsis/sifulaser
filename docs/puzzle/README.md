@@ -394,8 +394,9 @@ Tab baharu `sifulaser.com/uvplak/` (halaman React `#/uvplak`). Masukkan design p
 - **Base Acrylic Hitam 5mm satu keping** (bos, 28 November 2026: "hanya acrylic 5mm satu
   layer je", "acrylic warna hitam"), alur dipotong tembus 3.4 mm (plak 3 mm + 0.4), 0.6 mm lebih panjang dari plak;
   base lebih 15 mm kiri kanan, dalam kira-kira 0.3 x tinggi plak (50 hingga 120 mm).
-  Plak dapat "kaki" 5 mm di bawah design yang masuk alur sampai rata dengan bawah base,
-  jadi design dan border bawah kekal atas base.
+  Plak dapat "kaki" 4 mm di bawah design yang masuk alur (bos, 28 November 2026:
+  "maksimum kedalaman dia 4 mm"): 1 mm pendek dari tebal base, jadi tak tercucuk keluar
+  di bawah dan base duduk rata. Jalur border bawah duduk atas base dan jadi penahan.
 
 Fail: satu **file cut setiap material** (`plakCutJobs` dalam `src/geom/plak.js`,
 `buildPlakSheet` dalam `src/exportJobSheet.js`): lubang huruf dulu, huruf, jalur
@@ -421,7 +422,9 @@ sama dengan file cut, base acrylic hitam berkilat. Seret untuk pusing, klik dua 
 muat semula.
 Butang paparan **Plak / 3D / File cut / File print** ada di bar atas (bos, 28 November
 2026: "mana butang 3d"), di tempat Box Maker letak 3D / 2D; di telefon ia dapat baris
-sendiri bawah nama.
+sendiri bawah nama. Butang itu dibina oleh `plakMain.js`, bukan dalam `index.html`:
+laman ini biar pelayar simpan setiap fail sehingga 10 minit, dan halaman baharu dengan
+skrip lama dari cache menunjukkan butang yang tak buat apa-apa.
 
 Ia juga **tiada kod sendiri** di luar folder ini: `docs/uvplak/index.html` memuatkan
 `/puzzle/styles.css` dan `/puzzle/src/plakMain.js`. IndexedDB `sifulaser-uvplak`, TOOL
