@@ -532,15 +532,6 @@ export class View {
     defs.append(lift, clip);
     this.svg.replaceChildren(defs);
 
-    if (o.base) {
-      // Behind the plate: the base's top, as a band a little deeper than its edge.
-      const bx = (W - o.base.length) / 2;
-      this.svg.append(el('rect', {
-        x: bx, y: H - o.base.height * 0.6, width: o.base.length, height: o.base.height * 1.6, rx: 1.2, ry: 1.2,
-        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 0.85, stroke: o.baseEdge || '#8fb3bf', 'stroke-width': 1,
-        'vector-effect': 'non-scaling-stroke', filter: 'url(#boardShadow)',
-      }));
-    }
     this.svg.append(el('rect', {
       x: 0, y: 0, width: W, height: H, fill: o.front, filter: 'url(#boardShadow)',
     }));
@@ -558,12 +549,14 @@ export class View {
       }));
     }
     if (o.base) {
-      // The base's front edge, in front of the plate's foot.
+      // The base seen straight from the front: its one edge, as thick as it is, under the
+      // plate. Nothing of its top shows from here; a band for it read as a second layer
+      // (Boss, 28 Nov 2026: "kenapa ada layer disini").
       const bx = (W - o.base.length) / 2;
       this.svg.append(el('rect', {
         x: bx, y: H, width: o.base.length, height: o.base.height, rx: 0.8, ry: 0.8,
         fill: o.baseColour || '#cfe3ea', 'fill-opacity': 1, stroke: o.baseEdge || '#8fb3bf', 'stroke-width': 1,
-        'vector-effect': 'non-scaling-stroke',
+        'vector-effect': 'non-scaling-stroke', filter: 'url(#boardShadow)',
       }));
     }
     for (const l of o.raised || []) {
