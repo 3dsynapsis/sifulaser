@@ -1446,9 +1446,9 @@ export const PLAK_STEPS = [
   ['UV print plak',
     'Semak layer dulu di Preview, File print. Letak frame atas bed rapat dari bucu kiri atas, sama arah dengan file. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar dan tulisan sahaja, bahagian putih design tak dicetak supaya kayu nampak. Tulisan besar dicetak sekali sebagai panduan.'],
   ['Cut border dan huruf',
-    `Bahagian Plywood Black dalam file cut: lubang huruf dulu, kemudian huruf, kemudian 4 jalur border ${PLAK_BORDER_MM} mm bersudut 45°. Dua jalur panjang sama, dua jalur pendek sama.`],
+    `Bahagian Plywood Black dalam file cut: tampal double tape di belakang plywood dulu (tertulis "Tambah Double Tape"), kemudian cut: lubang huruf dulu, kemudian huruf, kemudian 4 jalur border ${PLAK_BORDER_MM} mm bersudut 45°. Dua jalur panjang sama, dua jalur pendek sama.`],
   ['Cut base',
     `Bahagian ${BASE_MATERIAL.label} dalam file cut: satu keping, alur dulu (tembus), kemudian base.`],
   ['Pasang',
-    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak ke dalam alur base sampai tepi bawah plak duduk atas base (kaki masuk 4 mm), dan gam.'],
+    'Tampal border (double tape) atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak ke dalam alur base sampai tepi bawah plak duduk atas base (kaki masuk 4 mm), dan gam.'],
 ];

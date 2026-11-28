@@ -210,11 +210,21 @@ const raster = (() => {
 
   const black = buildPlakSheet(jobs[1], { client: 'Semeru', dateline: '1 Dec 2026', units: 2, what: 'PLAK UV 100 x 60 mm' });
   check('susunan cut: lubang huruf, huruf, jalur', black.paths.map((p) => p.id).join() === 'counters,letters,strips', black.paths.map((p) => p.id).join());
-  check('label: material, unit, kali', black.texts.some((t) => t.text === 'Plywood Black 3mm') && black.texts.some((t) => t.text === '2 UNIT')
-    && black.texts.some((t) => t.text === 'CUT 2 KALI'));
+  check('label: material, double tape, unit dan kali', black.texts.some((t) => t.text === 'Plywood Black 3mm')
+    && black.texts.some((t) => t.text === '(Tambah Double Tape)') && black.texts.some((t) => t.text === '2 UNIT, CUT 2 KALI'));
+  const lab = black.texts.filter((t) => t.anchor === 'middle').map((t) => t.text);
+  check('double tape terus bawah Plywood Black 3mm', lab.indexOf('(Tambah Double Tape)') === lab.indexOf('Plywood Black 3mm') + 1, lab.join(' | '));
   const all = buildPlakSheet(jobs, { units: 2, what: 'PLAK UV 100 x 60 mm, 3 material' });
   check('satu file: 3 bahagian, setiap satu berlabel material', ['Plywood Maple 3mm', 'Plywood Black 3mm', 'Acrylic Hitam 5mm']
-    .every((m) => all.texts.filter((t) => t.text === m).length === 1) && all.texts.filter((t) => t.text === 'CUT 2 KALI').length === 3);
+    .every((m) => all.texts.filter((t) => t.text === m).length === 1) && all.texts.filter((t) => t.text === '2 UNIT, CUT 2 KALI').length === 3);
+  check('double tape hanya pada Black (huruf dan border), bukan Maple atau Acrylic', all.texts.filter((t) => t.text === '(Tambah Double Tape)').length === 1
+    && jobs.map((j) => j.note || '').join('|') === '|(Tambah Double Tape)|');
+  const head = all.texts.filter((t) => t.anchor === 'start');
+  const labels = all.texts.filter((t) => t.anchor === 'middle');
+  check('label tak naik ke kepala file', Math.min(...labels.map((t) => t.y)) - Math.max(...head.map((t) => t.y)) > 30,
+    `${Math.min(...labels.map((t) => t.y))} vs ${Math.max(...head.map((t) => t.y))}`);
+  const blackFront = P.plakCutJobs(pagePlan, found, { front: 'black-3', border: 'black-3', letters: 'black-3' });
+  check('plak depan Black sekali: tiada double tape pada keping plak', !blackFront[0].note);
   check('satu file: susunan cut merentas bahagian, frame last',
     all.paths.map((q) => q.id).join() === 'counters,letters,strips,plate,slots,base,frame', all.paths.map((q) => q.id).join());
   const secs = all.texts.filter((t) => /mm$/.test(t.text) && /Plywood|Acrylic/.test(t.text)).map((t) => t.x);

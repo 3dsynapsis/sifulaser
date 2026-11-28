@@ -405,7 +405,10 @@ Tab baharu `sifulaser.com/uvplak/` (halaman React `#/uvplak`). Masukkan design p
 
 Fail: **satu file cut, satu page** (bos, 28 November 2026: "combine je dalam satu
 file"; asalnya satu file setiap material): setiap material satu bahagian sebelah-
-menyebelah, berlabel material, "N UNIT" dan "CUT N KALI" di atasnya, macam job sheet
+menyebelah, berlabel material dan "N UNIT, CUT N KALI" di atasnya (satu baris: baris
+keempat naik ke kepala file). Bahagian kepingan yang ditampal (huruf timbul, border),
+selain plak depan, dapat baris "(Tambah Double Tape)" terus bawah material (bos, 28
+November 2026), supaya staff tampal double tape di belakang plywood sebelum cut. Macam job sheet
 Puzzle yang bawa panel dan backing (`plakCutJobs` dalam `src/geom/plak.js`,
 `buildPlakSheet` dalam `src/exportJobSheet.js`). Garis ditulis ikut susunan merentas
 semua bahagian: lubang huruf dulu, huruf, jalur border, plak, alur, base, frame last.

@@ -299,6 +299,8 @@ export function roundRectPath(x, y, w, h, r = 0) {
 // ---- the cut files ---------------------------------------------------------------------
 
 export const BASE_GAP_MM = 5;   // between the base's pieces on the acrylic
+/** Written under the material of the raised parts on the cut file (Boss, 28 Nov 2026). */
+export const TAPE_NOTE = '(Tambah Double Tape)';
 
 /** The letters' box on the plate, mm: page mm times the plan's scales. */
 export function lettersBox(letters, scale, scaleY = scale) {
@@ -323,7 +325,8 @@ export function lettersBox(letters, scale, scaleY = scale) {
  *
  * @param letters   the chosen candidates from findLetters, page mm
  * @param materials { front, border, letters }: material ids
- * @returns [{ material: { id, label }, parts: ['front' | 'border' | 'letters' | 'base'], blocks }]
+ * @returns [{ material: { id, label }, parts: ['front' | 'border' | 'letters' | 'base'], blocks,
+ *          note }]: note, a line for the operator under the material (TAPE_NOTE)
  */
 export function plakCutJobs(plan, letters, materials) {
   const mats = cleanMaterials(materials);
@@ -372,7 +375,14 @@ export function plakCutJobs(plan, letters, materials) {
       ].filter((p) => p.d),
     });
   }
-  const out = PLAK_MATERIALS.filter((m) => jobs.has(m.id)).map((m) => ({ material: m, ...jobs.get(m.id) }));
+  // The sheet the raised parts come from gets double tape on its back before it is cut,
+  // so each piece comes off ready to stick on (Boss, 28 Nov 2026). Not the plate's sheet.
+  const tape = (parts) => parts.some((p) => p === 'letters' || p === 'border') && !parts.includes('front');
+  const out = PLAK_MATERIALS.filter((m) => jobs.has(m.id)).map((m) => ({
+    material: m,
+    ...jobs.get(m.id),
+    ...(tape(jobs.get(m.id).parts) ? { note: TAPE_NOTE } : {}),
+  }));
   if (plan.base) {
     const b = plan.base;
     const slots = [];

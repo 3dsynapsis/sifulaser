@@ -419,7 +419,8 @@ function layoutBlocks(blocks) {
  * Paths are written in their `order` across every section, so the counters go before
  * the letters and the plate before the frame it sits in.
  *
- * @param jobs [{ material: { id, label }, blocks }] from plakCutJobs; one job alone
+ * @param jobs [{ material: { id, label }, blocks, note }] from plakCutJobs, `note` a line
+ *             written under the material (TAPE_NOTE); one job alone
  *             makes a sheet of that material only
  * @param meta { client, dateline, units, what }
  */
@@ -447,7 +448,10 @@ export function buildPlakSheet(jobs, meta = {}) {
         x: sx + bx, y: PART_TOP + by, width: b.width, height: b.height,
       };
     }
-    partLabel(texts, [sec.job.material.label, `${units} UNIT`, `CUT ${units} KALI`], sx + sec.width / 2, sec.width + GAP - 8);
+    // Three lines at most: a fourth reaches up into the job's head. So the units and the
+    // times share a line, and the note (double tape) has the middle one.
+    partLabel(texts, [sec.job.material.label, ...(sec.job.note ? [sec.job.note] : []), `${units} UNIT, CUT ${units} KALI`],
+      sx + sec.width / 2, sec.width + GAP - 8);
     sx += sec.width + GAP;
   }
   const paths = [...groups.values()]
