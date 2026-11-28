@@ -486,3 +486,10 @@ Baris ini sudah ada dalam projek sumber (12_Box Maker) juga.
 `src/designs.js` - senarai `TOOLS` ditambah `keychainuv` (Keychain UV File Generator,
 `/keychainuv/`) supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk
 saya" di sini. Baris ini sudah ada dalam projek sumber (12_Box Maker) juga.
+
+## Senarai alat galeri: UV Plak Generator (28 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvplak` (UV Plak Generator, `/uvplak/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+**Dibuat terus dalam salinan ini**: salin baris itu balik ke projek sumber sebelum
+kemas kini seterusnya, atau ia hilang.

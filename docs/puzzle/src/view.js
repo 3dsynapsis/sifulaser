@@ -497,6 +497,104 @@ export class View {
     this.zoomAt(this.box.x + this.box.w / 2, this.box.y + this.box.h / 2, factor);
   }
 
+  /**
+   * The plaque as it will stand (UV Plak tab, Boss, 28 Nov 2026), seen from the front:
+   * the plate in its plywood, the print over the part of it that gets ink, the raised
+   * letters, the border's four strips with their mitred joints, and the base under it.
+   * mm from the plate's top-left.
+   *
+   * @param o { width, height, printBox: { x, y, width, height } on the plate,
+   *          imageUrl, front, border, letters: colours; strips: [{ points }];
+   *          raised: [{ id, d, on }]: the letters that may be raised, `on` those that
+   *          are; base: { length, height } or null; fitKey; onLetter(id) }
+   */
+  renderPlak(o) {
+    const { width: W, height: H } = o;
+    const below = o.base ? o.base.height : 0;
+    const reach = Math.max(W, o.base ? o.base.length : 0);
+    const m = Math.max(reach, H) * 0.05;
+    const left = Math.min(0, (W - reach) / 2);
+    this.showBox({ x: left - m, y: -m, w: reach + 2 * m, h: H + below + 2 * m }, o.fitKey);
+    const defs = shadowDefs(H);
+    const lift = el('filter', {
+      id: 'letterLift', x: '-10%', y: '-10%', width: '120%', height: '120%',
+    });
+    lift.append(el('feDropShadow', {
+      dx: Math.max(0.3, H * 0.002), dy: Math.max(0.4, H * 0.003), stdDeviation: Math.max(0.3, H * 0.002),
+      'flood-color': '#000', 'flood-opacity': 0.45,
+    }));
+    const clip = el('clipPath', { id: 'plakPrint' });
+    const px0 = Math.max(0, o.printBox.x);
+    const py0 = Math.max(0, o.printBox.y);
+    const px1 = Math.min(W, o.printBox.x + o.printBox.width);
+    const py1 = Math.min(H, o.printBox.y + o.printBox.height);
+    clip.append(el('rect', { x: px0, y: py0, width: px1 - px0, height: py1 - py0 }));
+    defs.append(lift, clip);
+    this.svg.replaceChildren(defs);
+
+    if (o.base) {
+      // Behind the plate: the base's top, as a band a little deeper than its edge.
+      const bx = (W - o.base.length) / 2;
+      this.svg.append(el('rect', {
+        x: bx, y: H - o.base.height * 0.6, width: o.base.length, height: o.base.height * 1.6, rx: 1.2, ry: 1.2,
+        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 0.75, stroke: '#8fb3bf', 'stroke-width': 1,
+        'vector-effect': 'non-scaling-stroke', filter: 'url(#boardShadow)',
+      }));
+    }
+    this.svg.append(el('rect', {
+      x: 0, y: 0, width: W, height: H, fill: o.front, filter: 'url(#boardShadow)',
+    }));
+    if (o.imageUrl) {
+      const g = el('g', { 'clip-path': 'url(#plakPrint)' });
+      g.append(el('image', {
+        href: o.imageUrl, x: 0, y: 0, width: W, height: H, preserveAspectRatio: 'none',
+      }));
+      this.svg.append(g);
+    }
+    for (const s of o.strips || []) {
+      this.svg.append(el('path', {
+        d: `${s.points.map(([x, y], i) => `${i ? 'L' : 'M'} ${x} ${y}`).join(' ')} Z`,
+        fill: o.border, stroke: '#6b6b70', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke',
+      }));
+    }
+    if (o.base) {
+      // The base's front edge, in front of the plate's foot.
+      const bx = (W - o.base.length) / 2;
+      this.svg.append(el('rect', {
+        x: bx, y: H, width: o.base.length, height: o.base.height, rx: 0.8, ry: 0.8,
+        fill: o.baseColour || '#cfe3ea', 'fill-opacity': 0.9, stroke: '#8fb3bf', 'stroke-width': 1,
+        'vector-effect': 'non-scaling-stroke',
+      }));
+    }
+    for (const l of o.raised || []) {
+      const node = el('path', {
+        d: l.d,
+        'fill-rule': 'evenodd',
+        class: l.on ? 'plak-letter on' : 'plak-letter off',
+        'data-letter': l.id,
+        ...(l.on
+          ? { fill: o.letters, filter: 'url(#letterLift)' }
+          : {
+            // Printed only: the print shows through faded, ringed in blue to press.
+            fill: '#ffffff', 'fill-opacity': 0.6, stroke: '#2336d8', 'stroke-width': 1.2,
+            'stroke-dasharray': '4 3', 'vector-effect': 'non-scaling-stroke',
+          }),
+      });
+      if (o.onLetter) {
+        // Its own press: a tap toggles the letter, a drag still pans the stage.
+        node.addEventListener('pointerdown', (e) => {
+          const start = { x: e.clientX, y: e.clientY };
+          const up = (ev) => {
+            window.removeEventListener('pointerup', up);
+            if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) o.onLetter(l.id);
+          };
+          window.addEventListener('pointerup', up);
+        });
+      }
+      this.svg.append(node);
+    }
+  }
+
   zoomFit() {
     if (!this.zoomOn) return;
     this.box = { ...this.base };

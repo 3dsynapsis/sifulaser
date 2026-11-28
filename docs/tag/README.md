@@ -156,3 +156,10 @@ ini, kalau tidak ia hilang senyap.
 `/keychainuv/`) supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk
 saya" di sini. Salin baris itu ke projek sumber sebelum menyalin semula alat ini,
 kalau tidak ia hilang senyap.
+
+## Senarai alat galeri: UV Plak Generator (28 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvplak` (UV Plak Generator, `/uvplak/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+**Dibuat terus dalam salinan ini**: salin baris itu balik ke projek sumber sebelum
+kemas kini seterusnya, atau ia hilang.

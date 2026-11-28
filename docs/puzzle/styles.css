@@ -687,3 +687,17 @@ input[type="date"] { color-scheme: light dark; }
 .preview .crop-ne, .preview .crop-sw { cursor: nesw-resize; }
 .preview .crop-n, .preview .crop-s { cursor: ns-resize; }
 .preview .crop-e, .preview .crop-w { cursor: ew-resize; }
+
+/* UV Plak tab (Boss, 28 Nov 2026): the plywood's colour on its button, and the letters
+   that may be raised, pressed in the preview to raise them or not. */
+.swatch-dot {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.35em;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  vertical-align: -0.05em;
+}
+.plak-letter { cursor: pointer; }
+.plak-letter.off:hover { fill-opacity: 0.35; }

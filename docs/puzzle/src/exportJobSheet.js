@@ -383,6 +383,68 @@ export function buildKeychainSheet(layout, meta = {}) {
   };
 }
 
+const PLAK_BLOCK_GAP = 20;   // between a plaque's parts on one sheet, mm
+const PLAK_ROW_MM = 900;     // a row of parts wraps past this, unless one part is wider
+
+/**
+ * One of the UV Plak tab's cut files (Boss, 28 Nov 2026): every part cut from one
+ * material, side by side, the job written above them as on the other sheets. Paths are
+ * written in their `order` across all the parts, so the counters go before the letters
+ * and the plate before the frame it sits in.
+ *
+ * @param job  { material: { label }, blocks } from plakCutJobs
+ * @param meta { client, dateline, units, what }
+ */
+export function buildPlakSheet(job, meta = {}) {
+  const units = Math.max(1, Math.round(Number(meta.units) || 1));
+  const widest = Math.max(...job.blocks.map((b) => b.width));
+  const rowMax = Math.max(PLAK_ROW_MM, widest);
+  // Rows, left to right, wrapping.
+  const placed = [];
+  let x = 0;
+  let y = 0;
+  let rowH = 0;
+  let contentW = 0;
+  for (const b of job.blocks) {
+    if (x > 0 && x + b.width > rowMax) {
+      x = 0;
+      y += rowH + PLAK_BLOCK_GAP;
+      rowH = 0;
+    }
+    placed.push({ b, x, y });
+    contentW = Math.max(contentW, x + b.width);
+    x += b.width + PLAK_BLOCK_GAP;
+    rowH = Math.max(rowH, b.height);
+  }
+  const contentH = y + rowH;
+  const width = Math.max(PAGE_W, contentW + 2 * GAP);
+  const height = Math.max(PAGE_H, PART_TOP + contentH + BOTTOM);
+  const xs = (width - contentW) / 2;
+  const groups = new Map();
+  for (const { b, x: bx, y: by } of placed) {
+    for (const p of b.paths) {
+      const key = `${p.order}|${p.id}|${p.stroke}`;
+      if (!groups.has(key)) groups.set(key, { id: p.id, stroke: p.stroke, order: p.order, d: [] });
+      groups.get(key).d.push(translatePath(p.d, xs + bx, PART_TOP + by));
+    }
+  }
+  const paths = [...groups.values()]
+    .sort((a, b) => a.order - b.order)
+    .map((g) => ({ id: g.id, stroke: g.stroke, d: g.d.join(' ') }));
+  const texts = [];
+  jobHead(texts, width, meta, meta.what || 'PLAK UV');
+  partLabel(texts, [job.material.label, `${units} UNIT`, `CUT ${units} KALI`], width / 2, contentW + GAP - 8);
+  return {
+    width,
+    height,
+    paths,
+    texts,
+    parts: Object.fromEntries(placed.map(({ b, x: bx, y: by }) => [b.id, {
+      x: xs + bx, y: PART_TOP + by, width: b.width, height: b.height,
+    }])),
+  };
+}
+
 const r2 = (v) => Math.round(v * 100) / 100;
 const CARD_MARGIN = 20;   // round the card sheet on its page
 const CARD_HEAD = 64;     // room above it for the job and the material

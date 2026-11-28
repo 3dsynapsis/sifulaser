@@ -368,3 +368,50 @@ Ia juga **tiada kod sendiri** di luar folder ini: `docs/keychainuv/index.html` m
 TOOL akaun `'keychainuv'`. Nama `keychain` sudah dipakai oleh Keychain Generator.
 Ujian: `npm test` di projek sumber (`tools/test-keychain.js`) dan
 `node scripts/test-puzzle-poster.mjs` di sini. **Belum diuji di mesin sebenar.**
+
+## UV Plak Generator (28 November 2026)
+
+Tab baharu `sifulaser.com/uvplak/` (halaman React `#/uvplak`). Masukkan design plak
+(PDF, PNG atau JPG; contoh bos: Semeru_Kabinet.pdf, A4). Plak yang keluar:
+
+- **Plak depan**, Plywood Maple 3mm (atau Black): seluruh design di-UV print, termasuk
+  tulisan besar sebagai panduan tampal huruf timbul. Saiz = muka plak = design: A4, A3,
+  ikut file, atau taip lebar/tinggi (nisbah design kekal; page dalam 1 mm dari nisbah
+  kertas dikira kertas itu, sebab CorelDRAW simpan A4 sebagai 297 x 210.2).
+- **Border hitam 10 mm** ditampal atas depan, atas 10 mm tepi design. Dipotong 4 keping
+  bersudut 45 (pilihan "b" bos), disusun rapat dalam file cut supaya tengah sheet tak
+  terbuang. Print berhenti 2 mm bawah border, supaya gam lekat pada kayu. Tanpa border,
+  print lebih 2 mm lepas tepi plak. Tab beri amaran bila ink design masuk bawah border.
+- **Huruf timbul** dari Plywood Black 3mm (`src/geom/letters.js`): page dilukis kira-kira
+  0.12 mm satu piksel, gambar dalam PDF dikosongkan (`pageImageBoxes` dalam
+  `posterPdf.js` - logo dan foto dicetak, tak dipotong), piksel gelap pada semua saluran
+  ialah ink (tulisan merah logo tak dikira), setiap tompok ink jadi calon; garisan
+  lukisan dibuang ikut nisbah tebal garisan kepada saiz. Calon disurih dengan marching
+  squares pada tepi antialias, lubang huruf sekali (O, A, B), kemudian diringkaskan.
+  Huruf setinggi "Huruf paling kecil" (lalai 10 mm) dipilih; tekan huruf dalam preview
+  untuk buang atau tambah. Huruf kekal di tempatnya dalam file cut, supaya boleh
+  diangkat sekali dengan transfer tape. Semeru Kabinet: 13 huruf, 4 lubang, tepat.
+- **Base Acrylic 5mm**: 1 keping penuh + 1 atau 2 keping berlubang alur, digam
+  bertindih (alur 5 atau 10 mm dalam). Alur 3.4 mm (plak 3 mm + 0.4), 0.6 mm lebih
+  panjang dari plak; base lebih 15 mm kiri kanan, dalam kira-kira 0.3 x tinggi plak
+  (50 hingga 120 mm). Plak dapat "kaki" sedalam alur di bawah design, jadi design dan
+  border bawah kekal atas base.
+
+Fail: satu **file cut setiap material** (`plakCutJobs` dalam `src/geom/plak.js`,
+`buildPlakSheet` dalam `src/exportJobSheet.js`): lubang huruf dulu, huruf, jalur
+border, plak, alur, base, frame last; label material, "N UNIT", "CUT N KALI". Plak depan
+dipotong dalam frame 10 mm dan di-UV print sebelum dikeluarkan, macam panel UV File.
+**File print UV**: page = frame, gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white) penuh
+pada kotak print (`buildLayeredPrint`); Preview, File print menyemak layer.
+
+Ia juga **tiada kod sendiri** di luar folder ini: `docs/uvplak/index.html` memuatkan
+`/puzzle/styles.css` dan `/puzzle/src/plakMain.js`. IndexedDB `sifulaser-uvplak`, TOOL
+akaun `'uvplak'`. Ujian: `node scripts/test-uvplak.mjs`. **Belum diuji di mesin
+sebenar.**
+
+> **Dibuat terus dalam salinan ini**: `src/plakMain.js`, `src/plakFlow.js`,
+> `src/plakSaved.js`, `src/geom/plak.js`, `src/geom/letters.js`, dan tambahan dalam
+> `src/posterPdf.js` (`pageImageBoxes`), `src/exportJobSheet.js` (`buildPlakSheet`),
+> `src/view.js` (`renderPlak`), `src/designs.js` (TOOLS `uvplak`), `styles.css`,
+> `src/version.js`. Salin balik ke `13_Puzzle Generator` sebelum "Cara kemas kini"
+> dijalankan lagi.

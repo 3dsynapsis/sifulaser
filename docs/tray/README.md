@@ -148,3 +148,10 @@ node scripts/tile-shots.mjs docs/images/tools tray
 - Geometri half-lap: boxes.py `TypeTray` (`SlottedEdge(..., slots=0.5*hi)` pada
   arah bertentangan) dan Box Maker `buildDivider()` untuk kes 4 petak.
 - Gaya 'alih': boxes.py `DividerTray` - slot dinding dengan `extra_slack` 0.2 mm.
+
+## Senarai alat galeri: UV Plak Generator (28 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvplak` (UV Plak Generator, `/uvplak/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+**Dibuat terus dalam salinan ini**: salin baris itu balik ke projek sumber sebelum
+kemas kini seterusnya, atau ia hilang.

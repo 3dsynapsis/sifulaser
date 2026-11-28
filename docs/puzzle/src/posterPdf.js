@@ -215,6 +215,54 @@ export async function pageImages(lib, page) {
   return out;
 }
 
+/**
+ * Where every picture on a PDF page lies, big or small: boxes in mm from the page's
+ * top-left as it shows (its /Rotate applied), with each one's pixels. The UV Plak tab
+ * leaves these out when it looks for text to cut (Boss, 28 Nov 2026): a logo or a photo
+ * is printed, never cut. A picture page is one picture and has none to leave out.
+ */
+export async function pageImageBoxes(lib, page) {
+  if (page.obj.picture) return [];
+  const { OPS } = lib;
+  const list = await page.obj.getOperatorList();
+  const view = page.obj.getViewport({ scale: 1 });
+  const mm = 25.4 / 72;
+  const out = [];
+  const stack = [];
+  let m = [1, 0, 0, 1, 0, 0];
+  const paints = [OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject];
+  for (let i = 0; i < list.fnArray.length; i++) {
+    const fn = list.fnArray[i];
+    const args = list.argsArray[i];
+    if (fn === OPS.save) stack.push(m);
+    else if (fn === OPS.restore) m = stack.pop() || m;
+    else if (fn === OPS.transform) m = multiply(m, args);
+    else if (fn === OPS.paintFormXObjectBegin) {
+      stack.push(m);
+      if (args[0]) m = multiply(m, args[0]);
+    } else if (fn === OPS.paintFormXObjectEnd) m = stack.pop() || m;
+    else if (paints.includes(fn)) {
+      // An image fills the unit square of its matrix.
+      const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([u, v]) => view.convertToViewportPoint(
+        m[0] * u + m[2] * v + m[4], m[1] * u + m[3] * v + m[5],
+      ));
+      const xs = corners.map((c) => c[0]);
+      const ys = corners.map((c) => c[1]);
+      const x0 = Math.max(0, Math.min(...xs));
+      const y0 = Math.max(0, Math.min(...ys));
+      const x1 = Math.min(view.width, Math.max(...xs));
+      const y1 = Math.min(view.height, Math.max(...ys));
+      if (x1 - x0 < 0.5 || y1 - y0 < 0.5) continue;
+      const pxW = fn === OPS.paintInlineImageXObject ? args[0]?.width : args[1];
+      const pxH = fn === OPS.paintInlineImageXObject ? args[0]?.height : args[2];
+      out.push({
+        x: x0 * mm, y: y0 * mm, width: (x1 - x0) * mm, height: (y1 - y0) * mm, pxW: pxW || 0, pxH: pxH || 0,
+      });
+    }
+  }
+  return out;
+}
+
 /** The poster's resolution in the print file: the designer's Photoshop files are 300 dpi. */
 export const PRINT_DPI = 300;
 // A canvas this many pixels takes about 200 MB while it is drawn. A panel bigger than

@@ -14,6 +14,7 @@ export type Route =
   | 'uvprint'
   | 'uvfile'
   | 'keychainuv'
+  | 'uvplak'
   | 'lasercut'
   | 'topper'
   | 'keychain'
@@ -66,6 +67,8 @@ const parseRoute = (hash: string): Route => {
       return 'uvfile'
     case 'keychainuv':
       return 'keychainuv'
+    case 'uvplak':
+      return 'uvplak'
     case 'lasercut':
       return 'lasercut'
     case 'topper':

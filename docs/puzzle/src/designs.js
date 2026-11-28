@@ -35,6 +35,7 @@ export const TOOLS = {
   tray: { name: 'Tray Organizer', path: '/tray/' },
   uvfile: { name: 'UV File Generator', path: '/uvfile/' },
   keychainuv: { name: 'Keychain UV File Generator', path: '/keychainuv/' },
+  uvplak: { name: 'UV Plak Generator', path: '/uvplak/' },
 };
 
 /**

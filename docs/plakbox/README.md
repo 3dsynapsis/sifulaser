@@ -237,3 +237,10 @@ itu sendiri. Kotak akrilik = plak + ruang di setiap sisi + tebal akrilik; tapak
 Gambar tile `docs/images/tools/plakbox.webp` ialah foto 3D alat ini sendiri -
 ambil semula dengan `node scripts/tile-shots.mjs docs/images/tools plakbox`
 (lihat `docs/images/tools/README.md`).
+
+## Senarai alat galeri: UV Plak Generator (28 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvplak` (UV Plak Generator, `/uvplak/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+**Dibuat terus dalam salinan ini**: salin baris itu balik ke projek sumber sebelum
+kemas kini seterusnya, atau ia hilang.

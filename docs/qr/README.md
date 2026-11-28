@@ -76,3 +76,10 @@ asal (`CLAUDE CODE/16_QR Generator`) **sebelum** "Cara kemas kini" di atas
 dijalankan lagi - kalau tidak, ia dipadam senyap oleh `cp` dan `rm -rf src`.
 Semak dengan `diff -rq --strip-trailing-cr "../16_QR Generator/src" docs/qr/src`
 sebelum menyalin - ia mesti senyap.
+
+## Senarai alat galeri: UV Plak Generator (28 November 2026)
+
+`src/designs.js` - senarai `TOOLS` ditambah `uvplak` (UV Plak Generator, `/uvplak/`)
+supaya reka bentuk dari tab baharu itu boleh dibuka dari "Reka bentuk saya" di sini.
+**Dibuat terus dalam salinan ini**: salin baris itu balik ke projek sumber sebelum
+kemas kini seterusnya, atau ia hilang.
