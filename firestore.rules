@@ -87,6 +87,49 @@ service cloud.firestore {
       }
     }
 
+    // Link "lihat sahaja" dari tab UV Plak (bos, 28 Nov 2026): bos kongsi plak kepada
+    // staff, staff boleh lihat dan download tetapi tidak boleh ubah. Sesiapa yang ada
+    // link boleh baca (bos setuju), tetapi tiada siapa boleh senaraikan koleksi ini,
+    // jadi link itu sendiri satu-satunya jalan masuk; id-nya rawak 22 aksara.
+    // Hanya pemilik (uid dalam medan owner, sama dengan token) boleh tulis atau padam.
+    // Fail design dipecah kepada kepingan dalam /parts kerana satu dokumen maksimum 1 MB.
+    function shareShape(d) {
+      return d.keys().hasOnly(['owner', 'tool', 'name', 'updatedAt', 'job', 'file'])
+        && d.owner == request.auth.uid
+        && d.tool is string && d.tool.size() <= 40
+        && d.name is string && d.name.size() <= 120
+        && d.updatedAt is string && d.updatedAt.size() <= 40
+        && d.job is string && d.job.size() <= 100000
+        && d.file is map;
+    }
+
+    match /shares/{shareId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null && shareShape(request.resource.data);
+      allow update: if request.auth != null
+        && resource.data.owner == request.auth.uid
+        && shareShape(request.resource.data);
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+
+      match /parts/{partId} {
+        allow get: if true;
+        allow list: if false;
+        allow create: if request.auth != null
+          && request.resource.data.keys().hasOnly(['owner', 'data'])
+          && request.resource.data.owner == request.auth.uid
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 700000;
+        allow update: if request.auth != null
+          && resource.data.owner == request.auth.uid
+          && request.resource.data.keys().hasOnly(['owner', 'data'])
+          && request.resource.data.owner == request.auth.uid
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 700000;
+        allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+      }
+    }
+
     // Semua koleksi lain ditutup secara lalai.
     match /{document=**} {
       allow read, write: if false;

@@ -10,7 +10,10 @@ import { POSTER_ACCEPT, POSTER_FORMATS } from './posterFile.js';
 import {
   initPlak, plakActive, openPlakFiles, openPlakDesign, renderPlak,
   openPlakExport, restorePlakDraft, renamePlak, plakStore, PLAK_STEPS, closePlak3d, setPlakView,
+  openPlakShare, setSharedInfo,
 } from './plakFlow.js';
+import { cleanPlak } from './plakSaved.js';
+import { openShare } from './share.js';
 import {
   PLAK_BORDER_MM, PLAK_FRAME_MM, BASE_MATERIAL, PLAK_MATERIALS,
 } from './geom/plak.js';
@@ -22,6 +25,10 @@ vault.useDatabase('sifulaser-uvplak');
 
 const $ = (sel) => document.querySelector(sel);
 const TITLE = 'UV Plak';
+// A "lihat sahaja" link (share.js, Boss, 28 Nov 2026): ?lihat=<id>. The job is shown with
+// its files to download, and nothing on the page can change it or anything saved here.
+const LINK = new URLSearchParams(location.search).get('lihat');
+const viewOnly = Boolean(LINK);
 
 const els = {
   stage: $('#stage'),
@@ -51,6 +58,20 @@ els.views = h('div', {
 }, label)));
 document.querySelector('.topbar .midbar').append(els.views);
 
+// Share, before Simpan: made here for the same reason as the views above.
+els.share = h('button', {
+  type: 'button', class: 'soft', id: 'shareBtn', title: 'Share link lihat sahaja kepada staff', disabled: true,
+}, 'Share');
+els.save.before(els.share);
+if (viewOnly) {
+  // Nothing to save, open or share from a link's page; Export is a download.
+  document.body.classList.add('plak-view-only');
+  // display, not hidden: the top bar's own CSS shows its buttons whatever `hidden` says.
+  for (const el of [els.share, els.save, $('#filesBtn')]) el.style.display = 'none';
+  els.name.readOnly = true;
+  els.exportBtn.textContent = 'Download';
+}
+
 const view = new View(els.preview);
 
 function saveFile(file) {
@@ -78,6 +99,8 @@ const pickPdf = (label, cls) => h('label', { class: `${cls} file-pick` },
   }),
   label);
 
+let linkState = 'Membuka link...';
+
 /** Before any design is in: what this tab makes, and the way in. */
 function renderEmpty() {
   view.svg.replaceChildren();
@@ -85,6 +108,15 @@ function renderEmpty() {
   els.status.textContent = '';
   els.status.classList.remove('unsaved');
   const stat = (label, value) => h('div', { class: 'stat' }, h('span', {}, label), h('b', {}, value));
+  if (viewOnly) {
+    els.drop.hidden = true;
+    els.inspector.replaceChildren(
+      h('h2', { class: 'insp-title' }, TITLE),
+      group('Link plak', true, h('p', { class: /tak/i.test(linkState) ? 'warn' : 'hint' }, linkState)),
+      h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),
+    );
+    return;
+  }
   els.inspector.replaceChildren(
     h('h2', { class: 'insp-title' }, TITLE),
     group('Masukkan design', true,
@@ -141,12 +173,14 @@ initPlak({
   refresh,
   openSave: openSaveDialog,
   applyRow: (row) => openPlakDesign(row),
+  viewOnly,
   setMode: (on, name) => {
     document.body.classList.toggle('poster-mode', on);
     els.zoomPick.hidden = !on;
     els.views.hidden = !on;
-    els.drop.hidden = on;
+    els.drop.hidden = on || viewOnly;
     els.save.disabled = !on;
+    els.share.disabled = !on;
     els.exportBtn.disabled = !on;
     els.name.value = on ? name : TITLE;
     // Closed: the next job is a new design, not the one that was open.
@@ -169,13 +203,13 @@ $('#zoomFit').addEventListener('click', () => view.zoomFit());
 els.dropInput.accept = POSTER_ACCEPT;
 const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
 els.stage.addEventListener('dragover', (e) => {
-  if (!hasFiles(e)) return;
+  if (!hasFiles(e) || viewOnly) return;
   e.preventDefault();
   els.stage.classList.add('drag-over');
 });
 els.stage.addEventListener('dragleave', () => els.stage.classList.remove('drag-over'));
 els.stage.addEventListener('drop', (e) => {
-  if (!hasFiles(e)) return;
+  if (!hasFiles(e) || viewOnly) return;
   e.preventDefault();
   els.stage.classList.remove('drag-over');
   openPlakFiles(e.dataTransfer.files);
@@ -196,14 +230,44 @@ $('#helpBtn').addEventListener('click', () => {
   els.helpDlg.showModal();
 });
 els.save.addEventListener('click', openSaveDialog);
+els.share.addEventListener('click', () => { if (plakActive()) openPlakShare(); });
 $('#filesBtn').addEventListener('click', () => { fillFilesDialog($('#filesDlg')); $('#filesDlg').showModal(); });
 els.exportBtn.addEventListener('click', () => { if (plakActive()) openPlakExport(); });
 
 refresh();
 
+/** A link's page: the job from the server, shown and nothing more. */
+async function openLink() {
+  els.hint.textContent = 'Membuka link...';
+  els.hint.classList.add('show');
+  try {
+    const shared = await openShare(LINK, (done, total) => {
+      if (total > 1) {
+        linkState = `Memuat turun design: ${done} / ${total}`;
+        if (!plakActive()) renderEmpty();
+      }
+    });
+    const saved = cleanPlak(shared.job);
+    if (!saved || shared.tool !== 'uvplak') throw new Error('broken');
+    setSharedInfo({ updatedAt: shared.updatedAt });
+    const opened = await openPlakFiles([shared.file], {
+      saved, name: shared.name || saved.file.name, design: null, quiet: true, viewOnly: true,
+    });
+    if (!opened) throw new Error('broken');
+  } catch (err) {
+    linkState = err?.message && err.message !== 'broken'
+      ? err.message
+      : 'Link ni tak dapat dibuka. Minta link baharu dari pengirim.';
+    els.hint.classList.remove('show');
+    renderEmpty();
+  }
+}
+
+// A link's page: its job, and none of this browser's own drafts or designs.
 // Arriving from another tool's gallery: ?design=<id>. Otherwise the job left on screen
 // last time comes back as it was.
-{
+if (viewOnly) openLink();
+else {
   const wanted = new URLSearchParams(location.search).get('design');
   if (wanted) {
     gallery.openById(activeStore(), wanted).then((opened) => {

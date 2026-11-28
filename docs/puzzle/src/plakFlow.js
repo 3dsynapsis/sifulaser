@@ -36,6 +36,9 @@ import {
   LAYER_LOOK, inspectPrint, judgeBoxes, judgeUnderInk, releaseLayers,
 } from './printCheck.js';
 import { VERSION } from './version.js';
+import {
+  publishShare, deleteShare, shareUrl, newShareId, ShareError,
+} from './share.js';
 import { illustratorEditData } from './pdfWeight.js';
 import {
   isPosterFile, stripExt, POSTER_ACCEPT, POSTER_FORMATS,
@@ -62,6 +65,7 @@ const fresh = () => ({
   dateline: '',
   view: 'plak',
   sheet: '',                       // the cut file on screen: a material id, '' the first
+  share: '',                       // the job's "lihat sahaja" link id, '' for none
 });
 
 const S = {
@@ -79,10 +83,15 @@ const S = {
 let deps = null;
 let draftTimer = null;
 
-/** @param d { view, els, saveFile, refresh, setMode, openSave, applyRow } */
+/**
+ * @param d { view, els, saveFile, refresh, setMode, openSave, applyRow, viewOnly }:
+ *          viewOnly, the page a "lihat sahaja" link opens (share.js): the job is shown
+ *          and its files can be downloaded, and nothing can be changed or saved
+ */
 export function initPlak(d) {
   deps = d;
 }
+const viewOnly = () => Boolean(deps?.viewOnly);
 
 export const plakActive = () => Boolean(S.file);
 const currentPage = () => S.file.pages[S.page];
@@ -139,6 +148,7 @@ function job() {
     dateline: S.dateline,
     view: S.view,
     sheet: S.sheet,
+    share: S.share,
   };
 }
 
@@ -151,6 +161,11 @@ export const plakDirty = () => plakActive() && settingsKey() !== S.savedKey;
 
 function paintStatus() {
   const el = deps.els.status;
+  if (viewOnly()) {
+    el.classList.remove('unsaved');
+    el.textContent = 'Lihat sahaja';
+    return;
+  }
   const dirty = plakDirty();
   el.classList.toggle('unsaved', dirty);
   if (dirty) el.textContent = 'Belum disimpan';
@@ -158,7 +173,7 @@ function paintStatus() {
 }
 
 function writeDraft() {
-  if (!plakActive()) return;
+  if (!plakActive() || viewOnly()) return;
   const open = gallery.current();
   vault.putDraft({
     job: job(), name: S.name, savedKey: S.savedKey, designId: open.id, designName: open.name,
@@ -202,6 +217,8 @@ export const plakStore = {
     deps.els.name.value = title;
     S.savedKey = settingsKey();
     changed();
+    // A shared job: Simpan brings its link up to date too (Boss, 28 Nov 2026).
+    if (S.share) refreshShare();
   },
   apply: (row) => deps.applyRow(row),
 };
@@ -238,7 +255,7 @@ function dropCheck() {
 
 /** Ask before throwing away unsaved changes. Resolves true to carry on. */
 function confirmLeave() {
-  if (!plakDirty()) return Promise.resolve(true);
+  if (viewOnly() || !plakDirty()) return Promise.resolve(true);
   return new Promise((resolve) => {
     const dlg = deps.els.posterDlg;
     const finish = (go) => {
@@ -303,7 +320,8 @@ export async function openPlakFiles(fileList, restore = null) {
   let hash = '';
   try {
     hash = await vault.hashBytes(one.bytes);
-    await vault.putFile(hash, one.name, one.bytes);
+    // A link's file is not this browser's to keep.
+    if (!restore?.viewOnly) await vault.putFile(hash, one.name, one.bytes);
   } catch { /* opens anyway; there will be no draft to come back to */ }
 
   // A new file for a saved job is the same job with a better file: settings stay.
@@ -340,6 +358,7 @@ export async function openPlakFiles(fileList, restore = null) {
       dateline: saved.dateline,
       view: saved.view,
       sheet: saved.sheet,
+      share: saved.share,
     });
     S.name = restore.name;
     S.nameAuto = false;
@@ -825,7 +844,7 @@ function renderStage() {
     raised: eligible.map((l) => ({ id: l.id, d: letterPath(l, plan.scale, 0, 0, plan.scaleY), on: !off.has(l.id) })),
     base: plan.base ? { length: plan.base.length, height: plan.base.height } : null,
     fitKey: `plak:${plan.width}:${plan.height}:${S.base}`,
-    onLetter: toggleLetter,
+    onLetter: viewOnly() ? null : toggleLetter,
   });
   if (!a) hint('Membaca design dan mencari tulisan besar...');
   else if (a.failed) hint('Page ni tak dapat dilukis.');
@@ -858,6 +877,11 @@ function renderPanel() {
   const page = currentPage();
   const a = page.analysis || null;
   const plan = planOf();
+  if (viewOnly()) {
+    root.replaceChildren(...viewPanel(a, plan));
+    root.scrollTop = scroll;
+    return;
+  }
   root.replaceChildren(...[
     h('h2', { class: 'insp-title' }, 'UV Plak'),
     fileGroup(a, plan),
@@ -1436,7 +1460,185 @@ export function openPlakExport() {
       items.length ? share : null,
       all)));
   dlg.showModal();
-  if (!blocked) saveOnExport(savedLine);
+  if (!blocked && !viewOnly()) saveOnExport(savedLine);
+}
+
+// ---- Share: a "lihat sahaja" link (Boss, 28 Nov 2026) ------------------------------------
+
+let shareState = { busy: false, error: '', note: '' };
+let sharedInfo = null;   // on a link's page: { updatedAt }
+
+/** On a link's page: when the job was last brought up to date. */
+export function setSharedInfo(info) {
+  sharedInfo = info;
+}
+
+/** The job as the link carries it, and its file. */
+const shareContent = () => ({
+  id: S.share,
+  tool: 'uvplak',
+  name: S.name,
+  job: { ...job(), view: 'plak', share: '' },
+  file: {
+    name: S.file.name, type: S.file.kind === 'pdf' ? 'application/pdf' : '', bytes: S.file.bytes, hash: S.file.hash,
+  },
+});
+
+const shareMessage = (err) => (err instanceof ShareError ? err.message : 'Tak dapat share kali ni. Cuba lagi.');
+
+/** Bring the link up to date in the background, after Simpan. */
+function refreshShare() {
+  if (!S.share || shareState.busy) return;
+  shareState = { busy: true, error: '', note: 'Mengemas kini link share...' };
+  publishShare(shareContent()).then(() => {
+    shareState = { busy: false, error: '', note: 'Link share dikemas kini.' };
+  }, (err) => {
+    shareState = { busy: false, error: shareMessage(err), note: '' };
+  });
+}
+
+/** The Share dialog: make the link, copy it, send it, bring it up to date, or take it down. */
+export function openPlakShare() {
+  if (!plakActive()) return;
+  const dlg = deps.els.posterDlg;
+  const fill = () => dlg.replaceChildren(shareBody());
+  const run = (work) => async () => {
+    shareState = { busy: true, error: '', note: 'Sedang hantar ke server...' };
+    fill();
+    try {
+      await work();
+    } catch (err) {
+      shareState = { busy: false, error: shareMessage(err), note: '' };
+      fill();
+      return;
+    }
+    shareState.busy = false;
+    fill();
+  };
+  const make = run(async () => {
+    const fresh = !S.share;
+    if (fresh) S.share = newShareId();
+    try {
+      await publishShare(shareContent(), (done, total) => {
+        if (total > 1) {
+          shareState.note = `Menghantar file design: ${done} / ${total}`;
+          fill();
+        }
+      });
+    } catch (err) {
+      if (fresh) S.share = '';
+      throw err;
+    }
+    shareState.note = fresh ? 'Link siap. Hantar kepada staff.' : 'Link dikemas kini dengan versi sekarang.';
+    changed();
+    // A saved job keeps its link id in the account, so Simpan updates it from any PC.
+    if (fresh && gallery.current().id) gallery.saveQuietly(plakStore);
+  });
+  const stop = run(async () => {
+    await deleteShare(S.share);
+    S.share = '';
+    shareState.note = 'Link dibatalkan. Sesiapa yang buka link tu tak dapat lihat lagi.';
+    changed();
+    if (gallery.current().id) gallery.saveQuietly(plakStore);
+  });
+
+  function shareBody() {
+    const { busy, error, note } = shareState;
+    const parts = [h('h2', {}, 'Share untuk lihat sahaja')];
+    if (!signedIn()) {
+      parts.push(
+        h('p', { class: 'muted' }, 'Daftar masuk dulu. Link share disimpan atas akaun anda, jadi hanya anda boleh ubah atau batalkan.'),
+        h('div', { class: 'dlg-actions' },
+          h('button', { type: 'button', class: 'ghost', onclick: () => dlg.close() }, 'Tutup'),
+          h('button', { type: 'button', class: 'primary', onclick: () => gallery.askSignIn() }, 'Daftar masuk dengan Google')),
+      );
+      return h('div', { class: 'dlg-body' }, ...parts);
+    }
+    parts.push(h('p', { class: 'muted' },
+      'Staff yang buka link boleh lihat Plak, 3D, File cut dan File print, dan download file, tapi tak boleh ubah apa-apa. '
+      + 'File design dihantar ke server sifulaser untuk link ni sahaja.'));
+    if (S.share) {
+      const url = shareUrl(S.share);
+      const box = h('input', {
+        type: 'text', readonly: true, value: url, class: 'share-url', onfocus: (e) => e.target.select(),
+      });
+      parts.push(
+        h('div', { class: 'field' }, h('label', {}, 'Link'), box),
+        h('div', { class: 'row-actions' },
+          h('button', {
+            type: 'button',
+            class: 'ghost',
+            onclick: async (e) => {
+              try {
+                await navigator.clipboard.writeText(url);
+                e.target.textContent = '✓ Disalin';
+              } catch {
+                box.select();
+              }
+            },
+          }, 'Salin link'),
+          h('button', {
+            type: 'button',
+            class: 'ghost',
+            onclick: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${S.name}\n${url}`)}`, '_blank', 'noopener'),
+          }, 'Hantar WhatsApp')),
+        h('p', { class: 'hint' }, 'Link sama dikemas kini setiap kali anda tekan Simpan. Staff cuma perlu buka semula link tu.'),
+      );
+    }
+    if (note) parts.push(h('p', { class: busy ? 'hint' : 'check-ok' }, note));
+    if (error) parts.push(h('p', { class: 'warn-line', role: 'alert' }, error));
+    parts.push(h('div', { class: 'dlg-actions' },
+      h('button', { type: 'button', class: 'ghost', onclick: () => dlg.close() }, 'Tutup'),
+      S.share ? h('button', {
+        type: 'button', class: 'ghost', ...(busy ? { disabled: true } : {}), onclick: stop,
+      }, 'Batalkan link') : null,
+      h('button', {
+        type: 'button', class: 'primary', ...(busy ? { disabled: true } : {}), onclick: make,
+      }, busy ? 'Sedang hantar...' : S.share ? 'Kemas kini sekarang' : 'Buat link share')));
+    return h('div', { class: 'dlg-body' }, ...parts);
+  }
+
+  if (!shareState.busy) shareState = { busy: false, error: '', note: shareState.note && S.share ? shareState.note : '' };
+  fill();
+  dlg.showModal();
+}
+
+/** A link's page: what the job is, and its files, with nothing to change. */
+function viewPanel(a, plan) {
+  const n = chosenLetters(a, plan).length;
+  const stand = standingSize(plan);
+  const when = sharedInfo?.updatedAt ? new Date(sharedInfo.updatedAt) : null;
+  const whenText = when && Number.isFinite(when.getTime())
+    ? `${when.getDate()} ${MONTHS[when.getMonth()]} ${when.getFullYear()}, ${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}`
+    : '';
+  const blocked = blockedReason(a, plan);
+  return [
+    h('h2', { class: 'insp-title' }, 'UV Plak'),
+    group('Lihat sahaja', true,
+      h('p', { class: 'hint' }, 'Plak ni dikongsi untuk dilihat. Tetapan tak boleh diubah di sini. '
+        + 'Guna butang Plak, 3D, File cut dan File print di atas.'),
+      whenText ? stat('Dikemas kini', whenText) : null,
+      stat('Saiz plak', size(plan.width, plan.height)),
+      plan.base ? stat('Berdiri atas base', `${size(stand.width, stand.height)}, dalam ${stand.depth} mm`) : null,
+      stat('Plak depan', matLabel('front')),
+      stat('White ink', S.white === 'design' ? 'Bawah gambar dan tulisan sahaja' : 'Penuh'),
+      stat('Border', plan.border ? `${plan.border} mm, 4 keping sudut 45°, ${matLabel('border')}` : 'Tiada'),
+      stat('Huruf timbul', S.letters && n ? `${n} huruf, ${matLabel('letters')}` : 'Tiada'),
+      plan.base ? stat('Base', `${BASE_MATERIAL.label}, ${plan.base.length} x ${plan.base.depth} mm`) : stat('Base', 'Tiada'),
+      plan.base ? stat('Kaki plak', `${plan.tenons.length} kaki, ${plan.tongue} mm masuk alur`) : null,
+      stat('Kuantiti', `${S.quantity}`),
+      S.client ? stat('Client', S.client) : null,
+      S.dateline ? stat('Dateline', formatDate(S.dateline)) : null),
+    group('Download', true,
+      blocked ? h('p', { class: 'warn' }, blocked) : h('p', { class: 'hint' }, 'File cut (semua material dalam satu file) dan file print UV.'),
+      // Through the top bar's button, so the sign-in before a download (export-gate.js,
+      // Boss, 20 Oct 2026) asks here as it does there.
+      h('button', {
+        type: 'button', class: 'primary wide', ...(blocked ? { disabled: true } : {}), onclick: () => deps.els.exportBtn.click(),
+      }, 'Download file')),
+    S.view === 'print' && !blocked ? group('File print', true, ...layerPanel()) : null,
+    h('p', { class: 'version-stamp' }, `Versi ${VERSION}`),
+  ].filter(Boolean);
 }
 
 /** The tab's steps (Boss, 28 Nov 2026). */

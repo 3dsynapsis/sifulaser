@@ -452,3 +452,32 @@ sebenar.**
 > `src/designs.js` (TOOLS `uvplak`), `styles.css`,
 > `src/version.js`. Salin balik ke `13_Puzzle Generator` sebelum "Cara kemas kini"
 > dijalankan lagi.
+
+### Share: link lihat sahaja (28 November 2026)
+
+Bos: "share kepada staff saya untuk dia tengok ... dapat overall view tapi tak boleh
+edit"; setuju fail design disimpan di server, sesiapa yang ada link boleh buka.
+
+- Butang **Share** di bar atas (dibina oleh `plakMain.js`, sebab yang sama dengan butang
+  paparan). Dialog: Buat link share, Salin link, Hantar WhatsApp, Kemas kini sekarang,
+  Batalkan link. Perlu daftar masuk (pemilik link).
+- `src/share.js`: Firestore REST seperti `cloud.js`. `shares/{id}` (owner, tool, name,
+  updatedAt, job sebagai teks JSON, file) dan `shares/{id}/parts/{hash-i}` (fail design
+  base64, kepingan 600 000 aksara kerana dokumen maksimum 1 MB; had 40 keping, ~18 MB).
+  Kepingan ditulis dulu, dokumen last, supaya link tak pernah tunjuk separuh fail. Id
+  rawak 22 aksara; peraturan benarkan sesiapa GET tetapi tiada siapa LIST.
+- Id link disimpan dalam job (`share`), jadi **Simpan** terus kemas kini link
+  (`refreshShare`), dari PC mana pun.
+- `/uvplak/?lihat=<id>`: mod lihat sahaja (`deps.viewOnly`). Tiada Simpan, Reka bentuk
+  saya, Share, dan tiada input; huruf tak boleh ditekan; Export jadi Download. Panel
+  tunjuk ringkasan job dan bila dikemas kini. Tiada draf atau fail ditulis ke pelayar
+  staff. Download tetap lalu pintu daftar masuk (`export-gate.js`, keputusan bos 20 Okt
+  2026), termasuk butang Download dalam panel.
+- **`firestore.rules` mesti di-Publish** (bahagian `shares`): push ke GitHub tidak
+  mengemas kini peraturan Firebase. Sebelum itu, Share memberi "Server belum benarkan
+  share".
+- Ujian: `node scripts/test-uvplak.mjs` (bahagian share), dan aliran penuh dengan
+  Firestore tiruan dalam Playwright (buat link, staff buka, Simpan kemas kini, batal).
+
+> **Dibuat terus dalam salinan ini**: `src/share.js`, dan tambahan dalam `plakFlow.js`,
+> `plakMain.js`, `plakSaved.js`, `styles.css`. Salin balik ke `13_Puzzle Generator`.

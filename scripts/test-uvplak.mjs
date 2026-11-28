@@ -13,6 +13,7 @@
 //   * file cut: satu file, satu page, bahagian setiap material berlabel; lubang huruf dulu,
 //     frame last; PDF sah.
 //   * simpan: rekod akaun kembali sama, nilai rosak jatuh ke default.
+//   * share: id link rawak, fail dipecah dan dicantum semula tepat sebait.
 
 import { pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -27,6 +28,7 @@ const { buildPlakSheet, sheetToPdf } = await imp('puzzle/src/exportJobSheet.js')
 const Saved = await imp('puzzle/src/plakSaved.js');
 const { PDFDocument, PDFName, PDFRawStream } = await imp('puzzle/vendor/pdf-lib.esm.min.js');
 const { openForPrint, buildLayeredPrint } = await imp('puzzle/src/posterPdf.js');
+const Share = await imp('puzzle/src/share.js');
 const { parsePath } = await imp('puzzle/src/exportPdf.js');
 
 let pass = 0;
@@ -318,6 +320,28 @@ console.log('simpan ke akaun');
     && junk.view === 'plak' && junk.off.length === 0 && junk.dateline === '');
   check('default: border, huruf dan base hidup', junk.border && junk.letters && junk.base);
   check('tanpa nama file: bukan job', Saved.cleanPlak({ file: {} }) === null && Saved.readPlak({ extra: '{bad' }) === null);
+}
+
+// ---- share (link lihat sahaja) -----------------------------------------------------
+console.log('share: link lihat sahaja');
+{
+  const id = Share.newShareId();
+  check('id link 22 aksara, sah', id.length === 22 && Share.isShareId(id), id);
+  check('dua id berbeza', Share.newShareId() !== Share.newShareId());
+  check('id pelik ditolak', !Share.isShareId('../users/x') && !Share.isShareId('abc') && !Share.isShareId(null));
+  check('link membuka tab UV Plak', Share.shareUrl('Abc123Abc123Abc123Abc1', 'https://sifulaser.com') === 'https://sifulaser.com/uvplak/?lihat=Abc123Abc123Abc123Abc1');
+  // 1.5 MB of every byte value: base64 there and back, cut in pieces and joined.
+  const bytes = new Uint8Array(1500000);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = (i * 7919) % 256;
+  const text = Share.toBase64(bytes);
+  const parts = Share.splitParts(text);
+  check('fail 1.5 MB jadi 4 keping, setiap satu bawah had 700000', parts.length === 4 && parts.every((p) => p.length <= 700000), parts.length);
+  const back = Share.fromBase64(parts.join(''));
+  check('dicantum semula tepat sebait', back.length === bytes.length && back.every((v, i) => v === bytes[i]));
+  check('nama keping ikut hash fail', Share.partId('ee1bac51b5b924df99', 2) === 'ee1bac51b5b924df-2');
+  const withShare = Saved.cleanPlak({ file: { name: 'x.pdf', pages: 1 }, share: 'KqjH7K4KoEUVRDOjaVf9OP' });
+  const badShare = Saved.cleanPlak({ file: { name: 'x.pdf', pages: 1 }, share: '../../users' });
+  check('id link disimpan dalam job, yang pelik dibuang', withShare.share === 'KqjH7K4KoEUVRDOjaVf9OP' && badShare.share === '');
 }
 
 console.log(`\n${pass} lulus, ${fail} gagal`);

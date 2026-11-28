@@ -719,3 +719,14 @@ input[type="date"] { color-scheme: light dark; }
   .plak-tool .viewtoggle[hidden] { display: none; }
   .plak-tool .vt { flex: 1 1 0; padding: 9px 4px; font-size: 12px; }
 }
+.share-url { width: 100%; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); }
+/* With Share in the bar too, "Reka bentuk saya" goes to its icon a little sooner, rather
+   than breaking over three lines. */
+@media (max-width: 1240px) {
+  .plak-tool #filesBtn { width: 32px; height: 32px; padding: 0; justify-content: center; }
+  .plak-tool #filesBtn .files-label { display: none; }
+  .plak-tool #filesBtn svg { width: 17px; height: 17px; }
+}
+@media (max-width: 640px) {
+  .plak-tool #filesBtn { width: 38px; height: 38px; }
+}

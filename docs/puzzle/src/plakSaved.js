@@ -63,6 +63,8 @@ export function cleanPlak(raw) {
     dateline: DATE.test(raw.dateline) ? raw.dateline : '',
     view: PLAK_VIEWS.includes(raw.view) ? raw.view : 'plak',
     sheet: typeof raw.sheet === 'string' ? raw.sheet.slice(0, 40) : '',
+    // The job's "lihat sahaja" link, if it has one (share.js): Simpan keeps it up to date.
+    share: typeof raw.share === 'string' && /^[A-Za-z0-9]{16,40}$/.test(raw.share) ? raw.share : '',
   };
 }
 
