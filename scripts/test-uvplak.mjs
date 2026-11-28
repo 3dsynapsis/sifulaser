@@ -10,7 +10,8 @@
 //   * white ink di bawah ink design sahaja: stensil 1 bit, putih design jadi tanpa ink.
 //   * print: berhenti 2 mm bawah border (gam lekat pada kayu), atau lebih 2 mm tanpa border.
 //   * huruf timbul: tulisan disurih dengan lubang huruf, garisan lukisan tak dikira.
-//   * file cut: satu setiap material, lubang huruf dulu, frame last; PDF sah.
+//   * file cut: satu file, satu page, bahagian setiap material berlabel; lubang huruf dulu,
+//     frame last; PDF sah.
 //   * simpan: rekod akaun kembali sama, nilai rosak jatuh ke default.
 
 import { pathToFileURL } from 'node:url';
@@ -211,6 +212,18 @@ const raster = (() => {
   check('susunan cut: lubang huruf, huruf, jalur', black.paths.map((p) => p.id).join() === 'counters,letters,strips', black.paths.map((p) => p.id).join());
   check('label: material, unit, kali', black.texts.some((t) => t.text === 'Plywood Black 3mm') && black.texts.some((t) => t.text === '2 UNIT')
     && black.texts.some((t) => t.text === 'CUT 2 KALI'));
+  const all = buildPlakSheet(jobs, { units: 2, what: 'PLAK UV 100 x 60 mm, 3 material' });
+  check('satu file: 3 bahagian, setiap satu berlabel material', ['Plywood Maple 3mm', 'Plywood Black 3mm', 'Acrylic Hitam 5mm']
+    .every((m) => all.texts.filter((t) => t.text === m).length === 1) && all.texts.filter((t) => t.text === 'CUT 2 KALI').length === 3);
+  check('satu file: susunan cut merentas bahagian, frame last',
+    all.paths.map((q) => q.id).join() === 'counters,letters,strips,plate,slots,base,frame', all.paths.map((q) => q.id).join());
+  const secs = all.texts.filter((t) => /mm$/.test(t.text) && /Plywood|Acrylic/.test(t.text)).map((t) => t.x);
+  check('satu file: bahagian kiri ke kanan ikut material', secs.length === 3 && secs[0] < secs[1] && secs[1] < secs[2]);
+  const allParts = Object.values(all.parts);
+  check('satu file: tiada bahagian bertindih', !allParts.some((a, ai) => allParts.some((b, bi) => bi > ai
+    && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height)));
+  const allPdf = await PDFDocument.load(new TextEncoder().encode(sheetToPdf(all, { title: 'ujian' })));
+  check('satu file: PDF sah, satu page', allPdf.getPageCount() === 1);
   const maple = buildPlakSheet(jobs[0], { units: 1 });
   check('Maple: plak dulu, frame last', maple.paths.map((p) => p.id).join() === 'plate,frame' && maple.paths[1].stroke === 'cut');
   const base = buildPlakSheet(jobs[2], { units: 1 });

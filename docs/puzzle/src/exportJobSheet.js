@@ -386,62 +386,79 @@ export function buildKeychainSheet(layout, meta = {}) {
 const PLAK_BLOCK_GAP = 20;   // between a plaque's parts on one sheet, mm
 const PLAK_ROW_MM = 900;     // a row of parts wraps past this, unless one part is wider
 
-/**
- * One of the UV Plak tab's cut files (Boss, 28 Nov 2026): every part cut from one
- * material, side by side, the job written above them as on the other sheets. Paths are
- * written in their `order` across all the parts, so the counters go before the letters
- * and the plate before the frame it sits in.
- *
- * @param job  { material: { label }, blocks } from plakCutJobs
- * @param meta { client, dateline, units, what }
- */
-export function buildPlakSheet(job, meta = {}) {
-  const units = Math.max(1, Math.round(Number(meta.units) || 1));
-  const widest = Math.max(...job.blocks.map((b) => b.width));
+/** A material's parts side by side, rows wrapping: where each block goes, and the size. */
+function layoutBlocks(blocks) {
+  const widest = Math.max(...blocks.map((b) => b.width));
   const rowMax = Math.max(PLAK_ROW_MM, widest);
-  // Rows, left to right, wrapping.
   const placed = [];
   let x = 0;
   let y = 0;
   let rowH = 0;
-  let contentW = 0;
-  for (const b of job.blocks) {
+  let width = 0;
+  for (const b of blocks) {
     if (x > 0 && x + b.width > rowMax) {
       x = 0;
       y += rowH + PLAK_BLOCK_GAP;
       rowH = 0;
     }
     placed.push({ b, x, y });
-    contentW = Math.max(contentW, x + b.width);
+    width = Math.max(width, x + b.width);
     x += b.width + PLAK_BLOCK_GAP;
     rowH = Math.max(rowH, b.height);
   }
-  const contentH = y + rowH;
+  return { placed, width, height: y + rowH };
+}
+
+/**
+ * The UV Plak tab's cut file (Boss, 28 Nov 2026): every part of the plaque on one page,
+ * a section for each material side by side, each with its material and how many times
+ * to cut it written above it, as the puzzle's sheet carries its panel and its backing.
+ * Boss asked for it as one file ("combine je dalam satu file"); the operator cuts each
+ * section on its own material.
+ *
+ * Paths are written in their `order` across every section, so the counters go before
+ * the letters and the plate before the frame it sits in.
+ *
+ * @param jobs [{ material: { id, label }, blocks }] from plakCutJobs; one job alone
+ *             makes a sheet of that material only
+ * @param meta { client, dateline, units, what }
+ */
+export function buildPlakSheet(jobs, meta = {}) {
+  const list = Array.isArray(jobs) ? jobs : [jobs];
+  const units = Math.max(1, Math.round(Number(meta.units) || 1));
+  const sections = list.map((job) => ({ job, ...layoutBlocks(job.blocks) }));
+  const contentW = sections.reduce((sum, sec, i) => sum + sec.width + (i ? GAP : 0), 0);
+  const contentH = Math.max(...sections.map((sec) => sec.height));
   const width = Math.max(PAGE_W, contentW + 2 * GAP);
   const height = Math.max(PAGE_H, PART_TOP + contentH + BOTTOM);
-  const xs = (width - contentW) / 2;
+  let sx = (width - contentW) / 2;
   const groups = new Map();
-  for (const { b, x: bx, y: by } of placed) {
-    for (const p of b.paths) {
-      const key = `${p.order}|${p.id}|${p.stroke}`;
-      if (!groups.has(key)) groups.set(key, { id: p.id, stroke: p.stroke, order: p.order, d: [] });
-      groups.get(key).d.push(translatePath(p.d, xs + bx, PART_TOP + by));
+  const texts = [];
+  const parts = {};
+  jobHead(texts, width, meta, meta.what || 'PLAK UV');
+  for (const sec of sections) {
+    for (const { b, x: bx, y: by } of sec.placed) {
+      for (const p of b.paths) {
+        const key = `${p.order}|${p.id}|${p.stroke}`;
+        if (!groups.has(key)) groups.set(key, { id: p.id, stroke: p.stroke, order: p.order, d: [] });
+        groups.get(key).d.push(translatePath(p.d, sx + bx, PART_TOP + by));
+      }
+      parts[list.length > 1 ? `${sec.job.material.id}:${b.id}` : b.id] = {
+        x: sx + bx, y: PART_TOP + by, width: b.width, height: b.height,
+      };
     }
+    partLabel(texts, [sec.job.material.label, `${units} UNIT`, `CUT ${units} KALI`], sx + sec.width / 2, sec.width + GAP - 8);
+    sx += sec.width + GAP;
   }
   const paths = [...groups.values()]
     .sort((a, b) => a.order - b.order)
     .map((g) => ({ id: g.id, stroke: g.stroke, d: g.d.join(' ') }));
-  const texts = [];
-  jobHead(texts, width, meta, meta.what || 'PLAK UV');
-  partLabel(texts, [job.material.label, `${units} UNIT`, `CUT ${units} KALI`], width / 2, contentW + GAP - 8);
   return {
     width,
     height,
     paths,
     texts,
-    parts: Object.fromEntries(placed.map(({ b, x: bx, y: by }) => [b.id, {
-      x: xs + bx, y: PART_TOP + by, width: b.width, height: b.height,
-    }])),
+    parts,
   };
 }
 

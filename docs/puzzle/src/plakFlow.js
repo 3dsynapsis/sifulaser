@@ -533,7 +533,6 @@ const formatDate = (value) => {
   return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '';
 };
 const stem = () => `${baseName(S.file.name)}-plak`;
-const slug = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const PART_TEXT = {
   front: (plan) => `plak depan ${rnd(plan.plate.width, 1)} x ${rnd(plan.plate.height, 1)} mm${plan.tongue ? ` (${plan.tenons.length} kaki ${plan.tongue} mm)` : ''}`,
@@ -542,27 +541,38 @@ const PART_TEXT = {
   base: (plan) => `base ${plan.base.length} x ${plan.base.depth} mm, 1 keping, ${plan.base.slots.length} alur tembus`,
 };
 
-/** Every cut file this job needs: one per material. */
+/** What is cut, by material: a section of the cut file each. */
 function cutJobs(plan = planOf()) {
   return plakCutJobs(plan, chosenLetters(undefined, plan), S.materials);
 }
 
-function sheetOf(cut, plan) {
+/** Every part, of every material, as one line of text. */
+const partsText = (plan, jobs = cutJobs(plan)) => {
   const n = chosenLetters(undefined, plan).length;
-  return buildPlakSheet(cut, {
+  return jobs.flatMap((j) => j.parts.map((p) => PART_TEXT[p](plan, n))).join(', ');
+};
+
+/**
+ * The cut file: one page, a section for each material, each labelled with it (Boss,
+ * 28 Nov 2026: "combine je dalam satu file"; it was a file for each).
+ */
+function sheetOf(plan) {
+  const jobs = cutJobs(plan);
+  return buildPlakSheet(jobs, {
     client: S.client,
     dateline: formatDate(S.dateline),
     units: S.quantity,
-    what: `PLAK UV ${rnd(plan.width, 1)} x ${rnd(plan.height, 1)} mm: ${cut.parts.map((p) => PART_TEXT[p](plan, n)).join(', ')}`,
+    // Short: the head is written as big as the longest line lets it be.
+    what: `PLAK UV ${rnd(plan.width, 1)} x ${rnd(plan.height, 1)} mm, ${jobs.length} MATERIAL`,
   });
 }
 
-function cutFile(cut) {
+function cutFile() {
   const plan = planOf();
-  const body = sheetToPdf(sheetOf(cut, plan), { title: `${S.name} - plak cut ${cut.material.label}` });
+  const body = sheetToPdf(sheetOf(plan), { title: `${S.name} - plak cut` });
   return {
     blob: new Blob([body], { type: 'application/pdf' }),
-    name: `${stem()}-cut-${slug(cut.material.label)}-x${S.quantity}.pdf`,
+    name: `${stem()}-cut-x${S.quantity}.pdf`,
     type: 'application/pdf',
   };
 }
@@ -687,11 +697,6 @@ function hint(text) {
   deps.els.hint.classList.add('show');
 }
 
-/** The cut file on screen: the one picked, or the first. */
-function shownCut(jobs) {
-  return jobs.find((j) => j.material.id === S.sheet) || jobs[0];
-}
-
 function toggleLetter(id) {
   const off = new Set(S.off);
   if (off.has(id)) off.delete(id);
@@ -780,9 +785,8 @@ function renderStage() {
   show3d(false);
   if (S.view === 'cut' && !blocked) {
     const jobs = cutJobs(plan);
-    const cut = shownCut(jobs);
-    deps.view.renderSheet(sheetOf(cut, plan), `plak-cut:${cut.material.id}:${plan.width}:${plan.height}`);
-    hint(`File cut ${cut.material.label}: ${cut.parts.map((p) => PART_TEXT[p](plan, chosenLetters(a, plan).length)).join(', ')}`);
+    deps.view.renderSheet(sheetOf(plan), `plak-cut:${jobs.length}:${plan.width}:${plan.height}`);
+    hint(`File cut, satu file: ${jobs.map((j) => j.material.label).join(', ')}`);
     return;
   }
   if (S.view === 'print' && !blocked) {
@@ -1177,19 +1181,12 @@ function previewGroup(a, plan) {
   const blocked = blockedReason(a, plan);
   if (S.view === 'cut' && !blocked) {
     const jobs = cutJobs(plan);
-    const shown = shownCut(jobs);
-    body.push(h('div', { class: jobs.length > 2 ? 'seg seg-3' : 'seg' }, jobs.map((j) => h('button', {
-      type: 'button',
-      'aria-pressed': String(j === shown),
-      title: j.material.label,
-      onclick: () => {
-        S.sheet = j.material.id;
-        renderPlak();
-        changed();
-      },
-    }, j.material.label.replace(/^Plywood /, '')))));
-    body.push(h('p', { class: 'hint' }, `Satu file cut untuk setiap material. Garis dipotong ikut susunan: lubang huruf dulu, `
-      + 'kemudian huruf, jalur border, plak, dan frame paling last.'));
+    for (const j of jobs) {
+      body.push(stat(j.material.label, j.parts.map((p) => PART_TEXT[p](plan, chosenLetters(a, plan).length)).join(', ')));
+    }
+    body.push(h('p', { class: 'hint' }, `Satu file cut untuk semua: setiap material satu bahagian, berlabel di atasnya. `
+      + 'Potong setiap bahagian atas material sendiri. Garis dipotong ikut susunan: lubang huruf dulu, '
+      + 'kemudian huruf, jalur border, plak, alur, base, dan frame paling last.'));
   } else if (S.view === 'print' && !blocked) {
     body.push(...layerPanel());
   } else if (S.view === '3d') {
@@ -1351,7 +1348,6 @@ export function openPlakExport() {
     paintShare();
   };
   const jobs = blocked ? [] : cutJobs(plan);
-  const nLetters = chosenLetters(undefined, plan).length;
   const shareText = () => [
     `Nama File: ${S.name}`,
     `Material: ${jobs.map((j) => j.material.label).join(', ')}`,
@@ -1387,15 +1383,16 @@ export function openPlakExport() {
 
   const times = (verb) => `${verb} ${S.quantity} kali`;
   const rows = blocked ? [] : [
-    ...jobs.map((cut) => row({
+    row({
       kind: 'cut',
-      title: `file cut ${cut.material.label}`,
-      make: async () => cutFile(cut),
+      title: 'file cut plak',
+      make: async () => cutFile(),
     },
     h('div', { class: 'file-row-text' },
-      h('b', {}, `File cut ${cut.material.label}`),
-      h('span', {}, `${cut.parts.map((p) => PART_TEXT[p](plan, nLetters)).join(', ')}. ${times('Cut')}`)),
-    fileButton('File cut', async () => cutFile(cut)))),
+      h('b', {}, 'File cut'),
+      h('span', {}, `Satu file, ${jobs.length} bahagian: ${jobs.map((j) => j.material.label).join(', ')}. `
+        + `${partsText(plan, jobs)}. ${times('Cut')}`)),
+    fileButton('File cut', async () => cutFile())),
     row({
       kind: 'print',
       title: 'file print UV plak',
@@ -1409,9 +1406,7 @@ export function openPlakExport() {
 
   const all = h('button', { type: 'button', class: 'primary', ...(blocked ? { disabled: true } : {}) }, 'Download semua (ZIP)');
   all.addEventListener('click', busy(all, async () => {
-    const files = [];
-    for (const cut of jobs) files.push(await branded(cutFile(cut)));
-    files.push(await branded(await printFile()));
+    const files = [await branded(cutFile()), await branded(await printFile())];
     deps.saveFile({
       blob: new Blob([makeZip(files)], { type: 'application/zip' }),
       name: `${stem()}-uv.zip`,
@@ -1447,13 +1442,13 @@ export function openPlakExport() {
 /** The tab's steps (Boss, 28 Nov 2026). */
 export const PLAK_STEPS = [
   ['Cut plak depan',
-    `File cut Plywood Maple (atau ikut material plak depan): plak dulu, frame ${PLAK_FRAME_MM} mm last. Jangan keluarkan plak dari frame lagi.`],
+    `Satu file cut untuk semua material, setiap bahagian berlabel. Bahagian Plywood Maple (atau ikut material plak depan): plak dulu, frame ${PLAK_FRAME_MM} mm last. Jangan keluarkan plak dari frame lagi.`],
   ['UV print plak',
     'Semak layer dulu di Preview, File print. Letak frame atas bed rapat dari bucu kiri atas, sama arah dengan file. Buka file print terus dalam FlexiPRINT: Spot 1 dan Spot 2 (white) di bawah gambar dan tulisan sahaja, bahagian putih design tak dicetak supaya kayu nampak. Tulisan besar dicetak sekali sebagai panduan.'],
   ['Cut border dan huruf',
-    `File cut Plywood Black: lubang huruf dulu, kemudian huruf, kemudian 4 jalur border ${PLAK_BORDER_MM} mm bersudut 45°. Dua jalur panjang sama, dua jalur pendek sama.`],
+    `Bahagian Plywood Black dalam file cut: lubang huruf dulu, kemudian huruf, kemudian 4 jalur border ${PLAK_BORDER_MM} mm bersudut 45°. Dua jalur panjang sama, dua jalur pendek sama.`],
   ['Cut base',
-    `File cut ${BASE_MATERIAL.label}: satu keping, alur dulu (tembus), kemudian base.`],
+    `Bahagian ${BASE_MATERIAL.label} dalam file cut: satu keping, alur dulu (tembus), kemudian base.`],
   ['Pasang',
     'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak ke dalam alur base sampai tepi bawah plak duduk atas base (kaki masuk 4 mm), dan gam.'],
 ];

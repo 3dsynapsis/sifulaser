@@ -403,10 +403,15 @@ Tab baharu `sifulaser.com/uvplak/` (halaman React `#/uvplak`). Masukkan design p
   jadi tak tercucuk keluar di bawah dan base duduk rata; tepi bawah plak di antara kaki
   ialah bahu yang duduk atas base. Plak A4: 2 kaki 96.84 mm, plat dipotong 297 x 214.
 
-Fail: satu **file cut setiap material** (`plakCutJobs` dalam `src/geom/plak.js`,
-`buildPlakSheet` dalam `src/exportJobSheet.js`): lubang huruf dulu, huruf, jalur
-border, plak, alur, base, frame last; label material, "N UNIT", "CUT N KALI". Plak depan
-dipotong dalam frame 10 mm dan di-UV print sebelum dikeluarkan, macam panel UV File.
+Fail: **satu file cut, satu page** (bos, 28 November 2026: "combine je dalam satu
+file"; asalnya satu file setiap material): setiap material satu bahagian sebelah-
+menyebelah, berlabel material, "N UNIT" dan "CUT N KALI" di atasnya, macam job sheet
+Puzzle yang bawa panel dan backing (`plakCutJobs` dalam `src/geom/plak.js`,
+`buildPlakSheet` dalam `src/exportJobSheet.js`). Garis ditulis ikut susunan merentas
+semua bahagian: lubang huruf dulu, huruf, jalur border, plak, alur, base, frame last.
+Satu page, bukan satu page setiap material: perisian laser kadang-kadang baca page
+pertama sahaja. Plak depan dipotong dalam frame 10 mm dan di-UV print sebelum
+dikeluarkan, macam panel UV File.
 **File print UV**: page = frame, gambar CMYK 300 dpi, Spot 1 dan Spot 2 (white)
 **di bawah gambar dan tulisan sahaja** (bos, 28 November 2026: "white bawah gambar dan
 tulisan sahaja, biar kayu nampak"): `inkMask` dalam `src/geom/plak.js` buat stensil 1 bit
