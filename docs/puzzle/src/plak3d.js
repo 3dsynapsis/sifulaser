@@ -7,7 +7,7 @@
 // never needs. The copy in ../vendor is the Box Maker's.
 //
 // World: millimetres, z up, the desk at z = 0, the plaque's face looking down -y (at the
-// camera). The plate stands in the base's slot, its foot (the tongue) 4 mm inside it; the
+// camera). The plate stands in the base's slots, its feet (tenons) 4 mm inside them; the
 // border and the letters are 3 mm proud of its face.
 
 import * as THREE from '../vendor/three.module.js';
@@ -206,7 +206,8 @@ export class Plak3D {
    * @param o { width, height: the plate's face; tongue; thick; printBox on the face;
    *          imageUrl; frontColour, borderColour, letterColour, baseColour, baseEdge; grain;
    *          strips: [{ points }] on the face; letters: [[loop, ...], ...] on the face;
-   *          base: { length, depth, layers, layerMm, slot: { width, length }, pieces } or null }
+   *          tenons: [[a, b]] along the plate's bottom;
+   *          base: { length, depth, layers, layerMm, slots: [{ x, y, length, width }], pieces } or null }
    *          All mm, the face's from its top-left.
    */
   build(o) {
@@ -232,11 +233,16 @@ export class Plak3D {
       add(geo, material);
     };
 
-    // The plate, its foot down in the slot.
-    const plateH = H + o.tongue;
-    const plate = new THREE.BoxGeometry(W, t, plateH);
-    plate.translate(0, 0, z0 - o.tongue + plateH / 2);
-    add(plate, mat(o.frontColour));
+    // The plate, its feet down in the slots.
+    const wood = mat(o.frontColour);
+    const plate = new THREE.BoxGeometry(W, t, H);
+    plate.translate(0, 0, z0 + H / 2);
+    add(plate, wood);
+    for (const [a, b] of o.tongue ? o.tenons || [] : []) {
+      const foot = new THREE.BoxGeometry(b - a, t, o.tongue);
+      foot.translate((a + b) / 2 - W / 2, 0, z0 - o.tongue / 2);
+      add(foot, wood);
+    }
 
     // Its printed face, a hair in front of it.
     const face = new THREE.PlaneGeometry(W, H);
@@ -279,15 +285,18 @@ export class Plak3D {
       for (let i = 0; i < b.layers; i++) {
         const shape = roundRect(new THREE.Shape(), b.length, b.depth, 5);
         if (b.pieces ? b.pieces[i]?.slot : i > 0) {
-          const hole = new THREE.Path();
-          const sw = b.slot.width;
-          const sl = b.slot.length;
-          hole.moveTo(-sl / 2, -sw / 2);
-          hole.lineTo(sl / 2, -sw / 2);
-          hole.lineTo(sl / 2, sw / 2);
-          hole.lineTo(-sl / 2, sw / 2);
-          hole.closePath();
-          shape.holes.push(hole);
+          for (const s of b.slots) {
+            // Base mm from its corner -> centred on the origin.
+            const x0 = s.x - b.length / 2;
+            const y0 = s.y - b.depth / 2;
+            const hole = new THREE.Path();
+            hole.moveTo(x0, y0);
+            hole.lineTo(x0 + s.length, y0);
+            hole.lineTo(x0 + s.length, y0 + s.width);
+            hole.lineTo(x0, y0 + s.width);
+            hole.closePath();
+            shape.holes.push(hole);
+          }
         }
         const geo = new THREE.ExtrudeGeometry(shape, { depth: b.layerMm - 0.05, bevelEnabled: false, curveSegments: 6 });
         geo.translate(0, 0, i * b.layerMm);

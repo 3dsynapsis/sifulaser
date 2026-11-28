@@ -73,7 +73,8 @@ const plan = P.planPlak({ pageW: 297, pageH: 210.2, size: 'A4', border: true, ba
   check('skala design = 1 (A4 ke A4)', near(plan.scale, 1, 0.001) && near(plan.scaleY, 210 / 210.2, 1e-6));
   const bare = P.planPlak({ pageW: 297, pageH: 210, size: 'A4', border: false, base: false });
   check('tanpa border: print lebih 2 mm keliling', bare.printBox.x === 8 && bare.printBox.width === 301 && bare.printBox.height === 214);
-  check('tanpa base: tiada kaki', bare.tongue === 0 && bare.plate.height === 210 && bare.base === null);
+  check('tanpa base: tiada kaki', bare.tongue === 0 && bare.plate.height === 210 && bare.base === null
+    && bare.tenons.length === 0 && bare.plate.outline.length === 4);
   check('tanpa border: tiada jalur', bare.strips.length === 0);
   const big = P.planPlak({ pageW: 297, pageH: 210, size: 'custom', custom: 880, border: true, base: true });
   check('terlalu besar untuk bed: ditanda', !big.fitsBed);
@@ -114,9 +115,19 @@ console.log('base acrylic hitam 5mm');
   const b = plan.base;
   check('panjang = plak + 15 mm kiri kanan', b.length === 327, b.length);
   check('dalam ikut tinggi plak (5 mm langkah, 50-120)', b.depth === 65, b.depth);
-  check('alur 3.4 mm lebar', b.slot.width === 3.4);
-  check('alur 0.6 mm lebih panjang dari plak', b.slot.length === 297.6);
-  check('alur di tengah', near(b.slot.x * 2 + b.slot.length, b.length) && near(b.slot.y * 2 + b.slot.width, b.depth));
+  // The feet: Stand Nama's rule. 297 wide: 14 mm in from each end, two feet each 36% of
+  // the 269 mm between, so 96.84 mm long with a 75.32 mm bridge between their slots.
+  check('2 kaki, 14 mm dari hujung, 96.84 mm', JSON.stringify(plan.tenons) === '[[14,110.84],[186.16,283]]', JSON.stringify(plan.tenons));
+  check('plak kecil: satu kaki panjang', P.tenonSpans(120).length === 1 && P.tenonSpans(120)[0][0] === 14);
+  check('plak sangat kecil: satu kaki 12 mm di tengah', JSON.stringify(P.tenonSpans(30)) === '[[9,21]]', JSON.stringify(P.tenonSpans(30)));
+  check('satu alur setiap kaki', b.slots.length === 2);
+  check('alur saiz kaki: 96.84 x 3 mm', b.slots.every((sl) => sl.length === 96.84 && sl.width === 3));
+  check('alur di bawah kaki (base lebih 15 mm)', b.slots[0].x === 29 && near(b.slots[1].x, 15 + 186.16));
+  check('alur di tengah dalam base', near(b.slots[0].y * 2 + 3, b.depth));
+  check('jambatan antara alur', b.slots[1].x - (b.slots[0].x + b.slots[0].length) > 70);
+  const out = plan.plate.outline;
+  check('bentuk plak: segi empat + 2 kaki (12 titik)', out.length === 12, out.length);
+  check('kaki turun 4 mm bawah muka', out.filter(([, y]) => y === 214).length === 4 && out.filter(([, y]) => y === 210).length === 6);
   check('satu keping 5 mm, alur tembus', b.pieces.length === 1 && b.pieces[0].slot && b.slotDepth === 5 && b.height === 5);
   check('plak tinggi: base paling dalam 120', P.planBase(420, 600).depth === 120);
   check('plak rendah: base paling cetek 50', P.planBase(200, 80).depth === 50);
@@ -205,7 +216,7 @@ const raster = (() => {
   const base = buildPlakSheet(jobs[2], { units: 1 });
   check('Acrylic Hitam: label pada file cut', base.texts.some((t) => t.text === 'Acrylic Hitam 5mm'));
   check('Acrylic: alur dulu, base last', base.paths.map((p) => p.id).join() === 'slots,base');
-  check('Acrylic: 1 keping, 1 alur', (base.paths[1].d.match(/M /g) || []).length === 1 && (base.paths[0].d.match(/M /g) || []).length === 1);
+  check('Acrylic: 1 keping, 1 alur (plak 100 mm: 1 kaki)', (base.paths[1].d.match(/M /g) || []).length === 1 && (base.paths[0].d.match(/M /g) || []).length === 1);
   // Nothing in a sheet lies outside its page or over another part.
   for (const sheet of [black, maple, base]) {
     const pts = sheet.paths.flatMap((p) => parsePath(p.d).filter((c) => c[0] !== 'Z' && c[0] !== 'A').map((c) => c.slice(1)));

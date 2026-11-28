@@ -26,7 +26,7 @@ import { findContent } from './geom/crop.js';
 import { findLetters, letterPath } from './geom/letters.js';
 import {
   PLAK_SIZES, PLAK_MATERIALS, PLAK_BORDER_MM, PLAK_BLEED_MM, PLAK_FRAME_MM, PLAK_MIN_MM, WHITE_MODES,
-  BASE_LAYER_MM, BASE_MATERIAL, CUSTOM_MAX_MM, SLOT_CLEAR_MM, PLAK_THICK_MM, BASE_OVERHANG_MM,
+  BASE_LAYER_MM, BASE_MATERIAL, CUSTOM_MAX_MM, PLAK_THICK_MM, BASE_OVERHANG_MM, polyPath,
   planPlak, plakCutJobs, plakMaterial, cleanMaterials, cleanCustom, inkMargin, standingSize,
 } from './geom/plak.js';
 import {
@@ -536,10 +536,10 @@ const stem = () => `${baseName(S.file.name)}-plak`;
 const slug = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const PART_TEXT = {
-  front: (plan) => `plak depan ${rnd(plan.plate.width, 1)} x ${rnd(plan.plate.height, 1)} mm${plan.tongue ? ` (kaki ${plan.tongue} mm)` : ''}`,
+  front: (plan) => `plak depan ${rnd(plan.plate.width, 1)} x ${rnd(plan.plate.height, 1)} mm${plan.tongue ? ` (${plan.tenons.length} kaki ${plan.tongue} mm)` : ''}`,
   border: (plan) => `border ${plan.border} mm, 4 keping sudut 45`,
   letters: (plan, n) => `${n} huruf timbul`,
-  base: (plan) => `base ${plan.base.length} x ${plan.base.depth} mm, 1 keping, alur tembus ${plan.base.slot.width} mm`,
+  base: (plan) => `base ${plan.base.length} x ${plan.base.depth} mm, 1 keping, ${plan.base.slots.length} alur tembus`,
 };
 
 /** Every cut file this job needs: one per material. */
@@ -712,6 +712,7 @@ function plak3dData(page, a, plan) {
     width: plan.width,
     height: plan.height,
     tongue: plan.tongue,
+    tenons: plan.tenons,
     thick: PLAK_THICK_MM,
     printBox: {
       x: plan.printBox.x - F, y: plan.printBox.y - F, width: plan.printBox.width, height: plan.printBox.height,
@@ -726,7 +727,7 @@ function plak3dData(page, a, plan) {
     strips: plan.strips,
     letters: chosenLetters(a, plan).map((l) => l.loops.map((loop) => loop.map(([x, y]) => [x * plan.scale, y * plan.scaleY]))),
     base: plan.base ? {
-      length: plan.base.length, depth: plan.base.depth, layers: plan.base.layers, layerMm: BASE_LAYER_MM, slot: plan.base.slot,
+      length: plan.base.length, depth: plan.base.depth, layers: plan.base.layers, layerMm: BASE_LAYER_MM, slots: plan.base.slots,
       pieces: plan.base.pieces,
     } : null,
   };
@@ -792,7 +793,7 @@ function renderStage() {
       layers: check.layers,
       order: LAYER_LOOK.map((l) => l.name),
       on: S.layerOn,
-      cuts: [`M ${F} ${F} L ${F + plan.plate.width} ${F} L ${F + plan.plate.width} ${F + plan.plate.height} L ${F} ${F + plan.plate.height} Z`],
+      cuts: [polyPath(plan.plate.outline, F, F)],
       fitKey: `plak-print:${plan.width}:${plan.height}`,
     });
     hint(check.state === 'building'
@@ -1111,12 +1112,14 @@ function baseGroup(plan) {
     const b = plan.base;
     body.push(
       stat('Base', `${b.length} x ${b.depth} mm, 1 keping ${b.height} mm`),
-      stat('Alur tembus', `${b.slot.width} x ${b.slot.length} mm`),
-      stat('Kaki plak', `${plan.tongue} mm masuk alur`),
-      h('p', { class: 'hint' }, `Satu keping ${BASE_MATERIAL.label}, alur dipotong tembus. Kaki plak ${plan.tongue} mm, `
-        + `${rnd(b.height - plan.tongue, 1)} mm pendek dari tebal base, jadi tak tercucuk keluar di bawah dan base duduk rata. `
-        + (plan.border ? 'Jalur border bawah duduk atas base dan jadi penahan. ' : '')
-        + `Gam di alur. Alur ${PLAK_THICK_MM} mm + ${SLOT_CLEAR_MM} mm longgar. Base lebih ${BASE_OVERHANG_MM} mm kiri kanan.`),
+      stat('Kaki plak', `${plan.tenons.length} kaki, ${plan.tenons.map(([p, q]) => rnd(q - p, 1)).join(' dan ')} mm panjang, `
+        + `${plan.tongue} mm dalam`),
+      stat('Alur tembus', `${b.slots.length} alur, ${b.slots[0].length} x ${b.slots[0].width} mm`),
+      h('p', { class: 'hint' }, `Macam Stand Nama: kaki di bawah plak, ${rnd(plan.tenons[0][0], 1)} mm dari setiap hujung, `
+        + `dan alur ${BASE_MATERIAL.label} dipotong tembus hanya di tempat kaki, jadi base kekal kuat di antara alur. `
+        + `Kaki ${plan.tongue} mm, ${rnd(b.height - plan.tongue, 1)} mm pendek dari tebal base: tak tercucuk keluar di bawah dan `
+        + 'base duduk rata. Tepi bawah plak duduk atas base dan jadi penahan. '
+        + `Alur sama saiz dengan kaki (${PLAK_THICK_MM} mm); kerf laser beri ruang. Gam di alur. Base lebih ${BASE_OVERHANG_MM} mm kiri kanan.`),
     );
   } else {
     body.push(h('p', { class: 'hint' }, 'Tanpa base: plak tiada kaki, untuk digantung atau dipasang sendiri.'));
@@ -1452,5 +1455,5 @@ export const PLAK_STEPS = [
   ['Cut base',
     `File cut ${BASE_MATERIAL.label}: satu keping, alur dulu (tembus), kemudian base.`],
   ['Pasang',
-    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak 4 mm dalam alur base sampai border bawah duduk atas base, dan gam.'],
+    'Gam border atas tepi depan plak, sudut 45° bertemu di bucu. Angkat huruf dengan transfer tape dan tampal atas tulisan yang dicetak. Masukkan kaki plak ke dalam alur base sampai tepi bawah plak duduk atas base (kaki masuk 4 mm), dan gam.'],
 ];

@@ -392,11 +392,16 @@ Tab baharu `sifulaser.com/uvplak/` (halaman React `#/uvplak`). Masukkan design p
   untuk buang atau tambah. Huruf kekal di tempatnya dalam file cut, supaya boleh
   diangkat sekali dengan transfer tape. Semeru Kabinet: 13 huruf, 4 lubang, tepat.
 - **Base Acrylic Hitam 5mm satu keping** (bos, 28 November 2026: "hanya acrylic 5mm satu
-  layer je", "acrylic warna hitam"), alur dipotong tembus 3.4 mm (plak 3 mm + 0.4), 0.6 mm lebih panjang dari plak;
-  base lebih 15 mm kiri kanan, dalam kira-kira 0.3 x tinggi plak (50 hingga 120 mm).
-  Plak dapat "kaki" 4 mm di bawah design yang masuk alur (bos, 28 November 2026:
-  "maksimum kedalaman dia 4 mm"): 1 mm pendek dari tebal base, jadi tak tercucuk keluar
-  di bawah dan base duduk rata. Jalur border bawah duduk atas base dan jadi penahan.
+  layer je", "acrylic warna hitam"); base lebih 15 mm kiri kanan, dalam kira-kira 0.3 x
+  tinggi plak (50 hingga 120 mm).
+- **Kaki plak macam Stand Nama** (bos: "kau boleh tengok tab stand nama"): tenon di bawah
+  plak, 14 mm dari setiap hujung; satu kaki bila jarak antara kurang 110 mm, dua kaki
+  (36% setiap satu) bila lebih, supaya base ada jambatan di antara alur (`tenonSpans`,
+  peraturan sama dengan `docs/stand/src/geom/stand.js`). Alur dipotong tembus hanya di
+  tempat kaki, saiz nominal kaki (3 mm tebal): kerf laser beri ruang, macam Stand Nama.
+  Kaki masuk 4 mm (bos: "maksimum kedalaman dia 4 mm"), 1 mm pendek dari tebal base,
+  jadi tak tercucuk keluar di bawah dan base duduk rata; tepi bawah plak di antara kaki
+  ialah bahu yang duduk atas base. Plak A4: 2 kaki 96.84 mm, plat dipotong 297 x 214.
 
 Fail: satu **file cut setiap material** (`plakCutJobs` dalam `src/geom/plak.js`,
 `buildPlakSheet` dalam `src/exportJobSheet.js`): lubang huruf dulu, huruf, jalur

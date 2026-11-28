@@ -12,11 +12,14 @@
 //   * raised letters, the big text cut from plywood Black 3mm (letters.js finds them);
 //   * a base of black acrylic 5mm, one piece (Boss, 28 Nov 2026: "hanya acrylic 5mm satu
 //     layer je", "acrylic warna hitam"), the plaque standing in a slot cut through it.
-//     The plate gets a "kaki" (a tongue) below the design, 4 mm deep in the slot
-//     (TONGUE_MM; Boss: "maksimum kedalaman dia 4 mm"): 1 mm short of the base's 5, so it
-//     never pokes out under the base and the base sits flat. The bottom border strip,
-//     3 mm proud of the face, rests on top of the base and holds the plate at that depth.
-//     The whole design and its bottom border stay above the base.
+//     The plate stands on "kaki": tenons below the design, as the Stand Nama tab makes
+//     them (Boss, 28 Nov 2026: "kau boleh tengok tab stand nama"), one on a narrow
+//     plate and two on a wide one, each stopping 14 mm short of its end. The base is
+//     slotted only where they go, so a bridge of acrylic stays between the slots. Each
+//     goes 4 mm into the base (TONGUE_MM; "maksimum kedalaman dia 4 mm"): 1 mm short of
+//     its 5, so nothing pokes out underneath and the base sits flat. The plate's
+//     bottom edge between and beside them is the shoulder that rests on the base, so the
+//     depth is exact, and the whole design and its bottom border stay above the base.
 //
 // The white ink goes under the design's ink only (Boss, 28 Nov 2026: "white bawah gambar
 // dan tulisan sahaja, biar kayu nampak"): inkMask, from the print picture's own pixels.
@@ -41,9 +44,13 @@ export const PLAK_FRAME_MM = 10;      // the sheet round the plate, held for the
 export const PLAK_THICK_MM = 3;       // both plywoods
 export const PLAK_MIN_MM = 60;        // the plate's short side, at the least
 export const BASE_LAYER_MM = 5;       // acrylic, one piece
-export const TONGUE_MM = 4;           // the plate's foot in the slot, short of the base's 5
-export const SLOT_CLEAR_MM = 0.4;     // the slot's play round a 3 mm plate
-export const SLOT_END_CLEAR_MM = 0.6; // and at its two ends together
+export const TONGUE_MM = 4;           // how far the feet go into the base, short of its 5
+// The feet and their slots, as the Stand Nama tab has them (its slotInset and its rule
+// for one foot or two). A slot is the foot's own size, nominal: the laser's kerf makes
+// the slot a little bigger and the foot a little smaller, and that is the play.
+export const TENON_INSET_MM = 14;
+export const TENON_TWO_FROM_MM = 110;
+export const TENON_SHARE = 0.36;
 export const BASE_OVERHANG_MM = 15;   // the base past the plate, each side
 export const BASE_CORNER_MM = 5;
 export const BASE_DEPTH_MIN_MM = 50;
@@ -160,27 +167,54 @@ export function stripLayout(W, H, b = PLAK_BORDER_MM, gap = STRIP_GAP_MM) {
 }
 
 /**
- * The base for a plate W wide whose face is H high: one piece of acrylic, the slot cut
- * through it; the plate's tongue goes TONGUE_MM into it.
+ * Where the plate's feet go along its bottom edge, mm from its left: the Stand Nama
+ * tab's rule (tenonSpans there). One long foot on a narrow plate; two on a wide one,
+ * each TENON_SHARE of the span, so the base keeps a bridge between its slots and does
+ * not flex while the glue goes off.
  */
-export function planBase(W, H) {
+export function tenonSpans(W, inset = TENON_INSET_MM, twoFrom = TENON_TWO_FROM_MM) {
+  const ins = clamp(inset, 3, Math.max(3, W * 0.3));
+  const a = ins;
+  const b = W - ins;
+  if (b - a < 12) return [[r2(W / 2 - 6), r2(W / 2 + 6)]];
+  if (b - a < twoFrom) return [[r2(a), r2(b)]];
+  const w = (b - a) * TENON_SHARE;
+  return [[r2(a), r2(a + w)], [r2(b - w), r2(b)]];
+}
+
+/**
+ * The base for a plate W wide whose face is H high: one piece of acrylic with a slot
+ * through it for each foot; the feet go TONGUE_MM into it.
+ * @param tenons the feet, from tenonSpans(W)
+ */
+export function planBase(W, H, tenons = tenonSpans(W)) {
   const n = 1;
   const length = r1(W + 2 * BASE_OVERHANG_MM);
   // About a third of the plaque's height, so a tall one does not tip; in 5 mm steps.
   const depth = clamp(Math.round((H * 0.3) / 5) * 5, BASE_DEPTH_MIN_MM, BASE_DEPTH_MAX_MM);
-  const slot = { width: r2(PLAK_THICK_MM + SLOT_CLEAR_MM), length: r2(W + SLOT_END_CLEAR_MM) };
-  slot.x = r2((length - slot.length) / 2);
-  slot.y = r2((depth - slot.width) / 2);
+  const slots = tenons.map(([a, b]) => ({
+    x: r2(BASE_OVERHANG_MM + a), y: r2((depth - PLAK_THICK_MM) / 2), length: r2(b - a), width: PLAK_THICK_MM,
+  }));
   return {
     length,
     depth,
     layers: n,
-    slot,
+    slots,
     slotDepth: n * BASE_LAYER_MM,
     tongue: Math.min(TONGUE_MM, n * BASE_LAYER_MM),
     height: n * BASE_LAYER_MM,
     pieces: [{ id: 'base', slot: true }],
   };
+}
+
+/** The plate's outline with its feet, mm from the face's top-left, y down. */
+export function plateOutline(W, H, tenons, depth) {
+  const pts = [[0, 0], [W, 0], [W, H]];
+  for (const [a, b] of [...tenons].sort((p, q) => q[0] - p[0])) {
+    pts.push([b, H], [b, r2(H + depth)], [a, r2(H + depth)], [a, H]);
+  }
+  pts.push([0, H]);
+  return pts;
 }
 
 /**
@@ -192,7 +226,8 @@ export function planBase(W, H) {
 export function planPlak(o) {
   const { width: W, height: H } = plakSize(o.pageW, o.pageH, o.size, o.custom);
   const border = o.border ? PLAK_BORDER_MM : 0;
-  const base = o.base ? planBase(W, H) : null;
+  const tenons = o.base ? tenonSpans(W) : [];
+  const base = o.base ? planBase(W, H, tenons) : null;
   const tongue = base ? base.tongue : 0;
   const F = PLAK_FRAME_MM;
   const design = { x: F, y: F, width: W, height: H };
@@ -211,7 +246,8 @@ export function planPlak(o) {
     scaleY: H / o.pageH,
     border,
     tongue,
-    plate: { width: W, height: r2(H + tongue) },
+    tenons,
+    plate: { width: W, height: r2(H + tongue), outline: plateOutline(W, H, tenons, tongue) },
     frame: F,
     page,
     design,
@@ -303,7 +339,7 @@ export function plakCutJobs(plan, letters, materials) {
     width: page.width,
     height: page.height,
     paths: [
-      { id: 'plate', stroke: 'hair', order: 4, d: polyPath([[F, F], [F + plate.width, F], [F + plate.width, F + plate.height], [F, F + plate.height]]) },
+      { id: 'plate', stroke: 'hair', order: 4, d: polyPath(plate.outline, F, F) },
       { id: 'frame', stroke: 'cut', order: 9, d: polyPath([[0, 0], [page.width, 0], [page.width, page.height], [0, page.height]]) },
     ],
   });
@@ -343,7 +379,11 @@ export function plakCutJobs(plan, letters, materials) {
     const outlines = [];
     b.pieces.forEach((piece, i) => {
       const y = i * (b.depth + BASE_GAP_MM);
-      if (piece.slot) slots.push(polyPath([[b.slot.x, b.slot.y], [b.slot.x + b.slot.length, b.slot.y], [b.slot.x + b.slot.length, b.slot.y + b.slot.width], [b.slot.x, b.slot.y + b.slot.width]], 0, y));
+      if (piece.slot) {
+        for (const sl of b.slots) {
+          slots.push(polyPath([[sl.x, sl.y], [sl.x + sl.length, sl.y], [sl.x + sl.length, sl.y + sl.width], [sl.x, sl.y + sl.width]], 0, y));
+        }
+      }
       outlines.push(roundRectPath(0, y, b.length, b.depth, BASE_CORNER_MM));
     });
     out.push({
